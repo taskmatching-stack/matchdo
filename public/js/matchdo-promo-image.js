@@ -108,6 +108,28 @@
     return b + (mp - 1) * e;
   }
 
+  /** 情境圖 TAB：固定每張點數說明（來自 /api/promo-image/options） */
+  function formatPromoTabPricingHint(data) {
+    var std = data && data.points_standard != null ? data.points_standard : 20;
+    var sub = data && data.points_subscriber != null ? data.points_subscriber : 15;
+    return '每張 ' + std + ' 點（訂閱會員 ' + sub + ' 點）';
+  }
+
+  /** 攝影模擬：依 MP 計價說明（來自 /api/promo-camera/options） */
+  function formatPromoCameraPricingHint(data) {
+    var std = data && data.points_standard != null ? data.points_standard : 20;
+    var sub = data && data.points_subscriber != null ? data.points_subscriber : 10;
+    var extra = data && data.points_per_extra_mp != null ? data.points_per_extra_mp : 10;
+    return '1 MP＝' + std + ' 點（訂閱 ' + sub + ' 點），每多 1 MP ＋' + extra + ' 點';
+  }
+
+  function estimatePromoCameraPointsLocal(width, height, options) {
+    var opts = options || {};
+    var base = opts.points_standard != null ? opts.points_standard : 20;
+    var perExtra = opts.points_per_extra_mp != null ? opts.points_per_extra_mp : 10;
+    return estimatePointsLocal(width, height, base, perExtra);
+  }
+
   function ratioSelectHtml(selected, className) {
     var sel = selected || '1:1';
     var opts = Object.keys(RATIO_PRESETS).map(function (k) {
@@ -218,10 +240,9 @@
     });
   }
 
-  function pointsPreview(width, height) {
+  function pointsPreview() {
     return authHeaders(false).then(function (headers) {
-      var q = '?width=' + encodeURIComponent(width) + '&height=' + encodeURIComponent(height);
-      return fetch('/api/promo-image/points-preview' + q, { headers: headers }).then(function (r) {
+      return fetch('/api/promo-image/points-preview', { headers: headers }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, data: data }; });
       });
     });
@@ -387,6 +408,9 @@
     megapixelsFromDims: megapixelsFromDims,
     clampDim: clampDim,
     estimatePointsLocal: estimatePointsLocal,
+    formatPromoTabPricingHint: formatPromoTabPricingHint,
+    formatPromoCameraPricingHint: formatPromoCameraPricingHint,
+    estimatePromoCameraPointsLocal: estimatePromoCameraPointsLocal,
     ratioSelectHtml: ratioSelectHtml,
     mpSelectHtml: mpSelectHtml,
     fillSelect: fillSelect,

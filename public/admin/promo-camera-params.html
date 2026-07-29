@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>攝影模擬參數 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">攝影模擬參數</h4>
+        <p class="text-muted small mb-3">
+          供 <code>/client/promo-camera.html</code> 使用。各選項的 <code>prompt_fragment</code>（英文）送 FLUX，模擬畫質／光學，<strong>不綁</strong>相機系統。
+          可隨時新增 category 內選項或修改英文片段，無需改程式。
+          點數於 <a href="/admin/membership.html">方案／點數</a> 設定（一般／訂閱各多少點／張）。
+          請先執行 <code>docs/add-promo-camera-params.sql</code>。
+        </p>
+        <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
+
+        <div class="card mb-3">
+          <div class="card-header fw-semibold">新增選項</div>
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-2">
+                <label class="form-label small mb-0">category</label>
+                <select id="addCategory" class="form-select form-select-sm"></select>
+              </div>
+              <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="addKey" class="form-control form-control-sm" placeholder="f28"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱</label><input id="addName" class="form-control form-control-sm"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">英文名</label><input id="addNameEn" class="form-control form-control-sm"></div>
+              <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="addSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-3 d-flex align-items-end gap-3">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefault"><label class="form-check-label small" for="addDefault">此類預設</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="addActive" checked><label class="form-check-label small" for="addActive">啟用</label></div>
+              </div>
+              <div class="col-12"><label class="form-label small mb-0">prompt_fragment（英文，進 FLUX）</label><textarea id="addFragment" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-12"><label class="form-label small mb-0">說明（後台用，選填）</label><input id="addDesc" class="form-control form-control-sm"></div>
+              <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-semibold">選項列表</span>
+              <select id="filterCategory" class="form-select form-select-sm" style="width:auto;"></select>
+            </div>
+            <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 align-middle">
+              <thead class="table-light">
+                <tr><th>category</th><th>key</th><th>名稱</th><th>prompt_fragment</th><th>預設</th><th>排序</th><th>狀態</th><th></th></tr>
+              </thead>
+              <tbody id="listBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal fade" id="editModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header py-2"><h6 class="modal-title">編輯選項</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="row g-2">
+                  <div class="col-md-4"><label class="form-label small">category</label><select id="editCategory" class="form-select form-select-sm"></select></div>
+                  <div class="col-md-4"><label class="form-label small">key</label><input id="editKey" class="form-control form-control-sm"></div>
+                  <div class="col-md-4"><label class="form-label small">名稱</label><input id="editName" class="form-control form-control-sm"></div>
+                  <div class="col-md-4"><label class="form-label small">英文名</label><input id="editNameEn" class="form-control form-control-sm"></div>
+                  <div class="col-md-4"><label class="form-label small">排序</label><input id="editSort" type="number" class="form-control form-control-sm"></div>
+                  <div class="col-md-4 d-flex align-items-end gap-3">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefault"><label class="form-check-label small" for="editDefault">預設</label></div>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="editActive"><label class="form-check-label small" for="editActive">啟用</label></div>
+                  </div>
+                  <div class="col-12"><label class="form-label small">prompt_fragment</label><textarea id="editFragment" class="form-control form-control-sm" rows="3"></textarea></div>
+                  <div class="col-12"><label class="form-label small">說明</label><input id="editDesc" class="form-control form-control-sm"></div>
+                </div>
+              </div>
+              <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnSaveEdit">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var API = '/api/admin/promo-camera-params';
+  var CATEGORIES = [];
+  var items = [];
+  var editModal = null;
+
+  var CAT_LABELS = {
+    camera_brand: '畫質／機身',
+    film_simulation: '底片／風格',
+    aperture: '光圈',
+    exposure_ev: 'EV',
+    focal_length: '焦段',
+    lens_type: '鏡頭',
+    aperture_blades: '光圈葉片'
+  };
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+  function showStatus(msg, ok) {
+    var w = document.getElementById('statusWrap');
+    document.getElementById('statusMsg').textContent = msg;
+    w.classList.remove('d-none','alert-success','alert-danger');
+    w.classList.add(ok ? 'alert-success' : 'alert-danger');
+  }
+  async function authHeaders() {
+    if (!window.AuthService) return {};
+    var session = await AuthService.getSession();
+    var t = session && session.access_token;
+    return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
+  }
+  function fillCategorySelects() {
+    ['addCategory','editCategory','filterCategory'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var html = id === 'filterCategory' ? '<option value="">全部</option>' : '';
+      CATEGORIES.forEach(function (c) {
+        html += '<option value="' + c + '">' + (CAT_LABELS[c] || c) + '</option>';
+      });
+      el.innerHTML = html;
+    });
+  }
+  async function loadList() {
+    var cat = document.getElementById('filterCategory').value;
+    var q = cat ? ('?category=' + encodeURIComponent(cat)) : '';
+    var headers = await authHeaders();
+    var r = await fetch(API + q, { headers: headers, cache: 'no-store' });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) { showStatus(d.error || '載入失敗', false); return; }
+    CATEGORIES = d.categories || CATEGORIES;
+    items = d.items || [];
+    fillCategorySelects();
+    renderList();
+  }
+  function renderList() {
+    var tb = document.getElementById('listBody');
+    tb.innerHTML = items.map(function (row) {
+      var frag = (row.prompt_fragment || '').trim();
+      var short = frag.length > 50 ? frag.slice(0, 50) + '…' : (frag || '—');
+      return '<tr>' +
+        '<td><code>' + esc(row.category) + '</code></td>' +
+        '<td><code>' + esc(row.key) + '</code></td>' +
+        '<td>' + esc(row.name) + '</td>' +
+        '<td class="small">' + esc(short) + '</td>' +
+        '<td>' + (row.is_default ? '✓' : '') + '</td>' +
+        '<td>' + esc(row.sort_order) + '</td>' +
+        '<td>' + (row.is_active !== false ? '啟用' : '停用') + '</td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="' + esc(row.id) + '">編輯</button> ' +
+        '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(row.id) + '">刪</button></td></tr>';
+    }).join('');
+    tb.querySelectorAll('.btn-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn.getAttribute('data-id')); });
+    });
+    tb.querySelectorAll('.btn-del').forEach(function (btn) {
+      btn.addEventListener('click', function () { delRow(btn.getAttribute('data-id')); });
+    });
+  }
+  function openEdit(id) {
+    var row = items.find(function (x) { return x.id === id; });
+    if (!row) return;
+    document.getElementById('editId').value = row.id;
+    document.getElementById('editCategory').value = row.category;
+    document.getElementById('editKey').value = row.key;
+    document.getElementById('editName').value = row.name || '';
+    document.getElementById('editNameEn').value = row.name_en || '';
+    document.getElementById('editSort').value = row.sort_order || 0;
+    document.getElementById('editDefault').checked = !!row.is_default;
+    document.getElementById('editActive').checked = row.is_active !== false;
+    document.getElementById('editFragment').value = row.prompt_fragment || '';
+    document.getElementById('editDesc').value = row.description || '';
+    if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
+    editModal.show();
+  }
+  async function delRow(id) {
+    if (!confirm('確定刪除？')) return;
+    var headers = await authHeaders();
+    var r = await fetch(API + '/' + encodeURIComponent(id), { method: 'DELETE', headers: headers });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) { showStatus(d.error || '刪除失敗', false); return; }
+    showStatus('已刪除', true);
+    loadList();
+  }
+  document.getElementById('btnAdd').addEventListener('click', async function () {
+    var payload = {
+      category: document.getElementById('addCategory').value,
+      key: document.getElementById('addKey').value,
+      name: document.getElementById('addName').value,
+      name_en: document.getElementById('addNameEn').value,
+      prompt_fragment: document.getElementById('addFragment').value,
+      description: document.getElementById('addDesc').value,
+      sort_order: parseInt(document.getElementById('addSort').value, 10) || 0,
+      is_default: document.getElementById('addDefault').checked,
+      is_active: document.getElementById('addActive').checked
+    };
+    var headers = await authHeaders();
+    var r = await fetch(API, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
+    showStatus('已新增', true);
+    loadList();
+  });
+  document.getElementById('btnSaveEdit').addEventListener('click', async function () {
+    var id = document.getElementById('editId').value;
+    var payload = {
+      category: document.getElementById('editCategory').value,
+      key: document.getElementById('editKey').value,
+      name: document.getElementById('editName').value,
+      name_en: document.getElementById('editNameEn').value,
+      prompt_fragment: document.getElementById('editFragment').value,
+      description: document.getElementById('editDesc').value,
+      sort_order: parseInt(document.getElementById('editSort').value, 10) || 0,
+      is_default: document.getElementById('editDefault').checked,
+      is_active: document.getElementById('editActive').checked
+    };
+    var headers = await authHeaders();
+    var r = await fetch(API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
+    if (editModal) editModal.hide();
+    showStatus('已儲存', true);
+    loadList();
+  });
+  document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('filterCategory').addEventListener('change', loadList);
+  loadList();
+})();
+  </script>
+</body>
+</html>

@@ -7444,7 +7444,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_promo_image_base', 'points_promo_image_per_extra_mp', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -7474,8 +7474,11 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
-            points_promo_image_base: parseInt(obj.points_promo_image_base, 10) || 20,
-            points_promo_image_per_extra_mp: parseInt(obj.points_promo_image_per_extra_mp, 10) || 10,
+            points_promo_image_standard: parseInt(obj.points_promo_image_standard, 10) || parseInt(obj.points_promo_image_base, 10) || 20,
+            points_promo_image_subscriber: parseInt(obj.points_promo_image_subscriber, 10) || 15,
+            points_promo_camera_standard: parseInt(obj.points_promo_camera_standard, 10) || 20,
+            points_promo_camera_subscriber: parseInt(obj.points_promo_camera_subscriber, 10) || 10,
+            points_promo_camera_per_extra_mp: parseInt(obj.points_promo_camera_per_extra_mp, 10) || 10,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -7512,8 +7515,11 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
         if (body.points_design_to_physical_vendor !== undefined) await upsert('points_design_to_physical_vendor', body.points_design_to_physical_vendor);
-        if (body.points_promo_image_base !== undefined) await upsert('points_promo_image_base', body.points_promo_image_base);
-        if (body.points_promo_image_per_extra_mp !== undefined) await upsert('points_promo_image_per_extra_mp', body.points_promo_image_per_extra_mp);
+        if (body.points_promo_image_standard !== undefined) await upsert('points_promo_image_standard', body.points_promo_image_standard);
+        if (body.points_promo_image_subscriber !== undefined) await upsert('points_promo_image_subscriber', body.points_promo_image_subscriber);
+        if (body.points_promo_camera_standard !== undefined) await upsert('points_promo_camera_standard', body.points_promo_camera_standard);
+        if (body.points_promo_camera_subscriber !== undefined) await upsert('points_promo_camera_subscriber', body.points_promo_camera_subscriber);
+        if (body.points_promo_camera_per_extra_mp !== undefined) await upsert('points_promo_camera_per_extra_mp', body.points_promo_camera_per_extra_mp);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         if (body.grant_welcome_points_on_register !== undefined) await upsert('grant_welcome_points_on_register', body.grant_welcome_points_on_register ? '1' : '0');
@@ -11438,12 +11444,15 @@ app.get('/api/promo-image/options', async (req, res) => {
                 photographySets = (pRows || []).map((r) => applyPromoSceneTemplateLocale(r, lang));
             }
         } catch (_) { photographySets = []; }
-        const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
-        let pointsPerExtra = 10;
+        const pointsCfg = await getPromoImagePointsConfig();
+        let pointsForUser = pointsCfg.standard;
         try {
-            const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['points_promo_image_per_extra_mp']);
-            const row = (rows || []).find((r) => r.key === 'points_promo_image_per_extra_mp');
-            if (row) pointsPerExtra = Math.max(0, parseInt(row.value, 10) || 10);
+            const authHeader = req.headers.authorization;
+            if (authHeader) {
+                const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+                const { data: { user } } = await supabase.auth.getUser(token);
+                if (user) pointsForUser = await getPointsPromoImageForUser(user.id);
+            }
         } catch (_) {}
         res.json({
             themes,
@@ -11451,8 +11460,10 @@ app.get('/api/promo-image/options', async (req, res) => {
             // 相容舊前端：templates＝主題列表
             templates: themes,
             photography_sets: photographySets,
-            points_base: pointsPreview1mp,
-            points_per_extra_mp: pointsPerExtra,
+            points_standard: pointsCfg.standard,
+            points_subscriber: pointsCfg.subscriber,
+            points_for_user: pointsForUser,
+            pricing_mode: 'flat_per_image',
             mp_tiers: [1, 2, 3, 4],
             max_reference_images: 8,
             photography_migration_hint: photoMigrationHint,
@@ -11480,11 +11491,23 @@ app.get('/api/promo-image/options', async (req, res) => {
 
 app.get('/api/promo-image/points-preview', async (req, res) => {
     try {
-        const w = Math.min(2048, Math.max(512, parseInt(req.query.width, 10) || 1024));
-        const h = Math.min(2048, Math.max(512, parseInt(req.query.height, 10) || 1024));
-        const mp = promoImageMegapixelsFromResolution(w, h);
-        const points = await getPointsPromoImageForResolution(w, h);
-        res.json({ width: w, height: h, megapixels: mp, points });
+        const authHeader = req.headers.authorization;
+        let userId = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user } } = await supabase.auth.getUser(token);
+            if (user) userId = user.id;
+        }
+        const cfg = await getPromoImagePointsConfig();
+        const points = userId ? await getPointsPromoImageForUser(userId) : cfg.standard;
+        const isSubscriber = userId ? (points === cfg.subscriber && cfg.subscriber !== cfg.standard) : false;
+        res.json({
+            points: points,
+            points_standard: cfg.standard,
+            points_subscriber: cfg.subscriber,
+            is_subscriber_pricing: isSubscriber,
+            pricing_mode: 'flat_per_image'
+        });
     } catch (e) {
         console.error('GET /api/promo-image/points-preview:', e);
         res.status(500).json({ error: e.message || '預覽失敗' });
@@ -11501,7 +11524,7 @@ function extractMissingColumnFromSupabaseError(err) {
 /** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
 async function insertProductPromoGenerationRow(payload) {
     let current = Object.assign({}, payload);
-    const optionalStripOrder = ['show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
+    const optionalStripOrder = ['generation_mode', 'camera_params', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
     let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
         const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
@@ -11616,7 +11639,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             : 'upload';
         const sourceId = body.source_id ? String(body.source_id).trim() : null;
 
-        const pointsToDeduct = await getPointsPromoImageForResolution(w, h);
+        const pointsToDeduct = await getPointsPromoImageForUser(currentUser.id);
         if (!isAdmin && pointsToDeduct > 0) {
             const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, pointsToDeduct);
             if (!sufficient) {
@@ -11744,6 +11767,305 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         res.status(500).json({
             success: false,
             error: error.message || '情境圖生成失敗，請稍後再試'
+        });
+    }
+});
+
+/** 攝影模擬頁：選項（場景／解析度與情境圖一致 + 相機七維） */
+app.get('/api/promo-camera/options', async (req, res) => {
+    try {
+        res.set('Cache-Control', 'no-store');
+        const lang = (req.query.lang || '').toLowerCase().replace(/-.*$/, '');
+        let themes = [];
+        let scenes = [];
+        let slotMigrationHint;
+        try {
+            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot';
+            const promoSelectLegacy = 'key, name, description, recommended_ratios, category, sort_order';
+            let { data: tRows, error: tErr } = await supabase
+                .from('promo_scene_templates')
+                .select(promoSelect)
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+            if (tErr && (tErr.code === '42703' || (tErr.message && /column.*does not exist|name_en/.test(tErr.message)))) {
+                ({ data: tRows, error: tErr } = await supabase
+                    .from('promo_scene_templates')
+                    .select(promoSelectLegacy + ', slot')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }));
+            }
+            if (isSupabaseMissingColumnError(tErr, 'slot')) {
+                themes = (tRows || []).map((r) => applyPromoSceneTemplateLocale({ ...r, slot: 'theme' }, lang));
+                slotMigrationHint = '請執行 docs/add-promo-theme-scene-slots.sql';
+            } else if (!tErr) {
+                const partitioned = partitionPromoTemplateRows(tRows, lang);
+                themes = partitioned.themes;
+                scenes = partitioned.scenes;
+            }
+        } catch (_) { themes = []; scenes = []; }
+
+        const camResult = await fetchPromoCameraParamOptionsGrouped(true);
+        const cameraParams = camResult.grouped || {};
+        const cameraDefaults = {};
+        PROMO_CAMERA_PARAM_CATEGORIES.forEach(function (cat) {
+            const list = cameraParams[cat] || [];
+            const def = list.find(function (r) { return r.is_default === true; });
+            cameraDefaults[cat] = def ? def.key : (list[0] ? list[0].key : '');
+        });
+
+        const pointsCfg = await getPromoCameraPointsConfig();
+        let pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, null);
+        try {
+            const authHeader = req.headers.authorization;
+            if (authHeader) {
+                const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+                const { data: { user } } = await supabase.auth.getUser(token);
+                if (user) pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, user.id);
+            }
+        } catch (_) {}
+
+        res.json({
+            themes,
+            scenes,
+            camera_params: cameraParams,
+            camera_defaults: cameraDefaults,
+            camera_categories: PROMO_CAMERA_PARAM_CATEGORIES,
+            points_standard: pointsCfg.standard,
+            points_subscriber: pointsCfg.subscriber,
+            points_per_extra_mp: pointsCfg.perExtraMp,
+            points_for_user: pointsForUser,
+            pricing_mode: 'mp_tiered',
+            mp_tiers: [1, 2, 3, 4],
+            max_reference_images: 1,
+            slot_migration_hint: slotMigrationHint,
+            camera_migration_hint: camResult.error === 'MIGRATION_REQUIRED'
+                ? '請執行 docs/add-promo-camera-params.sql'
+                : undefined,
+            ratio_presets: {
+                '1:1': { w: 1024, h: 1024 },
+                '4:3': { w: 1152, h: 864 },
+                '3:4': { w: 864, h: 1152 },
+                '16:9': { w: 1344, h: 756 },
+                '9:16': { w: 756, h: 1344 },
+                '21:9': { w: 1536, h: 658 },
+                '3:1': { w: 1728, h: 576 },
+                '4:1': { w: 2048, h: 512 },
+                '9:21': { w: 658, h: 1536 },
+                '1:3': { w: 576, h: 1728 },
+                '1:4': { w: 512, h: 2048 }
+            }
+        });
+    } catch (e) {
+        console.error('GET /api/promo-camera/options:', e);
+        res.status(500).json({ error: e.message || '讀取失敗' });
+    }
+});
+
+/** 攝影模擬頁：依解析度預覽點數（1 MP 基礎 + 每多 1 MP） */
+app.get('/api/promo-camera/points-preview', async (req, res) => {
+    try {
+        const w = Math.min(2048, Math.max(512, parseInt(req.query.width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(req.query.height, 10) || 1024));
+        const mp = promoImageMegapixelsFromResolution(w, h);
+        const authHeader = req.headers.authorization;
+        let userId = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user } } = await supabase.auth.getUser(token);
+            if (user) userId = user.id;
+        }
+        const cfg = await getPromoCameraPointsConfig();
+        const points = await getPointsPromoCameraForResolution(w, h, userId);
+        const base = userId && await hasActivePaidSubscription(userId) ? cfg.subscriber : cfg.standard;
+        const isSubscriber = !!(userId && base === cfg.subscriber && cfg.subscriber !== cfg.standard);
+        res.json({
+            width: w,
+            height: h,
+            megapixels: mp,
+            points: points,
+            points_standard_base: cfg.standard,
+            points_subscriber_base: cfg.subscriber,
+            points_per_extra_mp: cfg.perExtraMp,
+            is_subscriber_pricing: isSubscriber,
+            pricing_mode: 'mp_tiered'
+        });
+    } catch (e) {
+        console.error('GET /api/promo-camera/points-preview:', e);
+        res.status(500).json({ error: e.message || '預覽失敗' });
+    }
+});
+
+/** 攝影模擬頁：FLUX 圖生圖（獨立 API，不修改 /api/promo-image/generate） */
+app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        let isAdmin = false;
+        let currentUser = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+            if (!error && user) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+                currentUser = user;
+            }
+        }
+        if (!currentUser) {
+            return res.status(401).json({ success: false, error: '請先登入後再使用攝影模擬' });
+        }
+        const body = req.body || {};
+        const resolvedRefs = await resolvePromoCameraReferences(body);
+        if (resolvedRefs.error || !resolvedRefs.images || !resolvedRefs.images.length) {
+            return res.status(400).json({ success: false, error: resolvedRefs.error || '請選擇一張產品參考圖' });
+        }
+        const refBases = resolvedRefs.images;
+        const refUrls = resolvedRefs.urls || [];
+        const w = Math.min(2048, Math.max(512, parseInt(body.width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
+        const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
+        const themeKey = String(body.theme_key || body.scene_template_key || '').trim();
+        const sceneKey = String(body.scene_key || '').trim();
+        const userPrompt = String(body.user_prompt || body.prompt || '').trim();
+        const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
+        const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
+            ? body.source_type
+            : 'upload';
+        const sourceId = body.source_id ? String(body.source_id).trim() : null;
+
+        const pointsToDeduct = await getPointsPromoCameraForResolution(w, h, currentUser.id);
+        if (!isAdmin && pointsToDeduct > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, pointsToDeduct);
+            if (!sufficient) {
+                return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
+            }
+        }
+        if (!process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+        }
+        const built = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, refBases.length);
+        const finalPrompt = built.prompt;
+        const cameraResolved = built.camera_resolved || {};
+        const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+            themeKey,
+            sceneKey,
+            sourceType,
+            sourceId,
+            categoryKeys: body.category_keys || body.categoryKeys
+        });
+        const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
+        const seed = Math.floor(Math.random() * 2147483647);
+        let buffer;
+        try {
+            buffer = await bflPlaygroundImageEdit(
+                endpointUrl,
+                finalPrompt,
+                refBases,
+                w,
+                h,
+                seed,
+                'jpeg',
+                process.env.BFL_API_KEY,
+                { promptUpsampling: false, safetyTolerance: fluxSafetyTolerance }
+            );
+        } catch (fluxErr) {
+            console.error('promo-camera BFL:', fluxErr);
+            return res.status(500).json({ success: false, error: fluxErr.message || '生成失敗，請稍後再試' });
+        }
+        if (!buffer) {
+            return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
+        }
+        const imageData = buffer.toString('base64');
+        let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+        if (!resultImageUrl) {
+            resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+        }
+        let balanceAfter = null;
+        if (!isAdmin && pointsToDeduct > 0) {
+            const consumed = await consumeUserCredits(
+                currentUser.id,
+                pointsToDeduct,
+                'promo_image',
+                '攝影模擬',
+                { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, generation_mode: 'camera_advanced', reference_count: refBases.length }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        let generationId = null;
+        let librarySaveWarning = null;
+        const primaryUrl = refUrls[0] || '';
+        const promoShowOnHomepage = true;
+        const cameraParamsSnapshot = {
+            keys: cameraKeys,
+            resolved: cameraResolved
+        };
+        if (!resultImageUrl) {
+            librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
+        } else {
+            const promoInsertBase = {
+                user_id: currentUser.id,
+                source_type: sourceType,
+                source_id: sourceId || null,
+                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                aspect_ratio: aspectRatio,
+                width: w,
+                height: h,
+                megapixels: promoImageMegapixelsFromResolution(w, h),
+                scene_template_key: themeKey || null,
+                scene_key: sceneKey || null,
+                user_prompt: userPrompt || null,
+                photography_set_id: null,
+                final_prompt: finalPrompt,
+                result_image_url: resultImageUrl,
+                status: 'success',
+                points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                completed_at: new Date().toISOString(),
+                show_on_homepage: promoShowOnHomepage,
+                generation_mode: 'camera_advanced',
+                camera_params: cameraParamsSnapshot
+            };
+            const ins = await insertProductPromoGenerationRow(promoInsertBase);
+            generationId = ins.id;
+            if (!generationId) {
+                librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
+            }
+        }
+        if (generationId) {
+            schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
+                imageBuffer: buffer,
+                imageUrl: resultImageUrl,
+                userPrompt,
+                finalPrompt,
+                themeKey: themeKey || null,
+                sceneKey: sceneKey || null,
+                sourceType,
+                sourceId
+            });
+        }
+        res.json({
+            success: true,
+            id: generationId,
+            saved_to_library: !!generationId,
+            library_warning: librarySaveWarning,
+            imageData: `data:image/jpeg;base64,${imageData}`,
+            image_url: resultImageUrl,
+            points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+            balance_after: balanceAfter,
+            width: w,
+            height: h,
+            megapixels: promoImageMegapixelsFromResolution(w, h),
+            reference_count: refBases.length,
+            generation_mode: 'camera_advanced',
+            camera_params: cameraParamsSnapshot,
+            seed
+        });
+    } catch (error) {
+        console.error('攝影模擬生成錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '生成失敗，請稍後再試'
         });
     }
 });
@@ -12941,14 +13263,74 @@ function promoImageMegapixelsFromResolution(width, height) {
     return Math.min(4, Math.ceil((w * h) / oneMp) || 1);
 }
 
-async function getPointsPromoImageForResolution(width, height) {
-    const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['points_promo_image_base', 'points_promo_image_per_extra_mp']);
+async function getPromoImagePointsConfig() {
+    const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
+        'points_promo_image_standard', 'points_promo_image_subscriber',
+        'points_promo_image_base'
+    ]);
     const obj = {};
     (rows || []).forEach(r => { obj[r.key] = r.value; });
-    const base = Math.max(0, parseInt(obj.points_promo_image_base, 10) || 20);
-    const perExtra = Math.max(0, parseInt(obj.points_promo_image_per_extra_mp, 10) || 10);
+    const standard = Math.max(0, parseInt(obj.points_promo_image_standard, 10)
+        || parseInt(obj.points_promo_image_base, 10) || 20);
+    const subscriber = Math.max(0, parseInt(obj.points_promo_image_subscriber, 10) || 15);
+    return { standard, subscriber };
+}
+
+async function getPointsPromoImageForUser(userId) {
+    const cfg = await getPromoImagePointsConfig();
+    if (userId && await hasActivePaidSubscription(userId)) return cfg.subscriber;
+    return cfg.standard;
+}
+
+/** @deprecated 情境圖已改固定點數；保留供舊程式參考 */
+async function getPointsPromoImageForResolution(width, height) {
+    const cfg = await getPromoImagePointsConfig();
+    return cfg.standard;
+}
+
+/** 攝影模擬頁：1 MP 基礎點數 + 每多 1 MP 加點（一般 20／訂閱 10 起算） */
+async function getPromoCameraPointsConfig() {
+    const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
+        'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp',
+        'points_promo_image_per_extra_mp'
+    ]);
+    const obj = {};
+    (rows || []).forEach(r => { obj[r.key] = r.value; });
+    const perExtra = Math.max(0, parseInt(obj.points_promo_camera_per_extra_mp, 10)
+        || parseInt(obj.points_promo_image_per_extra_mp, 10) || 10);
+    return {
+        standard: Math.max(0, parseInt(obj.points_promo_camera_standard, 10) || 20),
+        subscriber: Math.max(0, parseInt(obj.points_promo_camera_subscriber, 10) || 10),
+        perExtraMp: perExtra
+    };
+}
+
+async function getPointsPromoCameraForResolution(width, height, userId) {
+    const cfg = await getPromoCameraPointsConfig();
+    const base = (userId && await hasActivePaidSubscription(userId)) ? cfg.subscriber : cfg.standard;
     const mp = promoImageMegapixelsFromResolution(width, height);
-    return base + (mp - 1) * perExtra;
+    return base + (mp - 1) * cfg.perExtraMp;
+}
+
+/** @deprecated 請用 getPointsPromoCameraForResolution */
+async function getPointsPromoCameraForUser(userId) {
+    return getPointsPromoCameraForResolution(1024, 1024, userId);
+}
+
+/** 攝影模擬頁參考圖：僅允許 1 張 */
+async function resolvePromoCameraReferences(body) {
+    const b = body && typeof body === 'object' ? body : {};
+    const raw = [];
+    if (Array.isArray(b.images)) {
+        b.images.forEach(function (x) {
+            if (typeof x === 'string' && x.trim()) raw.push(x.trim());
+        });
+    }
+    if (!raw.length && typeof b.image === 'string' && b.image.trim()) raw.push(b.image.trim());
+    if (raw.length > 1) {
+        return { error: '攝影模擬一次只能使用一張參考圖', images: [], urls: [] };
+    }
+    return resolvePromoImageReferences(b);
 }
 
 async function loadPromoTemplatePartsByKey(templateKey) {
@@ -13030,6 +13412,122 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     let prompt = parts.join('. ').trim();
     prompt = appendPhotographyParams(prompt, photo);
     return prompt || 'Create a brand-new product advertising key visual from the reference with the product clearly visible as the hero subject — not face-down, not back-only, not a background-only retouch.';
+}
+
+const PROMO_CAMERA_PARAM_CATEGORIES = [
+    'camera_brand', 'film_simulation', 'aperture', 'exposure_ev',
+    'focal_length', 'lens_type', 'aperture_blades'
+];
+
+function normalizePromoCameraParamKey(raw) {
+    return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
+}
+
+async function fetchPromoCameraParamOptionsGrouped(activeOnly) {
+    const grouped = {};
+    PROMO_CAMERA_PARAM_CATEGORIES.forEach(function (c) { grouped[c] = []; });
+    try {
+        let q = supabase.from('promo_camera_param_options')
+            .select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default')
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (activeOnly) q = q.eq('is_active', true);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return { grouped: grouped, error: 'MIGRATION_REQUIRED' };
+            }
+            return { grouped: grouped, error: error.message || 'query_failed' };
+        }
+        (data || []).forEach(function (row) {
+            const cat = String(row.category || '').trim();
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(row);
+        });
+        return { grouped: grouped, error: null };
+    } catch (e) {
+        return { grouped: grouped, error: e.message || 'query_failed' };
+    }
+}
+
+async function resolvePromoCameraPromptFragments(cameraKeys) {
+    const keys = cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {};
+    const fragments = [];
+    const resolved = {};
+    for (let i = 0; i < PROMO_CAMERA_PARAM_CATEGORIES.length; i++) {
+        const cat = PROMO_CAMERA_PARAM_CATEGORIES[i];
+        const k = normalizePromoCameraParamKey(keys[cat]);
+        if (!k) continue;
+        try {
+            const { data, error } = await supabase
+                .from('promo_camera_param_options')
+                .select('key, name, prompt_fragment, is_active')
+                .eq('category', cat)
+                .eq('key', k)
+                .maybeSingle();
+            if (error || !data || data.is_active === false) continue;
+            const frag = String(data.prompt_fragment || '').trim();
+            if (frag) {
+                fragments.push(frag);
+                resolved[cat] = { key: data.key, name: data.name || data.key };
+            }
+        } catch (_) { /* skip */ }
+    }
+    return { fragments: fragments, resolved: resolved };
+}
+
+function buildPromoImageAdvertisingBaseParts(referenceCount) {
+    const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
+    const parts = [];
+    parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
+    parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
+    parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
+    parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, premium commercial lighting, magazine or campaign energy');
+    parts.push('The product must remain clearly the same real product (cut, fabric, color, surface details)');
+    parts.push('CRITICAL: the product must be clearly visible and immediately recognizable as the advertising hero — show the primary selling face, key design details, color, texture, and form so a viewer knows exactly what is being sold within one second');
+    parts.push('The product must occupy a substantial portion of the frame as the focal subject — not a tiny distant object lost in background blur or bokeh');
+    parts.push('CRITICAL FORBIDDEN: product lying flat face-down on a surface (back-only view), edge-only sliver, partially hidden under props, or ambiguous placement where the product identity is unclear');
+    parts.push('Prefer hero three-quarter or front-facing product presentation suitable for e-commerce and print ads — the product design must read clearly, not just mood or environment');
+    parts.push('Use a clean commercial advertising environment that serves the promo; do not invent unrelated lifestyle room stories');
+    if (refN > 1) {
+        parts.push(
+            'Multiple reference images are provided (input_image through input_image_' + refN +
+            '). Treat them as product identity references (angles, colorways, variants). ' +
+            'Produce ONE newly directed advertising photograph. Image 1 is the primary product unless the brief says otherwise'
+        );
+    } else {
+        parts.push('Treat the reference as product identity only, then shoot a newly directed advertising photograph of that product');
+    }
+    return parts;
+}
+
+/** 攝影模擬頁專用 prompt（不用 photography_prompt_sets） */
+async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, referenceCount) {
+    const theme = await loadPromoTemplatePartsByKey(themeKey);
+    const scene = await loadPromoTemplatePartsByKey(sceneKey);
+    const user = String(userPrompt || '').trim();
+    const parts = buildPromoImageAdvertisingBaseParts(referenceCount);
+    if (theme.prompt || theme.composition) {
+        parts.push('Theme direction (advertising style)');
+        if (theme.prompt) parts.push(theme.prompt);
+        if (theme.composition) parts.push(theme.composition);
+    }
+    if (scene.prompt || scene.composition) {
+        parts.push('Scene setting (commercial environment for the ad)');
+        if (scene.prompt) parts.push(scene.prompt);
+        if (scene.composition) parts.push(scene.composition);
+    }
+    const cam = await resolvePromoCameraPromptFragments(cameraKeys);
+    if (cam.fragments.length) {
+        parts.push('Camera and optical simulation (follow exactly for image quality and lens character)');
+        cam.fragments.forEach(function (f) { parts.push(f); });
+    }
+    if (user) parts.push('Advertising brief: ' + user);
+    const prompt = parts.join('. ').trim();
+    return {
+        prompt: prompt || 'Create a brand-new product advertising key visual from the reference with the product clearly visible as the hero subject — not face-down, not back-only, not a background-only retouch.',
+        camera_resolved: cam.resolved
+    };
 }
 
 /** 情境圖參考圖：支援 images[]（最多 8）或舊版單張 image */
@@ -28246,6 +28744,156 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         console.error('DELETE /api/admin/promo-scene-templates 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
+
+// GET /api/admin/promo-camera-params
+app.get('/api/admin/promo-camera-params', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const category = String(req.query.category || '').trim();
+        let q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT)
+            .order('category', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (category && PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+            q = q.eq('category', category);
+        }
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('GET /api/admin/promo-camera-params:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: data || [], categories: PROMO_CAMERA_PARAM_CATEGORIES });
+    } catch (e) {
+        console.error('GET /api/admin/promo-camera-params 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/promo-camera-params
+app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const category = String(body.category || '').trim();
+        const key = normalizePromoCameraParamKey(body.key);
+        const name = String(body.name || '').trim();
+        if (!PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+            return res.status(400).json({ error: '無效的 category' });
+        }
+        if (!key) return res.status(400).json({ error: '請填寫 key' });
+        if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const payload = {
+            category,
+            key,
+            name,
+            name_en: body.name_en != null ? String(body.name_en).trim() : null,
+            prompt_fragment: body.prompt_fragment != null ? String(body.prompt_fragment) : '',
+            description: body.description != null ? String(body.description).trim() : null,
+            meta: body.meta && typeof body.meta === 'object' ? body.meta : {},
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active,
+            is_default: !!body.is_default,
+            updated_at: new Date().toISOString()
+        };
+        if (payload.is_default) {
+            await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', category);
+        }
+        const { data, error } = await supabase.from('promo_camera_param_options').insert(payload).select(PROMO_CAMERA_PARAM_SELECT).single();
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
+            console.error('POST /api/admin/promo-camera-params:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/promo-camera-params 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/promo-camera-params/:id
+app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.category !== undefined) {
+            const category = String(body.category || '').trim();
+            if (!PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+                return res.status(400).json({ error: '無效的 category' });
+            }
+            updates.category = category;
+        }
+        if (body.key !== undefined) {
+            const key = normalizePromoCameraParamKey(body.key);
+            if (!key) return res.status(400).json({ error: 'key 不可為空' });
+            updates.key = key;
+        }
+        if (body.name !== undefined) {
+            const name = String(body.name || '').trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            updates.name = name;
+        }
+        if (body.name_en !== undefined) updates.name_en = String(body.name_en || '').trim() || null;
+        if (body.prompt_fragment !== undefined) updates.prompt_fragment = String(body.prompt_fragment);
+        if (body.description !== undefined) updates.description = String(body.description || '').trim() || null;
+        if (body.meta !== undefined) updates.meta = body.meta && typeof body.meta === 'object' ? body.meta : {};
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.is_default !== undefined) {
+            updates.is_default = !!body.is_default;
+            if (updates.is_default) {
+                const { data: cur } = await supabase.from('promo_camera_param_options').select('category').eq('id', id).maybeSingle();
+                const cat = (cur && cur.category) || updates.category;
+                if (cat) {
+                    await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', cat).neq('id', id);
+                }
+            }
+        }
+        const { data, error } = await supabase.from('promo_camera_param_options').update(updates).eq('id', id).select(PROMO_CAMERA_PARAM_SELECT).single();
+        if (error) {
+            if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
+            console.error('PUT /api/admin/promo-camera-params:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/promo-camera-params 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/promo-camera-params/:id
+app.delete('/api/admin/promo-camera-params/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { error } = await supabase.from('promo_camera_param_options').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/admin/promo-camera-params:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/promo-camera-params 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

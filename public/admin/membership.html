@@ -96,7 +96,8 @@
             <div class="card">
               <div class="card-body">
                 <h6 class="card-title">點數規則</h6>
-                <p class="text-muted small">各「行為」對應消耗點數，儲存後寫入 payment_config。<strong>訂閱會員（付費方案）</strong>使用「我的 AI 編輯區」各功能時，實際扣點為表列點數的 <strong>6 折</strong>。</p>
+                <p class="text-muted small">各「行為」對應消耗點數，儲存後寫入 payment_config。<strong>訂閱會員（付費方案）</strong>使用「我的 AI 編輯區」各功能時，實際扣點為表列點數的 <strong>6 折</strong>（情境圖、攝影模擬除外，見下方分組）。</p>
+                <p class="text-muted small mb-2"><strong>情境圖</strong>與<strong>攝影模擬</strong>的點數皆在此表設定，前台會依此即時計價與顯示說明。</p>
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light">
@@ -546,15 +547,24 @@
         { key: 'points_pattern_extract_per_extra_mp', label: '圖樣提取（每多 1 MP）', value: data.points_pattern_extract_per_extra_mp, note: '點（超過 1 MP 後每多 1 MP 加此點數，預設 10）' },
         { key: 'points_design_to_physical', label: '寫實化（設計區）', value: data.points_design_to_physical, note: '點/次（產品設計頁「寫實化」Tab，預設 20）' },
         { key: 'points_design_to_physical_vendor', label: '寫實化（廠商區）', value: data.points_design_to_physical_vendor, note: '點/次（素材庫原型／配件寫實化，預設 10）' },
-        { key: 'points_promo_image_base', label: '產品情境圖（1 MP 基本）', value: data.points_promo_image_base, note: '點（情境圖 TAB，1 MP＝1024×1024，預設 20）' },
-        { key: 'points_promo_image_per_extra_mp', label: '產品情境圖（每多 1 MP）', value: data.points_promo_image_per_extra_mp, note: '點（超過 1 MP 後每多 1 MP，預設 10）' },
+        { section: '情境圖（設計頁／素材庫 TAB，固定每張）' },
+        { key: 'points_promo_image_standard', label: '情境圖（一般）', value: data.points_promo_image_standard, note: '點／張（可多參考圖，預設 20）' },
+        { key: 'points_promo_image_subscriber', label: '情境圖（訂閱會員）', value: data.points_promo_image_subscriber, note: '點／張（預設 15）' },
+        { section: '攝影模擬（獨立頁，依解析度 MP）' },
+        { key: 'points_promo_camera_standard', label: '攝影模擬（1 MP 基本）', value: data.points_promo_camera_standard, note: '點（1 MP，單張參考圖，預設 20）' },
+        { key: 'points_promo_camera_subscriber', label: '攝影模擬（訂閱・1 MP）', value: data.points_promo_camera_subscriber, note: '點（1 MP，預設 10）' },
+        { key: 'points_promo_camera_per_extra_mp', label: '攝影模擬（每多 1 MP）', value: data.points_promo_camera_per_extra_mp, note: '點（超過 1 MP 後每多 1 MP，預設 10）' },
         { key: 'points_translation', label: '對話視窗翻譯', value: data.points_translation, note: '點/段（功能尚未上線）' },
         { key: 'points_listing_per_category', label: '額外刊登接案製作資訊', value: data.points_listing_per_category, note: '點/月/分類（額度滿後加購）' }
       ];
       tbody.innerHTML = '';
         rows.forEach(function(r) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + r.label + '</td><td><input type="number" class="form-control form-control-sm points-input" data-key="' + r.key + '" value="' + (r.value != null ? r.value : 0) + '" min="0" style="width:80px;" /></td><td class="text-muted small">' + (r.note || '') + '</td>';
+        if (r.section) {
+          tr.innerHTML = '<td colspan="3" class="table-secondary fw-semibold small py-1">' + r.section + '</td>';
+        } else {
+          tr.innerHTML = '<td>' + r.label + '</td><td><input type="number" class="form-control form-control-sm points-input" data-key="' + r.key + '" value="' + (r.value != null ? r.value : 0) + '" min="0" style="width:80px;" /></td><td class="text-muted small">' + (r.note || '') + '</td>';
+        }
         tbody.appendChild(tr);
       });
       var grantWelcome = document.getElementById('grantWelcomePoints');

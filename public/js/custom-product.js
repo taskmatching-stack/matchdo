@@ -6231,6 +6231,7 @@ $(document).ready(function () {
     window.promoImageSourceType = 'digital_asset';
     window.promoImageSourceProductId = null;
     var promoImageOptionsLoaded = false;
+    var promoImageOptionsData = null;
     var PROMO_IMAGE_MAX_REFS = 8;
 
     function clearPromoImagePreview() {
@@ -6303,14 +6304,16 @@ $(document).ready(function () {
             hint += '（此比例最高約 ' + dims.mp + ' MP）';
         }
         $('#promoImageDimsHint').text(hint);
-        var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
-            ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
-            : 20;
-        $('#promoImagePointsDisplay').text('預估 ' + localEst + ' 點');
+        var fallback = '每張 20 點';
+        if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function' && promoImageOptionsData) {
+            fallback = window.MatchdoPromoImage.formatPromoTabPricingHint(promoImageOptionsData);
+        }
+        $('#promoImagePointsDisplay').text(fallback);
         if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
-            window.MatchdoPromoImage.pointsPreview(dims.w, dims.h).then(function (res) {
+            window.MatchdoPromoImage.pointsPreview().then(function (res) {
                 if (res && res.ok && res.data && res.data.points != null) {
-                    $('#promoImagePointsDisplay').text('預估 ' + res.data.points + ' 點（' + (res.data.megapixels || 1) + ' MP）');
+                    var note = res.data.is_subscriber_pricing ? '（訂閱價）' : '';
+                    $('#promoImagePointsDisplay').text('每張 ' + res.data.points + ' 點' + note);
                 }
             }).catch(function () {});
         }
@@ -6323,6 +6326,12 @@ $(document).ready(function () {
         var promoLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
         return window.MatchdoPromoImage.loadOptions(promoLang, !!forceReload).then(function (res) {
             var data = (res && res.data) || {};
+            promoImageOptionsData = data;
+            var pricingHintEl = document.getElementById('promoImagePricingHint');
+            if (pricingHintEl && window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function') {
+                pricingHintEl.innerHTML = '把產品圖做成可當 DM、廣告、宣傳用的主視覺。' +
+                    window.MatchdoPromoImage.formatPromoTabPricingHint(data) + '；可多選參考圖（最多 8 張）。';
+            }
             var themes = data.themes || data.templates || [];
             var scenes = data.scenes || [];
             window.MatchdoPromoImage.fillSelect(

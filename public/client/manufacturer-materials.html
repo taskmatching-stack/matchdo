@@ -725,7 +725,7 @@
 
             <div id="panel-promo" class="asset-kind-panel d-none" hidden>
                 <div class="alert alert-warning border small py-2 mb-3" role="note">
-                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，多選角度／色款當產品參考，再<strong>重新拍攝／設計成廣告主視覺</strong>（不是原圖換背景）。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。此分頁不影響上傳／編輯流程。
+                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，多選角度／色款當產品參考，再<strong>重新拍攝／設計成廣告主視覺</strong>（不是原圖換背景）。<span id="promoVendorPricingHint">載入點數規則中…</span>；可多選參考圖（最多 8 張）。此分頁不影響上傳／編輯流程。
                 </div>
                 <div class="alert alert-info border small py-2 mb-3" role="note">
                     生成紀錄在 <a href="/client/my-custom-products.html?tab=promo" class="alert-link fw-semibold">我的數位資產 → 情境圖</a>（不在「設計圖」、也不在下方素材列表）。要上首頁請在該頁勾「展示在媒體牆」，再到首頁點「情境圖」篩選。
@@ -794,7 +794,7 @@
                                 <input type="text" id="promoVendorPrompt" class="form-control form-control-sm" placeholder="例：溫暖午後陽光" />
                             </div>
                         </div>
-                        <p class="small text-muted mt-2 mb-1" id="promoVendorPointsDisplay">預估 20 點</p>
+                        <p class="small text-muted mt-2 mb-1" id="promoVendorPointsDisplay">每張 20 點</p>
                         <div id="promoVendorApplyWrap" class="d-inline-block">
                         <button type="button" class="btn btn-warning" id="promoVendorApplyBtn" disabled>
                             <i class="bi bi-megaphone me-1"></i>生成情境圖
@@ -803,6 +803,10 @@
                         <div id="promoVendorResultWrap" class="mt-3">
                             <p class="text-muted small mb-0">結果會顯示在這裡</p>
                         </div>
+                        <p class="small text-muted mt-3 mb-0">
+                            需要更細的光學／畫質控制？
+                            <a href="/client/promo-camera.html?back=vendor" class="fw-semibold">攝影模擬 →</a>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1090,7 +1094,7 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/matchdo-promo-image.js?v=20260728b"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
@@ -7594,6 +7598,7 @@
         var promoVendorSelectedAssetId = null;
         var promoVendorSelectedImageUrls = [];
         var promoVendorOptionsLoaded = false;
+        var promoVendorOptionsData = null;
         var promoAssetsCache = null;
         var promoAssetsLoading = null;
         var PROMO_MAX_REF_IMAGES = 8;
@@ -7639,14 +7644,16 @@
                 hint.textContent = text;
             }
             var disp = document.getElementById('promoVendorPointsDisplay');
-            var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
-                ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
-                : 20;
-            if (disp) disp.textContent = '預估 ' + localEst + ' 點';
+            var fallback = '每張 20 點';
+            if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function' && promoVendorOptionsData) {
+                fallback = window.MatchdoPromoImage.formatPromoTabPricingHint(promoVendorOptionsData);
+            }
+            if (disp) disp.textContent = fallback;
             if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
-                window.MatchdoPromoImage.pointsPreview(dims.w, dims.h).then(function (res) {
+                window.MatchdoPromoImage.pointsPreview().then(function (res) {
                     if (res && res.ok && res.data && res.data.points != null && disp) {
-                        disp.textContent = '預估 ' + res.data.points + ' 點（' + (res.data.megapixels || 1) + ' MP）';
+                        var note = res.data.is_subscriber_pricing ? '（訂閱價）' : '';
+                        disp.textContent = '每張 ' + res.data.points + ' 點' + note;
                     }
                 }).catch(function () {});
             }
@@ -7661,6 +7668,11 @@
             var promoLang = (typeof getUiLocaleForUpload === 'function') ? getUiLocaleForUpload() : '';
             window.MatchdoPromoImage.loadOptions(promoLang, !!forceReload).then(function (res) {
                 var data = (res && res.data) || {};
+                promoVendorOptionsData = data;
+                var pricingHintEl = document.getElementById('promoVendorPricingHint');
+                if (pricingHintEl && window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function') {
+                    pricingHintEl.textContent = window.MatchdoPromoImage.formatPromoTabPricingHint(data);
+                }
                 var themes = data.themes || data.templates || [];
                 var scenes = data.scenes || [];
                 window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorThemeSelect'), themes, 'key', 'name', '');

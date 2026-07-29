@@ -1677,7 +1677,7 @@
                     <div class="tab-pane fade" id="panel-promo-image" role="tabpanel" aria-labelledby="tab-promo-image">
                         <div class="create-panel scene-sim-panel">
                             <div class="create-panel-left">
-                                <p class="form-text text-muted small mb-2">把產品圖做成可當 DM、廣告、宣傳用的主視覺。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。</p>
+                                <p class="form-text text-muted small mb-2" id="promoImagePricingHint">把產品圖做成可當 DM、廣告、宣傳用的主視覺。載入點數規則中…；可多選參考圖（最多 8 張）。</p>
                                 <div class="form-row full scene-sim-images-row">
                                     <span class="label w-100 mb-1">來源圖（可多選，最多 8 張；從數位資產選擇）</span>
                                     <div id="promoImageSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
@@ -1731,10 +1731,14 @@
                                     <label class="label" for="promoImagePrompt">額外描述（選填）</label>
                                     <input type="text" id="promoImagePrompt" class="form-control form-control-sm scene-sim-prompt-input" placeholder="例：溫暖午後陽光、柔和陰影" />
                                 </div>
-                                <p class="small text-muted mt-2 mb-1" id="promoImagePointsDisplay">預估 20 點</p>
+                                <p class="small text-muted mt-2 mb-1" id="promoImagePointsDisplay">每張 20 點</p>
                                 <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="promoImageApplyBtn">
                                     <i class="fas fa-bullhorn me-2"></i>生成情境圖
                                 </button>
+                                <p class="small text-muted mt-3 mb-0">
+                                    需要更細的光學／畫質控制？
+                                    <a href="/client/promo-camera.html?back=design" class="fw-semibold">攝影模擬 →</a>
+                                </p>
                             </div>
                             <div class="create-panel-right" id="promoImageResultWrap">
                                 <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
@@ -1803,7 +1807,7 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
-    <script src="/js/matchdo-promo-image.js?v=20260728b" defer></script>
+    <script src="/js/matchdo-promo-image.js?v=20260729d" defer></script>
     <script src="js/custom-product.js?v=130" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
