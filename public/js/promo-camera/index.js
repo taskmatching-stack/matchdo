@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730f';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730g';
 
   var RESULT_NOTE_HTML = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>';
 

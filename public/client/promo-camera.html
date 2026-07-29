@@ -1,198 +1,199 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
-  <title>攝影模擬 - MATCHDO</title>
-  <link href="/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <link href="/css/image-lightbox.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260730f" rel="stylesheet" />
-  <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
-</head>
-<body class="bg-light">
-  <div id="site-header"></div>
-  <div id="promo-camera-app" class="container py-4">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-      <div>
-        <a id="pcBackLink" href="/custom-product.html?tab=promo-image" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> 返回情境圖</a>
-        <h4 class="d-inline-block mb-0 align-middle">攝影模擬</h4>
-      </div>
-      <span class="text-muted small">build: <span id="pcBuildTag"></span></span>
-    </div>
-    <p class="text-muted small" id="pcPricingIntro">上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。載入點數規則中…</p>
-
-    <div class="pc-layout">
-      <section class="pc-chat-panel" aria-label="對話區">
-        <div id="pcChatMessages" class="pc-chat-messages"></div>
-        <div id="pcResultArea" class="pc-result-slot d-none" aria-label="生成結果"></div>
-        <div class="pc-chat-compose">
-          <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            <label class="btn btn-sm btn-outline-secondary mb-0">
-              <i class="bi bi-upload"></i> 上傳圖片
-              <input type="file" id="pcUploadInput" accept="image/*" hidden />
-            </label>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="pcPickAssetBtn"><i class="bi bi-images"></i> 從數位資產選擇</button>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-md-6">
-              <label class="form-label small mb-0" for="pcThemeSelect">主題</label>
-              <select id="pcThemeSelect" class="form-select form-select-sm"></select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small mb-0" for="pcSceneSelect">場景（選填）</label>
-              <select id="pcSceneSelect" class="form-select form-select-sm"></select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small mb-0" for="pcRatioSelect">長寬比</label>
-              <select id="pcRatioSelect" class="form-select form-select-sm">
-                <option value="1:1" selected>1:1</option>
-                <option value="4:3">4:3</option>
-                <option value="3:4">3:4</option>
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="21:9">21:9</option>
-                <option value="3:1">3:1</option>
-                <option value="4:1">4:1</option>
-                <option value="9:21">9:21</option>
-                <option value="1:3">1:3</option>
-                <option value="1:4">1:4</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small mb-0" for="pcMpSelect">解析度</label>
-              <select id="pcMpSelect" class="form-select form-select-sm">
-                <option value="1" selected>1 MP</option>
-                <option value="2">2 MP</option>
-                <option value="3">3 MP</option>
-                <option value="4">4 MP</option>
-              </select>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <p class="form-text small mb-1" id="pcDimsHint">1024×1024</p>
-            </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small mb-1">拍攝角度</label>
-            <div id="pcAngleBtns" class="d-flex flex-wrap gap-1"></div>
-            <p class="form-text small text-muted mb-0 mt-1" id="pcAngleHint">點按鈕換角度</p>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small mb-1" for="pcPromptInput">描述</label>
-            <textarea id="pcPromptInput" class="form-control form-control-sm scene-sim-prompt-input" rows="2" placeholder="例：溫暖午後陽光、柔和陰影"></textarea>
-          </div>
-          <div class="d-flex flex-wrap align-items-center gap-2">
-            <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> 生成情境圖</button>
-            <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
-          </div>
-        </div>
-      </section>
-
-      <aside class="pc-camera-shell" aria-label="攝影模擬控制台">
-        <div class="pc-camera-device">
-          <svg class="pc-camera-svg" viewBox="0 0 280 360" aria-hidden="true">
-            <defs>
-              <linearGradient id="pcBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#3a3a3a"/>
-                <stop offset="100%" stop-color="#1f1f1f"/>
-              </linearGradient>
-              <radialGradient id="pcLensGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#111"/>
-                <stop offset="70%" stop-color="#222"/>
-                <stop offset="100%" stop-color="#444"/>
-              </radialGradient>
-            </defs>
-            <rect x="40" y="48" width="200" height="264" rx="22" fill="url(#pcBodyGrad)" stroke="#555" stroke-width="2"/>
-            <rect x="95" y="20" width="90" height="36" rx="8" fill="#2a2a2a" stroke="#666"/>
-            <circle cx="140" cy="200" r="72" fill="#111" stroke="#666" stroke-width="3"/>
-            <circle id="pcLensRing" class="pc-lens-ring" cx="140" cy="200" r="58" fill="none" stroke="#888" stroke-width="4" stroke-dasharray="8 6"/>
-            <circle cx="140" cy="200" r="44" fill="url(#pcLensGrad)" stroke="#333" stroke-width="2"/>
-            <circle cx="140" cy="200" r="18" fill="#0a0a0a" stroke="#222"/>
-            <circle cx="122" cy="182" r="6" fill="rgba(255,255,255,0.15)"/>
-            <rect x="210" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
-            <rect x="56" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
-            <circle id="pcDialAperture" class="pc-dial-indicator" cx="63" cy="106" r="5" fill="#f59e0b"/>
-            <circle id="pcDialEv" class="pc-dial-indicator" cx="217" cy="106" r="5" fill="#38bdf8"/>
-          </svg>
-          <div class="pc-camera-lcd-wrap">
-            <div class="pc-lcd" id="pcLcd" aria-live="polite">
-              <div class="pc-lcd-line pc-lcd-look">—</div>
-              <div class="pc-lcd-line pc-lcd-lens">—</div>
-              <div class="pc-lcd-line pc-lcd-angle">—</div>
-              <div class="pc-lcd-line pc-lcd-optics">— · —</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="pc-camera-controls">
-          <div class="mb-2">
-            <span class="pc-control-label" id="pcLookGroupLabel">成像來源</span>
-            <div class="btn-group btn-group-sm w-100 mb-1" role="group" aria-label="成像來源">
-              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookDigital" value="digital" checked>
-              <label class="btn btn-outline-light" for="pcLookDigital" id="pcLookDigitalLabel">品牌色彩</label>
-              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookFilm" value="film">
-              <label class="btn btn-outline-light" for="pcLookFilm" id="pcLookFilmLabel">底片模擬</label>
-            </div>
-            <select id="pcCam_look" class="form-select form-select-sm"></select>
-            <p class="form-text small text-secondary mb-0 mt-1" id="pcLookHint"></p>
-          </div>
-          <div class="mb-2">
-            <label for="pcCam_lens" id="pcLensLabel">鏡頭</label>
-            <select id="pcCam_lens" class="form-select form-select-sm"></select>
-            <p class="form-text small text-secondary mb-0 mt-1" id="pcLensHint"></p>
-          </div>
-          <div class="pc-settings-row mb-2">
-            <div>
-              <label for="pcCam_aperture">光圈</label>
-              <select id="pcCam_aperture" class="form-select form-select-sm"></select>
-            </div>
-            <div>
-              <label for="pcCam_exposure_ev">EV</label>
-              <select id="pcCam_exposure_ev" class="form-select form-select-sm"></select>
-            </div>
-          </div>
-          <div class="mb-0">
-            <label for="pcCam_aperture_blades">光圈葉片</label>
-            <select id="pcCam_aperture_blades" class="form-select form-select-sm"></select>
-          </div>
-          <p class="small text-secondary mb-0 mt-2">品牌色彩＝機身／感測器色調；底片模擬＝乳劑色調。兩者僅擇一，且<strong>不含場景光線</strong>（場景由左側主題／場景負責）。選項可於後台「攝影模擬參數」編輯。</p>
-        </div>
-      </aside>
-    </div>
-  </div>
-
-  <div class="modal fade" id="pcAssetModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header py-2">
-          <h6 class="modal-title">從數位資產選擇</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div id="pcAssetPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
-          <div id="pcAssetLoading" class="text-muted small">載入中…</div>
-          <p id="pcAssetEmpty" class="text-muted small d-none mb-0"></p>
-          <div id="pcAssetList" class="row g-2"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="site-footer"></div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config/auth-config.js"></script>
-  <script src="/js/auth-middleware.js"></script>
-  <script src="/js/site-header.js"></script>
-  <script src="/js/matchdo-promo-image.js?v=20260730e"></script>
-  <script src="/js/digital-asset-picker.js?v=1"></script>
-  <script src="/js/image-lightbox.js"></script>
-  <script src="/js/promo-camera/api.js?v=20260730a"></script>
-  <script src="/js/promo-camera/state.js?v=20260730a"></script>
-  <script src="/js/promo-camera/index.js?v=20260730f"></script>
-  <script src="/js/site-footer.js"></script>
-</body>
-</html>
-
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>攝影模擬 - MATCHDO</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="/css/image-lightbox.css" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260730g" rel="stylesheet" />
+  <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="site-header"></div>
+  <div id="promo-camera-app" class="container py-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <a id="pcBackLink" href="/custom-product.html?tab=promo-image" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> 返回情境圖</a>
+        <h4 class="d-inline-block mb-0 align-middle">攝影模擬</h4>
+      </div>
+      <span class="text-muted small">build: <span id="pcBuildTag"></span></span>
+    </div>
+    <p class="text-muted small" id="pcPricingIntro">上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。載入點數規則中…</p>
+
+    <div class="pc-layout">
+      <section class="pc-chat-panel" aria-label="對話區">
+        <div id="pcChatMessages" class="pc-chat-messages"></div>
+        <div id="pcResultArea" class="pc-result-slot d-none" aria-label="生成結果"></div>
+        <div class="pc-chat-compose">
+          <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <label class="btn btn-sm btn-outline-secondary mb-0">
+              <i class="bi bi-upload"></i> 上傳圖片
+              <input type="file" id="pcUploadInput" accept="image/*" hidden />
+            </label>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="pcPickAssetBtn"><i class="bi bi-images"></i> 從數位資產選擇</button>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small mb-0" for="pcThemeSelect">主題</label>
+              <select id="pcThemeSelect" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small mb-0" for="pcSceneSelect">場景（選填）</label>
+              <select id="pcSceneSelect" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-0" for="pcRatioSelect">長寬比</label>
+              <select id="pcRatioSelect" class="form-select form-select-sm">
+                <option value="1:1" selected>1:1</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="21:9">21:9</option>
+                <option value="3:1">3:1</option>
+                <option value="4:1">4:1</option>
+                <option value="9:21">9:21</option>
+                <option value="1:3">1:3</option>
+                <option value="1:4">1:4</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-0" for="pcMpSelect">解析度</label>
+              <select id="pcMpSelect" class="form-select form-select-sm">
+                <option value="1" selected>1 MP</option>
+                <option value="2">2 MP</option>
+                <option value="3">3 MP</option>
+                <option value="4">4 MP</option>
+              </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <p class="form-text small mb-1" id="pcDimsHint">1024×1024</p>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1">拍攝角度</label>
+            <div id="pcAngleBtns" class="d-flex flex-wrap gap-1"></div>
+            <p class="form-text small text-muted mb-0 mt-1" id="pcAngleHint">點按鈕換角度</p>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1" for="pcPromptInput">描述</label>
+            <textarea id="pcPromptInput" class="form-control form-control-sm scene-sim-prompt-input" rows="2" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影"></textarea>
+            <p class="form-text small text-muted mb-0 mt-1">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免 AI 誤判品項。</p>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> 生成情境圖</button>
+            <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pc-camera-shell" aria-label="攝影模擬控制台">
+        <div class="pc-camera-device">
+          <svg class="pc-camera-svg" viewBox="0 0 280 360" aria-hidden="true">
+            <defs>
+              <linearGradient id="pcBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3a3a3a"/>
+                <stop offset="100%" stop-color="#1f1f1f"/>
+              </linearGradient>
+              <radialGradient id="pcLensGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#111"/>
+                <stop offset="70%" stop-color="#222"/>
+                <stop offset="100%" stop-color="#444"/>
+              </radialGradient>
+            </defs>
+            <rect x="40" y="48" width="200" height="264" rx="22" fill="url(#pcBodyGrad)" stroke="#555" stroke-width="2"/>
+            <rect x="95" y="20" width="90" height="36" rx="8" fill="#2a2a2a" stroke="#666"/>
+            <circle cx="140" cy="200" r="72" fill="#111" stroke="#666" stroke-width="3"/>
+            <circle id="pcLensRing" class="pc-lens-ring" cx="140" cy="200" r="58" fill="none" stroke="#888" stroke-width="4" stroke-dasharray="8 6"/>
+            <circle cx="140" cy="200" r="44" fill="url(#pcLensGrad)" stroke="#333" stroke-width="2"/>
+            <circle cx="140" cy="200" r="18" fill="#0a0a0a" stroke="#222"/>
+            <circle cx="122" cy="182" r="6" fill="rgba(255,255,255,0.15)"/>
+            <rect x="210" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
+            <rect x="56" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
+            <circle id="pcDialAperture" class="pc-dial-indicator" cx="63" cy="106" r="5" fill="#f59e0b"/>
+            <circle id="pcDialEv" class="pc-dial-indicator" cx="217" cy="106" r="5" fill="#38bdf8"/>
+          </svg>
+          <div class="pc-camera-lcd-wrap">
+            <div class="pc-lcd" id="pcLcd" aria-live="polite">
+              <div class="pc-lcd-line pc-lcd-look">—</div>
+              <div class="pc-lcd-line pc-lcd-lens">—</div>
+              <div class="pc-lcd-line pc-lcd-angle">—</div>
+              <div class="pc-lcd-line pc-lcd-optics">— · —</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pc-camera-controls">
+          <div class="mb-2">
+            <span class="pc-control-label" id="pcLookGroupLabel">成像來源</span>
+            <div class="btn-group btn-group-sm w-100 mb-1" role="group" aria-label="成像來源">
+              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookDigital" value="digital" checked>
+              <label class="btn btn-outline-light" for="pcLookDigital" id="pcLookDigitalLabel">品牌色彩</label>
+              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookFilm" value="film">
+              <label class="btn btn-outline-light" for="pcLookFilm" id="pcLookFilmLabel">底片模擬</label>
+            </div>
+            <select id="pcCam_look" class="form-select form-select-sm"></select>
+            <p class="form-text small text-secondary mb-0 mt-1" id="pcLookHint"></p>
+          </div>
+          <div class="mb-2">
+            <label for="pcCam_lens" id="pcLensLabel">鏡頭</label>
+            <select id="pcCam_lens" class="form-select form-select-sm"></select>
+            <p class="form-text small text-secondary mb-0 mt-1" id="pcLensHint"></p>
+          </div>
+          <div class="pc-settings-row mb-2">
+            <div>
+              <label for="pcCam_aperture">光圈</label>
+              <select id="pcCam_aperture" class="form-select form-select-sm"></select>
+            </div>
+            <div>
+              <label for="pcCam_exposure_ev">EV</label>
+              <select id="pcCam_exposure_ev" class="form-select form-select-sm"></select>
+            </div>
+          </div>
+          <div class="mb-0">
+            <label for="pcCam_aperture_blades">光圈葉片</label>
+            <select id="pcCam_aperture_blades" class="form-select form-select-sm"></select>
+          </div>
+          <p class="small text-secondary mb-0 mt-2">品牌色彩＝機身／感測器色調；底片模擬＝乳劑色調。兩者僅擇一，且<strong>不含場景光線</strong>（場景由左側主題／場景負責）。選項可於後台「攝影模擬參數」編輯。</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal fade" id="pcAssetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">從數位資產選擇</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="pcAssetPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
+          <div id="pcAssetLoading" class="text-muted small">載入中…</div>
+          <p id="pcAssetEmpty" class="text-muted small d-none mb-0"></p>
+          <div id="pcAssetList" class="row g-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="site-footer"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/auth-middleware.js"></script>
+  <script src="/js/site-header.js"></script>
+  <script src="/js/matchdo-promo-image.js?v=20260730e"></script>
+  <script src="/js/digital-asset-picker.js?v=1"></script>
+  <script src="/js/image-lightbox.js"></script>
+  <script src="/js/promo-camera/api.js?v=20260730a"></script>
+  <script src="/js/promo-camera/state.js?v=20260730a"></script>
+  <script src="/js/promo-camera/index.js?v=20260730g"></script>
+  <script src="/js/site-footer.js"></script>
+</body>
+</html>
+
