@@ -16,7 +16,7 @@
         <h4 class="mb-1">攝影模擬參數</h4>
         <p class="text-muted small mb-3">
           供 <code>/client/promo-camera.html</code> 使用。請先執行 <code>docs/add-promo-camera-params.sql</code>，再執行 <code>docs/add-promo-camera-param-categories.sql</code>（分類可後台增刪改、含英文）。
-          各選項 <code>prompt_fragment</code>（英文）送 FLUX；分類與分組名稱支援多語系（對齊訂製品分類）。
+          各選項 <code>prompt_fragment</code>（英文）送 FLUX；<strong>分組</strong>（如「標準定焦」「柯达彩负」）在<strong>底片模擬、鏡頭</strong> TAB 的選項上設定，即前台下拉選單的分組標題。
           點數於 <a href="/admin/membership.html">方案／點數</a> 設定。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
@@ -57,19 +57,20 @@
         </div>
 
         <div class="card mb-3">
-          <div class="card-header fw-semibold">新增選項</div>
+          <div class="card-header fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>新增選項 · <span id="addCategoryLabel" class="text-primary">—</span></span>
+          </div>
           <div class="card-body">
             <div class="row g-2">
-              <div class="col-md-2">
-                <label class="form-label small mb-0">category</label>
-                <select id="addCategory" class="form-select form-select-sm"></select>
-              </div>
+              <input type="hidden" id="addCategory" value="">
               <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="addKey" class="form-control form-control-sm" placeholder="f28"></div>
               <div class="col-md-2"><label class="form-label small mb-0">名稱</label><input id="addName" class="form-control form-control-sm"></div>
               <div class="col-md-2"><label class="form-label small mb-0">英文名</label><input id="addNameEn" class="form-control form-control-sm"></div>
               <div class="col-md-2"><label class="form-label small mb-0">排序</label><input id="addSort" type="number" class="form-control form-control-sm" value="10"></div>
-              <div class="col-md-2"><label class="form-label small mb-0">分組（中）</label><input id="addGroup" class="form-control form-control-sm" placeholder="标准定焦"></div>
-              <div class="col-md-2"><label class="form-label small mb-0">分組（英）</label><input id="addGroupEn" class="form-control form-control-sm" placeholder="Standard prime"></div>
+              <div class="col-md-2" id="addGroupCol"><label class="form-label small mb-0">分組（中）<span class="text-danger">*</span></label><input id="addGroup" class="form-control form-control-sm" list="groupNameList" placeholder="例：標準定焦"></div>
+              <div class="col-md-2" id="addGroupEnCol"><label class="form-label small mb-0">分組（英）</label><input id="addGroupEn" class="form-control form-control-sm" list="groupNameEnList" placeholder="例：Standard prime"></div>
+              <datalist id="groupNameList"></datalist>
+              <datalist id="groupNameEnList"></datalist>
               <div class="col-md-3 d-flex align-items-end gap-3">
                 <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefault"><label class="form-check-label small" for="addDefault">此類預設</label></div>
                 <div class="form-check"><input class="form-check-input" type="checkbox" id="addActive" checked><label class="form-check-label small" for="addActive">啟用</label></div>
@@ -83,21 +84,37 @@
         </div>
 
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 pb-0 border-bottom-0">
+            <span class="fw-semibold">選項列表</span>
             <div class="d-flex align-items-center gap-2">
-              <span class="fw-semibold">選項列表</span>
-              <select id="filterCategory" class="form-select form-select-sm" style="width:auto;"></select>
-              <select id="filterGroup" class="form-select form-select-sm" style="width:auto;"><option value="">全部分組</option></select>
+              <div class="d-flex align-items-center gap-2" id="groupFilterWrap">
+                <label class="small text-muted mb-0" for="filterGroup">分組</label>
+                <select id="filterGroup" class="form-select form-select-sm" style="width:auto;"><option value="">全部</option></select>
+              </div>
+              <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
             </div>
-            <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
           </div>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0 align-middle">
-              <thead class="table-light">
-                <tr><th>category</th><th>分組</th><th>key</th><th>名稱</th><th>EN</th><th>prompt</th><th>預設</th><th>排序</th><th>狀態</th><th></th></tr>
-              </thead>
-              <tbody id="listBody"></tbody>
-            </table>
+          <ul class="nav nav-tabs px-3 border-bottom" id="optionCategoryTabs" role="tablist"></ul>
+          <div class="card-body pt-3">
+            <div id="groupableHint" class="alert alert-info py-2 small mb-3 d-none">
+              <strong>此 TAB 可設分組：</strong>新增或編輯選項時填「分組（中）」＝前台下拉選單的分組標題（如標準定焦、柯达彩负）。同一分組名稱的選項會歸在同一組。
+            </div>
+            <div id="nonGroupableHint" class="alert alert-secondary py-2 small mb-3 d-none">
+              此 TAB（光圈、品牌等）無分組；分組僅用於<strong>底片模擬</strong>、<strong>鏡頭</strong> TAB。
+            </div>
+            <div id="currentGroupsWrap" class="mb-3 d-none">
+              <span class="small text-muted me-2">本 TAB 現有分組：</span>
+              <span id="currentGroupsList" class="d-inline-flex flex-wrap gap-1"></span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered mb-0 align-middle">
+                <thead class="table-light">
+                  <tr><th>分組</th><th>key</th><th>名稱</th><th>EN</th><th>prompt</th><th>預設</th><th>排序</th><th>狀態</th><th></th></tr>
+                </thead>
+                <tbody id="listBody"></tbody>
+              </table>
+            </div>
+            <p id="listEmptyHint" class="text-muted small mb-0 mt-2 d-none">此分類尚無選項，請用上方表單新增。</p>
           </div>
         </div>
 
@@ -113,8 +130,8 @@
                   <div class="col-md-4"><label class="form-label small">名稱</label><input id="editName" class="form-control form-control-sm"></div>
                   <div class="col-md-4"><label class="form-label small">英文名</label><input id="editNameEn" class="form-control form-control-sm"></div>
                   <div class="col-md-4"><label class="form-label small">排序</label><input id="editSort" type="number" class="form-control form-control-sm"></div>
-                  <div class="col-md-4"><label class="form-label small">分組（中）</label><input id="editGroup" class="form-control form-control-sm"></div>
-                  <div class="col-md-4"><label class="form-label small">分組（英）</label><input id="editGroupEn" class="form-control form-control-sm"></div>
+                  <div class="col-md-4" id="editGroupCol"><label class="form-label small">分組（中）</label><input id="editGroup" class="form-control form-control-sm" list="groupNameList"></div>
+                  <div class="col-md-4" id="editGroupEnCol"><label class="form-label small">分組（英）</label><input id="editGroupEn" class="form-control form-control-sm" list="groupNameEnList"></div>
                   <div class="col-md-4 d-flex align-items-end gap-3">
                     <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefault"><label class="form-check-label small" for="editDefault">預設</label></div>
                     <div class="form-check"><input class="form-check-input" type="checkbox" id="editActive"><label class="form-check-label small" for="editActive">啟用</label></div>
@@ -175,6 +192,7 @@
   var CAT_API = '/api/admin/promo-camera-param-categories';
   var categories = [];
   var items = [];
+  var activeOptionTab = '';
   var editModal = null;
   var editCatModal = null;
 
@@ -182,6 +200,149 @@
   function catLabel(key) {
     var hit = categories.find(function (c) { return c.key === key; });
     return hit ? (hit.name + ' (' + hit.key + ')') : key;
+  }
+  function catByKey(key) {
+    return categories.find(function (c) { return c.key === key; }) || null;
+  }
+  var GROUPABLE_FALLBACK_KEYS = ['film_simulation', 'lens'];
+  function isCategoryGroupable(key) {
+    if (!key) return false;
+    var cat = catByKey(key);
+    if (cat && catMeta(cat, 'groupable')) return true;
+    return GROUPABLE_FALLBACK_KEYS.indexOf(key) >= 0;
+  }
+  function groupsInCategory(key) {
+    var zh = {};
+    var en = {};
+    items.forEach(function (row) {
+      if (row.category !== key) return;
+      var g = paramGroup(row);
+      var ge = paramGroupEn(row);
+      if (g) zh[g] = ge || zh[g] || '';
+      if (ge) en[ge] = g || en[ge] || '';
+    });
+    return Object.keys(zh).sort().map(function (g) {
+      return { group: g, group_en: zh[g] || '' };
+    });
+  }
+  function fillGroupDatalists() {
+    var groups = groupsInCategory(activeOptionTab);
+    var zhList = document.getElementById('groupNameList');
+    var enList = document.getElementById('groupNameEnList');
+    if (zhList) {
+      zhList.innerHTML = groups.map(function (g) {
+        return '<option value="' + esc(g.group) + '"></option>';
+      }).join('');
+    }
+    if (enList) {
+      enList.innerHTML = groups.filter(function (g) { return g.group_en; }).map(function (g) {
+        return '<option value="' + esc(g.group_en) + '"></option>';
+      }).join('');
+    }
+  }
+  function renderCurrentGroups() {
+    var wrap = document.getElementById('currentGroupsWrap');
+    var list = document.getElementById('currentGroupsList');
+    var groupable = isCategoryGroupable(activeOptionTab);
+    if (!wrap || !list) return;
+    if (!groupable) {
+      wrap.classList.add('d-none');
+      return;
+    }
+    var groups = groupsInCategory(activeOptionTab);
+    wrap.classList.remove('d-none');
+    if (!groups.length) {
+      list.innerHTML = '<span class="badge text-bg-light text-muted">尚無分組（新增選項時填「分組（中）」）</span>';
+      return;
+    }
+    list.innerHTML = groups.map(function (g) {
+      var label = g.group + (g.group_en ? (' / ' + g.group_en) : '');
+      return '<span class="badge text-bg-light border">' + esc(label) + '</span>';
+    }).join('');
+  }
+  function syncGroupColumnVisibility() {
+    var groupable = isCategoryGroupable(activeOptionTab);
+    var thGroup = document.querySelector('#listBody') && document.querySelector('#listBody').closest('table');
+    if (thGroup) {
+      var th = thGroup.querySelector('thead th:first-child');
+      if (th) th.classList.toggle('d-none', !groupable);
+    }
+    document.querySelectorAll('#listBody tr td:first-child').forEach(function (td) {
+      td.classList.toggle('d-none', !groupable);
+    });
+    ['editGroupCol', 'editGroupEnCol'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('d-none', !groupable);
+    });
+  }
+  function syncAddCategoryUi() {
+    var key = activeOptionTab || '';
+    var addCat = document.getElementById('addCategory');
+    if (addCat) addCat.value = key;
+    var label = document.getElementById('addCategoryLabel');
+    if (label) label.textContent = key ? catLabel(key) : '—';
+    var groupable = isCategoryGroupable(key);
+    ['addGroupCol', 'addGroupEnCol'].forEach(function (id) {
+      var col = document.getElementById(id);
+      if (col) col.classList.toggle('d-none', !groupable);
+    });
+    var groupWrap = document.getElementById('groupFilterWrap');
+    if (groupWrap) groupWrap.classList.toggle('d-none', !groupable);
+    var gh = document.getElementById('groupableHint');
+    var nh = document.getElementById('nonGroupableHint');
+    if (gh) gh.classList.toggle('d-none', !groupable);
+    if (nh) nh.classList.toggle('d-none', groupable || !key);
+    fillGroupDatalists();
+    renderCurrentGroups();
+    syncGroupColumnVisibility();
+  }
+  function tabCategories() {
+    return categories.filter(function (c) {
+      if (c.is_active === false) return false;
+      var ui = catMeta(c, 'ui_type') || 'dropdown';
+      return ui !== 'hidden';
+    }).sort(function (a, b) {
+      return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+    });
+  }
+  function setActiveOptionTab(key) {
+    activeOptionTab = key || '';
+    syncAddCategoryUi();
+    fillGroupFilter();
+    renderList();
+    var tabs = document.querySelectorAll('#optionCategoryTabs .nav-link');
+    tabs.forEach(function (btn) {
+      var on = btn.getAttribute('data-cat') === activeOptionTab;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  function renderCategoryTabs() {
+    var ul = document.getElementById('optionCategoryTabs');
+    if (!ul) return;
+    var tabs = tabCategories();
+    if (!tabs.length) {
+      ul.innerHTML = '<li class="nav-item"><span class="nav-link disabled text-muted">請先建立參數分類</span></li>';
+      activeOptionTab = '';
+      syncAddCategoryUi();
+      return;
+    }
+    if (!activeOptionTab || !tabs.some(function (c) { return c.key === activeOptionTab; })) {
+      activeOptionTab = tabs[0].key;
+    }
+    ul.innerHTML = tabs.map(function (c) {
+      var active = c.key === activeOptionTab ? ' active' : '';
+      var count = items.filter(function (row) { return row.category === c.key; }).length;
+      return '<li class="nav-item" role="presentation">' +
+        '<button type="button" class="nav-link' + active + '" data-cat="' + esc(c.key) + '" role="tab">' +
+        esc(c.name || c.key) + ' <span class="badge text-bg-secondary ms-1">' + count + '</span></button></li>';
+    }).join('');
+    ul.querySelectorAll('.nav-link[data-cat]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setActiveOptionTab(btn.getAttribute('data-cat'));
+      });
+    });
+    syncAddCategoryUi();
   }
   function paramGroup(row) {
     var m = row && row.meta;
@@ -208,16 +369,14 @@
     return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
   }
   function fillCategorySelects() {
-    ['addCategory','editCategory','filterCategory'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      var html = id === 'filterCategory' ? '<option value="">全部</option>' : '';
-      categories.forEach(function (c) {
-        if (c.is_active === false && id !== 'filterCategory') return;
-        html += '<option value="' + esc(c.key) + '">' + esc(c.name || c.key) + '</option>';
-      });
-      el.innerHTML = html;
+    var el = document.getElementById('editCategory');
+    if (!el) return;
+    var html = '';
+    categories.forEach(function (c) {
+      if (c.is_active === false) return;
+      html += '<option value="' + esc(c.key) + '">' + esc(c.name || c.key) + '</option>';
     });
+    el.innerHTML = html;
   }
   function renderCategories() {
     var tb = document.getElementById('catBody');
@@ -257,20 +416,20 @@
     var cur = el.value;
     var set = {};
     items.forEach(function (row) {
+      if (activeOptionTab && row.category !== activeOptionTab) return;
       var g = paramGroup(row);
       if (g) set[g] = true;
     });
     var groups = Object.keys(set).sort();
-    el.innerHTML = '<option value="">全部分組</option>' + groups.map(function (g) {
+    el.innerHTML = '<option value="">全部</option>' + groups.map(function (g) {
       return '<option value="' + esc(g) + '">' + esc(g) + '</option>';
     }).join('');
     if (cur && set[cur]) el.value = cur;
+    else el.value = '';
   }
   async function loadList() {
-    var cat = document.getElementById('filterCategory').value;
-    var q = cat ? ('?category=' + encodeURIComponent(cat)) : '';
     var headers = await authHeaders();
-    var r = await fetch(API + q, { headers: headers, cache: 'no-store' });
+    var r = await fetch(API, { headers: headers, cache: 'no-store' });
     var d = await r.json().catch(function(){ return {}; });
     if (!r.ok) { showStatus(d.error || '載入失敗', false); return; }
     if (d.category_defs && d.category_defs.length) categories = d.category_defs;
@@ -278,34 +437,52 @@
     items = d.items || [];
     if (d.categories_migration_hint) showStatus(d.categories_migration_hint, false);
     fillCategorySelects();
+    renderCategoryTabs();
     fillGroupFilter();
     renderList();
   }
   function renderList() {
     var groupFilter = (document.getElementById('filterGroup') || {}).value || '';
     var filtered = items.filter(function (row) {
+      if (activeOptionTab && row.category !== activeOptionTab) return false;
       if (!groupFilter) return true;
       return paramGroup(row) === groupFilter;
     });
     var tb = document.getElementById('listBody');
-    tb.innerHTML = filtered.map(function (row) {
-      var frag = (row.prompt_fragment || '').trim();
-      var short = frag.length > 40 ? frag.slice(0, 40) + '…' : (frag || '—');
-      var g = paramGroup(row);
-      var ge = paramGroupEn(row);
-      return '<tr><td><code>' + esc(row.category) + '</code><div class="small text-muted">' + esc(catLabel(row.category)) + '</div></td>' +
-        '<td class="small">' + esc(g || '—') + (ge ? ('<div class="text-muted">EN: ' + esc(ge) + '</div>') : '') + '</td>' +
-        '<td><code>' + esc(row.key) + '</code></td><td>' + esc(row.name) + '</td><td class="small">' + esc(row.name_en || '—') + '</td>' +
-        '<td class="small">' + esc(short) + '</td><td>' + (row.is_default ? '✓' : '') + '</td><td>' + esc(row.sort_order) + '</td>' +
-        '<td>' + (row.is_active !== false ? '啟用' : '停用') + '</td>' +
-        '<td><button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="' + esc(row.id) + '">編輯</button> ' +
-        '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(row.id) + '">刪</button></td></tr>';
-    }).join('');
+    var emptyHint = document.getElementById('listEmptyHint');
+    if (!filtered.length) {
+      tb.innerHTML = '';
+      if (emptyHint) emptyHint.classList.remove('d-none');
+    } else {
+      if (emptyHint) emptyHint.classList.add('d-none');
+      tb.innerHTML = filtered.map(function (row) {
+        var frag = (row.prompt_fragment || '').trim();
+        var short = frag.length > 40 ? frag.slice(0, 40) + '…' : (frag || '—');
+        var g = paramGroup(row);
+        var ge = paramGroupEn(row);
+        return '<tr><td class="small' + (isCategoryGroupable(activeOptionTab) ? '' : ' d-none') + '">' + esc(g || '—') + (ge ? ('<div class="text-muted">EN: ' + esc(ge) + '</div>') : '') + '</td>' +
+          '<td><code>' + esc(row.key) + '</code></td><td>' + esc(row.name) + '</td><td class="small">' + esc(row.name_en || '—') + '</td>' +
+          '<td class="small">' + esc(short) + '</td><td>' + (row.is_default ? '✓' : '') + '</td><td>' + esc(row.sort_order) + '</td>' +
+          '<td>' + (row.is_active !== false ? '啟用' : '停用') + '</td>' +
+          '<td><button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="' + esc(row.id) + '">編輯</button> ' +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(row.id) + '">刪</button></td></tr>';
+      }).join('');
+    }
     tb.querySelectorAll('.btn-edit').forEach(function (btn) {
       btn.addEventListener('click', function () { openEdit(btn.getAttribute('data-id')); });
     });
     tb.querySelectorAll('.btn-del').forEach(function (btn) {
       btn.addEventListener('click', function () { delRow(btn.getAttribute('data-id')); });
+    });
+    updateTabBadges();
+    syncGroupColumnVisibility();
+  }
+  function updateTabBadges() {
+    document.querySelectorAll('#optionCategoryTabs .nav-link[data-cat]').forEach(function (btn) {
+      var key = btn.getAttribute('data-cat');
+      var count = items.filter(function (row) { return row.category === key; }).length;
+      var badge = btn.querySelector('.badge');
+      if (badge) badge.textContent = String(count);
     });
   }
   function openEdit(id) {
@@ -324,6 +501,11 @@
     document.getElementById('editDescEn').value = row.description_en || '';
     document.getElementById('editGroup').value = paramGroup(row);
     document.getElementById('editGroupEn').value = paramGroupEn(row);
+    var editGroupable = isCategoryGroupable(row.category);
+    ['editGroupCol', 'editGroupEnCol'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('d-none', !editGroupable);
+    });
     if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
     editModal.show();
   }
@@ -420,7 +602,9 @@
     loadList();
   });
   document.getElementById('btnAdd').addEventListener('click', async function () {
+    if (!activeOptionTab) { showStatus('請先選擇分類 TAB', false); return; }
     var payload = buildOptionPayload('add');
+    payload.category = activeOptionTab;
     var headers = await authHeaders();
     var r = await fetch(API, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
     var d = await r.json().catch(function(){ return {}; });
@@ -440,7 +624,6 @@
     loadList();
   });
   document.getElementById('btnReload').addEventListener('click', function () { loadCategories(); loadList(); });
-  document.getElementById('filterCategory').addEventListener('change', loadList);
   document.getElementById('filterGroup').addEventListener('change', renderList);
   loadCategories().then(function () { loadList(); });
 })();
