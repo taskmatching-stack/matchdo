@@ -4,7 +4,24 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729j';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729l';
+
+  var ANGLE_FALLBACK = [
+    { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
+    { key: 'hero_34', name: '45° 英雄角', description: '同一產品改為 45° 英雄角，主視覺面清楚。' },
+    { key: 'front', name: '正視', description: '同一產品改為正面對鏡頭。' },
+    { key: 'side_profile', name: '側面', description: '同一產品改為側面輪廓。' },
+    { key: 'top_down', name: '俯拍', description: '同一產品改為俯拍／平拍視角。' },
+    { key: 'low_angle', name: '低角度', description: '同一產品改為低角度仰拍。' },
+    { key: 'back_34', name: '後 3/4', description: '同一產品改為後 3/4 角度。' }
+  ];
+
+  function angleOptionList() {
+    var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
+    var fromApi = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
+    if (fromApi.length) return fromApi;
+    return ANGLE_FALLBACK;
+  }
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -137,18 +154,18 @@
   function refreshAngleHint() {
     var hint = document.getElementById('pcAngleHint');
     if (!hint) return;
+    var list = angleOptionList();
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
-    var list = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
     var key = (St.get().camera || {})[angleCat] || '';
     var hit = list.find(function (r) { return r.key === key; });
-    hint.textContent = (hit && hit.description) ? hit.description : (hit ? (hit.name || '') : '選擇拍攝角度');
+    hint.textContent = (hit && hit.description) ? hit.description : (hit ? (hit.name || '') : '請點上方按鈕換角度');
   }
 
   function renderAngleButtons() {
     var wrap = document.getElementById('pcAngleBtns');
     if (!wrap) return;
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
-    var list = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
+    var list = angleOptionList();
     var cur = (St.get().camera || {})[angleCat] || 'keep_reference';
     wrap.innerHTML = list.map(function (r) {
       var active = r.key === cur ? ' active' : '';
@@ -436,8 +453,8 @@
       st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
       st.generating = true;
       updateGenerateBtn();
-      var brief = st.userPrompt ? ('「' + st.userPrompt + '」') : '（無額外描述）';
-      St.pushMessage('user', '生成請求：' + brief);
+      var brief = st.userPrompt ? ('「' + st.userPrompt + '」') : '（未填描述）';
+      St.pushMessage('user', '生成請求' + (st.userPrompt ? '：' + brief : ''));
       St.pushMessage('assistant', '生成中，請稍候…');
       renderMessages();
 
@@ -501,6 +518,7 @@
     bindEvents();
     initFromQuery();
     renderMessages();
+    renderAngleButtons();
     Api.loadOptions((window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh').then(function (res) {
       if (!res.ok || !res.data) {
         St.pushMessage('system', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql');

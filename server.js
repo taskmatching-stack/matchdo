@@ -11808,6 +11808,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
         const cameraParams = camResult.grouped || {};
         const cameraCategoryRows = camResult.categories || [];
         const cameraUi = buildPromoCameraUiConfigFromCategories(cameraCategoryRows, lang);
+        ensurePromoCameraAngleOptions(cameraParams, lang, cameraUi.angle_button_category || 'shooting_angle');
         const cameraCategoryKeys = cameraCategoryRows.length
             ? cameraCategoryRows.filter(function (c) { return c.is_active !== false; }).map(function (c) { return c.key; })
             : PROMO_CAMERA_PARAM_CATEGORIES.slice();
@@ -13686,6 +13687,62 @@ function normalizePromoCameraParamKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
 }
 
+/** DB 尚無 shooting_angle 種子時，仍提供按鈕與 FLUX prompt（內建，不需使用者手打） */
+const PROMO_CAMERA_ANGLE_FALLBACK_RAW = [
+    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', prompt_fragment: '',
+        description: '不強制改角度，以參考圖構圖為主。', sort_order: 10, is_default: true },
+    { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle',
+        prompt_fragment: 'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference',
+        description: '同一產品改為 45° 英雄角，主視覺面清楚。', sort_order: 20 },
+    { key: 'front', name: '正視', name_en: 'Front facing',
+        prompt_fragment: 'Reshoot the same product from a straight front-facing camera angle: symmetrical hero presentation, product centered, clear front design details',
+        description: '同一產品改為正面對鏡頭。', sort_order: 30 },
+    { key: 'side_profile', name: '側面', name_en: 'Side profile',
+        prompt_fragment: 'Reshoot the same product from a clean side profile angle: show thickness, silhouette, and edge design clearly',
+        description: '同一產品改為側面輪廓。', sort_order: 40 },
+    { key: 'top_down', name: '俯拍', name_en: 'Top down',
+        prompt_fragment: 'Reshoot the same product from a top-down camera angle: flat lay style product presentation while keeping the product recognizable',
+        description: '同一產品改為俯拍／平拍視角。', sort_order: 50 },
+    { key: 'low_angle', name: '低角度', name_en: 'Low angle',
+        prompt_fragment: 'Reshoot the same product from a low camera angle looking upward: imposing hero presence, product dominates the frame',
+        description: '同一產品改為低角度仰拍。', sort_order: 60 },
+    { key: 'back_34', name: '後 3/4', name_en: 'Rear 3/4',
+        prompt_fragment: 'Reshoot the same product from a rear three-quarter angle: show back design and form while keeping brand identity readable',
+        description: '同一產品改為後 3/4 角度。', sort_order: 70 }
+];
+
+function getPromoCameraAngleFallbackOptions(lang) {
+    return PROMO_CAMERA_ANGLE_FALLBACK_RAW.map(function (row) {
+        return applyPromoCameraOptionLocale(Object.assign({
+            category: 'shooting_angle',
+            is_active: true,
+            meta: {}
+        }, row), lang);
+    });
+}
+
+function ensurePromoCameraAngleOptions(grouped, lang, angleCat) {
+    const cat = angleCat || 'shooting_angle';
+    if (!grouped[cat]) grouped[cat] = [];
+    if (!grouped[cat].length) grouped[cat] = getPromoCameraAngleFallbackOptions(lang);
+    return grouped;
+}
+
+function findPromoCameraAngleFallbackRow(category, key, lang) {
+    const cat = String(category || '').trim();
+    const k = normalizePromoCameraParamKey(key);
+    if (!k) return null;
+    const angleCats = ['shooting_angle'];
+    if (cat && angleCats.indexOf(cat) < 0) return null;
+    const hit = PROMO_CAMERA_ANGLE_FALLBACK_RAW.find(function (r) { return r.key === k; });
+    if (!hit) return null;
+    return applyPromoCameraOptionLocale(Object.assign({
+        category: cat || 'shooting_angle',
+        is_active: true,
+        meta: {}
+    }, hit), lang);
+}
+
 async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
     const categoryRes = await fetchPromoCameraParamCategories(activeOnly);
     const categoryKeys = (categoryRes.categories && categoryRes.categories.length)
@@ -13719,6 +13776,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(applyPromoCameraOptionLocale(row, lang));
         });
+        ensurePromoCameraAngleOptions(grouped, lang, 'shooting_angle');
         return { grouped: grouped, categories: categoryRes.categories || [], error: null };
     } catch (e) {
         return { grouped: grouped, categories: categoryRes.categories || [], error: e.message || 'query_failed' };
@@ -13742,7 +13800,18 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
                 .eq('category', cat)
                 .eq('key', k)
                 .maybeSingle();
-            if (error || !data || data.is_active === false) continue;
+            if (error || !data || data.is_active === false) {
+                const fb = findPromoCameraAngleFallbackRow(cat, k, 'en');
+                if (fb) {
+                    const frag = String(fb.prompt_fragment || '').trim();
+                    if (frag) {
+                        fragments.push(frag);
+                        fragmentsByCategory[cat] = frag;
+                    }
+                    resolved[cat] = { key: fb.key, name: fb.name || fb.key };
+                }
+                continue;
+            }
             const frag = String(data.prompt_fragment || '').trim();
             if (frag) {
                 fragments.push(frag);
