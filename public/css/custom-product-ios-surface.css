@@ -1,0 +1,110 @@
+/**
+ * 產品設計頁 — iOS 感配色／框線（只改視覺，不改版面位置）
+ */
+#custom-product {
+  --ios-bg: #f2f2f7;
+  --ios-card: #ffffff;
+  --ios-separator: rgba(60, 60, 67, 0.12);
+  --ios-label: #3c3c43;
+  --ios-secondary: #8e8e93;
+  --ios-tint: #007aff;
+  --ios-fill: rgba(118, 118, 128, 0.12);
+}
+
+.container-fluid.py-4[style*="f1f5f9"] {
+  background: var(--ios-bg) !important;
+}
+
+#custom-product .create-panel {
+  background: var(--ios-card);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+#custom-product .create-panel-right {
+  background: var(--ios-bg);
+  border: none;
+  border-radius: 12px;
+}
+
+#custom-product .create-panel-right.has-result {
+  background: var(--ios-card);
+  border: none;
+}
+
+#custom-product .prompt-hero,
+#custom-product .form-control,
+#custom-product .form-select {
+  border-color: var(--ios-separator);
+  border-radius: 10px;
+  background: var(--ios-card);
+}
+
+#custom-product .prompt-hero:focus,
+#custom-product .form-control:focus,
+#custom-product .form-select:focus {
+  border-color: var(--ios-tint);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+}
+
+#custom-product .form-row .label,
+#custom-product .label {
+  color: var(--ios-label);
+  font-weight: 600;
+}
+
+#custom-product .form-text,
+#custom-product .page-sub,
+#custom-product .design-flow-steps {
+  color: var(--ios-secondary);
+}
+
+#custom-product .design-flow-steps {
+  border-left: none;
+  padding-left: 0;
+}
+
+#custom-product #designTabs {
+  border-bottom: 1px solid var(--ios-separator);
+}
+
+#custom-product #designTabs .nav-link {
+  color: var(--ios-secondary);
+  border-bottom-width: 2px;
+  font-weight: 500;
+}
+
+#custom-product #designTabs .nav-link.active {
+  color: var(--ios-label);
+  border-bottom-color: var(--ios-tint);
+}
+
+#custom-product .btn-generate,
+#custom-product .promo-generate-btn {
+  background: var(--ios-tint);
+  border: none;
+  border-radius: 12px;
+}
+
+#custom-product .btn-generate:hover,
+#custom-product .promo-generate-btn:hover {
+  background: #0066d6;
+}
+
+#custom-product .design-ai-disclaimer {
+  background: rgba(255, 204, 0, 0.12);
+  border: none;
+  border-radius: 10px;
+  color: #8b6914;
+}
+
+#custom-product .past-gallery .past-item,
+#custom-product .past-gallery-inner .past-item {
+  border: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+#custom-product .dap-tab.active {
+  background: var(--ios-tint);
+  border-color: var(--ios-tint);
+}

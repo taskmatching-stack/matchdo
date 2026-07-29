@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730a';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730b';
 
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
@@ -325,8 +325,6 @@
     });
     if (!added.length) return;
     renderSelectedThumbs();
-    St.pushMessage('user', '已選產品參考圖', { thumbs: added });
-    renderMessages();
     updateGenerateBtn();
   }
 

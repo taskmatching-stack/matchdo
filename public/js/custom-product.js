@@ -6389,11 +6389,9 @@ $(document).ready(function () {
         renderPromoImageSelectedThumbs();
     }
     function renderPromoImageSelectedThumbs() {
-        var $zone = $('#promoImageSourceZone');
         var $wrap = $('#promoImageSelectedThumbs');
         var $hint = $('#promoImageSelectedHint');
         var $clear = $('#promoImageClearBtn');
-        var $btn = $('#promoImagePickAssetBtn');
         $wrap.empty();
         var urls = window.promoImageImageUrls || [];
         urls.forEach(function (url, idx) {
@@ -6410,15 +6408,11 @@ $(document).ready(function () {
             $wrap.append($chip);
         });
         if (urls.length) {
-            $zone.addClass('has-images');
-            $hint.removeClass('d-none').text('已選 ' + urls.length + ' 張 · 第一張為主體 · 最多 ' + PROMO_IMAGE_MAX_REFS + ' 張');
+            $hint.text('已選 ' + urls.length + ' 張（最多 ' + PROMO_IMAGE_MAX_REFS + '；第一張為主體，可再加入）');
             $clear.removeClass('d-none');
-            $btn.text('＋ 繼續加入');
         } else {
-            $zone.removeClass('has-images');
-            $hint.addClass('d-none').text('');
+            $hint.text('尚未選圖 — 可多次從數位資產加入');
             $clear.addClass('d-none');
-            $btn.html('<span class="promo-source-add-icon" aria-hidden="true">＋</span><span class="promo-source-add-label">從數位資產選擇產品圖</span><span class="promo-source-add-sub">支援多張，第一張為主體</span>');
         }
     }
     function setPromoImagePreview(imageUrl, sourceType, productId) {
