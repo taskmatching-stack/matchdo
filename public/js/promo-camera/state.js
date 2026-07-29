@@ -8,7 +8,7 @@
 
   var DEFAULT_UI = {
     category_labels: {
-      camera_brand: '數位成像',
+      camera_brand: '品牌色彩',
       film_simulation: '底片模擬',
       aperture: '光圈',
       exposure_ev: 'EV 曝光',
@@ -16,10 +16,12 @@
       aperture_blades: '光圈葉片'
     },
     exclusive_groups: [
-      { id: 'look', label: '成像風格', categories: ['camera_brand', 'film_simulation'], default_category: 'camera_brand' }
+      { id: 'look', label: '成像來源', categories: ['camera_brand', 'film_simulation'], default_category: 'camera_brand' }
     ],
     ui_hidden_categories: ['lens_type'],
-    lens_primary_category: 'focal_length'
+    lens_primary_category: 'focal_length',
+    groupable_categories: ['film_simulation', 'focal_length'],
+    group_meta_key: 'group'
   };
 
   var state = {

@@ -13423,7 +13423,7 @@ const PROMO_CAMERA_PARAM_CATEGORIES = [
 /** 攝影模擬控制台 UI 規則（前台依此渲染，選項內容仍由 DB 管理） */
 const PROMO_CAMERA_UI_CONFIG = {
     category_labels: {
-        camera_brand: '數位成像',
+        camera_brand: '品牌色彩',
         film_simulation: '底片模擬',
         aperture: '光圈',
         exposure_ev: 'EV 曝光',
@@ -13434,13 +13434,15 @@ const PROMO_CAMERA_UI_CONFIG = {
     exclusive_groups: [
         {
             id: 'look',
-            label: '成像風格',
+            label: '成像來源',
             categories: ['camera_brand', 'film_simulation'],
             default_category: 'camera_brand'
         }
     ],
     ui_hidden_categories: ['lens_type'],
-    lens_primary_category: 'focal_length'
+    lens_primary_category: 'focal_length',
+    groupable_categories: ['film_simulation', 'focal_length'],
+    group_meta_key: 'group'
 };
 
 function sanitizePromoCameraKeys(cameraKeys) {
@@ -13566,7 +13568,8 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
     }
     const cam = await resolvePromoCameraPromptFragments(cameraKeys);
     if (cam.fragments.length) {
-        parts.push('Camera and optical simulation (follow exactly for image quality and lens character)');
+        parts.push('Apply only camera body color science, film stock color, and optical parameters below; do not override theme, scene, environment, or lighting already specified above');
+        parts.push('Camera and optical simulation (follow exactly for sensor or film color and lens character)');
         cam.fragments.forEach(function (f) { parts.push(f); });
     }
     if (user) parts.push('Advertising brief: ' + user);

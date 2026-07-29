@@ -40,16 +40,18 @@ ALTER TABLE public.product_promo_generations
 
 COMMENT ON COLUMN public.product_promo_generations.generation_mode IS 'standard=情境圖TAB；camera_advanced=攝影模擬頁';
 
--- 種子：各維度 prompt 片段由後台編輯；數位成像 vs 底片模擬前台僅擇一
+-- 種子：camera_brand＝機身品牌色彩科學（不含場景／光線，避免與左側主題場景打架）
 INSERT INTO public.promo_camera_param_options (category, key, name, name_en, prompt_fragment, sort_order, is_default) VALUES
-('camera_brand', 'neutral_studio', '中性棚拍', 'Neutral studio',
- 'Clean neutral digital color science: accurate white balance, moderate contrast, natural product tones', 10, true),
-('camera_brand', 'warm_filmic', '暖調電影數位', 'Warm filmic digital',
- 'Warm cinematic digital color: gentle orange shadows, soft highlight rolloff, premium advertising grade', 20, false),
-('camera_brand', 'cinematic_log', '電影 LOG 調', 'Cinematic LOG grade',
- 'Cinematic LOG-style color grade: rich shadows, controlled highlights, filmic contrast curve suitable for hero product ads', 30, false),
-('camera_brand', 'vintage_rangefinder', '復古旁軸調', 'Vintage rangefinder tone',
- 'Vintage rangefinder rendering: subtle micro-contrast, gentle vignette, classic photographic color', 40, false),
+('camera_brand', 'sony_alpha', 'Sony Alpha', 'Sony Alpha',
+ 'Sony Alpha color science only: neutral accurate white balance, vivid but natural saturation, clean micro-contrast, typical Alpha sensor color response on product surfaces', 10, true),
+('camera_brand', 'canon_eos', 'Canon EOS', 'Canon EOS',
+ 'Canon EOS color rendering only: slightly warm pleasing tones, smooth highlight rolloff, faithful product hue, classic Canon color bias without changing scene', 20, false),
+('camera_brand', 'nikon_z', 'Nikon Z', 'Nikon Z',
+ 'Nikon Z color science only: balanced neutral accuracy, faithful product color reproduction, moderate contrast, natural shadow color on materials', 30, false),
+('camera_brand', 'fujifilm_x', 'Fujifilm X', 'Fujifilm X',
+ 'Fujifilm X-Trans digital color character only: distinctive Fujifilm color response, rich controlled greens and reds, film-heritage digital palette, fine color separation on product textures', 40, false),
+('camera_brand', 'leica_m', 'Leica', 'Leica',
+ 'Leica digital color rendering only: subtle micro-contrast, deep color transitions, restrained saturation, premium color depth on product edges and materials', 50, false),
 
 ('film_simulation', 'portra_400', 'Portra 400 風', 'Portra 400 style',
  'Kodak Portra 400 film emulation: warm natural tones, fine grain, flattering highlight rolloff', 10, true),
@@ -60,7 +62,7 @@ INSERT INTO public.promo_camera_param_options (category, key, name, name_en, pro
 ('film_simulation', 'provia_slide', 'Provia 正片風', 'Provia slide style',
  'Fuji Provia slide-film style: clean color, punchy but natural saturation, transparent highlights', 40, false),
 ('film_simulation', 'cinestill_800t', 'Cinestill 800T 風', 'Cinestill 800T style',
- 'Cinestill 800T tungsten film look: cool shadows, halation around bright points, cinematic night-adjacent mood', 50, false),
+ 'Cinestill 800T tungsten film color response only: cool shadow cast, halation on bright specular points, distinctive emulsion color bias without scene or lighting change', 50, false),
 
 ('aperture', 'f14', 'f/1.4 大光圈', 'f/1.4',
  'Shot at f/1.4: very shallow depth of field, strong background blur, subject isolation', 10, false),

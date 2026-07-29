@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729f';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729h';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -116,7 +116,7 @@
     var lookEl = document.querySelector('#pcLcd .pc-lcd-look');
     var lensEl = document.querySelector('#pcLcd .pc-lcd-lens');
     var optEl = document.querySelector('#pcLcd .pc-lcd-optics');
-    var prefix = s.lookMode === 'film' ? 'FILM' : 'DIGI';
+    var prefix = s.lookMode === 'film' ? 'FILM' : 'BODY';
     if (lookEl) lookEl.textContent = prefix + ' · ' + s.look;
     if (lensEl) lensEl.textContent = s.lens;
     if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev + ' · ' + s.blades;
@@ -129,6 +129,14 @@
     }
   }
 
+  function refreshParamHint(selectEl, hintEl, items) {
+    if (!selectEl || !hintEl) return;
+    var vk = 'key';
+    var v = String(selectEl.value || '').trim();
+    var hit = (items || []).find(function (r) { return String(r[vk] || '') === v; });
+    hintEl.textContent = (hit && hit.description) ? String(hit.description) : '';
+  }
+
   function fillLookSelect() {
     var sel = document.getElementById('pcCam_look');
     if (!sel) return;
@@ -137,9 +145,14 @@
     var cat = St.get().lookMode === 'film' ? St.getFilmLookCategory() : St.getDigitalLookCategory();
     var list = opts.camera_params[cat] || [];
     var cur = (St.get().camera || {})[cat] || '';
-    sel.innerHTML = list.map(function (r) {
-      return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
-    }).join('');
+    if (Promo.fillSelectGrouped) {
+      Promo.fillSelectGrouped(sel, list, 'key', 'name', cur);
+    } else {
+      sel.innerHTML = list.map(function (r) {
+        return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
+      }).join('');
+    }
+    refreshParamHint(sel, document.getElementById('pcLookHint'), list);
   }
 
   function syncLookModeRadios() {
@@ -182,9 +195,14 @@
     if (lensEl) {
       var lensList = opts.camera_params.focal_length || [];
       var lensCur = (St.get().camera || {}).focal_length || '';
-      lensEl.innerHTML = lensList.map(function (r) {
-        return '<option value="' + esc(r.key) + '"' + (r.key === lensCur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
-      }).join('');
+      if (Promo.fillSelectGrouped) {
+        Promo.fillSelectGrouped(lensEl, lensList, 'key', 'name', lensCur);
+      } else {
+        lensEl.innerHTML = lensList.map(function (r) {
+          return '<option value="' + esc(r.key) + '"' + (r.key === lensCur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
+        }).join('');
+      }
+      refreshParamHint(lensEl, document.getElementById('pcLensHint'), lensList);
     }
     updateLcd();
   }
@@ -336,6 +354,8 @@
       lookSel.addEventListener('change', function () {
         var cat = St.get().lookMode === 'film' ? St.getFilmLookCategory() : St.getDigitalLookCategory();
         St.setCameraKey(cat, lookSel.value);
+        var list = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[cat] || [] : [];
+        refreshParamHint(lookSel, document.getElementById('pcLookHint'), list);
         updateLcd();
         flashLcd();
       });
@@ -346,6 +366,9 @@
       if (!el) return;
       el.addEventListener('change', function () {
         St.setCameraKey(cat, el.value);
+        if (cat === 'focal_length') {
+          refreshParamHint(el, document.getElementById('pcLensHint'), (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params.focal_length || [] : []);
+        }
         updateLcd();
         flashLcd();
         if (cat === 'focal_length') pulseCameraDevice('is-adjusting-lens');

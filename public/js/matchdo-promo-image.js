@@ -165,6 +165,59 @@
     el.innerHTML = html;
   }
 
+  function getPromoCameraParamGroup(row) {
+    var meta = row && row.meta;
+    if (meta && typeof meta === 'object' && meta.group != null) {
+      return String(meta.group).trim();
+    }
+    return '';
+  }
+
+  /** 依 meta.group 分組；同 key 只保留一筆（避免 DB 重複） */
+  function fillSelectGrouped(el, items, valueKey, labelKey, selectedKey, emptyLabel) {
+    if (!el) return;
+    var vk = valueKey || 'key';
+    var lk = labelKey || 'name';
+    var sel = selectedKey != null ? String(selectedKey) : String(el.value || '');
+    var seen = {};
+    var list = [];
+    (items || []).forEach(function (it) {
+      var k = String(it[vk] || '').trim();
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      list.push(it);
+    });
+    var groups = {};
+    var groupOrder = [];
+    list.forEach(function (it) {
+      var g = getPromoCameraParamGroup(it) || '';
+      if (!groups[g]) {
+        groups[g] = [];
+        groupOrder.push(g);
+      }
+      groups[g].push(it);
+    });
+    var html = emptyLabel ? ('<option value="">' + emptyLabel + '</option>') : '';
+    var hasNamedGroup = groupOrder.some(function (g) { return !!g; });
+    groupOrder.forEach(function (g) {
+      var opts = groups[g] || [];
+      if (!opts.length) return;
+      var inner = opts.map(function (it) {
+        var val = String(it[vk] || '').replace(/"/g, '&quot;');
+        var label = String(it[lk] || it[vk] || '').replace(/</g, '&lt;');
+        return '<option value="' + val + '"' + (val === sel ? ' selected' : '') + '>' + label + '</option>';
+      }).join('');
+      if (g) {
+        html += '<optgroup label="' + String(g).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + inner + '</optgroup>';
+      } else if (hasNamedGroup) {
+        html += '<optgroup label="未分組">' + inner + '</optgroup>';
+      } else {
+        html += inner;
+      }
+    });
+    el.innerHTML = html;
+  }
+
   /** 情境圖攝影參數：預設「通用預設」；「（不追加）」固定在最下方 */
   function resolveDefaultPhotographySetId(items) {
     var list = items || [];
@@ -414,6 +467,8 @@
     ratioSelectHtml: ratioSelectHtml,
     mpSelectHtml: mpSelectHtml,
     fillSelect: fillSelect,
+    fillSelectGrouped: fillSelectGrouped,
+    getPromoCameraParamGroup: getPromoCameraParamGroup,
     fillPhotographySelect: fillPhotographySelect,
     resolveDefaultPhotographySetId: resolveDefaultPhotographySetId,
     bindSelectHint: bindSelectHint,
