@@ -1,54 +1,126 @@
 /**
- * 客製產品線主題：與全站一致
- * 灰底 #F0F0F0、深灰文字 #333333、按鈕主色 #445D7E
- * 僅在 <html data-theme="custom"> 時套用
+ * 客製產品線主題 — 莫蘭迪色系
+ * 僅在 <html data-theme="custom"> 時套用（產品設計頁等）
  */
 [data-theme="custom"] {
-    --bs-primary: #445D7E;
-    --bs-primary-rgb: 68, 93, 126;
-    --bs-primary-dark: #3a5169;
-    --bs-primary-light: #556d8e;
+    /* 主色：灰藍 */
+    --md-primary: #7B8FA1;
+    --md-primary-dark: #687B8C;
+    --md-primary-rgb: 123, 143, 161;
+    --md-primary-soft: rgba(123, 143, 161, 0.14);
+    --md-primary-softer: rgba(123, 143, 161, 0.08);
+
+    /* 文字：暖灰褐 */
+    --md-text: #6B6560;
+    --md-text-muted: #9A958F;
+    --md-text-light: #B5B0AA;
+
+    /* 背景 */
+    --md-surface: #E8E5E0;
+    --md-surface-alt: #EDEAE6;
+    --md-card: #F5F3F0;
+    --md-white: #FAF9F7;
+    --md-border: rgba(107, 101, 96, 0.14);
+    --md-border-strong: rgba(107, 101, 96, 0.22);
+
+    /* 輔色：鼠尾草（成功／支援） */
+    --md-sage: #9CAF9A;
+    --md-sage-text: #6B8068;
+    --md-sage-bg: rgba(156, 175, 154, 0.22);
+
+    /* 輔色：陶土（提醒／警告，取代亮橘） */
+    --md-clay: #C4A88A;
+    --md-clay-text: #8B7355;
+    --md-clay-bg: rgba(196, 168, 138, 0.22);
+    --md-clay-border: rgba(196, 168, 138, 0.45);
+
+    /* 輔色：灰玫瑰（提示／info） */
+    --md-rose: #B8A09A;
+    --md-rose-text: #8A7470;
+    --md-rose-bg: rgba(184, 160, 154, 0.2);
+
+    --bs-primary: var(--md-primary);
+    --bs-primary-rgb: var(--md-primary-rgb);
+    --bs-primary-dark: var(--md-primary-dark);
+    --bs-primary-light: #8FA0B0;
+    --bs-info: #9BA8B4;
+    --bs-info-rgb: 155, 168, 180;
+    --bs-warning: var(--md-clay);
+    --bs-warning-rgb: 196, 168, 138;
+    --bs-body-color: var(--md-text);
+    --bs-secondary-color: var(--md-text-muted);
 }
 
 [data-theme="custom"] .btn-primary {
-    background-color: var(--bs-primary);
-    border-color: var(--bs-primary);
+    background-color: var(--md-primary);
+    border-color: var(--md-primary);
 }
-[data-theme="custom"] .btn-primary:hover {
-    background-color: var(--bs-primary-dark);
-    border-color: var(--bs-primary-dark);
+[data-theme="custom"] .btn-primary:hover,
+[data-theme="custom"] .btn-primary:focus {
+    background-color: var(--md-primary-dark);
+    border-color: var(--md-primary-dark);
+}
+
+[data-theme="custom"] .btn-outline-primary {
+    color: var(--md-primary);
+    border-color: var(--md-primary);
+}
+[data-theme="custom"] .btn-outline-primary:hover {
+    background-color: var(--md-primary);
+    border-color: var(--md-primary);
+    color: #fff;
+}
+
+[data-theme="custom"] .btn-outline-info {
+    color: var(--md-rose-text);
+    border-color: var(--md-rose);
+    background: var(--md-rose-bg);
+}
+[data-theme="custom"] .btn-outline-info:hover {
+    background-color: var(--md-rose);
+    border-color: var(--md-rose);
+    color: #fff;
+}
+
+[data-theme="custom"] .alert-warning {
+    color: var(--md-clay-text);
+    background-color: var(--md-clay-bg);
+    border-color: var(--md-clay-border);
+}
+
+[data-theme="custom"] .text-warning {
+    color: var(--md-clay-text) !important;
 }
 
 [data-theme="custom"] .navbar .navbar-nav .nav-link:hover,
 [data-theme="custom"] .navbar .navbar-nav .nav-link.active {
-    color: var(--bs-primary);
+    color: var(--md-primary);
 }
 
 [data-theme="custom"] .navbar-brand .text-primary,
 [data-theme="custom"] .text-primary {
-    color: var(--bs-primary) !important;
+    color: var(--md-primary) !important;
 }
 
 [data-theme="custom"] .bg-primary {
-    background-color: var(--bs-primary) !important;
+    background-color: var(--md-primary) !important;
 }
 
 [data-theme="custom"] .dropdown-menu .dropdown-item:hover,
 [data-theme="custom"] .dropdown-menu .dropdown-item.active {
-    background-color: var(--bs-primary);
+    background-color: var(--md-primary);
     color: #fff;
 }
 
 [data-theme="custom"] .border-primary {
-    border-color: var(--bs-primary) !important;
+    border-color: var(--md-primary) !important;
 }
 
-[data-theme="custom"] .btn-outline-primary {
-    color: var(--bs-primary);
-    border-color: var(--bs-primary);
+[data-theme="custom"] .btn-lg-square.back-to-top {
+    background: var(--md-primary);
+    border-color: var(--md-primary);
 }
-[data-theme="custom"] .btn-outline-primary:hover {
-    background-color: var(--bs-primary);
-    border-color: var(--bs-primary);
-    color: #fff;
+[data-theme="custom"] .btn-lg-square.back-to-top:hover {
+    background: var(--md-primary-dark);
+    border-color: var(--md-primary-dark);
 }

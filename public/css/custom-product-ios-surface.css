@@ -1,110 +1,157 @@
 /**
- * 產品設計頁 — iOS 感配色／框線（只改視覺，不改版面位置）
+ * 產品設計頁 — 莫蘭迪配色（只改視覺，不改版面）
  */
 #custom-product {
-  --ios-bg: #f2f2f7;
-  --ios-card: #ffffff;
-  --ios-separator: rgba(60, 60, 67, 0.12);
-  --ios-label: #3c3c43;
-  --ios-secondary: #8e8e93;
-  --ios-tint: #007aff;
-  --ios-fill: rgba(118, 118, 128, 0.12);
+  --ios-bg: var(--md-surface, #E8E5E0);
+  --ios-card: var(--md-white, #FAF9F7);
+  --ios-separator: var(--md-border, rgba(107, 101, 96, 0.14));
+  --ios-label: var(--md-text, #6B6560);
+  --ios-secondary: var(--md-text-muted, #9A958F);
+  --ios-tint: var(--md-primary, #7B8FA1);
+  --ios-fill: var(--md-primary-softer, rgba(123, 143, 161, 0.08));
 }
 
-.container-fluid.py-4[style*="f1f5f9"] {
-  background: var(--ios-bg) !important;
+.container-fluid.py-4[style*="f1f5f9"],
+.container-fluid.py-4[style*="E8E5E0"] {
+  background: var(--md-surface, #E8E5E0) !important;
 }
 
 #custom-product .create-panel {
-  background: var(--ios-card);
-  border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  background: var(--md-white, #FAF9F7);
+  border: 1px solid var(--md-border);
+  box-shadow: 0 2px 12px rgba(107, 101, 96, 0.06);
 }
 
 #custom-product .create-panel-right {
-  background: var(--ios-bg);
+  background: var(--md-card, #F5F3F0);
   border: none;
   border-radius: 12px;
 }
 
 #custom-product .create-panel-right.has-result {
-  background: var(--ios-card);
-  border: none;
+  background: var(--md-white, #FAF9F7);
+  border: 1px solid var(--md-border);
 }
 
 #custom-product .prompt-hero,
 #custom-product .form-control,
 #custom-product .form-select {
-  border-color: var(--ios-separator);
+  border-color: var(--md-border);
   border-radius: 10px;
-  background: var(--ios-card);
+  background: var(--md-white, #FAF9F7);
+  color: var(--md-text);
 }
 
 #custom-product .prompt-hero:focus,
 #custom-product .form-control:focus,
 #custom-product .form-select:focus {
-  border-color: var(--ios-tint);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+  border-color: var(--md-primary);
+  box-shadow: 0 0 0 3px var(--md-primary-soft);
 }
 
 #custom-product .form-row .label,
 #custom-product .label {
-  color: var(--ios-label);
+  color: var(--md-text);
   font-weight: 600;
 }
 
 #custom-product .form-text,
 #custom-product .page-sub,
 #custom-product .design-flow-steps {
-  color: var(--ios-secondary);
+  color: var(--md-text-muted);
 }
 
 #custom-product .design-flow-steps {
-  border-left: none;
-  padding-left: 0;
+  border-left-color: var(--md-primary);
 }
 
 #custom-product #designTabs {
-  border-bottom: 1px solid var(--ios-separator);
+  border-bottom: 1px solid var(--md-border);
 }
 
 #custom-product #designTabs .nav-link {
-  color: var(--ios-secondary);
+  color: var(--md-text-muted);
   border-bottom-width: 2px;
   font-weight: 500;
 }
 
 #custom-product #designTabs .nav-link.active {
-  color: var(--ios-label);
-  border-bottom-color: var(--ios-tint);
+  color: var(--md-primary);
+  border-bottom-color: var(--md-primary);
 }
 
 #custom-product .btn-generate,
 #custom-product .promo-generate-btn {
-  background: var(--ios-tint);
+  background: var(--md-primary);
   border: none;
   border-radius: 12px;
 }
 
 #custom-product .btn-generate:hover,
 #custom-product .promo-generate-btn:hover {
-  background: #0066d6;
+  background: var(--md-primary-dark);
 }
 
 #custom-product .design-ai-disclaimer {
-  background: rgba(255, 204, 0, 0.12);
-  border: none;
-  border-radius: 10px;
-  color: #8b6914;
+  background: var(--md-clay-bg);
+  border: 1px solid var(--md-clay-border);
+  border-left: 4px solid var(--md-clay);
+  border-radius: 8px;
+  color: var(--md-clay-text);
+}
+
+#custom-product .design-ai-disclaimer-icon {
+  color: var(--md-clay);
 }
 
 #custom-product .past-gallery .past-item,
 #custom-product .past-gallery-inner .past-item {
-  border: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--md-border);
+  box-shadow: 0 1px 2px rgba(107, 101, 96, 0.06);
 }
 
 #custom-product .dap-tab.active {
-  background: var(--ios-tint);
-  border-color: var(--ios-tint);
+  background: var(--md-primary);
+  border-color: var(--md-primary);
+}
+
+#custom-product .prompt-ref-tips-btn {
+  color: var(--md-rose-text);
+  border-color: var(--md-rose);
+  background: var(--md-rose-bg);
+}
+
+#custom-product .prompt-ref-tips-btn:hover {
+  background: var(--md-rose);
+  border-color: var(--md-rose);
+  color: #fff;
+}
+
+/* 數位資產選擇器（設計頁） */
+#custom-product .dap-tab {
+  border-color: rgba(107, 101, 96, 0.14);
+  background: #FAF9F7;
+  color: #9A958F;
+}
+#custom-product .dap-tab.active {
+  background: var(--md-primary, #7B8FA1);
+  border-color: var(--md-primary, #7B8FA1);
+  color: #fff;
+}
+#custom-product .dap-card {
+  border-color: rgba(107, 101, 96, 0.14);
+  background: #FAF9F7;
+}
+#custom-product .dap-card:hover {
+  border-color: var(--md-primary, #7B8FA1);
+  box-shadow: 0 2px 8px rgba(123, 143, 161, 0.12);
+}
+#custom-product .dap-thumb-wrap {
+  background: #EDEAE6;
+}
+#custom-product .dap-badge {
+  background: rgba(123, 143, 161, 0.88);
+}
+#custom-product .dap-title {
+  color: #9A958F;
 }
