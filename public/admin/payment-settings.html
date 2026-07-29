@@ -93,7 +93,7 @@ $(async function () {
 
     function setStatus(msg, isErr) {
         var el = $('#saveStatus');
-        el.text(msg).css('color', isErr ? '#dc3545' : '#198754');
+        el.text(msg).css('color', isErr ? '#A89090' : '#5A7268');
     }
 
     $.ajax({ url: '/api/admin/payment-config', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })

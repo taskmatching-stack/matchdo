@@ -328,7 +328,7 @@
 
         function pendingRedrawThumbHtml(item, prefix) {
             if (!item.redrawPreviewUrl) return '';
-            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">重繪新圖</span>' +
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#5A7268">重繪新圖</span>' +
                 '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle('重繪新圖')) + '">' +
                 pendingUploadCheckHtml(item.uploadRedraw !== false, prefix + '-upload-redraw', '上傳此張') +
                 '</div>';
@@ -336,7 +336,7 @@
 
         function pendingUpscaleThumbHtml(item, prefix, includeUpscale) {
             if (includeUpscale === false || !item.upscalePreviewUrl) return '';
-            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">AI 放大新圖（≤1MP）</span>' +
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#5A7268">AI 放大新圖（≤1MP）</span>' +
                 '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle('AI 放大新圖')) + '">' +
                 pendingUploadCheckHtml(item.uploadUpscale !== false, prefix + '-upload-upscale', '上傳此張') +
                 '</div>';

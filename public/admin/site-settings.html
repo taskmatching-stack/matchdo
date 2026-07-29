@@ -149,7 +149,7 @@ $(async function () {
     }
 
     function setStatus(msg, isErr) {
-        $('#ga4SaveStatus').text(msg).css('color', isErr ? '#dc3545' : '#198754');
+        $('#ga4SaveStatus').text(msg).css('color', isErr ? '#A89090' : '#5A7268');
     }
 
     $.ajax({ url: '/api/admin/ga4', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })
@@ -174,7 +174,7 @@ $(async function () {
 
     // ── 社群帳號：載入 ──────────────────────────────────────────────────
     function setSocialStatus(msg, isErr) {
-        $('#socialSaveStatus').text(msg).css('color', isErr ? '#dc3545' : '#198754');
+        $('#socialSaveStatus').text(msg).css('color', isErr ? '#A89090' : '#5A7268');
     }
     $.ajax({ url: '/api/admin/social-links', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })
         .done(function (r) {

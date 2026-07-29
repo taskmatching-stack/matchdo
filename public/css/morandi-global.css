@@ -38,6 +38,10 @@
     --bs-warning-rgb: 168, 181, 196;
     --bs-info: #9BA8B4;
     --bs-info-rgb: 155, 168, 180;
+    --bs-success: var(--md-sage);
+    --bs-success-rgb: 143, 168, 158;
+    --bs-danger: #A89090;
+    --bs-danger-rgb: 168, 144, 144;
 }
 
 body {
@@ -175,4 +179,74 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
 
 .progress-bar {
     background-color: var(--md-primary);
+}
+
+.text-success { color: var(--md-sage-text) !important; }
+.bg-success { background-color: var(--md-sage) !important; color: #fff !important; }
+.badge.bg-success {
+    background-color: var(--md-sage) !important;
+    color: #fff !important;
+}
+.alert-success {
+    color: var(--md-sage-text) !important;
+    background-color: var(--md-sage-bg) !important;
+    border-color: rgba(143, 168, 158, 0.35) !important;
+}
+.btn-outline-success {
+    color: var(--md-sage-text) !important;
+    border-color: rgba(143, 168, 158, 0.55) !important;
+}
+.btn-outline-success:hover,
+.btn-outline-success:focus {
+    background-color: var(--md-sage) !important;
+    border-color: var(--md-sage) !important;
+    color: #fff !important;
+}
+
+.text-danger { color: #A89090 !important; }
+.bg-danger { background-color: var(--md-rose) !important; color: #fff !important; }
+.badge.bg-danger {
+    background-color: var(--md-rose) !important;
+    color: #fff !important;
+}
+.btn-outline-danger {
+    color: var(--md-rose) !important;
+    border-color: rgba(155, 168, 181, 0.55) !important;
+}
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+    background-color: var(--md-rose) !important;
+    border-color: var(--md-rose) !important;
+    color: #fff !important;
+}
+
+.badge.bg-info {
+    background-color: #9BA8B4 !important;
+    color: #fff !important;
+}
+.bg-info { background-color: #9BA8B4 !important; color: #fff !important; }
+.text-info { color: var(--md-rose-text) !important; }
+
+.badge.bg-secondary {
+    background-color: var(--md-text-light) !important;
+    color: #fff !important;
+}
+
+.bg-light {
+    background-color: var(--md-card) !important;
+}
+
+.section-title {
+    color: var(--md-text) !important;
+}
+
+.alert-light {
+    background-color: var(--md-card);
+    border-color: var(--md-border);
+    color: var(--md-text);
+}
+
+.quick-link:hover {
+    background: var(--md-primary-softer) !important;
+    border-color: rgba(122, 143, 163, 0.35) !important;
 }
