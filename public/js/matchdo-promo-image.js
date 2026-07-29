@@ -167,8 +167,9 @@
 
   function getPromoCameraParamGroup(row) {
     var meta = row && row.meta;
-    if (meta && typeof meta === 'object' && meta.group != null) {
-      return String(meta.group).trim();
+    if (meta && typeof meta === 'object') {
+      if (meta.group_display != null && String(meta.group_display).trim()) return String(meta.group_display).trim();
+      if (meta.group != null) return String(meta.group).trim();
     }
     return '';
   }
@@ -207,10 +208,8 @@
         var label = String(it[lk] || it[vk] || '').replace(/</g, '&lt;');
         return '<option value="' + val + '"' + (val === sel ? ' selected' : '') + '>' + label + '</option>';
       }).join('');
-      if (g) {
+      if (hasNamedGroup && g) {
         html += '<optgroup label="' + String(g).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + inner + '</optgroup>';
-      } else if (hasNamedGroup) {
-        html += '<optgroup label="未分組">' + inner + '</optgroup>';
       } else {
         html += inner;
       }

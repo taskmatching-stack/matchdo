@@ -11804,10 +11804,15 @@ app.get('/api/promo-camera/options', async (req, res) => {
             }
         } catch (_) { themes = []; scenes = []; }
 
-        const camResult = await fetchPromoCameraParamOptionsGrouped(true);
+        const camResult = await fetchPromoCameraParamOptionsGrouped(true, lang);
         const cameraParams = camResult.grouped || {};
+        const cameraCategoryRows = camResult.categories || [];
+        const cameraUi = buildPromoCameraUiConfigFromCategories(cameraCategoryRows, lang);
+        const cameraCategoryKeys = cameraCategoryRows.length
+            ? cameraCategoryRows.filter(function (c) { return c.is_active !== false; }).map(function (c) { return c.key; })
+            : PROMO_CAMERA_PARAM_CATEGORIES.slice();
         const cameraDefaults = {};
-        PROMO_CAMERA_PARAM_CATEGORIES.forEach(function (cat) {
+        cameraCategoryKeys.forEach(function (cat) {
             const list = cameraParams[cat] || [];
             const def = list.find(function (r) { return r.is_default === true; });
             cameraDefaults[cat] = def ? def.key : (list[0] ? list[0].key : '');
@@ -11829,8 +11834,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
             scenes,
             camera_params: cameraParams,
             camera_defaults: cameraDefaults,
-            camera_categories: PROMO_CAMERA_PARAM_CATEGORIES,
-            camera_ui: PROMO_CAMERA_UI_CONFIG,
+            camera_categories: cameraCategoryKeys,
+            camera_category_defs: cameraCategoryRows,
+            camera_ui: cameraUi,
             points_standard: pointsCfg.standard,
             points_subscriber: pointsCfg.subscriber,
             points_per_extra_mp: pointsCfg.perExtraMp,
@@ -11841,6 +11847,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
             slot_migration_hint: slotMigrationHint,
             camera_migration_hint: camResult.error === 'MIGRATION_REQUIRED'
                 ? '請執行 docs/add-promo-camera-params.sql'
+                : undefined,
+            camera_categories_migration_hint: (await fetchPromoCameraParamCategories(true)).error === 'MIGRATION_REQUIRED'
+                ? '請執行 docs/add-promo-camera-param-categories.sql'
                 : undefined,
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
@@ -13431,7 +13440,7 @@ const PROMO_CAMERA_FOCAL_LENGTH_TO_LENS = {
     mm135: 'portrait_135'
 };
 
-/** 攝影模擬控制台 UI 規則（前台依此渲染，選項內容仍由 DB 管理） */
+/** 攝影模擬控制台 UI 規則（DB 分類表不可用時的 fallback） */
 const PROMO_CAMERA_UI_CONFIG = {
     category_labels: {
         camera_brand: '品牌色彩',
@@ -13459,9 +13468,194 @@ const PROMO_CAMERA_UI_CONFIG = {
     angle_button_category: 'shooting_angle'
 };
 
-function sanitizePromoCameraKeys(cameraKeys) {
+const PROMO_CAMERA_CATEGORY_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, sort_order, is_active, meta, created_at, updated_at';
+
+function applyPromoCameraCategoryLocale(row, lang) {
+    if (!row) return row;
+    return applyPromoSceneTemplateLocale(row, lang);
+}
+
+function pickPromoCameraGroupLabel(meta, lang) {
+    const m = meta && typeof meta === 'object' ? meta : {};
+    const base = String(m.group || '').trim();
+    if (!lang || lang === 'zh') return base;
+    if (lang === 'en' && m.group_en) return String(m.group_en).trim() || base;
+    const col = PROMO_SCENE_LOCALE_COL[lang];
+    if (col && m['group_' + lang]) return String(m['group_' + lang]).trim() || base;
+    return base;
+}
+
+function applyPromoCameraOptionLocale(row, lang) {
+    if (!row) return row;
+    const localized = applyPromoSceneTemplateLocale(row, lang);
+    if (lang === 'en' && row.description_en) {
+        localized.description = String(row.description_en).trim() || localized.description;
+    }
+    const meta = row.meta && typeof row.meta === 'object' ? Object.assign({}, row.meta) : {};
+    const groupDisplay = pickPromoCameraGroupLabel(meta, lang);
+    if (groupDisplay) meta.group_display = groupDisplay;
+    localized.meta = meta;
+    return localized;
+}
+
+function buildPromoCameraUiConfigFromCategories(categories, lang) {
+    const rows = (categories || []).slice().sort(function (a, b) {
+        return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+    });
+    if (!rows.length) return Object.assign({}, PROMO_CAMERA_UI_CONFIG);
+    const categoryLabels = {};
+    const groupableCategories = [];
+    const uiHiddenCategories = [];
+    let angleButtonCategory = null;
+    let lensPrimaryCategory = 'lens';
+    const exclusiveMap = {};
+    rows.forEach(function (cat) {
+        const key = String(cat.key || '').trim();
+        if (!key) return;
+        const localized = applyPromoCameraCategoryLocale(cat, lang);
+        categoryLabels[key] = localized.name || key;
+        const meta = cat.meta && typeof cat.meta === 'object' ? cat.meta : {};
+        if (meta.groupable) groupableCategories.push(key);
+        if (meta.ui_type === 'hidden') uiHiddenCategories.push(key);
+        if (meta.ui_type === 'angle_buttons') angleButtonCategory = key;
+        if (meta.lens_primary) lensPrimaryCategory = key;
+        const eg = String(meta.exclusive_group || '').trim();
+        if (eg) {
+            if (!exclusiveMap[eg]) {
+                exclusiveMap[eg] = {
+                    id: eg,
+                    label: meta.exclusive_group_label || eg,
+                    label_en: meta.exclusive_group_label_en || null,
+                    categories: []
+                };
+            }
+            exclusiveMap[eg].categories.push({
+                key: key,
+                order: Number(meta.exclusive_group_order) || 0
+            });
+        }
+    });
+    const exclusiveGroups = Object.keys(exclusiveMap).map(function (gid) {
+        const g = exclusiveMap[gid];
+        g.categories.sort(function (a, b) { return a.order - b.order; });
+        let label = g.label;
+        if (lang === 'en' && g.label_en) label = g.label_en;
+        return {
+            id: g.id,
+            label: label,
+            categories: g.categories.map(function (c) { return c.key; }),
+            default_category: g.categories.length ? g.categories[0].key : null
+        };
+    });
+    return {
+        category_labels: categoryLabels,
+        exclusive_groups: exclusiveGroups.length ? exclusiveGroups : PROMO_CAMERA_UI_CONFIG.exclusive_groups,
+        ui_hidden_categories: uiHiddenCategories.length ? uiHiddenCategories : PROMO_CAMERA_UI_CONFIG.ui_hidden_categories,
+        lens_primary_category: lensPrimaryCategory || PROMO_CAMERA_UI_CONFIG.lens_primary_category,
+        groupable_categories: groupableCategories.length ? groupableCategories : PROMO_CAMERA_UI_CONFIG.groupable_categories,
+        group_meta_key: 'group',
+        angle_button_category: angleButtonCategory || PROMO_CAMERA_UI_CONFIG.angle_button_category
+    };
+}
+
+async function fetchPromoCameraParamCategories(activeOnly) {
+    try {
+        let q = supabase.from('promo_camera_param_categories')
+            .select(PROMO_CAMERA_CATEGORY_SELECT)
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (activeOnly) q = q.eq('is_active', true);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return { categories: [], error: 'MIGRATION_REQUIRED' };
+            }
+            return { categories: [], error: error.message || 'query_failed' };
+        }
+        return { categories: data || [], error: null };
+    } catch (e) {
+        return { categories: [], error: e.message || 'query_failed' };
+    }
+}
+
+async function getPromoCameraCategoryKeys(activeOnly, includeLegacy) {
+    const res = await fetchPromoCameraParamCategories(activeOnly);
+    if (res.categories && res.categories.length) {
+        return res.categories
+            .filter(function (c) { return includeLegacy || String((c.meta && c.meta.ui_type) || '') !== 'hidden'; })
+            .map(function (c) { return c.key; })
+            .filter(Boolean);
+    }
+    return includeLegacy ? PROMO_CAMERA_ADMIN_CATEGORIES.slice() : PROMO_CAMERA_PARAM_CATEGORIES.slice();
+}
+
+async function isPromoCameraCategoryKeyValid(categoryKey) {
+    const key = String(categoryKey || '').trim();
+    if (!key) return false;
+    const res = await fetchPromoCameraParamCategories(false);
+    if (res.categories && res.categories.length) {
+        return res.categories.some(function (c) { return c.key === key; });
+    }
+    return PROMO_CAMERA_ADMIN_CATEGORIES.includes(key);
+}
+
+function normalizePromoCameraCategoryKey(raw) {
+    return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
+}
+
+function appendPromoCameraCategoryMultilangFields(payload, body) {
+    if (!body || typeof body !== 'object') return payload;
+    if (body.name_en !== undefined) payload.name_en = body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null;
+    for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) {
+        if (body[col] !== undefined) payload[col] = body[col] != null && String(body[col]).trim() !== '' ? String(body[col]).trim() : null;
+    }
+    return payload;
+}
+
+function buildPromoCameraCategoryMetaFromBody(body) {
+    const meta = body && body.meta && typeof body.meta === 'object' ? Object.assign({}, body.meta) : {};
+    if (body.ui_type !== undefined) meta.ui_type = String(body.ui_type || 'dropdown').trim() || 'dropdown';
+    if (body.groupable !== undefined) meta.groupable = !!body.groupable;
+    if (body.lens_primary !== undefined) meta.lens_primary = !!body.lens_primary;
+    if (body.exclusive_group !== undefined) {
+        const eg = String(body.exclusive_group || '').trim();
+        if (eg) meta.exclusive_group = eg;
+        else delete meta.exclusive_group;
+    }
+    if (body.exclusive_group_label !== undefined) meta.exclusive_group_label = String(body.exclusive_group_label || '').trim() || null;
+    if (body.exclusive_group_label_en !== undefined) meta.exclusive_group_label_en = String(body.exclusive_group_label_en || '').trim() || null;
+    if (body.exclusive_group_order !== undefined) meta.exclusive_group_order = Number(body.exclusive_group_order) || 0;
+    return meta;
+}
+
+function buildPromoCameraOptionMetaFromBody(body, prevMeta) {
+    const meta = prevMeta && typeof prevMeta === 'object' ? Object.assign({}, prevMeta) : {};
+    if (body.meta && typeof body.meta === 'object') Object.assign(meta, body.meta);
+    if (body.group !== undefined) {
+        const g = String(body.group || '').trim();
+        if (g) meta.group = g;
+        else delete meta.group;
+    }
+    if (body.group_en !== undefined) {
+        const ge = String(body.group_en || '').trim();
+        if (ge) meta.group_en = ge;
+        else delete meta.group_en;
+    }
+    for (const lang of ['ja', 'es', 'de', 'fr']) {
+        const field = 'group_' + lang;
+        if (body[field] !== undefined) {
+            const val = String(body[field] || '').trim();
+            if (val) meta[field] = val;
+            else delete meta[field];
+        }
+    }
+    return meta;
+}
+
+function sanitizePromoCameraKeys(cameraKeys, uiConfig) {
+    const ui = uiConfig && typeof uiConfig === 'object' ? uiConfig : PROMO_CAMERA_UI_CONFIG;
     const keys = cameraKeys && typeof cameraKeys === 'object' ? { ...cameraKeys } : {};
-    const lookGroup = (PROMO_CAMERA_UI_CONFIG.exclusive_groups || [])[0];
+    const lookGroup = (ui.exclusive_groups || [])[0];
     if (lookGroup && lookGroup.categories && lookGroup.categories.length >= 2) {
         const digitalCat = lookGroup.categories[0];
         const filmCat = lookGroup.categories[1];
@@ -13474,7 +13668,7 @@ function sanitizePromoCameraKeys(cameraKeys) {
             delete keys[filmCat];
         }
     }
-    const lensPrimary = PROMO_CAMERA_UI_CONFIG.lens_primary_category || 'lens';
+    const lensPrimary = ui.lens_primary_category || 'lens';
     if (keys[lensPrimary]) {
         delete keys.focal_length;
         delete keys.lens_type;
@@ -13492,40 +13686,53 @@ function normalizePromoCameraParamKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
 }
 
-async function fetchPromoCameraParamOptionsGrouped(activeOnly) {
+async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
+    const categoryRes = await fetchPromoCameraParamCategories(activeOnly);
+    const categoryKeys = (categoryRes.categories && categoryRes.categories.length)
+        ? categoryRes.categories.map(function (c) { return c.key; })
+        : PROMO_CAMERA_ADMIN_CATEGORIES.slice();
     const grouped = {};
-    PROMO_CAMERA_PARAM_CATEGORIES.forEach(function (c) { grouped[c] = []; });
+    categoryKeys.forEach(function (c) { grouped[c] = []; });
     try {
-        let q = supabase.from('promo_camera_param_options')
-            .select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default')
+        const selectFull = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, sort_order, is_active, is_default';
+        const selectLegacy = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default';
+        let q = supabase.from('promo_camera_param_options').select(selectFull)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
         if (activeOnly) q = q.eq('is_active', true);
-        const { data, error } = await q;
+        let { data, error } = await q;
+        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+            q = supabase.from('promo_camera_param_options').select(selectLegacy)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true });
+            if (activeOnly) q = q.eq('is_active', true);
+            ({ data, error } = await q);
+        }
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
-                return { grouped: grouped, error: 'MIGRATION_REQUIRED' };
+                return { grouped: grouped, categories: categoryRes.categories || [], error: 'MIGRATION_REQUIRED' };
             }
-            return { grouped: grouped, error: error.message || 'query_failed' };
+            return { grouped: grouped, categories: categoryRes.categories || [], error: error.message || 'query_failed' };
         }
         (data || []).forEach(function (row) {
             const cat = String(row.category || '').trim();
             if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(row);
+            grouped[cat].push(applyPromoCameraOptionLocale(row, lang));
         });
-        return { grouped: grouped, error: null };
+        return { grouped: grouped, categories: categoryRes.categories || [], error: null };
     } catch (e) {
-        return { grouped: grouped, error: e.message || 'query_failed' };
+        return { grouped: grouped, categories: categoryRes.categories || [], error: e.message || 'query_failed' };
     }
 }
 
-async function resolvePromoCameraPromptFragments(cameraKeys) {
-    const keys = sanitizePromoCameraKeys(cameraKeys);
+async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
+    const keys = sanitizePromoCameraKeys(cameraKeys, uiConfig);
     const fragments = [];
     const fragmentsByCategory = {};
     const resolved = {};
-    for (let i = 0; i < PROMO_CAMERA_PARAM_CATEGORIES.length; i++) {
-        const cat = PROMO_CAMERA_PARAM_CATEGORIES[i];
+    const categoryKeys = await getPromoCameraCategoryKeys(true, true);
+    for (let i = 0; i < categoryKeys.length; i++) {
+        const cat = categoryKeys[i];
         const k = normalizePromoCameraParamKey(keys[cat]);
         if (!k) continue;
         try {
@@ -13541,7 +13748,7 @@ async function resolvePromoCameraPromptFragments(cameraKeys) {
                 fragments.push(frag);
                 fragmentsByCategory[cat] = frag;
                 resolved[cat] = { key: data.key, name: data.name || data.key };
-            } else if (cat === 'shooting_angle') {
+            } else if (cat === 'shooting_angle' || (uiConfig && uiConfig.angle_button_category === cat)) {
                 resolved[cat] = { key: data.key, name: data.name || data.key };
             }
         } catch (_) { /* skip */ }
@@ -13590,7 +13797,9 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
         if (scene.prompt) parts.push(scene.prompt);
         if (scene.composition) parts.push(scene.composition);
     }
-    const cam = await resolvePromoCameraPromptFragments(cameraKeys);
+    const catRes = await fetchPromoCameraParamCategories(true);
+    const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
+    const cam = await resolvePromoCameraPromptFragments(cameraKeys, cameraUi);
     const angleFrag = cam.fragmentsByCategory && cam.fragmentsByCategory.shooting_angle;
     if (angleFrag) {
         parts.push('Camera viewpoint and product presentation angle (same product identity, new shooting direction only; do not change scene theme)');
@@ -28871,7 +29080,121 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
     }
 });
 
-const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
+const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, sort_order, is_active, is_default, created_at, updated_at';
+
+// GET /api/admin/promo-camera-param-categories
+app.get('/api/admin/promo-camera-param-categories', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const resCat = await fetchPromoCameraParamCategories(false);
+        if (resCat.error === 'MIGRATION_REQUIRED') {
+            return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-categories.sql', code: 'MIGRATION_REQUIRED' });
+        }
+        if (resCat.error) return res.status(500).json({ error: '查詢失敗' });
+        res.json({ items: resCat.categories || [] });
+    } catch (e) {
+        console.error('GET /api/admin/promo-camera-param-categories 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/promo-camera-param-categories
+app.post('/api/admin/promo-camera-param-categories', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const key = normalizePromoCameraCategoryKey(body.key);
+        const name = String(body.name || '').trim();
+        if (!key) return res.status(400).json({ error: '請填寫 key' });
+        if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        let payload = {
+            key,
+            name,
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active,
+            meta: buildPromoCameraCategoryMetaFromBody(body),
+            updated_at: new Date().toISOString()
+        };
+        payload = appendPromoCameraCategoryMultilangFields(payload, body);
+        const { data, error } = await supabase.from('promo_camera_param_categories').insert(payload).select(PROMO_CAMERA_CATEGORY_SELECT).single();
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-categories.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
+            console.error('POST /api/admin/promo-camera-param-categories:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/promo-camera-param-categories 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/promo-camera-param-categories/:id
+app.put('/api/admin/promo-camera-param-categories/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.key !== undefined) {
+            const key = normalizePromoCameraCategoryKey(body.key);
+            if (!key) return res.status(400).json({ error: 'key 不可為空' });
+            updates.key = key;
+        }
+        if (body.name !== undefined) {
+            const name = String(body.name || '').trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            updates.name = name;
+        }
+        appendPromoCameraCategoryMultilangFields(updates, body);
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.meta !== undefined || body.ui_type !== undefined || body.groupable !== undefined || body.exclusive_group !== undefined) {
+            const { data: cur } = await supabase.from('promo_camera_param_categories').select('meta').eq('id', id).maybeSingle();
+            updates.meta = buildPromoCameraCategoryMetaFromBody(Object.assign({}, cur && cur.meta, body));
+        }
+        const { data, error } = await supabase.from('promo_camera_param_categories').update(updates).eq('id', id).select(PROMO_CAMERA_CATEGORY_SELECT).single();
+        if (error) {
+            console.error('PUT /api/admin/promo-camera-param-categories:', error);
+            return res.status(500).json({ error: '儲存失敗' });
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/promo-camera-param-categories 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/promo-camera-param-categories/:id
+app.delete('/api/admin/promo-camera-param-categories/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { data: row } = await supabase.from('promo_camera_param_categories').select('key').eq('id', id).maybeSingle();
+        if (row && row.key) {
+            const { count } = await supabase.from('promo_camera_param_options').select('id', { count: 'exact', head: true }).eq('category', row.key);
+            if (count > 0) return res.status(400).json({ error: '此分類下仍有選項，請先刪除或移走選項' });
+        }
+        const { error } = await supabase.from('promo_camera_param_categories').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/admin/promo-camera-param-categories:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/promo-camera-param-categories 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
 
 // GET /api/admin/promo-camera-params
 app.get('/api/admin/promo-camera-params', async (req, res) => {
@@ -28879,14 +29202,26 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
         const user = await requireAdmin(req, res);
         if (!user) return;
         const category = String(req.query.category || '').trim();
+        const catRes = await fetchPromoCameraParamCategories(false);
+        const categoryDefs = catRes.categories && catRes.categories.length ? catRes.categories : [];
+        const categoryKeys = categoryDefs.length ? categoryDefs.map(function (c) { return c.key; }) : PROMO_CAMERA_ADMIN_CATEGORIES;
         let q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT)
             .order('category', { ascending: true })
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
-        if (category && PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
+        if (category && categoryKeys.includes(category)) {
             q = q.eq('category', category);
         }
-        const { data, error } = await q;
+        let { data, error } = await q;
+        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+            q = supabase.from('promo_camera_param_options')
+                .select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at')
+                .order('category', { ascending: true })
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true });
+            if (category && categoryKeys.includes(category)) q = q.eq('category', category);
+            ({ data, error } = await q);
+        }
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
@@ -28894,7 +29229,12 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             console.error('GET /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        res.json({ items: data || [], categories: PROMO_CAMERA_ADMIN_CATEGORIES });
+        res.json({
+            items: data || [],
+            categories: categoryKeys,
+            category_defs: categoryDefs,
+            categories_migration_hint: catRes.error === 'MIGRATION_REQUIRED' ? '請執行 docs/add-promo-camera-param-categories.sql' : undefined
+        });
     } catch (e) {
         console.error('GET /api/admin/promo-camera-params 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -28910,8 +29250,8 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
         const category = String(body.category || '').trim();
         const key = normalizePromoCameraParamKey(body.key);
         const name = String(body.name || '').trim();
-        if (!PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
-            return res.status(400).json({ error: '無效的 category' });
+        if (!(await isPromoCameraCategoryKeyValid(category))) {
+            return res.status(400).json({ error: '無效的 category，請先在「參數分類」建立' });
         }
         if (!key) return res.status(400).json({ error: '請填寫 key' });
         if (!name) return res.status(400).json({ error: '請填寫名稱' });
@@ -28919,19 +29259,25 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             category,
             key,
             name,
-            name_en: body.name_en != null ? String(body.name_en).trim() : null,
+            name_en: body.name_en != null ? String(body.name_en).trim() || null : null,
             prompt_fragment: body.prompt_fragment != null ? String(body.prompt_fragment) : '',
-            description: body.description != null ? String(body.description).trim() : null,
-            meta: body.meta && typeof body.meta === 'object' ? body.meta : {},
+            description: body.description != null ? String(body.description).trim() || null : null,
+            description_en: body.description_en != null ? String(body.description_en).trim() || null : null,
+            meta: buildPromoCameraOptionMetaFromBody(body, {}),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
             is_default: !!body.is_default,
             updated_at: new Date().toISOString()
         };
+        appendPromoCameraCategoryMultilangFields(payload, body);
         if (payload.is_default) {
             await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', category);
         }
-        const { data, error } = await supabase.from('promo_camera_param_options').insert(payload).select(PROMO_CAMERA_PARAM_SELECT).single();
+        let { data, error } = await supabase.from('promo_camera_param_options').insert(payload).select(PROMO_CAMERA_PARAM_SELECT).single();
+        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+            delete payload.description_en;
+            ({ data, error } = await supabase.from('promo_camera_param_options').insert(payload).select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at').single());
+        }
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
@@ -28958,7 +29304,7 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
         const updates = { updated_at: new Date().toISOString() };
         if (body.category !== undefined) {
             const category = String(body.category || '').trim();
-            if (!PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
+            if (!(await isPromoCameraCategoryKeyValid(category))) {
                 return res.status(400).json({ error: '無效的 category' });
             }
             updates.category = category;
@@ -28974,9 +29320,14 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             updates.name = name;
         }
         if (body.name_en !== undefined) updates.name_en = String(body.name_en || '').trim() || null;
+        appendPromoCameraCategoryMultilangFields(updates, body);
         if (body.prompt_fragment !== undefined) updates.prompt_fragment = String(body.prompt_fragment);
         if (body.description !== undefined) updates.description = String(body.description || '').trim() || null;
-        if (body.meta !== undefined) updates.meta = body.meta && typeof body.meta === 'object' ? body.meta : {};
+        if (body.description_en !== undefined) updates.description_en = String(body.description_en || '').trim() || null;
+        if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
+            const { data: cur } = await supabase.from('promo_camera_param_options').select('meta').eq('id', id).maybeSingle();
+            updates.meta = buildPromoCameraOptionMetaFromBody(body, cur && cur.meta);
+        }
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
         if (body.is_default !== undefined) {

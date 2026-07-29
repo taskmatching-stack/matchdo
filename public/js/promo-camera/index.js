@@ -501,7 +501,7 @@
     bindEvents();
     initFromQuery();
     renderMessages();
-    Api.loadOptions('zh').then(function (res) {
+    Api.loadOptions((window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh').then(function (res) {
       if (!res.ok || !res.data) {
         St.pushMessage('system', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql');
         renderMessages();
