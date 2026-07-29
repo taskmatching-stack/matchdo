@@ -13758,7 +13758,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
             .order('key', { ascending: true });
         if (activeOnly) q = q.eq('is_active', true);
         let { data, error } = await q;
-        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+        if (error && isSupabaseMissingColumnError(error)) {
             q = supabase.from('promo_camera_param_options').select(selectLegacy)
                 .order('sort_order', { ascending: true })
                 .order('key', { ascending: true });
@@ -13769,6 +13769,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return { grouped: grouped, categories: categoryRes.categories || [], error: 'MIGRATION_REQUIRED' };
             }
+            console.error('fetchPromoCameraParamOptionsGrouped:', error.message || error);
             return { grouped: grouped, categories: categoryRes.categories || [], error: error.message || 'query_failed' };
         }
         (data || []).forEach(function (row) {
@@ -29282,7 +29283,7 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             q = q.eq('category', category);
         }
         let { data, error } = await q;
-        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+        if (error && isSupabaseMissingColumnError(error)) {
             q = supabase.from('promo_camera_param_options')
                 .select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at')
                 .order('category', { ascending: true })
