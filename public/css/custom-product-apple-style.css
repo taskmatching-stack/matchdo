@@ -1,365 +1,501 @@
 /**
- * custom-product.html Apple 風格優化
- * 設計原則：去邊框化、大留白、柔和陰影、整體感
+ * custom-product.html iOS APP 極簡風格
+ * 設計原則：零框線、扁平化、大留白、純色背景分層
  */
 
-/* ===== 1. 主容器優化 ===== */
+/* ===== 強制覆蓋：移除所有框線 ===== */
+#custom-product *,
+#custom-product *::before,
+#custom-product *::after {
+    border-color: transparent !important;
+}
+
+/* ===== 1. 主容器 iOS 卡片風格 ===== */
 #custom-product {
-    max-width: 1200px;
-    margin: 0 auto;
-    background: #fafafa; /* 淺背景增加層次 */
-    border-radius: 0;
-    padding: 2.5rem 1rem;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    background: #f2f2f7 !important; /* iOS 背景灰 */
+    padding: 1.5rem 1rem !important;
 }
 
 #custom-product .create-panel {
-    display: grid;
-    grid-template-columns: minmax(340px, 440px) 1fr;
-    gap: 3rem; /* 增大間距 */
-    align-items: start;
-    background: #fff;
-    border-radius: 20px; /* 更大圓角 */
-    padding: 2.5rem;
-    box-shadow: 0 4px 24px rgba(0,0,0,.04), 0 0 1px rgba(0,0,0,.05); /* 柔和陰影取代邊框 */
-    border: none; /* 移除邊框 */
+    display: grid !important;
+    grid-template-columns: minmax(340px, 440px) 1fr !important;
+    gap: 2rem !important;
+    align-items: start !important;
+    background: #fff !important;
+    border-radius: 16px !important;
+    padding: 2rem !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05) !important;
+    border: none !important;
 }
 
-/* ===== 2. 表單元素去邊框化 ===== */
+/* ===== 2. 表單元素 iOS 風格 ===== */
 #custom-product .form-control,
 #custom-product .form-select {
-    border: none;
-    background: #f5f5f7; /* Apple 灰 */
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
-    font-size: 0.9375rem;
-    transition: background 0.2s, box-shadow 0.2s;
+    border: none !important;
+    background: #f2f2f7 !important; /* iOS 灰 */
+    border-radius: 10px !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+    transition: background 0.15s !important;
 }
 
 #custom-product .form-control:focus,
 #custom-product .form-select:focus {
-    background: #fff;
-    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1), 0 2px 8px rgba(0,0,0,.08);
-    outline: none;
-    border: none;
+    background: #e5e5ea !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 #custom-product textarea.form-control {
-    min-height: 88px;
+    min-height: 88px !important;
 }
 
-/* ===== 3. 參考圖區塊整體化 ===== */
-#custom-product .ref-intent-tabs {
-    border: none;
-    background: #f5f5f7;
-    border-radius: 14px;
-    padding: 0.5rem;
-    display: flex;
-    gap: 0.25rem;
-    margin-bottom: 1.5rem; /* 增大間距 */
-}
-
-#custom-product .ref-intent-tab-btn {
-    flex: 1;
-    border: none;
-    background: transparent;
-    border-radius: 10px;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: #6e6e73;
-    transition: all 0.2s;
-}
-
-#custom-product .ref-intent-tab-btn.active {
-    background: #fff;
-    color: #1d1d1f;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
-}
-
-/* Panel 去邊框，用背景色 */
-#custom-product .ref-intent-panel {
-    padding: 1.25rem;
-    border: none; /* 移除所有邊框 */
-    background: #fafafa;
-    border-radius: 16px;
-    margin-top: -0.5rem;
-}
-
-/* ===== 4. 參考圖縮圖卡片化 ===== */
-#custom-product .ref-intent-thumbs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem; /* 增大間距 */
-    margin: 1rem 0;
-}
-
-#custom-product .ref-intent-thumb {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    border-radius: 12px;
-    border: none;
-    background: #f5f5f7;
-    overflow: hidden;
-    cursor: zoom-in;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-#custom-product .ref-intent-thumb:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,.12);
-}
-
-#custom-product .ref-intent-thumb-add {
-    border: 2px dashed #d1d1d6;
-    background: transparent;
-}
-
-#custom-product .ref-intent-thumb-add:hover {
-    border-color: #007aff;
-    background: #f5f5f7;
-}
-
-/* ===== 5. 按鈕優化 ===== */
+/* ===== 3. 按鈕扁平化（iOS 風格） ===== */
 #custom-product .btn-generate {
-    width: 100%;
-    padding: 1rem;
-    font-size: 1.0625rem;
-    font-weight: 600;
-    border-radius: 14px;
-    border: none;
-    margin-top: 2rem; /* 增大上邊距 */
-    background: linear-gradient(135deg, #007aff 0%, #0051d5 100%);
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100% !important;
+    padding: 1rem !important;
+    font-size: 1.0625rem !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    border: none !important;
+    margin-top: 1.5rem !important;
+    background: #007aff !important; /* iOS 藍 */
+    color: #fff !important;
+    box-shadow: none !important;
+    transition: opacity 0.2s !important;
 }
 
 #custom-product .btn-generate:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+    opacity: 0.8 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
-#custom-product .ref-intent-btn {
-    border: none;
-    background: #f5f5f7;
-    border-radius: 10px;
-    padding: 0.65rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #1d1d1f;
-    transition: all 0.2s;
+#custom-product .btn-generate:active {
+    opacity: 0.6 !important;
 }
 
-#custom-product .ref-intent-btn:hover {
-    background: #e8e8ed;
-    transform: translateY(-1px);
+/* ===== 4. 參考圖 Tab - 零框線分段控制器 ===== */
+#custom-product .ref-intent-tabs {
+    border: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 10px !important;
+    padding: 0.25rem !important;
+    display: flex !important;
+    gap: 0.25rem !important;
+    margin-bottom: 1rem !important;
 }
 
-/* ===== 6. 畫布區域 ===== */
+#custom-product .ref-intent-tab-btn {
+    flex: 1 !important;
+    border: none !important;
+    background: transparent !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+    color: #000 !important;
+    transition: all 0.2s !important;
+}
+
+#custom-product .ref-intent-tab-btn.active {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08) !important;
+}
+
+/* ===== 5. 參考圖 Panel - 零框線 ===== */
+#custom-product .ref-intent-panel {
+    padding: 1rem !important;
+    border: none !important;
+    border-left: none !important;
+    border-top: none !important;
+    background: transparent !important;
+    margin-top: 0 !important;
+}
+
+/* ===== 6. 參考圖縮圖 - 零框線 ===== */
+#custom-product .ref-intent-thumbs {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+    margin: 0.75rem 0 !important;
+}
+
+#custom-product .ref-intent-thumb-cell {
+    width: 76px !important;
+    max-width: 76px !important;
+}
+
+#custom-product .ref-intent-thumb {
+    position: relative !important;
+    width: 76px !important;
+    height: 76px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    background: #f2f2f7 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    transition: opacity 0.2s !important;
+}
+
+#custom-product .ref-intent-thumb:hover {
+    opacity: 0.7 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+#custom-product .ref-intent-thumb-add {
+    border: none !important;
+    background: #f2f2f7 !important;
+}
+
+#custom-product .ref-intent-thumb-add:hover {
+    background: #e5e5ea !important;
+}
+
+/* ===== 7. 次要按鈕 iOS 風格 ===== */
+#custom-product .ref-intent-btn,
+#custom-product .btn:not(.btn-generate):not(.btn-primary) {
+    border: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 10px !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    color: #000 !important;
+    transition: opacity 0.2s !important;
+}
+
+#custom-product .ref-intent-btn:hover,
+#custom-product .btn:not(.btn-generate):not(.btn-primary):hover {
+    background: #e5e5ea !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+#custom-product .ref-intent-btn:active,
+#custom-product .btn:not(.btn-generate):not(.btn-primary):active {
+    opacity: 0.6 !important;
+}
+
+/* ===== 8. 畫布區域 ===== */
 #custom-product .create-panel-right {
-    background: #fafafa;
-    border-radius: 20px;
-    padding: 2rem;
-    min-height: 520px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,.04);
-    border: none;
+    background: #f2f2f7 !important;
+    border-radius: 16px !important;
+    padding: 2rem !important;
+    min-height: 480px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: none !important;
 }
 
 #custom-product #generatedImagePreview {
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0,0,0,.12);
-    border: none;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1) !important;
+    border: none !important;
 }
 
-/* ===== 7. 移除零碎分隔線 ===== */
+/* ===== 9. 卡片零框線 ===== */
 #custom-product .ref-card {
-    border: none;
-    border-radius: 14px;
-    padding: 1rem;
-    background: #fff;
-    box-shadow: 0 2px 12px rgba(0,0,0,.06);
-    margin-bottom: 0.75rem;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.875rem !important;
+    background: #f2f2f7 !important;
+    margin-bottom: 0.5rem !important;
+    box-shadow: none !important;
 }
 
 #custom-product .ref-card.ref-card-selected {
-    background: #f0f8ff;
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.15);
+    background: #e5e5ea !important;
 }
 
-/* ===== 8. 提示文字優化 ===== */
-#custom-product .label,
-#custom-product .form-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #1d1d1f;
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.01em;
+#custom-product .ref-card .ref-desc {
+    border: none !important;
+    background: #fff !important;
+    border-radius: 8px !important;
 }
 
-#custom-product .ref-intent-hint {
-    font-size: 0.875rem;
-    line-height: 1.5;
-    color: #6e6e73;
-    margin-bottom: 0.75rem;
-    font-weight: 400;
+/* ===== 10. 標籤 Badge 零框線 ===== */
+#custom-product .ref-intent-tab-badge,
+#custom-product .ref-intent-total-pill,
+#custom-product .vendor-custom-badge,
+#custom-product .vendor-custom-badge--supported,
+#custom-product .vendor-custom-badge--unsupported {
+    border: none !important;
+    box-shadow: none !important;
 }
 
-/* ===== 9. 分類選擇器優化 ===== */
-#custom-product .category-picker-wrap {
-    background: #f5f5f7;
-    border-radius: 16px;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
-    border: none;
+#custom-product .vendor-custom-badge--supported {
+    background: #34c759 !important; /* iOS 綠 */
+    color: #fff !important;
 }
 
-/* ===== 10. Tab 整體感優化 ===== */
+#custom-product .vendor-custom-badge--unsupported {
+    background: #e5e5ea !important;
+    color: #8e8e93 !important;
+}
+
+/* ===== 11. Scope 區塊零框線 ===== */
+#custom-product .ref-intent-scope-block {
+    border: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 10px !important;
+    padding: 0.65rem 0.75rem !important;
+}
+
+/* ===== 12. 分隔線全移除 ===== */
+#custom-product .ref-intent-addon-details {
+    margin-top: 0.75rem !important;
+    border-top: none !important;
+    padding-top: 0 !important;
+}
+
+#custom-product .design-flow-steps {
+    border-left: none !important;
+    padding-left: 0 !important;
+}
+
+/* ===== 13. Tab 主選單零框線 ===== */
 #custom-product #designTabs {
-    border: none;
-    background: #f5f5f7;
-    border-radius: 14px;
-    padding: 0.375rem;
-    margin-bottom: 2rem;
-    display: inline-flex;
+    border: none !important;
+    border-bottom: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 12px !important;
+    padding: 0.25rem !important;
+    margin-bottom: 1.5rem !important;
+    display: inline-flex !important;
 }
 
 #custom-product #designTabs .nav-link {
-    border: none;
-    background: transparent;
-    color: #6e6e73;
-    font-weight: 500;
-    border-radius: 10px;
-    padding: 0.625rem 1.25rem;
-    transition: all 0.2s;
+    border: none !important;
+    border-bottom: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    font-weight: 500 !important;
+    border-radius: 10px !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s !important;
+    margin-bottom: 0 !important;
 }
 
 #custom-product #designTabs .nav-link.active {
-    background: #fff;
-    color: #1d1d1f;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08) !important;
 }
 
-/* ===== 11. Modal 優化 ===== */
+/* ===== 14. 分類選擇零框線 ===== */
+#custom-product .category-picker-wrap {
+    background: #f2f2f7 !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    border: none !important;
+}
+
+#custom-product .cat-main-panel,
+#custom-product .cat-sub-panel {
+    border: none !important;
+    border-right: none !important;
+}
+
+#custom-product .cat-btn {
+    border: none !important;
+    border-bottom: none !important;
+}
+
+/* ===== 15. Modal 零框線 ===== */
 .modal-content {
-    border: none;
-    border-radius: 20px;
-    box-shadow: 0 12px 48px rgba(0,0,0,.15);
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,.15) !important;
 }
 
 .modal-header {
-    border-bottom: 1px solid #f5f5f7;
-    padding: 1.25rem 1.5rem;
+    border-bottom: none !important;
+    padding: 1.25rem 1.5rem 0.5rem !important;
+    background: transparent !important;
 }
 
 .modal-body {
-    padding: 1.5rem;
+    padding: 1rem 1.5rem !important;
 }
 
 .modal-footer {
-    border-top: 1px solid #f5f5f7;
-    padding: 1rem 1.5rem;
+    border-top: none !important;
+    padding: 0.75rem 1.5rem 1.25rem !important;
+    background: transparent !important;
 }
 
-/* ===== 12. 廠商素材卡片 ===== */
+#pastItemModal .modal-header,
+#pastItemModal .modal-footer {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* ===== 16. 廠商素材卡片零框線 ===== */
 #vendorAssetsPickerModal .vendor-asset-card {
-    border: none;
-    border-radius: 14px;
-    background: #fff;
-    box-shadow: 0 2px 12px rgba(0,0,0,.06);
-    transition: all 0.2s;
+    border: none !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
+    transition: opacity 0.2s !important;
 }
 
 #vendorAssetsPickerModal .vendor-asset-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    opacity: 0.8 !important;
+    transform: none !important;
 }
 
-/* ===== 13. 手機版優化保持 ===== */
+#vendorAssetsPickerModal .vendor-asset-card--vendor-linked {
+    border: none !important;
+    box-shadow: 0 0 0 2px #007aff !important;
+}
+
+/* ===== 17. 圖片勾選零框線 ===== */
+#vendorAssetImagesPickModal .vendor-asset-pick-item {
+    border: none !important;
+    border-radius: 10px !important;
+    background: #f2f2f7 !important;
+}
+
+#vendorAssetImagesPickModal .vendor-asset-pick-item:has(input:checked) {
+    background: #e5e5ea !important;
+    box-shadow: 0 0 0 2px #007aff !important;
+}
+
+#vendorAssetImagesPickModal .vendor-asset-pick-item-check {
+    border: none !important;
+    background: #fff !important;
+}
+
+#vendorAssetImagesPickModal .vendor-asset-pick-item:has(input:checked) .vendor-asset-pick-item-check {
+    background: #007aff !important;
+}
+
+/* ===== 18. Alert 零框線 ===== */
+#custom-product .alert,
+#custom-product .design-ai-disclaimer {
+    border: none !important;
+    border-left: none !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+
+#custom-product .design-ai-disclaimer {
+    background: #fff3cd !important;
+    color: #856404 !important;
+}
+
+/* ===== 19. Bottom Sheet 零框線 ===== */
+.cat-bottom-sheet .cat-bs-header {
+    border-bottom: none !important;
+    background: #f2f2f7 !important;
+}
+
+.cat-bottom-sheet .cat-bs-item {
+    border-bottom: none !important;
+}
+
+/* ===== 20. 過去作品縮圖零框線 ===== */
+#custom-product .past-gallery-inner .past-item {
+    border: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08) !important;
+}
+
+/* ===== 21. 文字輸入框特別處理 ===== */
+#custom-product input[type="text"],
+#custom-product input[type="search"],
+#custom-product input[type="number"],
+#custom-product textarea,
+#custom-product select {
+    border: none !important;
+    outline: none !important;
+}
+
+/* ===== 22. 輸入框上傳區零框線 ===== */
+#custom-product .scene-sim-upload-zone,
+#custom-product .scene-sim-preview-wrap {
+    border: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 12px !important;
+}
+
+/* ===== 23. 手機版維持簡潔 ===== */
 @media (max-width: 768px) {
     #custom-product {
-        padding: 0.75rem;
-        background: #fff;
+        padding: 0.5rem !important;
+        background: #fff !important;
     }
     
     #custom-product .create-panel {
-        grid-template-columns: 1fr;
-        padding: 1rem;
-        gap: 1.5rem;
-        border-radius: 16px;
+        grid-template-columns: 1fr !important;
+        padding: 1rem !important;
+        gap: 1rem !important;
+        box-shadow: none !important;
     }
     
     #custom-product .ref-intent-panel {
-        padding: 1rem;
-        border-radius: 14px;
+        padding: 0.75rem !important;
     }
 }
 
-/* ===== 14. 細節調整：統一圓角與陰影 ===== */
-#custom-product .alert {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+/* ===== 24. 確保所有按鈕統一 ===== */
+#custom-product .btn-outline-primary,
+#custom-product .btn-outline-secondary {
+    border: none !important;
+    background: #f2f2f7 !important;
+    color: #000 !important;
 }
 
-#custom-product .btn {
-    border-radius: 10px;
-    font-weight: 500;
-    transition: all 0.2s;
+#custom-product .btn-outline-primary:hover,
+#custom-product .btn-outline-secondary:hover {
+    background: #e5e5ea !important;
 }
 
-#custom-product .btn:not(.btn-generate):not(.btn-primary) {
-    background: #f5f5f7;
-    border: none;
-    color: #1d1d1f;
+#custom-product .btn-primary:not(.btn-generate) {
+    background: #007aff !important;
+    border: none !important;
 }
 
-#custom-product .btn:not(.btn-generate):not(.btn-primary):hover {
-    background: #e8e8ed;
-    transform: translateY(-1px);
+/* ===== 25. 所有圓角統一 ===== */
+#custom-product .rounded,
+#custom-product .border-rounded {
+    border-radius: 10px !important;
 }
 
-/* ===== 15. 進一步移除分隔線 ===== */
-#custom-product .ref-intent-addon-details {
-    margin-top: 1rem;
-    border-top: none; /* 移除虛線 */
-    padding-top: 0;
+/* ===== 26. 標籤清單項目 ===== */
+#custom-product .list-group-item {
+    border: none !important;
+    background: transparent !important;
 }
 
-#custom-product .form-row {
-    margin-bottom: 1.5rem; /* 統一更大間距 */
+/* ===== 27. 篩選器區域 ===== */
+#vendorAssetsPickerModal .vendor-picker-category-banner {
+    border: none !important;
+    background: #f2f2f7 !important;
+    border-radius: 10px !important;
 }
 
-/* ===== 16. 整體排版呼吸感 ===== */
-#custom-product .create-panel-left {
-    padding-right: 1rem;
+#vendorAssetsPickerModal .vendor-picker-more-filters {
+    border: none !important;
 }
 
-#custom-product .tab-pane {
-    animation: fadeIn 0.3s ease-in-out;
+/* ===== 28. 強制移除所有虛線邊框 ===== */
+#custom-product *[style*="border"],
+#custom-product *[style*="dashed"] {
+    border: none !important;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ===== 17. 卡片統一樣式 ===== */
-#custom-product .design-ai-disclaimer {
-    border: none;
-    border-radius: 14px;
-    box-shadow: 0 2px 12px rgba(245, 158, 11, 0.15);
-    border-left: 4px solid #f59e0b;
-    padding: 1rem 1.25rem;
+/* ===== 29. 上傳按鈕統一 ===== */
+#custom-product input[type="file"] + label,
+#custom-product .upload-label {
+    border: none !important;
+    background: #f2f2f7 !important;
 }
