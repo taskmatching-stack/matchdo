@@ -8,13 +8,13 @@
 UPDATE public.promo_camera_param_options SET
   name = 'Portra 400 風',
   description = '柯达 Portra 400 彩负風：膚色／產品色自然、顆粒細、高光柔和。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"柯达彩负"}'::jsonb
+  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"柯達彩負"}'::jsonb
 WHERE category = 'film_simulation' AND key = 'portra_400';
 
 UPDATE public.promo_camera_param_options SET
   name = 'Ektar 100 風',
   description = '柯达 Ektar 100 風：飽和度較鮮明但可控、細節銳利、顆粒細。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"柯达彩负"}'::jsonb
+  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"柯達彩負"}'::jsonb
 WHERE category = 'film_simulation' AND key = 'ektar_100';
 
 UPDATE public.promo_camera_param_options SET
