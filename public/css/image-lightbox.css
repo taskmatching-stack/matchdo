@@ -62,14 +62,14 @@
     border: none;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.95);
-    color: #7B8FA1;
+    color: #7A8FA3;
     font-size: 1.5rem;
     line-height: 1;
     cursor: pointer;
     pointer-events: auto;
 }
 .matchdo-image-lightbox-close:hover {
-    background: #7B8FA1;
+    background: #7A8FA3;
     color: #fff;
 }
 .matchdo-image-lightbox-nav {
@@ -82,7 +82,7 @@
     border: none;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.92);
-    color: #7B8FA1;
+    color: #7A8FA3;
     font-size: 1.75rem;
     line-height: 1;
     cursor: pointer;
@@ -99,7 +99,7 @@
     right: 0.5rem;
 }
 .matchdo-image-lightbox-nav:hover {
-    background: #7B8FA1;
+    background: #7A8FA3;
     color: #fff;
 }
 .matchdo-image-lightbox-counter {
@@ -149,9 +149,9 @@
     cursor: pointer;
 }
 .vendor-asset-zoom-btn:hover {
-    background: #7B8FA1;
+    background: #7A8FA3;
     color: #fff;
-    border-color: #7B8FA1;
+    border-color: #7A8FA3;
 }
 #vendorAssetsPickerModal .vendor-asset-pick-img {
     cursor: pointer;

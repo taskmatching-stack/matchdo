@@ -1,88 +1,88 @@
 /**
- * 全站配色：莫蘭迪灰藍主色 #7B8FA1
+ * 全站配色：冷調莫蘭迪灰藍 #7A8FA3
  */
 :root {
-    --bs-body-bg: #FAF9F7;
-    --bs-body-color: #6B6560;
-    --bs-primary: #7B8FA1;
-    --bs-primary-rgb: 123, 143, 161;
-    --bs-primary-dark: #687B8C;
+    --bs-body-bg: #F5F7FA;
+    --bs-body-color: #5C6670;
+    --bs-primary: #7A8FA3;
+    --bs-primary-rgb: 122, 143, 163;
+    --bs-primary-dark: #657A8E;
 }
 
 body {
-    background-color: #FAF9F7 !important;
-    color: #6B6560 !important;
+    background-color: #F5F7FA !important;
+    color: #5C6670 !important;
 }
 
 .btn-primary,
 .bg-primary.btn {
-    background-color: #7B8FA1 !important;
-    border-color: #7B8FA1 !important;
+    background-color: #7A8FA3 !important;
+    border-color: #7A8FA3 !important;
 }
 .btn-primary:hover,
 .btn-primary:focus,
 .bg-primary.btn:hover {
-    background-color: #687B8C !important;
-    border-color: #687B8C !important;
+    background-color: #657A8E !important;
+    border-color: #657A8E !important;
 }
 
 .btn-outline-primary {
-    color: #7B8FA1;
-    border-color: #7B8FA1;
+    color: #7A8FA3;
+    border-color: #7A8FA3;
 }
 .btn-outline-primary:hover {
-    background-color: #7B8FA1;
-    border-color: #7B8FA1;
+    background-color: #7A8FA3;
+    border-color: #7A8FA3;
     color: #fff;
 }
 
 a:not(.btn) {
-    color: #7B8FA1;
+    color: #7A8FA3;
 }
 a:not(.btn):hover {
-    color: #687B8C;
+    color: #657A8E;
 }
 
 .text-primary {
-    color: #7B8FA1 !important;
+    color: #7A8FA3 !important;
 }
 
 .border-primary {
-    border-color: #7B8FA1 !important;
+    border-color: #7A8FA3 !important;
 }
 
 .page-title-bar {
-    background: #FAF9F7 !important;
-    border-bottom-color: rgba(107, 101, 96, 0.14) !important;
+    background: #F5F7FA !important;
+    border-bottom-color: rgba(88, 100, 112, 0.14) !important;
 }
 .card,
 .bg-white {
-    background-color: #FAF9F7 !important;
+    background-color: #F5F7FA !important;
 }
 .bg-light {
-    background-color: #EDEAE6 !important;
+    background-color: #EAEEF3 !important;
 }
 
 .navbar .navbar-nav .nav-link:hover,
 .navbar .navbar-nav .nav-link.active {
-    color: #7B8FA1 !important;
+    color: #7A8FA3 !important;
 }
 .navbar .dropdown-menu .dropdown-item:hover,
 .navbar .dropdown-menu .dropdown-item.active {
-    background-color: #7B8FA1 !important;
+    background-color: #7A8FA3 !important;
     color: #fff !important;
 }
 
 .form-control,
 .form-select,
 .input-group-text {
-    background-color: #FAF9F7;
-    color: #6B6560;
-    border-color: rgba(107, 101, 96, 0.2);
+    background-color: #F5F7FA;
+    color: #5C6670;
+    border-color: rgba(88, 100, 112, 0.2);
 }
 
 .alert-warning {
-    color: #8B7355;
-    background-color: rgba(196, 168, 138, 0.22);
-    border-color: rgba(196, 168, 138, 0.45);
+    color: #5E6B78;
+    background-color: rgba(168, 181, 196, 0.22);
+    border-color: rgba(122, 143, 163, 0.35);
 }

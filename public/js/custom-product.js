@@ -5824,7 +5824,7 @@ $(document).ready(function () {
         reader.readAsDataURL(file);
         this.value = '';
     });
-    $('#sceneSimUploadZone').on('dragover', function (e) { e.preventDefault(); e.stopPropagation(); $(this).css('border-color', '#7B8FA1'); });
+    $('#sceneSimUploadZone').on('dragover', function (e) { e.preventDefault(); e.stopPropagation(); $(this).css('border-color', '#7A8FA3'); });
     $('#sceneSimUploadZone').on('dragleave', function (e) { e.preventDefault(); $(this).css('border-color', ''); });
     $('#sceneSimUploadZone').on('drop', function (e) {
         e.preventDefault();

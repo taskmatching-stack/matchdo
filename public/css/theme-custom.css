@@ -4,57 +4,60 @@
  */
 [data-theme="custom"],
 [data-theme="remake"] {
-    /* 主色：灰藍 */
-    --md-primary: #7B8FA1;
-    --md-primary-dark: #687B8C;
-    --md-primary-rgb: 123, 143, 161;
-    --md-primary-soft: rgba(123, 143, 161, 0.14);
-    --md-primary-softer: rgba(123, 143, 161, 0.08);
+    /* 主色：冷灰藍 */
+    --md-primary: #7A8FA3;
+    --md-primary-dark: #657A8E;
+    --md-primary-rgb: 122, 143, 163;
+    --md-primary-soft: rgba(122, 143, 163, 0.14);
+    --md-primary-softer: rgba(122, 143, 163, 0.08);
 
-    /* 文字：暖灰褐 */
-    --md-text: #6B6560;
-    --md-text-muted: #9A958F;
-    --md-text-light: #B5B0AA;
+    /* 文字：冷灰 */
+    --md-text: #5C6670;
+    --md-text-muted: #8A96A3;
+    --md-text-light: #A8B2BD;
 
-    /* 背景 */
-    --md-surface: #E8E5E0;
-    --md-surface-alt: #EDEAE6;
-    --md-card: #F5F3F0;
-    --md-white: #FAF9F7;
-    --md-border: rgba(107, 101, 96, 0.14);
-    --md-border-strong: rgba(107, 101, 96, 0.22);
+    /* 背景：冷灰藍 */
+    --md-surface: #E4E9EF;
+    --md-surface-alt: #EAEEF3;
+    --md-card: #F0F3F7;
+    --md-white: #F5F7FA;
+    --md-border: rgba(88, 100, 112, 0.14);
+    --md-border-strong: rgba(88, 100, 112, 0.22);
 
-    /* 輔色：鼠尾草（成功／支援） */
-    --md-sage: #9CAF9A;
-    --md-sage-text: #6B8068;
-    --md-sage-bg: rgba(156, 175, 154, 0.22);
+    /* 輔色：冷鼠尾草 */
+    --md-sage: #8FA89E;
+    --md-sage-text: #5A7268;
+    --md-sage-bg: rgba(143, 168, 158, 0.2);
 
-    /* 輔色：陶土（提醒／警告，取代亮橘） */
-    --md-clay: #C4A88A;
-    --md-clay-text: #8B7355;
-    --md-clay-bg: rgba(196, 168, 138, 0.22);
-    --md-clay-border: rgba(196, 168, 138, 0.45);
+    /* 輔色：冷灰藍（提醒） */
+    --md-clay: #A8B5C4;
+    --md-clay-text: #5E6B78;
+    --md-clay-bg: rgba(168, 181, 196, 0.22);
+    --md-clay-border: rgba(122, 143, 163, 0.35);
 
-    /* 輔色：灰玫瑰（提示／info） */
-    --md-rose: #B8A09A;
-    --md-rose-text: #8A7470;
-    --md-rose-bg: rgba(184, 160, 154, 0.2);
+    /* 輔色：冷灰紫（info） */
+    --md-rose: #9BA8B5;
+    --md-rose-text: #5E6875;
+    --md-rose-bg: rgba(155, 168, 181, 0.2);
 
     --bs-primary: var(--md-primary);
     --bs-primary-rgb: var(--md-primary-rgb);
     --bs-primary-dark: var(--md-primary-dark);
-    --bs-primary-light: #8FA0B0;
+    --bs-primary-light: #8FA3B0;
     --bs-info: #9BA8B4;
     --bs-info-rgb: 155, 168, 180;
     --bs-warning: var(--md-clay);
-    --bs-warning-rgb: 196, 168, 138;
+    --bs-warning-rgb: 168, 181, 196;
     --bs-body-color: var(--md-text);
     --bs-secondary-color: var(--md-text-muted);
 }
 
-[data-theme="custom"], [data-theme="remake"] .btn-primary,
-[data-theme="custom"], [data-theme="remake"] .btn-primary.active,
-[data-theme="custom"], [data-theme="remake"] .btn-primary:active {
+[data-theme="custom"] .btn-primary,
+[data-theme="remake"] .btn-primary,
+[data-theme="custom"] .btn-primary.active,
+[data-theme="remake"] .btn-primary.active,
+[data-theme="custom"] .btn-primary:active,
+[data-theme="remake"] .btn-primary:active {
     background-color: var(--md-primary) !important;
     border-color: var(--md-primary) !important;
     color: #fff !important;
@@ -68,7 +71,7 @@
 
 [data-theme="custom"], [data-theme="remake"] .btn-outline-primary {
     color: var(--md-primary) !important;
-    border-color: rgba(123, 143, 161, 0.45) !important;
+    border-color: rgba(122, 143, 163, 0.45) !important;
     background-color: var(--md-white) !important;
 }
 [data-theme="custom"], [data-theme="remake"] .btn-outline-primary:hover,

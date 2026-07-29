@@ -18,8 +18,8 @@
   cursor: pointer;
 }
 .dap-tab.active {
-  background: #7B8FA1;
-  border-color: #7B8FA1;
+  background: #7A8FA3;
+  border-color: #7A8FA3;
   color: #fff;
 }
 .dap-card {
@@ -32,8 +32,8 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .dap-card:hover {
-  border-color: #7B8FA1;
-  box-shadow: 0 2px 8px rgba(123, 143, 161, 0.12);
+  border-color: #7A8FA3;
+  box-shadow: 0 2px 8px rgba(122, 143, 163, 0.12);
 }
 .dap-thumb-wrap {
   position: relative;

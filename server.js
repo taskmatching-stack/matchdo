@@ -1022,15 +1022,15 @@ ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')
 .inspiration-page h1{font-size:1.25rem;margin:0 0 .75rem}
 .inspiration-page .inspiration-img{max-width:100%;height:auto;border-radius:8px}
 .inspiration-desc{margin:1rem 0;font-size:.95rem;line-height:1.6;color:#333}
-.inspiration-desc-label{font-size:.875rem;font-weight:600;color:#7B8FA1;margin:0 0 .35rem}
+.inspiration-desc-label{font-size:.875rem;font-weight:600;color:#7A8FA3;margin:0 0 .35rem}
 .inspiration-desc-text{margin:0;white-space:normal;word-break:break-word}
 .inspiration-seed,.inspiration-source-link{margin:.75rem 0;font-size:.875rem}
 .inspiration-tags-details{margin:1rem 0;font-size:.875rem}
-.inspiration-tags-details summary{cursor:pointer;color:#7B8FA1;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
+.inspiration-tags-details summary{cursor:pointer;color:#7A8FA3;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
 .inspiration-tags-details summary::-webkit-details-marker{display:none}
 .inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
 .inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
-.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#7B8FA1;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
+.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#7A8FA3;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -1232,7 +1232,7 @@ ${ogImg ? '<meta property="og:image" content="' + escapeHtmlAttr(ogImg) + '">' :
         keywords: cleanTags.length ? cleanTags.slice(0, 30).join(', ') : undefined
     }).replace(/</g, '\\u003c')}</script>
 <style>
-:root{--vp:#7B8FA1;--vp-dark:#6A635D;--vp-bg:#F5F3F0;--vp-border:rgba(107,101,96,0.14)}
+:root{--vp:#7A8FA3;--vp-dark:#4A5568;--vp-bg:#F0F3F7;--vp-border:rgba(88,100,112,0.14)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--vp-bg);color:#1e293b;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC",sans-serif}
 .vp-wrap{max-width:880px;margin:0 auto;padding:1.25rem 1rem 3rem}
