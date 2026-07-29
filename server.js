@@ -11852,6 +11852,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
             camera_categories_migration_hint: (await fetchPromoCameraParamCategories(true)).error === 'MIGRATION_REQUIRED'
                 ? '請執行 docs/add-promo-camera-param-categories.sql'
                 : undefined,
+            camera_groups_migration_hint: (await fetchPromoCameraParamGroups(true, null)).error === 'MIGRATION_REQUIRED'
+                ? '請執行 docs/add-promo-camera-param-groups.sql'
+                : undefined,
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
@@ -13373,14 +13376,31 @@ async function loadPromoTemplatePartsByKey(templateKey) {
     }
 }
 
+/** 從 promo_scene_templates 取出進 FLUX 的片段（不含包裝標籤） */
+function collectPromoSceneTemplateParts(theme, scene) {
+    const parts = [];
+    const t = theme && typeof theme === 'object' ? theme : {};
+    const s = scene && typeof scene === 'object' ? scene : {};
+    if (t.prompt) parts.push(String(t.prompt).trim());
+    if (t.composition) parts.push(String(t.composition).trim());
+    if (s.prompt) parts.push(String(s.prompt).trim());
+    if (s.composition) parts.push(String(s.composition).trim());
+    return parts.filter(Boolean);
+}
+
+function joinPromoPromptParts(parts) {
+    return (parts || []).map(function (p) { return String(p || '').trim(); }).filter(Boolean).join('. ').trim();
+}
+
 /**
- * 情境圖提示詞組裝：
+ * 情境圖 /api/promo-image/generate 專用（與攝影模擬分離）。
+ * 組裝順序：
  * 1) 固定英文廣告底稿（後端硬編碼）
- * 2) 主題 theme 的 scene_prompt + composition_hint（DB，管理區可編）
- * 3) 場景 scene 的 scene_prompt + composition_hint（DB，管理區可編）
- * 4) 使用者額外描述
- * 5) 攝影參數 body_text（選填）
- * 注意：中文 name／description 不進 FLUX，只進 UI
+ * 2) theme prompt + composition（DB promo_scene_templates）
+ * 3) scene prompt + composition（DB promo_scene_templates）
+ * 4) 使用者描述（Advertising brief: …）
+ * 5) photography_prompt_sets body_text（選填）
+ * 不進 prompt：中文 name／description、攝影模擬七維參數
  */
 async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, referenceCount) {
     const theme = await loadPromoTemplatePartsByKey(themeKey);
@@ -13389,7 +13409,6 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
     const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
     const parts = [];
-    // 定位：用產品「拍／做廣告主視覺」——不是修圖、不是原構圖換底
     parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
     parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
     parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
@@ -13420,7 +13439,7 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
         if (scene.composition) parts.push(scene.composition);
     }
     if (user) parts.push('Advertising brief: ' + user);
-    let prompt = parts.join('. ').trim();
+    let prompt = joinPromoPromptParts(parts);
     prompt = appendPhotographyParams(prompt, photo);
     return prompt || 'Create a brand-new product advertising key visual from the reference with the product clearly visible as the hero subject — not face-down, not back-only, not a background-only retouch.';
 }
@@ -13743,6 +13762,93 @@ function findPromoCameraAngleFallbackRow(category, key, lang) {
     }, hit), lang);
 }
 
+async function fetchPromoCameraParamGroups(activeOnly, category) {
+    try {
+        let q = supabase.from('promo_camera_param_groups').select(PROMO_CAMERA_GROUP_SELECT)
+            .order('category', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (activeOnly) q = q.eq('is_active', true);
+        if (category) q = q.eq('category', String(category).trim());
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return { items: [], error: 'MIGRATION_REQUIRED' };
+            }
+            return { items: [], error: error.message || 'query_failed' };
+        }
+        return { items: data || [], error: null };
+    } catch (e) {
+        return { items: [], error: e.message || 'query_failed' };
+    }
+}
+
+function buildPromoCameraGroupsIndex(groups) {
+    const byId = {};
+    const byCategory = {};
+    (groups || []).forEach(function (g) {
+        if (!g || !g.id) return;
+        byId[g.id] = g;
+        const cat = String(g.category || '').trim();
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat].push(g);
+    });
+    return { byId: byId, byCategory: byCategory };
+}
+
+function attachPromoCameraGroupToOption(row, groupsById) {
+    if (!row) return row;
+    const gid = row.group_id;
+    const g = gid && groupsById ? groupsById[gid] : null;
+    if (!g) return row;
+    const meta = row.meta && typeof row.meta === 'object' ? Object.assign({}, row.meta) : {};
+    meta.group = String(g.name || '').trim();
+    if (g.name_en) meta.group_en = String(g.name_en).trim();
+    return Object.assign({}, row, { meta: meta });
+}
+
+async function resolvePromoCameraOptionGroupFields(body, category) {
+    if (!body || body.group_id === undefined) return null;
+    const cat = String(category || '').trim();
+    const gid = body.group_id != null && String(body.group_id).trim() !== ''
+        ? String(body.group_id).trim()
+        : null;
+    if (!gid) {
+        return { group_id: null, meta: { group: null, group_en: null } };
+    }
+    const { data: group, error } = await supabase.from('promo_camera_param_groups')
+        .select(PROMO_CAMERA_GROUP_SELECT)
+        .eq('id', gid)
+        .maybeSingle();
+    if (error) {
+        if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+            return { error: 'MIGRATION_REQUIRED' };
+        }
+        return { error: '分組查詢失敗' };
+    }
+    if (!group) return { error: '分組不存在' };
+    if (String(group.category || '').trim() !== cat) {
+        return { error: '分組與選項 category 不符' };
+    }
+    return {
+        group_id: gid,
+        meta: {
+            group: String(group.name || '').trim(),
+            group_en: group.name_en ? String(group.name_en).trim() : null
+        }
+    };
+}
+
+function mergePromoCameraOptionMetaFromGroup(prevMeta, groupMetaPatch) {
+    const meta = prevMeta && typeof prevMeta === 'object' ? Object.assign({}, prevMeta) : {};
+    if (!groupMetaPatch) return meta;
+    if (groupMetaPatch.group) meta.group = groupMetaPatch.group;
+    else delete meta.group;
+    if (groupMetaPatch.group_en) meta.group_en = groupMetaPatch.group_en;
+    else delete meta.group_en;
+    return meta;
+}
+
 async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
     const categoryRes = await fetchPromoCameraParamCategories(activeOnly);
     const categoryKeys = (categoryRes.categories && categoryRes.categories.length)
@@ -13750,8 +13856,10 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
         : PROMO_CAMERA_ADMIN_CATEGORIES.slice();
     const grouped = {};
     categoryKeys.forEach(function (c) { grouped[c] = []; });
+    const groupsRes = await fetchPromoCameraParamGroups(activeOnly, null);
+    const groupsIndex = buildPromoCameraGroupsIndex(groupsRes.items || []);
     try {
-        const selectFull = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, sort_order, is_active, is_default';
+        const selectFull = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default';
         const selectLegacy = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default';
         let q = supabase.from('promo_camera_param_options').select(selectFull)
             .order('sort_order', { ascending: true })
@@ -13775,7 +13883,8 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
         (data || []).forEach(function (row) {
             const cat = String(row.category || '').trim();
             if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(applyPromoCameraOptionLocale(row, lang));
+            const enriched = attachPromoCameraGroupToOption(row, groupsIndex.byId);
+            grouped[cat].push(applyPromoCameraOptionLocale(enriched, lang));
         });
         ensurePromoCameraAngleOptions(grouped, lang, 'shooting_angle');
         return { grouped: grouped, categories: categoryRes.categories || [], error: null };
@@ -13826,17 +13935,25 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
     return { fragments: fragments, fragmentsByCategory: fragmentsByCategory, resolved: resolved };
 }
 
-/** 攝影模擬頁專用 prompt：主題／場景沿用情境圖模板；攝影參數只用 DB prompt_fragment；描述由使用者填寫 */
-async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, referenceCount) {
-    void referenceCount;
+/**
+ * 攝影模擬 /api/promo-camera/generate 專用（與 buildPromoImagePrompt 完全分離）。
+ *
+ * 組裝順序（joinPromoPromptParts，以 . 串接）：
+ * 1. theme.prompt + theme.composition（promo_scene_templates，slot=theme）
+ * 2. scene.prompt + scene.composition（promo_scene_templates，slot=scene）
+ * 3. 使用者選取之 camera 參數 prompt_fragment（promo_camera_param_options，依分類 sort_order）
+ *    - 品牌／底片互斥（sanitizePromoCameraKeys，僅送一種 look）
+ *    - shooting_angle 僅在 DB 查無／停用時才用 PROMO_CAMERA_ANGLE_FALLBACK_RAW
+ * 4. 使用者描述（原文，無前綴）
+ *
+ * 刻意不含：英文廣告底稿、photography_prompt_sets、包裝標籤、後端光學／角度包裝句。
+ * 不進 prompt：name、description、分組名稱、中文 UI 文案。
+ */
+async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys) {
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
-    const parts = [];
-    if (theme.prompt) parts.push(theme.prompt);
-    if (theme.composition) parts.push(theme.composition);
-    if (scene.prompt) parts.push(scene.prompt);
-    if (scene.composition) parts.push(scene.composition);
+    const parts = collectPromoSceneTemplateParts(theme, scene);
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
     const cam = await resolvePromoCameraPromptFragments(cameraKeys, cameraUi);
@@ -13845,7 +13962,7 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
     });
     if (user) parts.push(user);
     return {
-        prompt: parts.join('. ').trim(),
+        prompt: joinPromoPromptParts(parts),
         camera_resolved: cam.resolved
     };
 }
@@ -29109,7 +29226,8 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
     }
 });
 
-const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, sort_order, is_active, is_default, created_at, updated_at';
+const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
+const PROMO_CAMERA_GROUP_SELECT = 'id, category, key, name, name_en, sort_order, is_active, created_at, updated_at';
 
 // GET /api/admin/promo-camera-param-categories
 app.get('/api/admin/promo-camera-param-categories', async (req, res) => {
@@ -29225,6 +29343,147 @@ app.delete('/api/admin/promo-camera-param-categories/:id', async (req, res) => {
     }
 });
 
+// GET /api/admin/promo-camera-param-groups
+app.get('/api/admin/promo-camera-param-groups', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const category = String(req.query.category || '').trim();
+        const resGroups = await fetchPromoCameraParamGroups(false, category || null);
+        if (resGroups.error === 'MIGRATION_REQUIRED') {
+            return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+        }
+        if (resGroups.error) return res.status(500).json({ error: '查詢失敗' });
+        res.json({ items: resGroups.items || [] });
+    } catch (e) {
+        console.error('GET /api/admin/promo-camera-param-groups 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/promo-camera-param-groups
+app.post('/api/admin/promo-camera-param-groups', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const category = String(body.category || '').trim();
+        const key = normalizePromoCameraParamKey(body.key);
+        const name = String(body.name || '').trim();
+        if (!(await isPromoCameraCategoryKeyValid(category))) {
+            return res.status(400).json({ error: '無效的 category' });
+        }
+        if (!key) return res.status(400).json({ error: '請填寫 key' });
+        if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const payload = {
+            category,
+            key,
+            name,
+            name_en: body.name_en != null ? String(body.name_en).trim() || null : null,
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('promo_camera_param_groups').insert(payload).select(PROMO_CAMERA_GROUP_SELECT).single();
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
+            console.error('POST /api/admin/promo-camera-param-groups:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/promo-camera-param-groups 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/promo-camera-param-groups/:id
+app.put('/api/admin/promo-camera-param-groups/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.key !== undefined) {
+            const key = normalizePromoCameraParamKey(body.key);
+            if (!key) return res.status(400).json({ error: 'key 不可為空' });
+            updates.key = key;
+        }
+        if (body.name !== undefined) {
+            const name = String(body.name || '').trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            updates.name = name;
+        }
+        if (body.name_en !== undefined) updates.name_en = String(body.name_en || '').trim() || null;
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        const { data, error } = await supabase.from('promo_camera_param_groups').update(updates).eq('id', id).select(PROMO_CAMERA_GROUP_SELECT).single();
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
+            console.error('PUT /api/admin/promo-camera-param-groups:', error);
+            return res.status(500).json({ error: '儲存失敗' });
+        }
+        if (data && (body.name !== undefined || body.name_en !== undefined)) {
+            const metaPatch = {
+                group: String(data.name || '').trim(),
+                group_en: data.name_en ? String(data.name_en).trim() : null
+            };
+            const { data: linked } = await supabase.from('promo_camera_param_options').select('id, meta').eq('group_id', id);
+            for (let i = 0; i < (linked || []).length; i++) {
+                const row = linked[i];
+                await supabase.from('promo_camera_param_options').update({
+                    meta: mergePromoCameraOptionMetaFromGroup(row && row.meta, metaPatch),
+                    updated_at: new Date().toISOString()
+                }).eq('id', row.id);
+            }
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/promo-camera-param-groups 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/promo-camera-param-groups/:id
+app.delete('/api/admin/promo-camera-param-groups/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { count, error: countErr } = await supabase.from('promo_camera_param_options')
+            .select('id', { count: 'exact', head: true })
+            .eq('group_id', id);
+        if (countErr && !(countErr.code === '42P01' || isSupabaseMissingTableError(countErr))) {
+            console.error('DELETE /api/admin/promo-camera-param-groups count:', countErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        if (count > 0) {
+            return res.status(400).json({ error: '此分組仍有 ' + count + ' 個選項使用中，請先改選其他分組或刪除選項' });
+        }
+        const { error } = await supabase.from('promo_camera_param_groups').delete().eq('id', id);
+        if (error) {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('DELETE /api/admin/promo-camera-param-groups:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/promo-camera-param-groups 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/admin/promo-camera-params
 app.get('/api/admin/promo-camera-params', async (req, res) => {
     try {
@@ -29258,10 +29517,17 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             console.error('GET /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
+        const groupsRes = await fetchPromoCameraParamGroups(false, category || null);
+        const groupsIndex = buildPromoCameraGroupsIndex(groupsRes.items || []);
+        const enrichedItems = (data || []).map(function (row) {
+            return attachPromoCameraGroupToOption(row, groupsIndex.byId);
+        });
         res.json({
-            items: data || [],
+            items: enrichedItems,
+            groups: groupsRes.items || [],
             categories: categoryKeys,
             category_defs: categoryDefs,
+            groups_migration_hint: groupsRes.error === 'MIGRATION_REQUIRED' ? '請執行 docs/add-promo-camera-param-groups.sql' : undefined,
             categories_migration_hint: catRes.error === 'MIGRATION_REQUIRED' ? '請執行 docs/add-promo-camera-param-categories.sql' : undefined
         });
     } catch (e) {
@@ -29284,6 +29550,13 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
         }
         if (!key) return res.status(400).json({ error: '請填寫 key' });
         if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const groupResolved = await resolvePromoCameraOptionGroupFields(body, category);
+        if (groupResolved && groupResolved.error) {
+            if (groupResolved.error === 'MIGRATION_REQUIRED') {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            return res.status(400).json({ error: groupResolved.error });
+        }
         const payload = {
             category,
             key,
@@ -29292,18 +29565,25 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             prompt_fragment: body.prompt_fragment != null ? String(body.prompt_fragment) : '',
             description: body.description != null ? String(body.description).trim() || null : null,
             description_en: body.description_en != null ? String(body.description_en).trim() || null : null,
-            meta: buildPromoCameraOptionMetaFromBody(body, {}),
+            meta: groupResolved
+                ? mergePromoCameraOptionMetaFromGroup(buildPromoCameraOptionMetaFromBody(body, {}), groupResolved.meta)
+                : buildPromoCameraOptionMetaFromBody(body, {}),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
             is_default: !!body.is_default,
             updated_at: new Date().toISOString()
         };
+        if (groupResolved) payload.group_id = groupResolved.group_id;
         appendPromoCameraCategoryMultilangFields(payload, body);
         if (payload.is_default) {
             await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', category);
         }
         let { data, error } = await supabase.from('promo_camera_param_options').insert(payload).select(PROMO_CAMERA_PARAM_SELECT).single();
-        if (error && isSupabaseMissingColumnError(error, 'description_en')) {
+        if (error && isSupabaseMissingColumnError(error)) {
+            delete payload.group_id;
+            delete payload.description_en;
+            ({ data, error } = await supabase.from('promo_camera_param_options').insert(payload).select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at').single());
+        } else if (error && isSupabaseMissingColumnError(error, 'description_en')) {
             delete payload.description_en;
             ({ data, error } = await supabase.from('promo_camera_param_options').insert(payload).select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at').single());
         }
@@ -29353,7 +29633,19 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
         if (body.prompt_fragment !== undefined) updates.prompt_fragment = String(body.prompt_fragment);
         if (body.description !== undefined) updates.description = String(body.description || '').trim() || null;
         if (body.description_en !== undefined) updates.description_en = String(body.description_en || '').trim() || null;
-        if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
+        const categoryForGroup = updates.category || (await supabase.from('promo_camera_param_options').select('category').eq('id', id).maybeSingle()).data?.category;
+        const groupResolved = await resolvePromoCameraOptionGroupFields(body, categoryForGroup);
+        if (groupResolved && groupResolved.error) {
+            if (groupResolved.error === 'MIGRATION_REQUIRED') {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-param-groups.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            return res.status(400).json({ error: groupResolved.error });
+        }
+        if (groupResolved) {
+            updates.group_id = groupResolved.group_id;
+            const { data: curMetaRow } = await supabase.from('promo_camera_param_options').select('meta').eq('id', id).maybeSingle();
+            updates.meta = mergePromoCameraOptionMetaFromGroup(curMetaRow && curMetaRow.meta, groupResolved.meta);
+        } else if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
             const { data: cur } = await supabase.from('promo_camera_param_options').select('meta').eq('id', id).maybeSingle();
             updates.meta = buildPromoCameraOptionMetaFromBody(body, cur && cur.meta);
         }
