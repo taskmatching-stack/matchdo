@@ -481,13 +481,11 @@ $(document).ready(function () {
 
     /** 參考槽「廠商版型」：與頂部 Tab 相同；材料／配件且已鎖原型 → 看可搭配 */
     function navigateRefSlotVendorPick(slotKey) {
-        if (slotKey === 'pattern_print' || slotKey === 'pattern_style') {
-            openCategoryVendorPicker(slotKey);
-            return;
-        }
         if ((slotKey === 'material' || slotKey === 'part') && hasVendorPrototypeLock()) {
             var anchorId = getPrototypeLockVendorAssetId();
             if (!anchorId) {
+                if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
+                setVendorStylesBrowseMode('vendor');
                 navigateToVendorStylesTab();
                 return;
             }
@@ -495,6 +493,8 @@ $(document).ready(function () {
             window.location.href = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
             return;
         }
+        if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
+        setVendorStylesBrowseMode('vendor');
         navigateToVendorStylesTab();
     }
 
@@ -512,10 +512,12 @@ $(document).ready(function () {
                 return;
             }
         }
+        if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
         var def = slotKey ? getRefSlotDef(slotKey) : null;
-        if (def && def.assetKind) {
-            var $kind = $('#bs-official-asset-kind');
-            if ($kind.length) $kind.val(def.assetKind);
+        var $kind = $('#bs-official-asset-kind');
+        if ($kind.length) {
+            if (def && def.assetKind && def.assetKind !== 'other') $kind.val(def.assetKind);
+            else $kind.val('');
         }
         navigateToVendorStylesOfficialMode();
     }
@@ -1289,20 +1291,18 @@ $(document).ready(function () {
         $panel.append($thumbs);
         var $actions = $('<div class="ref-intent-actions"></div>');
         var $pickEl = $('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="#"></a>')
-            .attr('data-i18n', 'customProduct.refSlotPickVendor')
+            .text(tr('customProduct.refSlotPickVendor', '廠商版型'))
             .on('click', function (e) {
                 e.preventDefault();
                 navigateRefSlotVendorPick(slotKey);
             });
         $actions.append($pickEl);
-        if (slotKey === 'prototype' || slotKey === 'material' || slotKey === 'part') {
-            $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="#"></a>')
-                .text(tr('customProduct.refSlotPickOfficial', '官方版型'))
-                .on('click', function (e) {
-                    e.preventDefault();
-                    navigateRefSlotOfficialPick(slotKey);
-                }));
-        }
+        $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="#"></a>')
+            .text(tr('customProduct.refSlotPickOfficial', '官方版型'))
+            .on('click', function (e) {
+                e.preventDefault();
+                navigateRefSlotOfficialPick(slotKey);
+            }));
         if (items.length) {
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
                 .text(tr('customProduct.refSlotClearAll', '清空'))
@@ -1490,41 +1490,11 @@ $(document).ready(function () {
         });
     }
 
+    /** 舊 modal 已停用：一律導向頂部「廠商版型」Tab（與參考槽按鈕相同） */
     function openCategoryVendorPicker(slotKey) {
-        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
-        if (!mainKey) {
-            alert(t('customProduct.selectCategoryFirstForVendorAssets') || '請先選擇主分類，素材庫會依此分類載入。');
-            return;
-        }
-        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
-        try { window.__refImportTargetSlot = slotKey || null; } catch (e) {}
         if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
-        resetVendorAssetFilters();
-        var def = slotKey ? getRefSlotDef(slotKey) : null;
-        if (def && def.assetKind) $('#vendorAssetsAssetKind').val(def.assetKind);
-        setVendorPickerMfrScopedMode(false);
-        updateVendorPickerPrototypeFiltersVisibility();
-        syncVendorPickerSubcategoryForAssetKind();
-        var pickerLabel = def ? tr(def.titleKey, def.titleFb) : tr('customProduct.selectFromVendorAssets', '從廠商素材庫選擇');
-        $('#vendorAssetsPickerLabel').text(pickerLabel);
-        updateVendorPickerDesignCategoryDisplay();
-        showBootstrapModal(document.getElementById('vendorAssetsPickerModal'));
-        vendorPickerOffset = 0;
-        setVendorPickerPageSize(readVendorPickerPageSize());
-        try {
-            window.__vendorAssetsFetchParams = {
-                mode: 'category',
-                mainKey: mainKey,
-                subKey: pickerSubcategoryAppliesToAssetKind() ? subKey : ''
-            };
-        } catch (e) {}
-        fillVendorServiceAreaSelect().then(function () {
-            updateVendorPickerMultiVendorHint();
-            updateVendorPickerPrototypeLockHint();
-            updateVendorPickerLinkedLegend();
-            updateVendorPickerUnsupportedScopeHint();
-            loadVendorAssetsPickerList();
-        });
+        setVendorStylesBrowseMode('vendor');
+        navigateToVendorStylesTab();
     }
     function openVendorPickerForRefSlot(slotKey) {
         openCategoryVendorPicker(slotKey);

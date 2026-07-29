@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730b';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730c';
 
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
@@ -53,6 +53,54 @@
     if (assetModal) assetModal.hide();
   }
 
+  function setGenStatus(text, isError) {
+    var el = document.getElementById('pcGenStatus');
+    if (!el) return;
+    if (!text) {
+      el.classList.add('d-none');
+      el.classList.remove('is-error');
+      el.textContent = '';
+      return;
+    }
+    el.textContent = text;
+    el.classList.toggle('is-error', !!isError);
+    el.classList.remove('d-none');
+  }
+
+  function clearResultArea() {
+    var el = document.getElementById('pcResultArea');
+    if (!el) return;
+    el.classList.add('d-none');
+    el.innerHTML = '';
+  }
+
+  function showResultArea(url, data, payload) {
+    var el = document.getElementById('pcResultArea');
+    if (!el || !url) return;
+    el.innerHTML =
+      '<img class="pc-result-img" src="' + esc(url) + '" alt="生成結果">' +
+      '<div class="pc-result-caption">生成完成。已存入「我的數位資產 → 情境圖」。</div>' +
+      '<div class="pc-result-actions mt-2 d-flex flex-wrap gap-2 justify-content-center"></div>';
+    el.classList.remove('d-none');
+    var actions = el.querySelector('.pc-result-actions');
+    if (actions && Promo.appendPromoResultActions) {
+      Promo.appendPromoResultActions(actions, {
+        id: data.id,
+        image_url: data.image_url,
+        width: data.width,
+        height: data.height,
+        aspect_ratio: payload.aspect_ratio,
+        theme_key: payload.theme_key,
+        scene_key: payload.scene_key,
+        user_prompt: payload.user_prompt
+      }, data.imageData, {
+        labels: { download: '下載', save: '儲存到數位資產庫', saved: '已儲存', viewLibrary: '查看情境圖' },
+        libraryHref: '/client/my-custom-products.html?tab=promo'
+      });
+    }
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
   function renderMessages() {
     var wrap = document.getElementById('pcChatMessages');
     if (!wrap) return;
@@ -70,9 +118,6 @@
           html += '<img class="pc-thumb" src="' + esc(u) + '" alt="">';
         });
         html += '</div>';
-      }
-      if (m.extra && m.extra.resultUrl) {
-        html += '<img class="pc-result-img" src="' + esc(m.extra.resultUrl) + '" alt="生成結果">';
       }
       if (m.text) html += '<div class="small mb-0">' + esc(m.text) + '</div>';
       html += '</div>';
@@ -436,51 +481,26 @@
       st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
       st.generating = true;
       updateGenerateBtn();
-      var brief = st.userPrompt ? ('「' + st.userPrompt + '」') : '（未填描述）';
-      St.pushMessage('user', '生成請求' + (st.userPrompt ? '：' + brief : ''));
-      St.pushMessage('assistant', '生成中，請稍候…');
-      renderMessages();
+      clearResultArea();
+      setGenStatus('生成中，請稍候…');
 
       var payload = St.buildGeneratePayload();
       Api.generate(payload).then(function (res) {
         st.generating = false;
         updateGenerateBtn();
-        St.get().messages.pop();
         if (!res.ok || !res.data || !res.data.success) {
-          St.pushMessage('assistant', res.data && res.data.error ? res.data.error : '生成失敗');
-          renderMessages();
+          setGenStatus((res.data && res.data.error) ? res.data.error : '生成失敗', true);
           return;
         }
         var d = res.data;
         St.get().lastResult = d;
         var url = d.image_url || d.imageData || '';
-        St.pushMessage('assistant', '生成完成。已存入「我的數位資產 → 情境圖」。', { resultUrl: url });
-        renderMessages();
-        var actions = document.createElement('div');
-        actions.className = 'mt-2';
-        var resultWrap = document.getElementById('pcChatMessages');
-        if (resultWrap && url) {
-          Promo.appendPromoResultActions(actions, {
-            id: d.id,
-            image_url: d.image_url,
-            width: d.width,
-            height: d.height,
-            aspect_ratio: payload.aspect_ratio,
-            theme_key: payload.theme_key,
-            scene_key: payload.scene_key,
-            user_prompt: payload.user_prompt
-          }, d.imageData, {
-            labels: { download: '下載', save: '儲存到數位資產庫', saved: '已儲存', viewLibrary: '查看情境圖' },
-            libraryHref: '/client/my-custom-products.html?tab=promo'
-          });
-          resultWrap.lastElementChild && resultWrap.lastElementChild.appendChild(actions);
-        }
+        setGenStatus('');
+        showResultArea(url, d, payload);
       }).catch(function () {
         st.generating = false;
         updateGenerateBtn();
-        St.get().messages.pop();
-        St.pushMessage('assistant', '生成失敗，請稍後再試。');
-        renderMessages();
+        setGenStatus('生成失敗，請稍後再試。', true);
       });
     });
   }
