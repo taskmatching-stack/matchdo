@@ -4763,6 +4763,8 @@ $(document).ready(function () {
     var GALLERY_CACHE_KEY = 'customProductGalleryCache';
     var GALLERY_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
     var GALLERY_PAGE_SIZE = 25;
+    var galleryActiveTab = 'designs';
+    var galleryOwnerDisplay = '';
     var galleryPaging = { offset: 0, hasMore: false, loading: false, observer: null, observeTimer: null, fetchGen: 0 };
     var galleryHistoryBootstrapped = false;
 
@@ -4849,15 +4851,148 @@ $(document).ready(function () {
     }
 
     function ensurePastGalleryShell(wrap, ownerDisplay) {
+        if (ownerDisplay) galleryOwnerDisplay = ownerDisplay;
+        var titleOwner = galleryOwnerDisplay || ownerDisplay || '';
         if (!wrap.find('.past-gallery-inner').length) {
             wrap.html(
                 '<p class="past-gallery-title"></p>' +
+                '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="數位資產分類"></div>' +
                 '<div class="past-gallery-inner"></div>' +
                 '<div id="pastGalleryScrollSentinel" class="past-gallery-sentinel" aria-hidden="true"></div>'
             );
+            initPastGalleryTabs(wrap.find('#pastGalleryTabs'));
         }
-        wrap.find('.past-gallery-title').text(getGalleryTitle(ownerDisplay));
+        wrap.find('.past-gallery-title').text(getGalleryTitle(titleOwner));
         return wrap.find('.past-gallery-inner');
+    }
+
+    function updatePastGalleryTabsActive(tab) {
+        var $tabs = $('#pastGalleryTabs');
+        if (!$tabs.length) return;
+        $tabs.find('[data-gallery-tab]').each(function () {
+            var key = $(this).attr('data-gallery-tab');
+            $(this).toggleClass('active', key === tab);
+        });
+    }
+
+    function initPastGalleryTabs($tabsEl) {
+        if (!$tabsEl.length || $tabsEl.data('inited')) return;
+        $tabsEl.data('inited', true);
+        var tabs = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.TABS) || [
+            { key: 'designs', label: '設計圖' },
+            { key: 'promo', label: '情境圖' },
+            { key: 'favorites', label: '我的最愛' }
+        ];
+        $tabsEl.html(tabs.map(function (t) {
+            return '<button type="button" class="dap-tab' + (t.key === galleryActiveTab ? ' active' : '') + '" data-gallery-tab="' + t.key + '">' + t.label + '</button>';
+        }).join(''));
+        $tabsEl.on('click', '[data-gallery-tab]', function () {
+            var tab = $(this).attr('data-gallery-tab');
+            if (!tab || tab === galleryActiveTab) return;
+            galleryActiveTab = tab;
+            updatePastGalleryTabsActive(tab);
+            galleryPaging.fetchGen += 1;
+            galleryPaging.offset = 0;
+            galleryPaging.hasMore = false;
+            galleryPaging.loading = false;
+            teardownGalleryScrollObserver();
+            setGallerySentinelState('hidden');
+            var wrap = $('#pastGeneratedGallery');
+            var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+            grid.removeClass('is-promo-tab is-favorites-tab');
+            if (tab === 'promo') grid.addClass('is-promo-tab');
+            else if (tab === 'favorites') grid.addClass('is-favorites-tab');
+            grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + (t('home.loading') || '載入中…') + '</p>');
+            refreshPastGeneratedGallery(undefined, { force: true });
+        });
+    }
+
+    function buildPastItemWrapFromAltAsset(item, tab) {
+        var url = normalizeGalleryImageUrl(item.url);
+        if (!url) return null;
+        var promptText = String(item.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        var tip = promptText || (tab === 'promo' ? '情境圖' : '我的最愛');
+        var $cell = $('<div class="past-item-wrap"></div>').attr({
+            'data-image-url': url,
+            'data-prompt': promptText,
+            'data-seed': '',
+            'data-owner-display': galleryOwnerDisplay || ''
+        });
+        var $img = $('<img>').attr({ src: url, alt: '', loading: 'lazy', decoding: 'async' });
+        $img.on('error', function () { $(this).addClass('past-item-img-error'); });
+        $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
+        $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(tip));
+        return $cell;
+    }
+
+    function refreshPastGalleryAltTab(optionalToken, tab) {
+        var wrap = $('#pastGeneratedGallery');
+        if (!wrap.length) return;
+        var myGen = galleryPaging.fetchGen;
+        galleryPaging.hasMore = false;
+        galleryPaging.loading = false;
+        teardownGalleryScrollObserver();
+        setGallerySentinelState('hidden');
+
+        function renderAltItems(items) {
+            if (myGen !== galleryPaging.fetchGen) return;
+            var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+            grid.empty().removeClass('is-promo-tab is-favorites-tab');
+            if (tab === 'promo') grid.addClass('is-promo-tab');
+            else if (tab === 'favorites') grid.addClass('is-favorites-tab');
+            updatePastGalleryTabsActive(tab);
+            if (!items.length) {
+                var emptyMsg = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.emptyMessage)
+                    ? window.MatchdoDigitalAssetPicker.emptyMessage(tab)
+                    : t('customProduct.noHistoryYet');
+                grid.append($('<p class="text-muted small mb-0">').text(emptyMsg));
+                grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
+            } else {
+                items.forEach(function (item) {
+                    var $cell = buildPastItemWrapFromAltAsset(item, tab);
+                    if ($cell) grid.append($cell);
+                });
+            }
+            $('#generatedImagePlaceholder').hide();
+        }
+
+        function doFetch(token) {
+            if (!token) {
+                wrap.html(
+                    '<p class="past-gallery-title">' + getGalleryTitle('') + '</p>' +
+                    '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="數位資產分類"></div>' +
+                    '<div class="past-gallery-inner"><p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                );
+                initPastGalleryTabs(wrap.find('#pastGalleryTabs'));
+                updatePastGalleryTabsActive(tab);
+                $('#generatedImagePlaceholder').hide();
+                return;
+            }
+            var picker = window.MatchdoDigitalAssetPicker;
+            if (!picker || typeof picker.fetchTabItems !== 'function') {
+                renderAltItems([]);
+                return;
+            }
+            picker.fetchTabItems(tab).then(function (res) {
+                if (myGen !== galleryPaging.fetchGen) return;
+                if (!res.ok) {
+                    var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                    grid.html('<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>');
+                    $('#generatedImagePlaceholder').hide();
+                    return;
+                }
+                renderAltItems(picker.normalizeItems(tab, res.data || {}));
+            }).catch(function () {
+                if (myGen !== galleryPaging.fetchGen) return;
+                var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                grid.html('<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>');
+                $('#generatedImagePlaceholder').hide();
+            });
+        }
+
+        if (optionalToken != null && optionalToken !== '') doFetch(optionalToken);
+        else getAuthToken(doFetch);
     }
 
     function setGallerySentinelState(state) {
@@ -5099,6 +5234,11 @@ $(document).ready(function () {
 
     function refreshPastGeneratedGallery(optionalToken, options) {
         options = options || {};
+        if (galleryActiveTab !== 'designs') {
+            if (options.force) galleryPaging.fetchGen += 1;
+            refreshPastGalleryAltTab(optionalToken, galleryActiveTab);
+            return;
+        }
         var wrap = $('#pastGeneratedGallery');
         if (!wrap.length) return;
         var myGen = ++galleryPaging.fetchGen;
@@ -5107,13 +5247,14 @@ $(document).ready(function () {
         galleryPaging.loading = false;
         teardownGalleryScrollObserver();
         function doFetch(token) {
-            var galleryOwnerDisplay = '';
             if (!token) {
-                wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle('') + '</p><div class="past-gallery-inner">' +
+                wrap.empty();
+                var loginGrid = ensurePastGalleryShell(wrap, '');
+                loginGrid.html(
                     '<p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
                 );
+                updatePastGalleryTabsActive(galleryActiveTab);
                 $('#generatedImagePlaceholder').hide();
                 return;
             }
@@ -5126,19 +5267,23 @@ $(document).ready(function () {
             });
 
             function renderEmpty() {
-                wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle(galleryOwnerDisplay) + '</p><div class="past-gallery-inner">' +
+                wrap.empty();
+                var emptyGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                emptyGrid.html(
                     '<p class="text-muted small mb-0">' + t('customProduct.noHistoryYet') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
                 );
+                updatePastGalleryTabsActive('designs');
                 $('#generatedImagePlaceholder').hide();
             }
             function renderLoadError() {
-                wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle(galleryOwnerDisplay) + '</p><div class="past-gallery-inner">' +
+                wrap.empty();
+                var errGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                errGrid.html(
                     '<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
                 );
+                updatePastGalleryTabsActive('designs');
                 $('#generatedImagePlaceholder').hide();
             }
             function galleryIdsMatch(products) {
@@ -5166,7 +5311,8 @@ $(document).ready(function () {
                     return;
                 }
                 var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-                grid.empty();
+                grid.empty().removeClass('is-promo-tab is-favorites-tab');
+                updatePastGalleryTabsActive('designs');
                 sessionThumbs.forEach(function (item) {
                     grid.append(buildPastItemWrapFromSession(item));
                 });
@@ -5186,7 +5332,10 @@ $(document).ready(function () {
             fetchGalleryPage(token, 0, GALLERY_PAGE_SIZE).then(function (result) {
                 if (myGen !== galleryPaging.fetchGen) return;
                 if (!result.ok && result.status === 401) {
-                    wrap.html('<p class="past-gallery-title">' + getGalleryTitle('') + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0">請重新登入後查看歷史生成的圖</p></div>');
+                    wrap.empty();
+                    var authGrid = ensurePastGalleryShell(wrap, '');
+                    authGrid.html('<p class="text-muted small mb-0">請重新登入後查看歷史生成的圖</p>');
+                    updatePastGalleryTabsActive(galleryActiveTab);
                     $('#generatedImagePlaceholder').hide();
                     return;
                 }
@@ -5228,7 +5377,10 @@ $(document).ready(function () {
     $(document).on('click', '.js-reload-history', function () {
         invalidateGalleryCache();
         var wrap = $('#pastGeneratedGallery');
-        if (wrap.length) wrap.find('.past-gallery-inner').html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>載入中…</p>');
+        if (wrap.length) {
+            var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+            grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>載入中…</p>');
+        }
         refreshPastGeneratedGallery(undefined, { force: true });
     });
 
@@ -5441,11 +5593,13 @@ $(document).ready(function () {
 
     // 從 sessionStorage 快取渲染縮圖（切回頁面時先顯示，再背景更新）
     function renderGalleryFromCache(wrap, cached) {
-        if (!wrap || !wrap.length || !cached || !cached.products) return;
+        if (!wrap || !wrap.length || !cached || !cached.products || galleryActiveTab !== 'designs') return;
         var products = (cached.products || []).filter(function (p) { return !!galleryProductImageUrl(p); });
         var ownerDisplay = (cached.ownerDisplay && String(cached.ownerDisplay).trim()) ? String(cached.ownerDisplay).trim() : '';
+        if (ownerDisplay) galleryOwnerDisplay = ownerDisplay;
         var grid = ensurePastGalleryShell(wrap, ownerDisplay);
-        grid.empty();
+        grid.empty().removeClass('is-promo-tab is-favorites-tab');
+        updatePastGalleryTabsActive('designs');
         appendGalleryProducts(grid, products, true);
         galleryPaging.offset = products.length;
         galleryPaging.hasMore = !!cached.hasMore;
@@ -5472,30 +5626,38 @@ $(document).ready(function () {
         if (galleryHistoryBootstrapped && !forceReload) return;
         function run(token) {
             if (!token) {
-                $('#pastGeneratedGallery').html(
-                    '<p class="past-gallery-title">' + t('customProduct.thisAccount') + t('customProduct.digitalAssetsSuffix') + '</p><div class="past-gallery-inner">' +
+                var wrap = $('#pastGeneratedGallery');
+                wrap.empty();
+                var loginGrid = ensurePastGalleryShell(wrap, '');
+                loginGrid.html(
                     '<p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
                 );
+                updatePastGalleryTabsActive(galleryActiveTab);
                 $('#generatedImagePlaceholder').hide();
                 return;
             }
             if (!forceReload) galleryHistoryBootstrapped = true;
             var wrap = $('#pastGeneratedGallery');
             var cached = null;
-            try {
-                var raw = sessionStorage.getItem(GALLERY_CACHE_KEY);
-                if (raw) {
-                    var parsed = JSON.parse(raw);
-                    if (parsed && parsed.ts && (Date.now() - parsed.ts) < GALLERY_CACHE_MAX_AGE_MS) cached = parsed;
-                }
-            } catch (e) {}
+            if (galleryActiveTab === 'designs') {
+                try {
+                    var raw = sessionStorage.getItem(GALLERY_CACHE_KEY);
+                    if (raw) {
+                        var parsed = JSON.parse(raw);
+                        if (parsed && parsed.ts && (Date.now() - parsed.ts) < GALLERY_CACHE_MAX_AGE_MS) cached = parsed;
+                    }
+                } catch (e) {}
+            }
             if (cached && !forceReload) {
                 renderGalleryFromCache(wrap, cached);
                 return;
             }
             if (!cached) {
-                wrap.html('<p class="past-gallery-title">' + t('customProduct.thisAccount') + t('customProduct.digitalAssetsSuffix') + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p></div>');
+                wrap.empty();
+                var loadingGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p>');
+                updatePastGalleryTabsActive(galleryActiveTab);
             }
             $('#generatedImagePlaceholder').hide();
             refreshPastGeneratedGallery(token, forceReload ? {} : { skipIfSame: false });
@@ -5508,7 +5670,13 @@ $(document).ready(function () {
     }
 
     // 先顯示載入中，等 Auth 有 session 再抓歷史
-    $('#pastGeneratedGallery').html('<p class="past-gallery-title">' + t('customProduct.thisAccount') + t('customProduct.digitalAssetsSuffix') + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p></div>');
+    (function () {
+        var wrap = $('#pastGeneratedGallery');
+        wrap.empty();
+        var loadingGrid = ensurePastGalleryShell(wrap, '');
+        loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p>');
+        updatePastGalleryTabsActive('designs');
+    })();
     $('#generatedImagePlaceholder').hide();
 
     // 避免切換視窗時重複載入：Supabase 在分頁重新可見時會觸發 TOKEN_REFRESHED / 有時 INITIAL_SESSION，不要因此清空並重抓歷史
@@ -5630,11 +5798,9 @@ $(document).ready(function () {
     }
     // 初次載入：依 URL 切換 Tab
     applyTabFromUrl();
-    // 切換 Tab 時更新網址（分組 Tab 列需手動清掉其他列的 active）
+    // 切換 Tab 時更新網址
     $('#designTabs').on('shown.bs.tab', function (e) {
         var $target = $(e.target);
-        $('.design-func-nav .nav-link').not($target).removeClass('active').attr('aria-selected', 'false');
-        $target.addClass('active').attr('aria-selected', 'true');
         var targetId = ($target.attr('id')) ? $target.attr('id') : '';
         var tabParam = getTabParamFromButtonId(targetId);
         updateUrlForTab(tabParam, !suppressTabHistoryWrite);

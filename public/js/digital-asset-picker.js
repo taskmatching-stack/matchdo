@@ -190,6 +190,9 @@
 
   global.MatchdoDigitalAssetPicker = {
     mount: mount,
-    TABS: TABS
+    TABS: TABS,
+    fetchTabItems: fetchTabItems,
+    normalizeItems: normalizeItems,
+    emptyMessage: emptyMessage
   };
 })(typeof window !== 'undefined' ? window : this);
