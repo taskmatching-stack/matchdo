@@ -6260,11 +6260,9 @@ $(document).ready(function () {
         $wrap.empty();
         var urls = window.promoImageImageUrls || [];
         urls.forEach(function (url, idx) {
-            var $chip = $('<div class="position-relative" style="width:72px;height:72px;"></div>');
-            var $img = $('<img>').attr('src', url).attr('alt', '參考 ' + (idx + 1))
-                .css({ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '6px', border: idx === 0 ? '2px solid #0d6efd' : '2px solid #dee2e6' });
-            var $rm = $('<button type="button" class="btn btn-sm btn-danger p-0" title="移除">×</button>')
-                .css({ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', lineHeight: '16px', borderRadius: '50%', fontSize: '12px' });
+            var $chip = $('<div class="promo-thumb-chip' + (idx === 0 ? ' is-primary' : '') + '"></div>');
+            var $img = $('<img>').attr('src', url).attr('alt', '參考 ' + (idx + 1));
+            var $rm = $('<button type="button" class="promo-thumb-remove" title="移除">×</button>');
             $rm.on('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();

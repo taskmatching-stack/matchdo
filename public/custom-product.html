@@ -1336,6 +1336,42 @@
         #custom-product .scene-sim-preview-inner { padding: 0.5rem; text-align: center; }
         #custom-product .scene-sim-preview-hint { font-size: 0.8125rem; color: #64748b; }
         #custom-product .scene-sim-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* 情境圖：APP 式版面 */
+        #custom-product .promo-image-panel .create-panel-left { display: flex; flex-direction: column; gap: 1.25rem; }
+        #custom-product .promo-image-intro { font-size: 0.875rem; color: #666; line-height: 1.5; margin: 0; }
+        #custom-product .promo-block { display: flex; flex-direction: column; gap: 0.625rem; }
+        #custom-product .promo-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+        #custom-product .promo-block-title { font-size: 0.9375rem; font-weight: 600; color: #111; }
+        #custom-product .promo-block-meta { font-size: 0.75rem; color: #999; white-space: nowrap; }
+        #custom-product .promo-thumb-row { display: flex; flex-wrap: nowrap; gap: 0.625rem; overflow-x: auto; padding: 0.125rem 0 0.25rem; min-height: 76px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        #custom-product .promo-thumb-row::-webkit-scrollbar { display: none; }
+        #custom-product .promo-thumb-row .promo-thumb-chip { position: relative; flex: 0 0 auto; width: 72px; height: 72px; }
+        #custom-product .promo-thumb-row .promo-thumb-chip img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; display: block; border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        #custom-product .promo-thumb-row .promo-thumb-chip.is-primary img { box-shadow: 0 0 0 2px #007aff; }
+        #custom-product .promo-thumb-row .promo-thumb-remove { position: absolute; top: -4px; right: -4px; width: 20px; height: 20px; border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; line-height: 1; padding: 0; cursor: pointer; }
+        #custom-product .promo-thumb-hint { font-size: 0.8125rem; color: #888; margin: 0; }
+        #custom-product .promo-thumb-actions { display: flex; align-items: center; gap: 1rem; }
+        #custom-product .promo-link-btn { border: none; background: none; padding: 0; font-size: 0.875rem; font-weight: 500; color: #007aff; cursor: pointer; }
+        #custom-product .promo-link-btn:hover { opacity: 0.75; }
+        #custom-product .promo-link-btn--muted { color: #888; }
+        #custom-product .promo-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem 1rem; }
+        #custom-product .promo-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+        #custom-product .promo-field--full { grid-column: 1 / -1; }
+        #custom-product .promo-label { font-size: 0.8125rem; font-weight: 600; color: #333; margin: 0; }
+        #custom-product .promo-input { border: none !important; border-bottom: 1px solid #e5e5e5 !important; border-radius: 0 !important; background: transparent !important; padding: 0.375rem 0 !important; box-shadow: none !important; font-size: 0.9375rem !important; }
+        #custom-product .promo-input:focus { border-bottom-color: #007aff !important; box-shadow: none !important; outline: none !important; }
+        #custom-product .promo-field-hint { font-size: 0.75rem; color: #999; margin: 0; line-height: 1.35; }
+        #custom-product .promo-action-bar { display: flex; flex-direction: column; gap: 0.625rem; padding-top: 0.25rem; }
+        #custom-product .promo-points { font-size: 0.8125rem; color: #888; }
+        #custom-product .promo-generate-btn { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 12px; border: none; background: #007aff; }
+        #custom-product .promo-generate-btn:hover { opacity: 0.85; }
+        #custom-product .promo-camera-link { font-size: 0.8125rem; color: #888; text-align: center; }
+        #custom-product .promo-camera-link a { color: #007aff; text-decoration: none; font-weight: 500; }
+        #custom-product .promo-image-result { background: #fafafa; border: none; border-radius: 12px; }
+        @media (max-width: 768px) {
+            #custom-product .promo-field-grid { grid-template-columns: 1fr; }
+            #custom-product .promo-field--compact { grid-column: 1 / -1; }
+        }
         /* 圖樣提取：固定高度、向上對齊 */
         #custom-product #panel-pattern-extract .create-panel-left { min-height: 420px; display: flex; flex-direction: column; align-items: stretch; }
         #custom-product #panel-pattern-extract .pattern-extract-size-wrap { min-height: 100px; display: flex; flex-direction: column; align-items: flex-start; }
@@ -1676,72 +1712,84 @@
                         </div>
                     </div>
                     <div class="tab-pane fade" id="panel-promo-image" role="tabpanel" aria-labelledby="tab-promo-image">
-                        <div class="create-panel scene-sim-panel">
-                            <div class="create-panel-left">
-                                <p class="form-text text-muted small mb-2" id="promoImagePricingHint">把產品圖做成可當 DM、廣告、宣傳用的主視覺。載入點數規則中…；可多選參考圖（最多 8 張）。</p>
-                                <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1">來源圖（可多選，最多 8 張；從數位資產選擇）</span>
-                                    <div id="promoImageSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
-                                    <p id="promoImageSelectedHint" class="form-text text-muted small mb-2">尚未選圖</p>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">從數位資產選擇圖片</button>
-                                        <button type="button" class="btn btn-outline-warning btn-sm d-none" id="promoImageClearBtn">清除全部</button>
+                        <div class="create-panel scene-sim-panel promo-image-panel">
+                            <div class="create-panel-left promo-image-left">
+                                <p class="promo-image-intro" id="promoImagePricingHint">把產品圖做成可當 DM、廣告、宣傳用的主視覺。載入點數規則中…；可多選參考圖（最多 8 張）。</p>
+
+                                <section class="promo-block">
+                                    <div class="promo-block-head">
+                                        <span class="promo-block-title">來源圖</span>
+                                        <span class="promo-block-meta">從數位資產 · 最多 8 張</span>
                                     </div>
+                                    <div id="promoImageSelectedThumbs" class="promo-thumb-row"></div>
+                                    <p id="promoImageSelectedHint" class="promo-thumb-hint">尚未選圖</p>
+                                    <div class="promo-thumb-actions">
+                                        <button type="button" class="promo-link-btn" id="promoImagePickAssetBtn">＋ 從數位資產選擇</button>
+                                        <button type="button" class="promo-link-btn promo-link-btn--muted d-none" id="promoImageClearBtn">清除</button>
+                                    </div>
+                                </section>
+
+                                <section class="promo-block">
+                                    <div class="promo-field-grid">
+                                        <div class="promo-field">
+                                            <label class="promo-label" for="promoImageThemeSelect">主題</label>
+                                            <select id="promoImageThemeSelect" class="form-select form-select-sm promo-input"></select>
+                                            <p class="promo-field-hint" id="promoImageThemeHint"></p>
+                                        </div>
+                                        <div class="promo-field">
+                                            <label class="promo-label" for="promoImageEnvSelect">場景（選填）</label>
+                                            <select id="promoImageEnvSelect" class="form-select form-select-sm promo-input"></select>
+                                            <p class="promo-field-hint" id="promoImageEnvHint"></p>
+                                        </div>
+                                        <div class="promo-field promo-field--compact">
+                                            <label class="promo-label" for="promoImageRatioSelect">長寬比</label>
+                                            <select id="promoImageRatioSelect" class="form-select form-select-sm promo-input">
+                                                <option value="1:1" selected>1:1</option>
+                                                <option value="4:3">4:3</option>
+                                                <option value="3:4">3:4</option>
+                                                <option value="16:9">16:9</option>
+                                                <option value="9:16">9:16</option>
+                                                <option value="21:9">21:9</option>
+                                                <option value="3:1">3:1</option>
+                                                <option value="4:1">4:1</option>
+                                                <option value="9:21">9:21</option>
+                                                <option value="1:3">1:3</option>
+                                                <option value="1:4">1:4</option>
+                                            </select>
+                                        </div>
+                                        <div class="promo-field promo-field--compact">
+                                            <label class="promo-label" for="promoImageMpSelect">解析度</label>
+                                            <select id="promoImageMpSelect" class="form-select form-select-sm promo-input">
+                                                <option value="1" selected>1 MP（標準）</option>
+                                                <option value="2">2 MP</option>
+                                                <option value="3">3 MP</option>
+                                                <option value="4">4 MP</option>
+                                            </select>
+                                            <p class="promo-field-hint" id="promoImageDimsHint">1024×1024</p>
+                                        </div>
+                                        <div class="promo-field promo-field--full">
+                                            <label class="promo-label" for="promoImagePhotoSelect">攝影參數（選填）</label>
+                                            <select id="promoImagePhotoSelect" class="form-select form-select-sm promo-input"></select>
+                                        </div>
+                                        <div class="promo-field promo-field--full">
+                                            <label class="promo-label" for="promoImagePrompt">額外描述（選填）</label>
+                                            <input type="text" id="promoImagePrompt" class="form-control form-control-sm promo-input" placeholder="例：溫暖午後陽光、柔和陰影" />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <div class="promo-action-bar">
+                                    <span class="promo-points" id="promoImagePointsDisplay">每張 20 點</span>
+                                    <button type="button" class="btn btn-primary promo-generate-btn" id="promoImageApplyBtn">
+                                        <i class="fas fa-bullhorn me-2"></i>生成情境圖
+                                    </button>
+                                    <p class="promo-camera-link mb-0">
+                                        需要更細的光學／畫質控制？
+                                        <a href="/client/promo-camera.html?back=design">攝影模擬 →</a>
+                                    </p>
                                 </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImageThemeSelect">主題</label>
-                                    <select id="promoImageThemeSelect" class="form-select form-select-sm"></select>
-                                    <p class="form-text text-muted small mb-0 mt-1" id="promoImageThemeHint"></p>
-                                </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImageEnvSelect">場景（選填）</label>
-                                    <select id="promoImageEnvSelect" class="form-select form-select-sm"></select>
-                                    <p class="form-text text-muted small mb-0 mt-1" id="promoImageEnvHint"></p>
-                                </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImageRatioSelect">長寬比</label>
-                                    <select id="promoImageRatioSelect" class="form-select form-select-sm">
-                                        <option value="1:1" selected>1:1</option>
-                                        <option value="4:3">4:3</option>
-                                        <option value="3:4">3:4</option>
-                                        <option value="16:9">16:9</option>
-                                        <option value="9:16">9:16</option>
-                                        <option value="21:9">21:9</option>
-                                        <option value="3:1">3:1</option>
-                                        <option value="4:1">4:1</option>
-                                        <option value="9:21">9:21</option>
-                                        <option value="1:3">1:3</option>
-                                        <option value="1:4">1:4</option>
-                                    </select>
-                                </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImageMpSelect">解析度</label>
-                                    <select id="promoImageMpSelect" class="form-select form-select-sm">
-                                        <option value="1" selected>1 MP（標準）</option>
-                                        <option value="2">2 MP</option>
-                                        <option value="3">3 MP</option>
-                                        <option value="4">4 MP</option>
-                                    </select>
-                                    <p class="form-text text-muted small mb-0 mt-1" id="promoImageDimsHint">1024×1024</p>
-                                </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImagePhotoSelect">攝影參數（選填）</label>
-                                    <select id="promoImagePhotoSelect" class="form-select form-select-sm"></select>
-                                </div>
-                                <div class="form-row full mt-2">
-                                    <label class="label" for="promoImagePrompt">額外描述（選填）</label>
-                                    <input type="text" id="promoImagePrompt" class="form-control form-control-sm scene-sim-prompt-input" placeholder="例：溫暖午後陽光、柔和陰影" />
-                                </div>
-                                <p class="small text-muted mt-2 mb-1" id="promoImagePointsDisplay">每張 20 點</p>
-                                <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="promoImageApplyBtn">
-                                    <i class="fas fa-bullhorn me-2"></i>生成情境圖
-                                </button>
-                                <p class="small text-muted mt-3 mb-0">
-                                    需要更細的光學／畫質控制？
-                                    <a href="/client/promo-camera.html?back=design" class="fw-semibold">攝影模擬 →</a>
-                                </p>
                             </div>
-                            <div class="create-panel-right" id="promoImageResultWrap">
+                            <div class="create-panel-right promo-image-result" id="promoImageResultWrap">
                                 <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
                                 <p class="scene-sim-result-note text-muted small mt-2 mb-0" data-i18n="customProduct.promoImageResultNote">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>
                             </div>
@@ -1809,7 +1857,7 @@
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d" defer></script>
-    <script src="js/custom-product.js?v=131" defer></script>
+    <script src="js/custom-product.js?v=132" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
