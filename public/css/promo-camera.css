@@ -64,6 +64,11 @@
   background: #fafafa;
   border-radius: 0 0 12px 12px;
 }
+#promo-camera-app .pc-angle-btn.active {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
 #promo-camera-app .pc-result-img {
   max-width: 100%;
   border-radius: 8px;

@@ -7,7 +7,7 @@ ALTER TABLE public.promo_camera_param_options
 ALTER TABLE public.promo_camera_param_options
   ADD CONSTRAINT promo_camera_param_options_category_check
   CHECK (category IN (
-    'camera_brand', 'film_simulation', 'aperture', 'exposure_ev',
+    'camera_brand', 'film_simulation', 'shooting_angle', 'aperture', 'exposure_ev',
     'lens', 'focal_length', 'lens_type', 'aperture_blades'
   ));
 

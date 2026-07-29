@@ -13416,7 +13416,7 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
 }
 
 const PROMO_CAMERA_PARAM_CATEGORIES = [
-    'camera_brand', 'film_simulation', 'aperture', 'exposure_ev',
+    'camera_brand', 'film_simulation', 'shooting_angle', 'aperture', 'exposure_ev',
     'lens', 'aperture_blades'
 ];
 
@@ -13439,6 +13439,7 @@ const PROMO_CAMERA_UI_CONFIG = {
         aperture: '光圈',
         exposure_ev: 'EV 曝光',
         lens: '鏡頭',
+        shooting_angle: '拍攝角度',
         focal_length: '焦段（legacy）',
         lens_type: '鏡頭類型（legacy）',
         aperture_blades: '光圈葉片'
@@ -13454,7 +13455,8 @@ const PROMO_CAMERA_UI_CONFIG = {
     ui_hidden_categories: ['focal_length', 'lens_type'],
     lens_primary_category: 'lens',
     groupable_categories: ['film_simulation', 'lens'],
-    group_meta_key: 'group'
+    group_meta_key: 'group',
+    angle_button_category: 'shooting_angle'
 };
 
 function sanitizePromoCameraKeys(cameraKeys) {
@@ -13520,6 +13522,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly) {
 async function resolvePromoCameraPromptFragments(cameraKeys) {
     const keys = sanitizePromoCameraKeys(cameraKeys);
     const fragments = [];
+    const fragmentsByCategory = {};
     const resolved = {};
     for (let i = 0; i < PROMO_CAMERA_PARAM_CATEGORIES.length; i++) {
         const cat = PROMO_CAMERA_PARAM_CATEGORIES[i];
@@ -13536,11 +13539,14 @@ async function resolvePromoCameraPromptFragments(cameraKeys) {
             const frag = String(data.prompt_fragment || '').trim();
             if (frag) {
                 fragments.push(frag);
+                fragmentsByCategory[cat] = frag;
+                resolved[cat] = { key: data.key, name: data.name || data.key };
+            } else if (cat === 'shooting_angle') {
                 resolved[cat] = { key: data.key, name: data.name || data.key };
             }
         } catch (_) { /* skip */ }
     }
-    return { fragments: fragments, resolved: resolved };
+    return { fragments: fragments, fragmentsByCategory: fragmentsByCategory, resolved: resolved };
 }
 
 function buildPromoImageAdvertisingBaseParts(referenceCount) {
@@ -13585,10 +13591,18 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
         if (scene.composition) parts.push(scene.composition);
     }
     const cam = await resolvePromoCameraPromptFragments(cameraKeys);
-    if (cam.fragments.length) {
+    const angleFrag = cam.fragmentsByCategory && cam.fragmentsByCategory.shooting_angle;
+    if (angleFrag) {
+        parts.push('Camera viewpoint and product presentation angle (same product identity, new shooting direction only; do not change scene theme)');
+        parts.push(angleFrag);
+    }
+    const opticalFrags = (cam.fragments || []).filter(function (f) {
+        return f !== angleFrag;
+    });
+    if (opticalFrags.length) {
         parts.push('Apply only camera body color science, film stock color, and optical parameters below; do not override theme, scene, environment, or lighting already specified above');
         parts.push('Camera and optical simulation (follow exactly for sensor or film color and lens character)');
-        cam.fragments.forEach(function (f) { parts.push(f); });
+        opticalFrags.forEach(function (f) { parts.push(f); });
     }
     if (user) parts.push('Advertising brief: ' + user);
     const prompt = parts.join('. ').trim();
@@ -19374,10 +19388,11 @@ async function listAdminGenerationRecords(opts) {
         }
     }
 
-    if (source === 'all' || source === 'promo') {
+    if (source === 'all' || source === 'promo' || source === 'promo_camera') {
+        const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, camera_params';
         let promoQ = supabase
             .from('product_promo_generations')
-            .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at')
+            .select(promoSelectFull)
             .eq('status', 'success')
             .not('result_image_url', 'is', null)
             .order('created_at', { ascending: false })
@@ -19385,7 +19400,7 @@ async function listAdminGenerationRecords(opts) {
         if (from) promoQ = promoQ.gte('created_at', from);
         if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
         let promoRes = await promoQ;
-        if (promoRes.error && isSupabaseMissingColumnError(promoRes.error, 'scene_key')) {
+        if (promoRes.error && (isSupabaseMissingColumnError(promoRes.error, 'scene_key') || isSupabaseMissingColumnError(promoRes.error, 'generation_mode') || isSupabaseMissingColumnError(promoRes.error, 'camera_params'))) {
             promoQ = supabase
                 .from('product_promo_generations')
                 .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at')
@@ -19399,17 +19414,22 @@ async function listAdminGenerationRecords(opts) {
         }
         if (!promoRes.error) {
             (promoRes.data || []).forEach(function (row) {
+                const itemSource = adminPromoGenerationRecordSource(row);
+                if (source === 'promo' && itemSource === 'promo_camera') return;
+                if (source === 'promo_camera' && itemSource !== 'promo_camera') return;
                 const prompt = (row.final_prompt || row.user_prompt || '').trim();
                 const themeLabel = (row.scene_template_key || '').trim();
                 const sceneLabel = (row.scene_key || '').trim();
-                const titleParts = ['產品情境圖'];
+                const titleParts = [itemSource === 'promo_camera' ? '攝影模擬' : '產品情境圖'];
                 if (themeLabel) titleParts.push(themeLabel);
                 if (sceneLabel) titleParts.push(sceneLabel);
-                const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url].join(' ').toLowerCase();
+                const cameraSummary = formatAdminPromoCameraParamsSummary(row.camera_params);
+                const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url, cameraSummary].join(' ').toLowerCase();
                 if (qText && !hay.includes(qText)) return;
                 merged.push({
                     id: row.id,
-                    source: 'promo',
+                    source: itemSource,
+                    generation_mode: row.generation_mode || (itemSource === 'promo_camera' ? 'camera_advanced' : 'standard'),
                     created_at: row.created_at || row.completed_at,
                     ai_generated_image_url: row.result_image_url,
                     title: titleParts.join(' · '),
@@ -19427,6 +19447,8 @@ async function listAdminGenerationRecords(opts) {
                     points_charged: row.points_charged || 0,
                     owner_id: row.user_id || null,
                     status: row.status || 'success',
+                    camera_params: row.camera_params || null,
+                    camera_params_summary: cameraSummary || null,
                     reference_sources: row.source_image_url ? [{ type: row.source_type || 'upload', url: row.source_image_url, id: row.source_id || null }] : []
                 });
             });
@@ -19440,7 +19462,7 @@ async function listAdminGenerationRecords(opts) {
     });
     const items = merged.slice(offset, offset + limit);
 
-    const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
+    const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo' || i.source === 'promo_camera') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
     const ownerById = {};
     if (ownerIds.length) {
         const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', ownerIds);
@@ -19449,7 +19471,7 @@ async function listAdminGenerationRecords(opts) {
         });
     }
     items.forEach(function (item) {
-        if ((item.source === 'site' || item.source === 'promo') && item.owner_id && ownerById[item.owner_id]) {
+        if ((item.source === 'site' || item.source === 'promo' || item.source === 'promo_camera') && item.owner_id && ownerById[item.owner_id]) {
             const p = ownerById[item.owner_id];
             item.owner_email = p.email || null;
             item.owner_name = p.full_name || null;
@@ -19468,13 +19490,30 @@ async function listAdminGenerationRecords(opts) {
     };
 }
 
+function adminPromoGenerationRecordSource(row) {
+    return String(row && row.generation_mode || '').trim() === 'camera_advanced' ? 'promo_camera' : 'promo';
+}
+
+function formatAdminPromoCameraParamsSummary(cameraParams) {
+    const cp = cameraParams && typeof cameraParams === 'object' ? cameraParams : {};
+    const resolved = cp.resolved && typeof cp.resolved === 'object' ? cp.resolved : {};
+    const labels = (PROMO_CAMERA_UI_CONFIG && PROMO_CAMERA_UI_CONFIG.category_labels) || {};
+    return Object.keys(resolved).map(function (cat) {
+        const hit = resolved[cat];
+        const name = hit && (hit.name || hit.key) ? String(hit.name || hit.key) : '';
+        if (!name) return '';
+        const label = labels[cat] || cat;
+        return label + ':' + name;
+    }).filter(Boolean).join(' · ');
+}
+
 /** 後台生圖紀錄：依來源筆數（日期篩選；關鍵字篩選時僅供參考） */
 async function adminGenerationRecordSummaryCounts(opts) {
     opts = opts || {};
     const from = (opts.from || '').trim();
     const to = (opts.to || '').trim();
     const qText = (opts.qText || '').trim();
-    const summary = { site: 0, embed: 0, promo: 0, total: 0, filtered: !!qText };
+    const summary = { site: 0, embed: 0, promo: 0, promo_camera: 0, total: 0, filtered: !!qText };
     if (qText) return summary;
 
     let cpQ = supabase
@@ -19494,6 +19533,19 @@ async function adminGenerationRecordSummaryCounts(opts) {
     const embRes = await embQ;
     if (!embRes.error && embRes.count != null) summary.embed = embRes.count;
 
+    let promoCamQ = supabase
+        .from('product_promo_generations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'success')
+        .not('result_image_url', 'is', null)
+        .eq('generation_mode', 'camera_advanced');
+    if (from) promoCamQ = promoCamQ.gte('created_at', from);
+    if (to) promoCamQ = promoCamQ.lte('created_at', to + 'T23:59:59.999Z');
+    const promoCamRes = await promoCamQ;
+    if (!promoCamRes.error && promoCamRes.count != null) {
+        summary.promo_camera = promoCamRes.count;
+    }
+
     let promoQ = supabase
         .from('product_promo_generations')
         .select('id', { count: 'exact', head: true })
@@ -19502,9 +19554,12 @@ async function adminGenerationRecordSummaryCounts(opts) {
     if (from) promoQ = promoQ.gte('created_at', from);
     if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
     const promoRes = await promoQ;
-    if (!promoRes.error && promoRes.count != null) summary.promo = promoRes.count;
+    if (!promoRes.error && promoRes.count != null) {
+        summary.promo = Math.max(0, promoRes.count - (summary.promo_camera || 0));
+        if (promoCamRes.error) summary.promo = promoRes.count;
+    }
 
-    summary.total = summary.site + summary.embed + summary.promo;
+    summary.total = summary.site + summary.embed + summary.promo + summary.promo_camera;
     return summary;
 }
 

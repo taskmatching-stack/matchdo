@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729i';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729j';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -119,6 +119,8 @@
     var prefix = s.lookMode === 'film' ? 'FILM' : 'BODY';
     if (lookEl) lookEl.textContent = prefix + ' · ' + s.look;
     if (lensEl) lensEl.textContent = s.lens;
+    var angleLine = document.querySelector('#pcLcd .pc-lcd-angle');
+    if (angleLine) angleLine.textContent = s.angle || '—';
     if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev + ' · ' + s.blades;
 
     var ring = document.getElementById('pcLensRing');
@@ -130,6 +132,41 @@
       var rot = lensIdx >= 0 ? lensIdx * 10 : 0;
       ring.style.transform = 'rotate(' + rot + 'deg)';
     }
+  }
+
+  function refreshAngleHint() {
+    var hint = document.getElementById('pcAngleHint');
+    if (!hint) return;
+    var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
+    var list = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
+    var key = (St.get().camera || {})[angleCat] || '';
+    var hit = list.find(function (r) { return r.key === key; });
+    hint.textContent = (hit && hit.description) ? hit.description : (hit ? (hit.name || '') : '選擇拍攝角度');
+  }
+
+  function renderAngleButtons() {
+    var wrap = document.getElementById('pcAngleBtns');
+    if (!wrap) return;
+    var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
+    var list = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
+    var cur = (St.get().camera || {})[angleCat] || 'keep_reference';
+    wrap.innerHTML = list.map(function (r) {
+      var active = r.key === cur ? ' active' : '';
+      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
+    }).join('');
+    wrap.querySelectorAll('.pc-angle-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-key');
+        St.setCameraKey(angleCat, k);
+        wrap.querySelectorAll('.pc-angle-btn').forEach(function (b) {
+          b.classList.toggle('active', b.getAttribute('data-key') === k);
+        });
+        refreshAngleHint();
+        updateLcd();
+        flashLcd();
+      });
+    });
+    refreshAngleHint();
   }
 
   function refreshParamHint(selectEl, hintEl, items) {
@@ -474,6 +511,7 @@
       updatePricingIntro();
       fillThemeSceneSelects();
       fillCameraSelects();
+      renderAngleButtons();
       updateDimsHint();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);

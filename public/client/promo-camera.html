@@ -7,7 +7,7 @@
   <title>攝影模擬 - MATCHDO</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260729i" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260729j" rel="stylesheet" />
 </head>
 <body class="bg-light">
   <div id="site-header"></div>
@@ -71,6 +71,11 @@
               <p class="form-text small mb-1" id="pcDimsHint">1024×1024</p>
             </div>
           </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1">拍攝角度</label>
+            <div id="pcAngleBtns" class="d-flex flex-wrap gap-1"></div>
+            <p class="form-text small text-muted mb-0 mt-1" id="pcAngleHint">維持參考角度：不額外指定新視角</p>
+          </div>
           <input type="text" id="pcPromptInput" class="form-control form-control-sm mb-2" placeholder="額外描述（選填）例：溫暖午後陽光" />
           <div class="d-flex flex-wrap align-items-center gap-2">
             <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> 生成情境圖</button>
@@ -109,6 +114,7 @@
             <div class="pc-lcd" id="pcLcd" aria-live="polite">
               <div class="pc-lcd-line pc-lcd-look">—</div>
               <div class="pc-lcd-line pc-lcd-lens">—</div>
+              <div class="pc-lcd-line pc-lcd-angle">—</div>
               <div class="pc-lcd-line pc-lcd-optics">— · —</div>
             </div>
           </div>
@@ -173,10 +179,10 @@
   <script src="/config/auth-config.js"></script>
   <script src="/js/auth-middleware.js"></script>
   <script src="/js/site-header.js"></script>
-  <script src="/js/matchdo-promo-image.js?v=20260729i"></script>
-  <script src="/js/promo-camera/api.js?v=20260729i"></script>
-  <script src="/js/promo-camera/state.js?v=20260729i"></script>
-  <script src="/js/promo-camera/index.js?v=20260729i"></script>
+  <script src="/js/matchdo-promo-image.js?v=20260729j"></script>
+  <script src="/js/promo-camera/api.js?v=20260729j"></script>
+  <script src="/js/promo-camera/state.js?v=20260729j"></script>
+  <script src="/js/promo-camera/index.js?v=20260729j"></script>
   <script src="/js/site-footer.js"></script>
 </body>
 </html>

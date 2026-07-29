@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS public.promo_camera_param_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category TEXT NOT NULL CHECK (category IN (
-        'camera_brand', 'film_simulation', 'aperture', 'exposure_ev',
+        'camera_brand', 'film_simulation', 'shooting_angle', 'aperture', 'exposure_ev',
         'lens', 'focal_length', 'lens_type', 'aperture_blades'
     )),
     key TEXT NOT NULL,
@@ -63,6 +63,21 @@ INSERT INTO public.promo_camera_param_options (category, key, name, name_en, pro
  'Fuji Provia slide-film style: clean color, punchy but natural saturation, transparent highlights', 40, false),
 ('film_simulation', 'cinestill_800t', 'Cinestill 800T 風', 'Cinestill 800T style',
  'Cinestill 800T tungsten film color response only: cool shadow cast, halation on bright specular points, distinctive emulsion color bias without scene or lighting change', 50, false),
+
+('shooting_angle', 'keep_reference', '維持參考角度', 'Keep reference angle',
+ '', 10, true),
+('shooting_angle', 'hero_34', '45° 英雄角', 'Hero 3/4 angle',
+ 'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference', 20, false),
+('shooting_angle', 'front', '正視', 'Front facing',
+ 'Reshoot the same product from a straight front-facing camera angle: symmetrical hero presentation, product centered, clear front design details', 30, false),
+('shooting_angle', 'side_profile', '側面', 'Side profile',
+ 'Reshoot the same product from a clean side profile angle: show thickness, silhouette, and edge design clearly', 40, false),
+('shooting_angle', 'top_down', '俯拍', 'Top down',
+ 'Reshoot the same product from a top-down camera angle: flat lay style product presentation while keeping the product recognizable', 50, false),
+('shooting_angle', 'low_angle', '低角度', 'Low angle',
+ 'Reshoot the same product from a low camera angle looking upward: imposing hero presence, product dominates the frame', 60, false),
+('shooting_angle', 'back_34', '後 3/4', 'Rear 3/4',
+ 'Reshoot the same product from a rear three-quarter angle: show back design and form while keeping brand identity readable', 70, false),
 
 ('aperture', 'f14', 'f/1.4 大光圈', 'f/1.4',
  'Shot at f/1.4: very shallow depth of field, strong background blur, subject isolation', 10, false),

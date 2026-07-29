@@ -18,6 +18,7 @@
           供 <code>/client/promo-camera.html</code> 使用。各選項的 <code>prompt_fragment</code>（英文）送 FLUX。
           <strong>品牌色彩</strong>（<code>camera_brand</code>）僅寫機身／感測器色調，<strong>勿寫場景、光線、廣告氛圍</strong>（左側主題／場景已負責）。
           與<strong>底片模擬</strong>（<code>film_simulation</code>）前台僅擇一。
+          <strong>拍攝角度</strong>（<code>shooting_angle</code>）供左側快捷按鈕；prompt 只寫視角／構圖，勿寫場景光線。
           <strong>鏡頭</strong>請編輯 <code>lens</code>（每個選項＝焦段＋鏡頭類型光學個性；<strong>分組</strong>填鏡頭類型如「標準定焦／微距鏡頭／老鏡頭」）。
           <code>focal_length</code>、<code>lens_type</code> 為 legacy，前台已停用。
           <strong>底片模擬</strong>與<strong>鏡頭</strong>可用「分組」欄位（寫入 <code>meta.group</code>）在前台以群組下拉顯示。
@@ -114,6 +115,7 @@
   var CAT_LABELS = {
     camera_brand: '品牌色彩',
     film_simulation: '底片模擬',
+    shooting_angle: '拍攝角度',
     aperture: '光圈',
     exposure_ev: 'EV',
     lens: '鏡頭',

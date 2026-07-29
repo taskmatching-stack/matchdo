@@ -21,7 +21,8 @@
     ui_hidden_categories: ['focal_length', 'lens_type'],
     lens_primary_category: 'lens',
     groupable_categories: ['film_simulation', 'lens'],
-    group_meta_key: 'group'
+    group_meta_key: 'group',
+    angle_button_category: 'shooting_angle'
   };
 
   var state = {
@@ -71,6 +72,10 @@
     return getUiConfig().lens_primary_category || 'lens';
   }
 
+  function getAngleCategory() {
+    return getUiConfig().angle_button_category || 'shooting_angle';
+  }
+
   function visibleCategories() {
     var hidden = getUiConfig().ui_hidden_categories || ['focal_length', 'lens_type'];
     var hiddenSet = {};
@@ -112,6 +117,10 @@
     }
     if (!state.camera[lensCat]) {
       state.camera[lensCat] = defs[lensCat] || ((params[lensCat] || [])[0] && (params[lensCat][0].key)) || '';
+    }
+    var angleCat = getAngleCategory();
+    if (!state.camera[angleCat]) {
+      state.camera[angleCat] = defs[angleCat] || 'keep_reference';
     }
     delete state.camera.focal_length;
     delete state.camera.lens_type;
@@ -220,10 +229,12 @@
     var lookKey = state.lookMode === 'film' ? cam[filmCat] : cam[digitalCat];
     var lookCat = state.lookMode === 'film' ? filmCat : digitalCat;
     var lensCat = getLensCategory();
+    var angleCat = getAngleCategory();
     return {
       lookMode: state.lookMode,
       look: labelFor(lookCat, lookKey),
       lens: labelFor(lensCat, cam[lensCat]),
+      angle: labelFor(angleCat, cam[angleCat]),
       aperture: labelFor('aperture', cam.aperture),
       ev: labelFor('exposure_ev', cam.exposure_ev),
       blades: labelFor('aperture_blades', cam.aperture_blades)
@@ -237,6 +248,7 @@
     getDigitalLookCategory: getDigitalLookCategory,
     getFilmLookCategory: getFilmLookCategory,
     getLensCategory: getLensCategory,
+    getAngleCategory: getAngleCategory,
     getCategoryLabel: getCategoryLabel,
     visibleCategories: visibleCategories,
     get: function () { return state; },
