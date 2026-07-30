@@ -6,6 +6,19 @@
   <title>攝影模擬參數 - MATCHDO 後台</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    /* modal 不可放在 overflow 容器內；body 層級 + 可捲動避免長 prompt 被裁切 */
+    #editModal .modal-body,
+    #editGroupModal .modal-body {
+      max-height: min(72vh, 680px);
+      overflow-y: auto;
+    }
+    #editModal .modal-feedback:empty,
+    #editGroupModal .modal-feedback:empty,
+    #addFormFeedback:empty {
+      display: none;
+    }
+  </style>
 </head>
 <body class="bg-light">
   <div id="admin-header"></div>
@@ -13,7 +26,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build put-save-fix-20260730</small></h4>
+        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build modal-feedback-20260730b</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -55,6 +68,7 @@
               <div class="col-12"><label class="form-label small mb-0">prompt_fragment（英文，進 FLUX）</label><textarea id="addFragment" class="form-control form-control-sm" rows="2"></textarea></div>
               <div class="col-md-6"><label class="form-label small mb-0">說明（前台提示）</label><input id="addDesc" class="form-control form-control-sm"></div>
               <div class="col-md-6"><label class="form-label small mb-0">說明（英文）</label><input id="addDescEn" class="form-control form-control-sm"></div>
+              <div class="col-12"><div id="addFormFeedback" class="small rounded px-2 py-2" role="status" aria-live="polite"></div></div>
               <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
             </div>
           </div>
@@ -87,58 +101,66 @@
             <p id="listEmptyHint" class="text-muted small mb-0 mt-2 d-none">此參數尚無選項。</p>
           </div>
         </div>
-
-        <div class="modal fade" id="editModal" tabindex="-1">
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header py-2"><h6 class="modal-title">編輯選項</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-              <div class="modal-body">
-                <input type="hidden" id="editId">
-                <input type="hidden" id="editCategory" value="">
-                <div class="row g-2">
-                  <div class="col-md-4"><label class="form-label small">key</label><input id="editKey" class="form-control form-control-sm"></div>
-                  <div class="col-md-4"><label class="form-label small">名稱</label><input id="editName" class="form-control form-control-sm"></div>
-                  <div class="col-md-4"><label class="form-label small">英文名</label><input id="editNameEn" class="form-control form-control-sm"></div>
-                  <div class="col-md-4"><label class="form-label small">排序</label><input id="editSort" type="number" class="form-control form-control-sm"></div>
-                  <div class="col-md-4" id="editGroupCol"><label class="form-label small">分組</label><select id="editGroupId" class="form-select form-select-sm"><option value="">（無分組）</option></select></div>
-                  <div class="col-md-4 d-flex align-items-end gap-3">
-                    <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefault"><label class="form-check-label small" for="editDefault">預設</label></div>
-                    <div class="form-check"><input class="form-check-input" type="checkbox" id="editActive"><label class="form-check-label small" for="editActive">啟用</label></div>
-                  </div>
-                  <div class="col-12"><label class="form-label small">prompt_fragment</label><textarea id="editFragment" class="form-control form-control-sm" rows="3"></textarea></div>
-                  <div class="col-md-6"><label class="form-label small">說明（中）</label><input id="editDesc" class="form-control form-control-sm"></div>
-                  <div class="col-md-6"><label class="form-label small">說明（英）</label><input id="editDescEn" class="form-control form-control-sm"></div>
-                </div>
-              </div>
-              <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btnSaveEdit">儲存</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal fade" id="editGroupModal" tabindex="-1">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header py-2"><h6 class="modal-title">編輯分組</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-              <div class="modal-body">
-                <input type="hidden" id="editGrpId">
-                <div class="row g-2">
-                  <div class="col-md-6"><label class="form-label small">key</label><input id="editGrpKey" class="form-control form-control-sm"></div>
-                  <div class="col-md-6"><label class="form-label small">排序</label><input id="editGrpSort" type="number" class="form-control form-control-sm"></div>
-                  <div class="col-md-6"><label class="form-label small">名稱</label><input id="editGrpName" class="form-control form-control-sm"></div>
-                  <div class="col-md-6"><label class="form-label small">英文名</label><input id="editGrpNameEn" class="form-control form-control-sm"></div>
-                  <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="editGrpActive"><label class="form-check-label small" for="editGrpActive">啟用</label></div></div>
-                </div>
-              </div>
-              <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btnSaveGroupEdit">儲存</button>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="editModalTitle">編輯選項</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <div id="editModalFeedback" class="modal-feedback small rounded px-2 py-2 mb-2" role="alert" aria-live="assertive"></div>
+          <input type="hidden" id="editId">
+          <input type="hidden" id="editCategory" value="">
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label small">key</label><input id="editKey" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">名稱</label><input id="editName" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">英文名</label><input id="editNameEn" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">排序</label><input id="editSort" type="number" class="form-control form-control-sm"></div>
+            <div class="col-md-4" id="editGroupCol"><label class="form-label small">分組</label><select id="editGroupId" class="form-select form-select-sm"><option value="">（無分組）</option></select></div>
+            <div class="col-md-4 d-flex align-items-end gap-3">
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefault"><label class="form-check-label small" for="editDefault">預設</label></div>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="editActive"><label class="form-check-label small" for="editActive">啟用</label></div>
+            </div>
+            <div class="col-12"><label class="form-label small">prompt_fragment</label><textarea id="editFragment" class="form-control form-control-sm" rows="4"></textarea></div>
+            <div class="col-md-6"><label class="form-label small">說明（中）</label><input id="editDesc" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">說明（英）</label><input id="editDescEn" class="form-control form-control-sm"></div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnSaveEdit">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="editGroupModal" tabindex="-1" aria-labelledby="editGroupModalTitle">
+    <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="editGroupModalTitle">編輯分組</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <div id="editGroupModalFeedback" class="modal-feedback small rounded px-2 py-2 mb-2" role="alert" aria-live="assertive"></div>
+          <input type="hidden" id="editGrpId">
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small">key</label><input id="editGrpKey" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">排序</label><input id="editGrpSort" type="number" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">名稱</label><input id="editGrpName" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">英文名</label><input id="editGrpNameEn" class="form-control form-control-sm"></div>
+            <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="editGrpActive"><label class="form-check-label small" for="editGrpActive">啟用</label></div></div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnSaveGroupEdit">儲存</button>
+        </div>
+      </div>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -205,6 +227,35 @@
     w.classList.remove('d-none', 'alert-success', 'alert-danger');
     w.classList.add(ok ? 'alert-success' : 'alert-danger');
   }
+  function showInlineFeedback(elId, msg, ok) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    if (!msg) {
+      el.textContent = '';
+      el.className = el.className.replace(/\balert(-success|-danger)?\b/g, '').trim();
+      if (elId.indexOf('Feedback') >= 0 && el.className.indexOf('modal-feedback') < 0) {
+        el.className = (elId === 'addFormFeedback' ? 'small rounded px-2 py-2' : 'modal-feedback small rounded px-2 py-2 mb-2');
+      }
+      return;
+    }
+    el.textContent = msg;
+    el.className = (elId === 'addFormFeedback'
+      ? 'small rounded px-2 py-2 alert '
+      : 'modal-feedback small rounded px-2 py-2 mb-2 alert ') + (ok ? 'alert-success' : 'alert-danger');
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function getEditModal() {
+    var el = document.getElementById('editModal');
+    if (!el) return null;
+    if (!editModal) editModal = bootstrap.Modal.getOrCreateInstance(el);
+    return editModal;
+  }
+  function getEditGroupModal() {
+    var el = document.getElementById('editGroupModal');
+    if (!el) return null;
+    if (!editGroupModal) editGroupModal = bootstrap.Modal.getOrCreateInstance(el);
+    return editGroupModal;
+  }
   async function authHeaders() {
     if (!window.AuthService) return {};
     var session = await AuthService.getSession();
@@ -224,16 +275,18 @@
   function optionCountForGroup(groupId) {
     return items.filter(function (r) { return r.group_id === groupId; }).length;
   }
-  function fillGroupSelects() {
-    var list = groupsForCategory(activeOptionTab);
+  function fillGroupSelects(forCategory, preferredGroupId) {
+    var cat = forCategory || activeOptionTab;
+    var list = groupsForCategory(cat);
     ['addGroupId', 'editGroupId'].forEach(function (selId) {
       var el = document.getElementById(selId);
       if (!el) return;
-      var cur = el.value;
+      var cur = (selId === 'editGroupId' && preferredGroupId != null) ? preferredGroupId : el.value;
       el.innerHTML = '<option value="">（無分組）</option>' + list.map(function (g) {
         return '<option value="' + esc(g.id) + '">' + esc(g.name || g.key) + '</option>';
       }).join('');
       if (cur && list.some(function (g) { return g.id === cur; })) el.value = cur;
+      else el.value = '';
     });
   }
   function renderGroupList() {
@@ -396,6 +449,7 @@
   function openEdit(id) {
     var row = items.find(function (x) { return x.id === id; });
     if (!row) return;
+    showInlineFeedback('editModalFeedback', '', true);
     document.getElementById('editId').value = row.id;
     document.getElementById('editCategory').value = row.category;
     document.getElementById('editKey').value = row.key;
@@ -407,12 +461,11 @@
     document.getElementById('editFragment').value = row.prompt_fragment || '';
     document.getElementById('editDesc').value = row.description || '';
     document.getElementById('editDescEn').value = row.description_en || '';
-    fillGroupSelects();
-    document.getElementById('editGroupId').value = row.group_id || '';
     var groupable = isCategoryGroupable(row.category);
     document.getElementById('editGroupCol').classList.toggle('d-none', !groupable);
-    if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
-    editModal.show();
+    fillGroupSelects(row.category, row.group_id || '');
+    document.getElementById('editModalTitle').textContent = '編輯選項 · ' + (row.name || row.key) + ' (' + catLabel(row.category) + ')';
+    getEditModal().show();
   }
   function closeModal(modalInst) {
     if (!modalInst) return;
@@ -455,14 +508,15 @@
   function openEditGroup(id) {
     var row = groups.find(function (x) { return x.id === id; });
     if (!row) return;
+    showInlineFeedback('editGroupModalFeedback', '', true);
     document.getElementById('editGrpId').value = row.id;
     document.getElementById('editGrpKey').value = row.key || '';
     document.getElementById('editGrpName').value = row.name || '';
     document.getElementById('editGrpNameEn').value = row.name_en || '';
     document.getElementById('editGrpSort').value = row.sort_order || 0;
     document.getElementById('editGrpActive').checked = row.is_active !== false;
-    if (!editGroupModal) editGroupModal = new bootstrap.Modal(document.getElementById('editGroupModal'));
-    editGroupModal.show();
+    document.getElementById('editGroupModalTitle').textContent = '編輯分組 · ' + (row.name || row.key);
+    getEditGroupModal().show();
   }
   async function delGroup(id) {
     if (!confirm('確定刪除此分組？（若仍有選項使用中會失敗）')) return;
@@ -504,43 +558,80 @@
     };
     var btn = document.getElementById('btnSaveGroupEdit');
     btn.disabled = true;
+    btn.textContent = '儲存中…';
+    showInlineFeedback('editGroupModalFeedback', '儲存中…', true);
     try {
       var headers = await authHeaders();
       var r = await fetch(GROUP_API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(payload) });
       var d = await r.json().catch(function () { return {}; });
-      if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
-      closeModal(editGroupModal);
+      if (!r.ok) {
+        showInlineFeedback('editGroupModalFeedback', d.error || ('儲存失敗（HTTP ' + r.status + '）'), false);
+        showStatus(d.error || '儲存分組失敗', false);
+        return;
+      }
+      showInlineFeedback('editGroupModalFeedback', '✓ 已儲存', true);
       showStatus('已儲存分組', true);
-      loadList();
+      await loadList();
+      setTimeout(function () { closeModal(getEditGroupModal()); }, 450);
     } finally {
       btn.disabled = false;
+      btn.textContent = '儲存';
     }
   });
   document.getElementById('btnAdd').addEventListener('click', async function () {
     if (!activeOptionTab) return;
     var payload = buildOptionPayload('add');
     payload.category = activeOptionTab;
-    var headers = await authHeaders();
-    var r = await fetch(API, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
-    var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
-    showStatus('已新增', true);
-    loadList();
+    var btn = document.getElementById('btnAdd');
+    btn.disabled = true;
+    btn.textContent = '新增中…';
+    showInlineFeedback('addFormFeedback', '新增中…', true);
+    try {
+      var headers = await authHeaders();
+      var r = await fetch(API, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        showInlineFeedback('addFormFeedback', d.error || ('新增失敗（HTTP ' + r.status + '）'), false);
+        showStatus(d.error || '新增失敗', false);
+        return;
+      }
+      showInlineFeedback('addFormFeedback', '✓ 已新增', true);
+      showStatus('已新增選項', true);
+      document.getElementById('addKey').value = '';
+      document.getElementById('addName').value = '';
+      document.getElementById('addNameEn').value = '';
+      document.getElementById('addFragment').value = '';
+      document.getElementById('addDesc').value = '';
+      document.getElementById('addDescEn').value = '';
+      document.getElementById('addDefault').checked = false;
+      await loadList();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '新增';
+    }
   });
   document.getElementById('btnSaveEdit').addEventListener('click', async function () {
     var id = document.getElementById('editId').value;
     var btn = document.getElementById('btnSaveEdit');
     btn.disabled = true;
+    btn.textContent = '儲存中…';
+    showInlineFeedback('editModalFeedback', '儲存中…', true);
     try {
       var headers = await authHeaders();
       var r = await fetch(API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(buildOptionPayload('edit')) });
       var d = await r.json().catch(function () { return {}; });
-      if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
-      closeModal(editModal);
+      if (!r.ok) {
+        showInlineFeedback('editModalFeedback', d.error || ('儲存失敗（HTTP ' + r.status + '）'), false);
+        showStatus(d.error || '儲存失敗', false);
+        return;
+      }
+      showInlineFeedback('editModalFeedback', '✓ 已儲存', true);
       showStatus('已儲存', true);
-      loadList();
+      await loadList();
+      setTimeout(function () { closeModal(getEditModal()); }, 450);
     } finally {
       btn.disabled = false;
+      btn.textContent = '儲存';
     }
   });
   document.getElementById('btnReload').addEventListener('click', loadList);

@@ -13684,11 +13684,12 @@ async function getPromoCameraCategoryKeys(activeOnly, includeLegacy) {
 async function isPromoCameraCategoryKeyValid(categoryKey) {
     const key = String(categoryKey || '').trim();
     if (!key) return false;
+    if (PROMO_CAMERA_ADMIN_CATEGORIES.includes(key)) return true;
     const res = await fetchPromoCameraParamCategories(false);
     if (res.categories && res.categories.length) {
         return res.categories.some(function (c) { return c.key === key; });
     }
-    return PROMO_CAMERA_ADMIN_CATEGORIES.includes(key);
+    return false;
 }
 
 function normalizePromoCameraCategoryKey(raw) {
@@ -29326,6 +29327,22 @@ async function updatePromoCameraParamOptionRow(id, updates) {
     return result;
 }
 
+async function insertPromoCameraParamOptionRow(payload) {
+    let row = Object.assign({}, payload);
+    let selectCols = PROMO_CAMERA_PARAM_SELECT;
+    let result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
+    if (result.error && isSupabaseMissingColumnError(result.error)) {
+        row = stripPromoCameraParamOptionalFields(row);
+        selectCols = PROMO_CAMERA_PARAM_SELECT_LEGACY;
+        result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
+    } else if (result.error && isSupabaseMissingColumnError(result.error, 'description_en')) {
+        delete row.description_en;
+        selectCols = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
+        result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
+    }
+    return result;
+}
+
 // GET /api/admin/promo-camera-param-categories
 app.get('/api/admin/promo-camera-param-categories', async (req, res) => {
     try {
@@ -29675,15 +29692,7 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
         if (payload.is_default) {
             await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', category);
         }
-        let { data, error } = await supabase.from('promo_camera_param_options').insert(payload).select(PROMO_CAMERA_PARAM_SELECT).single();
-        if (error && isSupabaseMissingColumnError(error)) {
-            delete payload.group_id;
-            delete payload.description_en;
-            ({ data, error } = await supabase.from('promo_camera_param_options').insert(payload).select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at').single());
-        } else if (error && isSupabaseMissingColumnError(error, 'description_en')) {
-            delete payload.description_en;
-            ({ data, error } = await supabase.from('promo_camera_param_options').insert(payload).select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at').single());
-        }
+        let { data, error } = await insertPromoCameraParamOptionRow(payload);
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
