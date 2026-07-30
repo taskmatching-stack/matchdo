@@ -5696,6 +5696,13 @@ $(document).ready(function () {
         var url = getDesignedProductImageUrl();
         if (url) setSceneSimPreview(url);
     }
+    function ensurePromoCameraEmbedLoaded() {
+        var frame = document.getElementById('promoCameraEmbedFrame');
+        if (!frame || frame.getAttribute('data-loaded') === '1') return;
+        var lang = (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') ? '&lang=en' : '';
+        frame.src = '/promo-camera?embed=design' + lang;
+        frame.setAttribute('data-loaded', '1');
+    }
     // 動態網址：?tab=product-design | scene-sim | pattern-extract | design-to-physical
     function getTabParamFromButtonId(buttonId) {
         if (buttonId === 'tab-product-design') return 'product-design';
@@ -5704,6 +5711,7 @@ $(document).ready(function () {
         if (buttonId === 'tab-pattern-extract') return 'pattern-extract';
         if (buttonId === 'tab-design-to-physical') return 'design-to-physical';
         if (buttonId === 'tab-promo-image') return 'promo-image';
+        if (buttonId === 'tab-promo-camera') return 'promo-camera';
         return 'product-design';
     }
     function getTabButtonIdFromParam(param) {
@@ -5712,6 +5720,7 @@ $(document).ready(function () {
         if (param === 'pattern-extract') return 'tab-pattern-extract';
         if (param === 'design-to-physical') return 'tab-design-to-physical';
         if (param === 'promo-image') return 'tab-promo-image';
+        if (param === 'promo-camera') return 'tab-promo-camera';
         return 'tab-product-design';
     }
     function buildUrlForTab(tabParam) {
@@ -5734,7 +5743,7 @@ $(document).ready(function () {
     function applyTabFromUrl() {
         var params = new URLSearchParams(window.location.search);
         var tabParam = params.get('tab') || 'product-design';
-        if (tabParam !== 'product-design' && tabParam !== 'vendor-styles' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract' && tabParam !== 'design-to-physical' && tabParam !== 'promo-image') tabParam = 'product-design';
+        if (tabParam !== 'product-design' && tabParam !== 'vendor-styles' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract' && tabParam !== 'design-to-physical' && tabParam !== 'promo-image' && tabParam !== 'promo-camera') tabParam = 'product-design';
         var tabId = getTabButtonIdFromParam(tabParam);
         var tabEl = document.getElementById(tabId);
         suppressTabHistoryWrite = true;
@@ -5747,6 +5756,9 @@ $(document).ready(function () {
         }
         if (tabParam === 'scene-sim') {
             setTimeout(syncSceneSimProductFromDesign, 0);
+        }
+        if (tabParam === 'promo-camera') {
+            setTimeout(ensurePromoCameraEmbedLoaded, 0);
         }
     }
     function updateUrlForTab(tabParam, usePush) {
@@ -6521,6 +6533,9 @@ $(document).ready(function () {
 
     $('#tab-promo-image').on('shown.bs.tab', function () {
         ensurePromoImageOptions(true);
+    });
+    $('#tab-promo-camera').on('shown.bs.tab', function () {
+        ensurePromoCameraEmbedLoaded();
     });
     $('#promoImageRatioSelect').on('change', refreshPromoImagePointsDisplay);
     $('#promoImageMpSelect').on('change', refreshPromoImagePointsDisplay);

@@ -1,5 +1,9 @@
 -- 推廣圖模板：只保留廣告／DM 風格；刪除舊「換場景」列，前後台一致
 -- 可重複執行（冪等）。
+--
+-- ⚠ 若後台已自訂「主視覺/Banner」「社群貼文」等主題的 scene_prompt，勿再跑本檔
+--    （ON CONFLICT 會覆寫 product_hero_ad 等 key 的提示詞）。
+--    只補那兩筆請用 docs/patch-recover-two-promo-themes-banner-social.sql
 
 -- 1) 刪除舊換場景模板（前台本來就不顯示；後台也不該再留）
 DELETE FROM public.promo_scene_templates

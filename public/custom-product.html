@@ -1444,6 +1444,8 @@
         #custom-product .promo-generate-btn:hover { opacity: 0.9; }
         #custom-product .promo-camera-link { font-size: 0.8125rem; color: #A8B2BD; text-align: center; }
         #custom-product .promo-camera-link a { color: #7A8FA3; text-decoration: none; font-weight: 500; }
+        #custom-product .promo-camera-embed-wrap { width: 100%; border-radius: 12px; overflow: hidden; background: #f8f9fa; }
+        #custom-product .promo-camera-embed-wrap iframe { display: block; width: 100%; height: min(85vh, 920px); min-height: 720px; border: 0; }
         #custom-product .promo-image-result { background: #fafafa; border: none; border-radius: 12px; }
         @media (max-width: 768px) {
             #custom-product .promo-field-grid { grid-template-columns: 1fr; }
@@ -1486,6 +1488,9 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-promo-image" data-bs-toggle="tab" data-bs-target="#panel-promo-image" type="button" role="tab" aria-controls="panel-promo-image" aria-selected="false">情境圖</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-promo-camera" data-bs-toggle="tab" data-bs-target="#panel-promo-camera" type="button" role="tab" aria-controls="panel-promo-camera" aria-selected="false" data-i18n="customProduct.promoCameraTab">攝影模擬</button>
                     </li>
                 </ul>
 
@@ -1859,8 +1864,8 @@
                                         <i class="fas fa-bullhorn me-2"></i>生成情境圖
                                     </button>
                                     <p class="promo-camera-link mb-0">
-                                        需要更細的光學／畫質控制？
-                                        <a href="/promo-camera?back=design">攝影模擬 →</a>
+                                        <span data-i18n="customProduct.promoCameraLinkPrefix">需要更細的光學／畫質控制？</span>
+                                        <a href="/custom-product.html?tab=promo-camera" data-i18n="customProduct.promoCameraLinkLabel">攝影模擬 →</a>
                                     </p>
                                 </div>
                             </div>
@@ -1868,6 +1873,11 @@
                                 <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
                                 <p class="scene-sim-result-note text-muted small mt-2 mb-0" data-i18n="customProduct.promoImageResultNote">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>
                             </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="panel-promo-camera" role="tabpanel" aria-labelledby="tab-promo-camera">
+                        <div class="promo-camera-embed-wrap">
+                            <iframe id="promoCameraEmbedFrame" title="攝影模擬" src="about:blank" loading="lazy"></iframe>
                         </div>
                     </div>
                 </div>
@@ -1934,7 +1944,7 @@
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260730e" defer></script>
     <script src="/js/digital-asset-picker.js?v=2" defer></script>
-    <script src="js/custom-product.js?v=140" defer></script>
+    <script src="js/custom-product.js?v=141" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

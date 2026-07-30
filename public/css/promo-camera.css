@@ -256,3 +256,19 @@
     transform: translateX(calc(-3.8cqw + 70px));
   }
 }
+
+body.pc-embed-design {
+  background: #f8f9fa !important;
+}
+body.pc-embed-design #site-header,
+body.pc-embed-design #site-footer {
+  display: none !important;
+}
+body.pc-embed-design #promo-camera-app {
+  min-height: 0;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+body.pc-embed-design #promo-camera-app .pc-page-head {
+  display: none !important;
+}

@@ -27,6 +27,7 @@
           <em>場景</em>的同名字段、使用者額外描述、攝影參數。
           中文「名稱／說明」只給人看，<strong>不會</strong>進提示詞——要改生成結果請改英文提示詞欄。
           <strong>FLUX 審核</strong>（0–6，空白＝預設 2）僅後台生效；首次請執行 <code>docs/add-flux-safety-tolerance.sql</code>。
+          <span class="d-block mt-1 text-muted">從 Google 試算表貼 prompt 時，請<strong>只複製英文那一格</strong>（或從試算表上方公式列複製），勿整列／整頁複製，以免帶入「螢幕閱讀器」等介面字；貼上後本頁會自動去掉重複行。</span>
         </div>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
@@ -194,6 +195,40 @@
     return t.length > n ? t.slice(0, n) + '…' : t;
   }
   function slotLabel(s) { return s === 'scene' ? '場景' : '主題'; }
+  /** 從試算表／瀏覽器貼上時去掉重複行與 Google 介面雜字 */
+  function sanitizePromptPaste(raw) {
+    var s = String(raw == null ? '' : raw);
+    s = s.replace(/\r/g, '');
+    s = s.replace(/開啟螢幕閱讀器支援功能[\s\S]*/g, '');
+    s = s.replace(/如需啟用螢幕閱讀器[\s\S]*/g, '');
+    s = s.replace(/已隱藏橫幅/g, '');
+    s = s.replace(/Ctrl\+Alt\+Z[\s\S]*$/g, '');
+    var lines = s.split('\n').map(function (l) { return l.replace(/\t+/g, ' ').trim(); }).filter(Boolean);
+    var seen = {};
+    lines = lines.filter(function (l) {
+      if (/^(\d{1,3}%|\d{1,2})$/.test(l)) return false;
+      if (/^[A-Z]\d{1,3}$/.test(l)) return false;
+      if (seen[l]) return false;
+      seen[l] = true;
+      return true;
+    });
+    return lines.join('\n').trim();
+  }
+  function readPromptField(id) {
+    var el = document.getElementById(id);
+    return el ? sanitizePromptPaste(el.value) : '';
+  }
+  function bindPromptPasteSanitize(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('paste', function () {
+      setTimeout(function () {
+        var cleaned = sanitizePromptPaste(el.value);
+        if (cleaned !== el.value) el.value = cleaned;
+      }, 0);
+    });
+  }
+  ['tplScene', 'tplComp', 'editScene', 'editComp'].forEach(bindPromptPasteSanitize);
   function promoMultilangBody(prefix, alwaysSend) {
     var body = {};
     var fields = [{ id: prefix + 'NameEn', key: 'name_en' }];
@@ -308,8 +343,8 @@
         name: document.getElementById('tplName').value,
         category: document.getElementById('tplCategory').value,
         description: document.getElementById('tplDesc').value,
-        scene_prompt: document.getElementById('tplScene').value,
-        composition_hint: document.getElementById('tplComp').value,
+        scene_prompt: readPromptField('tplScene'),
+        composition_hint: readPromptField('tplComp'),
         recommended_ratios: document.getElementById('tplRatios').value,
         flux_safety_tolerance: (function () {
           var v = String((document.getElementById('tplFluxTol') || {}).value || '').trim();
@@ -385,8 +420,8 @@
         name: document.getElementById('editName').value,
         category: document.getElementById('editCategory').value,
         description: document.getElementById('editDesc').value,
-        scene_prompt: document.getElementById('editScene').value,
-        composition_hint: document.getElementById('editComp').value,
+        scene_prompt: readPromptField('editScene'),
+        composition_hint: readPromptField('editComp'),
         recommended_ratios: document.getElementById('editRatios').value,
         flux_safety_tolerance: (function () {
           var v = String((document.getElementById('editFluxTol') || {}).value || '').trim();
