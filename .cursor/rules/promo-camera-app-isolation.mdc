@@ -1,0 +1,52 @@
+---
+description: 攝影模擬 App（/promo-camera-app）必須獨立；禁止為 App 改動原站 /promo-camera 與設計頁 embed
+alwaysApply: true
+---
+
+# 攝影模擬 App 隔離（必守）
+
+## 三個入口，三套責任
+
+| 入口 | URL | 用途 |
+|------|-----|------|
+| **原站** | `/promo-camera` | 已驗證的行動版／桌面版；**不得為 App 改壞** |
+| **設計頁 embed** | `/promo-camera?embed=design` | 設計頁 iframe；行為對齊原站 |
+| **獨立 App** | `/promo-camera-app` | PWA 殼；UI／UX 實驗**只准在這裡** |
+
+## App 專用檔（只改這些做 App 功能）
+
+- `public/client/promo-camera-app.html`
+- `public/css/promo-camera-app.css`
+- `public/js/promo-camera/app-shell.js`
+- `public/promo-camera-app.webmanifest`
+
+## 共用檔（App 需求**禁止**改動，除非修三入口都有的 bug）
+
+- `public/client/promo-camera.html`
+- `public/css/promo-camera.css`
+- `public/js/promo-camera/index.js`
+- `public/js/promo-camera/state.js`
+- `public/js/promo-camera/api.js`（僅可加 App 會呼叫的 API 函式；**不可**改既有行為）
+- `public/js/custom-product.js`（embed 載入）
+- `/api/promo-camera/*` 以外流程
+
+## 禁止再犯（屢犯）
+
+| 擅自改動 | 後果 |
+|----------|------|
+| 在 `promo-camera.css` 加 `body.pc-app-shell`、`.pc-generate-dock`、莫蘭迪覆寫 | 原站／embed 版面、配色被改壞 |
+| 在 `index.js` 加 `isAppShell()`、`setupGenerateDock()`、收折、App 點數 | 原站生成列、文案、流程被改 |
+| 在 `promo-camera.html` 加 `morandi-global`、改 toolbar 結構 | 原站與已驗證行動版不一致 |
+| App 功能寫進共用檔「方便重用」 | 違反獨立 App 原則 |
+
+## 正確做法
+
+1. **App UI** → `promo-camera-app.html` + `promo-camera-app.css`（選擇器一律 `body.pc-app-shell` 底下）
+2. **App 行為**（底部生成列、收折、點數 Modal、chip 選單）→ `app-shell.js`（開頭 `if (!document.body.classList.contains('pc-app-shell')) return;`）
+3. **共用邏輯**（生圖、相機狀態、API）→ 維持 `index.js` / `state.js` / `api.js`；App 用 **hook／監聽**，不要 fork `boot()`
+4. 改完必查：`/promo-camera` 行動版與改前一致；App 變更只在 `/promo-camera-app` 可見
+
+## 參考
+
+- 架構評估：`docs/PLAN-promo-advanced-camera.md` §8、§11
+- 隔離還原 commit：`e3c5e6c`（共用檔回到 `7322747` 健康版 + App 拆到 `*-app.*` / `app-shell.js`）
