@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730h';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730i';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -179,16 +179,16 @@
     if (!device || !img) return;
     var mode = St.get().lookMode;
     var isFilm = mode === 'film';
+    var showOverlay = isFilm || lcdPowered;
     device.classList.toggle('is-film-mode', isFilm);
-    device.classList.toggle('is-lcd-on', !isFilm && lcdPowered);
-    device.classList.toggle('is-lcd-off', !isFilm && !lcdPowered);
+    device.classList.toggle('is-lcd-on', showOverlay);
+    device.classList.toggle('is-lcd-off', !showOverlay);
     if (isFilm) {
       img.src = CAMERA_IMG.film;
-      if (lcdWrap) lcdWrap.setAttribute('aria-hidden', 'true');
     } else {
       img.src = lcdPowered ? CAMERA_IMG.digitalOn : CAMERA_IMG.digitalOff;
-      if (lcdWrap) lcdWrap.setAttribute('aria-hidden', lcdPowered ? 'false' : 'true');
     }
+    if (lcdWrap) lcdWrap.setAttribute('aria-hidden', showOverlay ? 'false' : 'true');
   }
 
   function powerOnLcd() {
@@ -211,7 +211,7 @@
   }
 
   function flashLcd() {
-    powerOnLcd();
+    if (St.get().lookMode !== 'film') powerOnLcd();
     var lines = document.querySelectorAll('#pcLcd .pc-lcd-line');
     lines.forEach(function (line) {
       line.classList.remove('pc-lcd-flash');
@@ -474,17 +474,23 @@
         St.setLookMode(el.value);
         if (el.value === 'film') {
           lcdPowered = false;
+          fillLookSelect();
+          updateLcd();
+          flashLcd();
         } else if (wasFilm) {
           lcdPowered = false;
           updateCameraBodyImage();
+          fillLookSelect();
+          updateLcd();
           setTimeout(function () {
             powerOnLcd();
             flashLcd();
           }, 120);
+        } else {
+          fillLookSelect();
+          updateLcd();
+          flashLcd();
         }
-        fillLookSelect();
-        updateLcd();
-        if (el.value !== 'film' || !wasFilm) flashLcd();
       });
     });
 
