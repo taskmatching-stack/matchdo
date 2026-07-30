@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731f';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731i';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -170,6 +170,15 @@
     }
   }
 
+  function scrollResultIntoView() {
+    if (!isAppShell()) return;
+    var el = document.getElementById('pcResultArea');
+    if (!el || el.classList.contains('d-none')) return;
+    requestAnimationFrame(function () {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function showResultLoading() {
     var el = document.getElementById('pcResultArea');
     var panel = getChatPanel();
@@ -177,6 +186,7 @@
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: '生成中，請稍候…' }));
+    scrollResultIntoView();
   }
 
   function showResultArea(url, data, payload) {
@@ -192,6 +202,7 @@
       user_prompt: payload.user_prompt
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+    scrollResultIntoView();
   }
 
   function showResultError(msg) {
@@ -201,6 +212,7 @@
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || '生成失敗' }));
+    scrollResultIntoView();
   }
 
   function renderMessages() {
@@ -508,8 +520,6 @@
     if (!el) return;
     var st = St.get();
     var parts = [];
-    if (st.images.length) parts.push(t('promoCamera.composeSummaryHasImage', '已選產品圖'));
-    else parts.push(t('promoCamera.composeSummaryNoImage', '尚未選圖'));
     var themeEl = document.getElementById('pcThemeSelect');
     if (themeEl && themeEl.selectedIndex >= 0 && themeEl.options[themeEl.selectedIndex]) {
       var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
@@ -517,6 +527,9 @@
     }
     var ratio = (document.getElementById('pcRatioSelect') || {}).value || st.aspectRatio || '';
     if (ratio) parts.push(ratio);
+    var mp = (document.getElementById('pcMpSelect') || {}).value || st.megapixels || '';
+    if (mp) parts.push(mp + ' MP');
+    if (!parts.length) parts.push(t('promoCamera.composeSummaryDefault', '點開調整'));
     el.textContent = parts.join(' · ');
   }
 
@@ -547,26 +560,10 @@
 
   function setupComposeCollapse() {
     if (!isAppShell()) return;
-    var compose = document.querySelector('#promo-camera-app .pc-chat-compose');
-    if (!compose || document.getElementById('pcComposeToggle')) return;
-    var nodes = [];
-    Array.prototype.slice.call(compose.children).forEach(function (el) { nodes.push(el); });
-    if (!nodes.length) return;
-    var toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.id = 'pcComposeToggle';
-    toggle.className = 'pc-compose-toggle';
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.innerHTML =
-      '<span class="pc-compose-toggle-label">' + esc(t('promoCamera.composeToggleLabel', '來源與情境設定')) + '</span>' +
-      '<span class="pc-compose-summary text-muted" id="pcComposeSummary"></span>' +
-      '<i class="bi bi-chevron-down pc-compose-toggle-icon" aria-hidden="true"></i>';
-    var body = document.createElement('div');
-    body.id = 'pcComposeBody';
-    body.className = 'pc-compose-body is-collapsed';
-    nodes.forEach(function (el) { body.appendChild(el); });
-    compose.appendChild(toggle);
-    compose.appendChild(body);
+    var toggle = document.getElementById('pcComposeToggle');
+    var body = document.getElementById('pcComposeBody');
+    if (!toggle || !body || toggle.getAttribute('data-pc-bound') === '1') return;
+    toggle.setAttribute('data-pc-bound', '1');
     toggle.addEventListener('click', function () {
       var expanded = body.classList.contains('is-collapsed');
       setComposeExpanded(expanded);
@@ -692,10 +689,7 @@
 
     document.getElementById('pcGenerateBtn').addEventListener('click', function () {
       var st = St.get();
-      if (!st.images.length) {
-        if (document.getElementById('pcComposeBody')) setComposeExpanded(true);
-        return;
-      }
+      if (!st.images.length) return;
       if (st.generating) return;
       st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
       st.generating = true;

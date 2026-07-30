@@ -13,9 +13,10 @@
   <link rel="apple-touch-icon" href="/img/matchdo-logo.png" />
   <title data-i18n="promoCamera.appPageTitle">攝影模擬 App - MATCHDO</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/morandi-global.css?v=4" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="/css/image-lightbox.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260731f" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260731i" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
@@ -29,7 +30,7 @@
         </div>
       </div>
       <div class="pc-app-topbar-actions">
-        <a href="/credits.html" class="btn btn-sm btn-outline-secondary pc-app-credits-btn" id="pcAppCreditsLink">
+        <a href="/credits.html" class="btn btn-sm btn-outline-primary pc-app-credits-btn" id="pcAppCreditsLink">
           <i class="bi bi-currency-exchange"></i>
           <span data-i18n="nav.myCredits">我的點數</span>
         </a>
@@ -43,27 +44,37 @@
     <div class="pc-layout">
       <section class="pc-chat-panel" aria-label="對話區">
         <div id="pcChatMessages" class="pc-chat-messages"></div>
-        <div id="pcResultArea" class="pc-result-slot d-none" aria-label="生成結果"></div>
         <div class="pc-chat-compose pc-app-compose">
-          <div class="pc-app-block">
-            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionSource">產品圖</div>
-            <div class="pc-app-card">
-              <div class="pc-app-thumb-slot">
-                <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2"></div>
-              </div>
-              <div class="pc-app-split-actions">
-                <label class="pc-app-action pc-app-action--upload mb-0">
-                  <i class="bi bi-upload"></i>
-                  <span data-i18n="promoCamera.uploadImage">上傳圖片</span>
-                  <input type="file" id="pcUploadInput" accept="image/*" hidden />
-                </label>
-                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickAssetBtn">
-                  <i class="bi bi-images"></i>
-                  <span data-i18n="promoCamera.pickAsset">從數位資產選擇</span>
-                </button>
+          <div class="pc-app-source-fixed">
+            <div class="pc-app-block">
+              <div class="pc-app-block-title" data-i18n="promoCamera.appSectionSource">產品圖</div>
+              <div class="pc-app-card">
+                <div class="pc-app-thumb-slot">
+                  <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2"></div>
+                </div>
+                <div class="pc-app-split-actions">
+                  <label class="pc-app-action pc-app-action--upload mb-0">
+                    <i class="bi bi-upload"></i>
+                    <span data-i18n="promoCamera.uploadImage">上傳圖片</span>
+                    <input type="file" id="pcUploadInput" accept="image/*" hidden />
+                  </label>
+                  <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickAssetBtn">
+                    <i class="bi bi-images"></i>
+                    <span data-i18n="promoCamera.pickAsset">從數位資產選擇</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+
+          <div id="pcResultArea" class="pc-result-slot pc-app-result d-none" aria-label="生成結果"></div>
+
+          <button type="button" class="pc-compose-toggle" id="pcComposeToggle" aria-expanded="false">
+            <span class="pc-compose-toggle-label" data-i18n="promoCamera.composeToggleLabel">情境與輸出設定</span>
+            <span class="pc-compose-summary text-muted" id="pcComposeSummary"></span>
+            <i class="bi bi-chevron-down pc-compose-toggle-icon" aria-hidden="true"></i>
+          </button>
+          <div class="pc-compose-body is-collapsed" id="pcComposeBody">
 
           <div class="pc-app-block">
             <div class="pc-app-block-title" data-i18n="promoCamera.appSectionScene">情境</div>
@@ -128,6 +139,8 @@
               <p class="pc-app-hint mb-0" data-i18n="promoCamera.descriptionHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免 AI 誤判品項。</p>
             </div>
           </div>
+
+          </div><!-- /pcComposeBody -->
 
           <div class="d-none pc-compose-generate-fallback">
             <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> <span data-i18n="promoCamera.generateBtn">生成</span></button>
@@ -223,7 +236,7 @@
   <script src="/js/image-lightbox.js"></script>
   <script src="/js/promo-camera/api.js?v=20260730a"></script>
   <script src="/js/promo-camera/state.js?v=20260730a"></script>
-  <script src="/js/promo-camera/index.js?v=20260731f"></script>
+  <script src="/js/promo-camera/index.js?v=20260731g"></script>
   <script>
     if (window.i18n && window.i18n.ready) {
       window.i18n.ready.then(function () {
