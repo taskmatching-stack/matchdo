@@ -29299,7 +29299,32 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
 });
 
 const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
+const PROMO_CAMERA_PARAM_SELECT_LEGACY = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
 const PROMO_CAMERA_GROUP_SELECT = 'id, category, key, name, name_en, sort_order, is_active, created_at, updated_at';
+
+function stripPromoCameraParamOptionalFields(payload) {
+    const o = Object.assign({}, payload);
+    delete o.group_id;
+    delete o.description_en;
+    ['name_ja', 'name_es', 'name_de', 'name_fr'].forEach(function (col) { delete o[col]; });
+    return o;
+}
+
+async function updatePromoCameraParamOptionRow(id, updates) {
+    let payload = Object.assign({}, updates);
+    let selectCols = PROMO_CAMERA_PARAM_SELECT;
+    let result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
+    if (result.error && isSupabaseMissingColumnError(result.error)) {
+        payload = stripPromoCameraParamOptionalFields(payload);
+        selectCols = PROMO_CAMERA_PARAM_SELECT_LEGACY;
+        result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
+    } else if (result.error && isSupabaseMissingColumnError(result.error, 'description_en')) {
+        delete payload.description_en;
+        selectCols = 'id, category, key, name, name_en, prompt_fragment, description, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
+        result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
+    }
+    return result;
+}
 
 // GET /api/admin/promo-camera-param-categories
 app.get('/api/admin/promo-camera-param-categories', async (req, res) => {
@@ -29733,9 +29758,10 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
                 }
             }
         }
-        const { data, error } = await supabase.from('promo_camera_param_options').update(updates).eq('id', id).select(PROMO_CAMERA_PARAM_SELECT).single();
+        const { data, error } = await updatePromoCameraParamOptionRow(id, updates);
         if (error) {
             if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
+            if (error.code === 'PGRST116') return res.status(404).json({ error: '找不到此選項' });
             console.error('PUT /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '更新失敗' });
         }

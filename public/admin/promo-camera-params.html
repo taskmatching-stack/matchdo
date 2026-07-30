@@ -13,7 +13,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build group-mgmt-9b8955b</small></h4>
+        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build put-save-fix-20260730</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -414,20 +414,34 @@
     if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
     editModal.show();
   }
+  function closeModal(modalInst) {
+    if (!modalInst) return;
+    modalInst.hide();
+    setTimeout(function () {
+      document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+    }, 300);
+  }
   function buildOptionPayload(prefix) {
-    return {
-      category: document.getElementById(prefix + 'Category').value || activeOptionTab,
+    var cat = document.getElementById(prefix + 'Category').value || activeOptionTab;
+    var payload = {
+      category: cat,
       key: document.getElementById(prefix + 'Key').value,
       name: document.getElementById(prefix + 'Name').value,
       name_en: document.getElementById(prefix + 'NameEn').value,
       prompt_fragment: document.getElementById(prefix + 'Fragment').value,
       description: document.getElementById(prefix + 'Desc').value,
       description_en: document.getElementById(prefix + 'DescEn').value,
-      group_id: document.getElementById(prefix + 'GroupId').value || null,
       sort_order: parseInt(document.getElementById(prefix + 'Sort').value, 10) || 0,
       is_default: document.getElementById(prefix + 'Default').checked,
       is_active: document.getElementById(prefix + 'Active').checked
     };
+    if (isCategoryGroupable(cat)) {
+      payload.group_id = document.getElementById(prefix + 'GroupId').value || null;
+    }
+    return payload;
   }
   async function delRow(id) {
     if (!confirm('確定刪除此選項？')) return;
@@ -488,13 +502,19 @@
       sort_order: parseInt(document.getElementById('editGrpSort').value, 10) || 0,
       is_active: document.getElementById('editGrpActive').checked
     };
-    var headers = await authHeaders();
-    var r = await fetch(GROUP_API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(payload) });
-    var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
-    if (editGroupModal) editGroupModal.hide();
-    showStatus('已儲存分組', true);
-    loadList();
+    var btn = document.getElementById('btnSaveGroupEdit');
+    btn.disabled = true;
+    try {
+      var headers = await authHeaders();
+      var r = await fetch(GROUP_API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(payload) });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
+      closeModal(editGroupModal);
+      showStatus('已儲存分組', true);
+      loadList();
+    } finally {
+      btn.disabled = false;
+    }
   });
   document.getElementById('btnAdd').addEventListener('click', async function () {
     if (!activeOptionTab) return;
@@ -509,13 +529,19 @@
   });
   document.getElementById('btnSaveEdit').addEventListener('click', async function () {
     var id = document.getElementById('editId').value;
-    var headers = await authHeaders();
-    var r = await fetch(API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(buildOptionPayload('edit')) });
-    var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
-    if (editModal) editModal.hide();
-    showStatus('已儲存', true);
-    loadList();
+    var btn = document.getElementById('btnSaveEdit');
+    btn.disabled = true;
+    try {
+      var headers = await authHeaders();
+      var r = await fetch(API + '/' + encodeURIComponent(id), { method: 'PUT', headers: headers, body: JSON.stringify(buildOptionPayload('edit')) });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
+      closeModal(editModal);
+      showStatus('已儲存', true);
+      loadList();
+    } finally {
+      btn.disabled = false;
+    }
   });
   document.getElementById('btnReload').addEventListener('click', loadList);
   document.getElementById('filterGroup').addEventListener('change', renderList);
