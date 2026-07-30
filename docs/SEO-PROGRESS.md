@@ -18,6 +18,7 @@
 | **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |
 | **官方版型短網址** | `/official-templates/` → 301 至設計頁官方 tab；`?official_platform=1`（無 `manage=1`）同上 |
 | **inspiration 上限** | `sitemap-inspiration.xml` 總上限 **500**；`is_public` 版型 **250** 筆 |
+| **首頁 UX（必守）** | **禁止**在 `#media-wall-section` 前加可見／visually-hidden 文案區塊；SEO 只靠 `<head>` meta／JSON-LD、`/inspiration/*` SSR、sitemap。**勿再犯** 2026-07-30 `#home-seo-intro` 事件 |
 
 ### B 線／產業供應商工作區（2026-06-01，部分已 supersede）
 
