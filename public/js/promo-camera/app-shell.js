@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731r';
+  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731s';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -84,19 +84,6 @@
     el.textContent = parts.join(' · ');
   }
 
-  function syncAppPickerLabels() {
-    var themeEl = document.getElementById('pcThemeSelect');
-    var sceneEl = document.getElementById('pcSceneSelect');
-    var themeLabel = document.getElementById('pcThemePickerLabel');
-    var sceneLabel = document.getElementById('pcScenePickerLabel');
-    if (themeEl && themeLabel && themeEl.selectedIndex >= 0) {
-      themeLabel.textContent = (themeEl.options[themeEl.selectedIndex].textContent || '').trim() || '—';
-    }
-    if (sceneEl && sceneLabel && sceneEl.selectedIndex >= 0) {
-      sceneLabel.textContent = (sceneEl.options[sceneEl.selectedIndex].textContent || '').trim() || t('promoCamera.sceneNone', '（不選）');
-    }
-  }
-
   function renderAppSelectChips(selectId, chipsId) {
     var select = document.getElementById(selectId);
     var wrap = document.getElementById(chipsId);
@@ -121,49 +108,9 @@
     });
   }
 
-  function openAppPicker(selectId, title) {
-    var select = document.getElementById(selectId);
-    var modalEl = document.getElementById('pcAppPickerModal');
-    var listEl = document.getElementById('pcAppPickerList');
-    var titleEl = document.getElementById('pcAppPickerTitle');
-    if (!select || !modalEl || !listEl) return;
-    if (titleEl) titleEl.textContent = title || '';
-    listEl.innerHTML = '';
-    Array.prototype.forEach.call(select.options, function (opt) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'pc-app-picker-item' + (opt.value === select.value ? ' is-selected' : '');
-      btn.textContent = opt.textContent || opt.value;
-      btn.addEventListener('click', function () {
-        if (select.value !== opt.value) {
-          select.value = opt.value;
-          select.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        hideModal(modalEl);
-      });
-      listEl.appendChild(btn);
-    });
-    showModal(modalEl);
-  }
-
   function setupAppFormPickers() {
     renderAppSelectChips('pcRatioSelect', 'pcRatioChips');
     renderAppSelectChips('pcMpSelect', 'pcMpChips');
-    syncAppPickerLabels();
-    var themeBtn = document.getElementById('pcThemePickerBtn');
-    var sceneBtn = document.getElementById('pcScenePickerBtn');
-    if (themeBtn && themeBtn.getAttribute('data-pc-bound') !== '1') {
-      themeBtn.setAttribute('data-pc-bound', '1');
-      themeBtn.addEventListener('click', function () {
-        openAppPicker('pcThemeSelect', t('promoCamera.theme', '主題'));
-      });
-    }
-    if (sceneBtn && sceneBtn.getAttribute('data-pc-bound') !== '1') {
-      sceneBtn.setAttribute('data-pc-bound', '1');
-      sceneBtn.addEventListener('click', function () {
-        openAppPicker('pcSceneSelect', t('promoCamera.sceneOptional', '場景（選填）'));
-      });
-    }
   }
 
   function setComposeExpanded(expanded) {
@@ -306,8 +253,10 @@
       if (!el || el.getAttribute('data-pc-app-bound') === '1') return;
       el.setAttribute('data-pc-app-bound', '1');
       el.addEventListener('change', function () {
-        syncAppPickerLabels();
         updateComposeSummary();
+        if (id === 'pcRatioSelect' || id === 'pcMpSelect') {
+          renderAppSelectChips(id, id === 'pcRatioSelect' ? 'pcRatioChips' : 'pcMpChips');
+        }
       });
     });
   }
@@ -358,7 +307,6 @@
     observeResultArea();
     decorateAngleChips();
     waitForThemeOptions(function () {
-      syncAppPickerLabels();
       setupAppFormPickers();
       updateComposeSummary();
       decorateAngleChips();
