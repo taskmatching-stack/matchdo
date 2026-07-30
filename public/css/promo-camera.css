@@ -269,6 +269,78 @@ body.pc-embed-design #promo-camera-app {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
 }
-body.pc-embed-design #promo-camera-app .pc-page-head {
+body.pc-embed-design #promo-camera-app .pc-page-toolbar {
   display: none !important;
+}
+
+/* —— 獨立 App 殼（/promo-camera-app；不含原站 header/footer）—— */
+body.pc-app-shell {
+  background: #f3f5f7 !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+body.pc-app-shell .pc-app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background: #fff;
+  border-bottom: 1px solid #e5e9ed;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+body.pc-app-shell .pc-app-topbar-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+body.pc-app-shell .pc-app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+body.pc-app-shell .pc-app-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+body.pc-app-shell .pc-app-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #4a5568;
+  line-height: 1.2;
+}
+body.pc-app-shell .pc-app-subtitle {
+  font-size: 0.75rem;
+  color: #8a96a3;
+  line-height: 1.2;
+}
+body.pc-app-shell .pc-app-container {
+  padding-top: 0.75rem !important;
+  padding-bottom: 1.25rem !important;
+  max-width: 1140px;
+}
+body.pc-app-shell .pc-app-pricing {
+  margin-bottom: 0.75rem;
+}
+body.pc-app-shell #promo-camera-app {
+  min-height: calc(100dvh - 72px);
+}
+body.pc-app-shell .pc-app-footnote {
+  margin-top: 1rem;
+  text-align: center;
+  opacity: 0.75;
+}
+@media (max-width: 767px) {
+  body.pc-app-shell .pc-app-subtitle {
+    display: none;
+  }
+  body.pc-app-shell .pc-app-credits-btn span {
+    display: none;
+  }
 }

@@ -235,6 +235,7 @@ SEO：**可 index**（`meta robots: index, follow`；見 `docs/SEO-PROGRESS.md`�
 | 入口 | URL／行為 |
 |------|-----------|
 | 獨立頁 | `/promo-camera`（`?back=design`／`?back=vendor` 控制返回） |
+| **App 獨立 UI** | **`/promo-camera-app`**（無原站 header/footer；PWA manifest） |
 | 設計頁 TAB | `/custom-product.html?tab=promo-camera`（iframe embed） |
 | 設計頁・情境圖 TAB 底部 | 連至 `?tab=promo-camera` |
 | 帳號選單（頭像下拉） | `/custom-product.html?tab=promo-camera` |
@@ -254,6 +255,7 @@ SEO：**可 index**（`meta robots: index, follow`；見 `docs/SEO-PROGRESS.md`�
 ## 11. Phase 2 / APP backlog（待做）
 
 - [ ] Phase APP-1：PWA manifest + 登入 redirect 文件
+- [x] Phase APP-1（部分）：`/promo-camera-app` 獨立 UI + `promo-camera-app.webmanifest`（2026-07-31）
 - [ ] Phase APP-2：SDK 抽離 + 型別
 - [ ] Phase APP-3：Capacitor 殼 + 深連結
 - [ ] （選做）Phase APP-4：原生 UI

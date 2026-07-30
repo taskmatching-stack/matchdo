@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731a';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731b';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -51,6 +51,14 @@
 
   function isEmbedDesign() {
     return new URLSearchParams(window.location.search).get('embed') === 'design';
+  }
+
+  function isAppShell() {
+    return document.body && document.body.classList.contains('pc-app-shell');
+  }
+
+  function isMinimalChrome() {
+    return isEmbedDesign() || isAppShell();
   }
 
   function isVendorBack() {
@@ -153,7 +161,7 @@
   function updateBackLink() {
     var link = document.getElementById('pcBackLink');
     var label = document.getElementById('pcBackLabel');
-    if (!link || isEmbedDesign()) return;
+    if (!link || isMinimalChrome()) return;
     link.setAttribute('href', backHref());
     if (label) {
       label.textContent = isVendorBack()
@@ -633,8 +641,8 @@
 
   function boot() {
     if (isEmbedDesign()) {
-      var head = document.querySelector('#promo-camera-app .pc-page-head');
-      if (head) head.classList.add('d-none');
+      var toolbar = document.querySelector('#promo-camera-app .pc-page-toolbar');
+      if (toolbar) toolbar.classList.add('d-none');
     }
     var buildTag = document.getElementById('pcBuildTag');
     if (buildTag) buildTag.textContent = window.__MATCHDO_PROMO_CAMERA_BUILD;

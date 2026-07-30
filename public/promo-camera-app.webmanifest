@@ -1,0 +1,26 @@
+{
+  "name": "MatchDO 攝影模擬",
+  "short_name": "攝影模擬",
+  "description": "產品情境圖・相機光學 FLUX 模擬",
+  "start_url": "/promo-camera-app",
+  "scope": "/promo-camera-app",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8f9fa",
+  "theme_color": "#7A8FA3",
+  "lang": "zh-TW",
+  "icons": [
+    {
+      "src": "/img/matchdo-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/matchdo-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

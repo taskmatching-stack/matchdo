@@ -5183,6 +5183,21 @@ function servePromoCameraPage(req, res) {
 }
 app.get(['/promo-camera', '/promo-camera/'], servePromoCameraPage);
 app.get('/client/promo-camera.html', (req, res) => redirectWithQuery301(req, res, '/promo-camera'));
+const promoCameraAppHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera-app.html');
+function servePromoCameraAppPage(req, res) {
+    res.sendFile(promoCameraAppHtmlPath, (err) => {
+        if (err) {
+            console.error('GET /promo-camera-app sendFile 失敗:', err.message);
+            res.status(err.status || 500).send(err.status === 404 ? 'File not found' : 'Server error');
+        }
+    });
+}
+app.get(['/promo-camera-app', '/promo-camera-app/'], servePromoCameraAppPage);
+app.get('/client/promo-camera-app.html', (req, res) => redirectWithQuery301(req, res, '/promo-camera-app'));
+app.get('/promo-camera-app.webmanifest', (req, res) => {
+    res.type('application/manifest+json');
+    res.sendFile(path.join(__dirname, 'public', 'promo-camera-app.webmanifest'));
+});
 // 設計風向：舊再製路徑 301 → /design-direction/
 app.get(['/remake', '/remake/', '/remake/index.html'], (req, res) => redirectWithQuery301(req, res, '/design-direction/'));
 app.get('/remake-product.html', (req, res) => redirectWithQuery301(req, res, '/design-direction/analysis.html'));

@@ -39,6 +39,7 @@ function registerSitemapRoutes(app, deps) {
         { path: '/official-templates/',           priority: '0.78', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
+        { path: '/promo-camera-app',        priority: '0.72', changefreq: 'monthly' },
         { path: '/client/ai-edit.html',     priority: '0.75', changefreq: 'monthly' },
         { path: '/client/ai-upscale.html',  priority: '0.75', changefreq: 'monthly' },
         { path: '/client/supplier-portal.html', priority: '0.7', changefreq: 'monthly' },
