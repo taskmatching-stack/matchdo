@@ -4,7 +4,15 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730g';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730h';
+
+  var CAMERA_IMG = {
+    film: '/img/cam-film.png',
+    digitalOff: '/img/cam-lcd-off.png',
+    digitalOn: '/img/cam-lcd-on.png'
+  };
+
+  var lcdPowered = false;
 
   var RESULT_NOTE_HTML = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>';
 
@@ -164,7 +172,34 @@
     });
   }
 
+  function updateCameraBodyImage() {
+    var device = document.querySelector('.pc-camera-device');
+    var img = document.getElementById('pcCameraBody');
+    var lcdWrap = document.querySelector('.pc-camera-lcd-wrap');
+    if (!device || !img) return;
+    var mode = St.get().lookMode;
+    var isFilm = mode === 'film';
+    device.classList.toggle('is-film-mode', isFilm);
+    device.classList.toggle('is-lcd-on', !isFilm && lcdPowered);
+    device.classList.toggle('is-lcd-off', !isFilm && !lcdPowered);
+    if (isFilm) {
+      img.src = CAMERA_IMG.film;
+      if (lcdWrap) lcdWrap.setAttribute('aria-hidden', 'true');
+    } else {
+      img.src = lcdPowered ? CAMERA_IMG.digitalOn : CAMERA_IMG.digitalOff;
+      if (lcdWrap) lcdWrap.setAttribute('aria-hidden', lcdPowered ? 'false' : 'true');
+    }
+  }
+
+  function powerOnLcd() {
+    if (St.get().lookMode === 'film') return;
+    if (lcdPowered) return;
+    lcdPowered = true;
+    updateCameraBodyImage();
+  }
+
   function pulseCameraDevice(className) {
+    powerOnLcd();
     var device = document.querySelector('.pc-camera-device');
     if (!device || !className) return;
     device.classList.remove('is-adjusting-lens', 'is-adjusting-aperture', 'is-adjusting-ev');
@@ -176,6 +211,7 @@
   }
 
   function flashLcd() {
+    powerOnLcd();
     var lines = document.querySelectorAll('#pcLcd .pc-lcd-line');
     lines.forEach(function (line) {
       line.classList.remove('pc-lcd-flash');
@@ -199,16 +235,7 @@
     var angleLine = document.querySelector('#pcLcd .pc-lcd-angle');
     if (angleLine) angleLine.textContent = s.angle || '—';
     if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev + ' · ' + s.blades;
-
-    var ring = document.getElementById('pcLensRing');
-    if (ring) {
-      var lensCat = St.getLensCategory ? St.getLensCategory() : 'lens';
-      var lensList = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[lensCat] || [] : [];
-      var lensKey = (St.get().camera || {})[lensCat] || '';
-      var lensIdx = lensList.findIndex(function (r) { return r.key === lensKey; });
-      var rot = lensIdx >= 0 ? lensIdx * 10 : 0;
-      ring.style.transform = 'rotate(' + rot + 'deg)';
-    }
+    updateCameraBodyImage();
   }
 
   function refreshAngleHint() {
@@ -443,10 +470,21 @@
       if (!el) return;
       el.addEventListener('change', function () {
         if (!el.checked) return;
+        var wasFilm = St.get().lookMode === 'film';
         St.setLookMode(el.value);
+        if (el.value === 'film') {
+          lcdPowered = false;
+        } else if (wasFilm) {
+          lcdPowered = false;
+          updateCameraBodyImage();
+          setTimeout(function () {
+            powerOnLcd();
+            flashLcd();
+          }, 120);
+        }
         fillLookSelect();
         updateLcd();
-        flashLcd();
+        if (el.value !== 'film' || !wasFilm) flashLcd();
       });
     });
 
@@ -532,6 +570,7 @@
 
   function boot() {
     document.getElementById('pcBuildTag').textContent = window.__MATCHDO_PROMO_CAMERA_BUILD;
+    updateCameraBodyImage();
     bindEvents();
     initFromQuery();
     renderMessages();
@@ -548,6 +587,7 @@
       fillCameraSelects();
       renderAngleButtons();
       updateDimsHint();
+      updateCameraBodyImage();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();

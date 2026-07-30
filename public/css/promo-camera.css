@@ -82,48 +82,62 @@
 #promo-camera-app .pc-camera-device {
   position: relative;
   margin-bottom: 0.75rem;
+  line-height: 0;
 }
-#promo-camera-app .pc-camera-svg {
+#promo-camera-app .pc-camera-body-img {
   display: block;
   width: 100%;
-  max-width: 280px;
+  max-width: 320px;
+  height: auto;
   margin: 0 auto;
-}
-#promo-camera-app .pc-lens-ring {
-  transform-origin: 140px 200px;
-  transition: transform 0.35s ease, stroke 0.25s ease;
-}
-#promo-camera-app .pc-camera-device.is-adjusting-lens .pc-lens-ring {
-  stroke: #A8B5C4;
-  transform: rotate(18deg);
-}
-#promo-camera-app .pc-camera-device.is-adjusting-aperture #pcDialAperture {
-  fill: #fcd34d;
-  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.8));
-}
-#promo-camera-app .pc-camera-device.is-adjusting-ev #pcDialEv {
-  fill: #7dd3fc;
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.8));
-}
-#promo-camera-app .pc-camera-lcd-wrap {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  transform: translate(-50%, -50%);
-  width: 46%;
+  user-select: none;
   pointer-events: none;
 }
+/* LCD 文字疊在機身圖螢幕區（可依圖微調 %） */
+#promo-camera-app .pc-camera-lcd-wrap {
+  position: absolute;
+  left: 22.5%;
+  top: 36.5%;
+  width: 41%;
+  height: 49%;
+  pointer-events: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+#promo-camera-app .pc-camera-device.is-film-mode .pc-camera-lcd-wrap {
+  display: none !important;
+}
+#promo-camera-app .pc-camera-device.is-lcd-off .pc-camera-lcd-wrap {
+  display: none !important;
+}
+#promo-camera-app .pc-camera-device.is-lcd-on .pc-camera-lcd-wrap {
+  display: flex !important;
+}
+#promo-camera-app .pc-camera-device.is-adjusting-lens .pc-camera-body-img {
+  filter: brightness(1.06);
+  transition: filter 0.25s ease;
+}
+#promo-camera-app .pc-camera-device.is-adjusting-aperture .pc-camera-body-img,
+#promo-camera-app .pc-camera-device.is-adjusting-ev .pc-camera-body-img {
+  filter: brightness(1.04);
+  transition: filter 0.25s ease;
+}
 #promo-camera-app .pc-lcd {
-  background: rgba(8, 18, 8, 0.92);
-  color: #6f6;
+  background: transparent;
+  color: #2d4a2d;
   font-family: ui-monospace, "Cascadia Code", monospace;
-  font-size: 0.62rem;
-  border: 1px solid #1a3a1a;
-  border-radius: 4px;
-  padding: 0.35rem 0.45rem;
-  min-height: 3.2rem;
+  font-size: clamp(0.48rem, 1.55vw, 0.62rem);
+  border: none;
+  border-radius: 0;
+  padding: 6% 5%;
+  min-height: 0;
+  width: 100%;
   line-height: 1.35;
-  box-shadow: inset 0 0 8px rgba(0, 255, 80, 0.08);
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 #promo-camera-app .pc-lcd-line {
   white-space: nowrap;
@@ -134,8 +148,8 @@
   animation: pcLcdFlash 0.45s ease;
 }
 @keyframes pcLcdFlash {
-  0% { color: #afa; background: rgba(40, 80, 40, 0.5); }
-  100% { color: #6f6; background: transparent; }
+  0% { color: #1a5c1a; background: rgba(200, 220, 200, 0.55); }
+  100% { color: #2d4a2d; background: transparent; }
 }
 
 #promo-camera-app .pc-camera-controls label,
