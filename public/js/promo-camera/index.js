@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731j';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731a';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -51,14 +51,6 @@
 
   function isEmbedDesign() {
     return new URLSearchParams(window.location.search).get('embed') === 'design';
-  }
-
-  function isAppShell() {
-    return document.body && document.body.classList.contains('pc-app-shell');
-  }
-
-  function isMinimalChrome() {
-    return isEmbedDesign() || isAppShell();
   }
 
   function isVendorBack() {
@@ -125,7 +117,7 @@
   var Promo = window.MatchdoPromoImage;
   if (!Api || !St || !Promo) return;
 
-  var modalInstances = {};
+  var assetModal = null;
   var lcdFlashTimer = null;
   var dialPulseTimer = null;
 
@@ -133,113 +125,14 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 
-  function getBootstrapModal(el) {
-    if (!el || typeof bootstrap === 'undefined') return null;
-    var id = el.id;
-    if (!id) return new bootstrap.Modal(el);
-    if (!modalInstances[id]) modalInstances[id] = new bootstrap.Modal(el);
-    return modalInstances[id];
-  }
-
   function showBootstrapModal(el) {
-    var modal = getBootstrapModal(el);
-    if (modal) modal.show();
+    if (!el || typeof bootstrap === 'undefined') return;
+    if (!assetModal) assetModal = new bootstrap.Modal(el);
+    assetModal.show();
   }
 
   function hideBootstrapModal(el) {
-    if (!el) return;
-    var id = el.id;
-    if (id && modalInstances[id]) modalInstances[id].hide();
-  }
-
-  function showEl(el, visible) {
-    if (!el) return;
-    el.classList.toggle('d-none', !visible);
-  }
-
-  function setCreditsModalState(state) {
-    showEl(document.getElementById('pcCreditsLoading'), state === 'loading');
-    showEl(document.getElementById('pcCreditsGuest'), state === 'guest');
-    showEl(document.getElementById('pcCreditsPanel'), state === 'ready');
-    var errEl = document.getElementById('pcCreditsError');
-    if (errEl) {
-      if (state === 'error') {
-        errEl.classList.remove('d-none');
-      } else {
-        errEl.classList.add('d-none');
-        errEl.textContent = '';
-      }
-    }
-  }
-
-  function updateAppCreditsBadge(balance) {
-    if (!isAppShell()) return;
-    var badge = document.getElementById('pcAppCreditsBadge');
-    if (!badge) return;
-    if (balance == null || balance === '') {
-      badge.classList.add('d-none');
-      badge.textContent = '';
-      return;
-    }
-    badge.textContent = String(balance);
-    badge.classList.remove('d-none');
-  }
-
-  function openAppCreditsModal() {
-    if (!isAppShell()) return;
-    var modalEl = document.getElementById('pcCreditsModal');
-    if (!modalEl) return;
-    setCreditsModalState('loading');
-    showBootstrapModal(modalEl);
-    Api.fetchMeCredits().then(function (res) {
-      if (res.status === 401 || (res.data && res.data.error && res.status === 403)) {
-        setCreditsModalState('guest');
-        updateAppCreditsBadge(null);
-        return;
-      }
-      if (!res.ok || !res.data || res.data.error) {
-        setCreditsModalState('error');
-        var errEl = document.getElementById('pcCreditsError');
-        if (errEl) errEl.textContent = (res.data && res.data.error) ? res.data.error : t('promoCamera.appCreditsLoadError', '無法載入點數，請稍後再試。');
-        return;
-      }
-      var bal = document.getElementById('pcCreditsBalance');
-      var earned = document.getElementById('pcCreditsEarned');
-      var spent = document.getElementById('pcCreditsSpent');
-      if (bal) bal.textContent = String(res.data.balance != null ? res.data.balance : 0);
-      if (earned) earned.textContent = String(res.data.total_earned != null ? res.data.total_earned : 0);
-      if (spent) spent.textContent = String(res.data.total_spent != null ? res.data.total_spent : 0);
-      setCreditsModalState('ready');
-      updateAppCreditsBadge(res.data.balance);
-    }).catch(function () {
-      setCreditsModalState('error');
-      var errEl = document.getElementById('pcCreditsError');
-      if (errEl) errEl.textContent = t('promoCamera.appCreditsLoadError', '無法載入點數，請稍後再試。');
-    });
-  }
-
-  function refreshAppCreditsBadge() {
-    if (!isAppShell()) return;
-    Api.fetchMeCredits().then(function (res) {
-      if (res.ok && res.data && res.data.balance != null) updateAppCreditsBadge(res.data.balance);
-    }).catch(function () { /* ignore */ });
-  }
-
-  function setupAppCreditsPanel() {
-    if (!isAppShell()) return;
-    var btn = document.getElementById('pcAppCreditsBtn');
-    var topUpBtn = document.getElementById('pcCreditsTopUpBtn');
-    if (btn && btn.getAttribute('data-pc-bound') !== '1') {
-      btn.setAttribute('data-pc-bound', '1');
-      btn.addEventListener('click', openAppCreditsModal);
-    }
-    if (topUpBtn && topUpBtn.getAttribute('data-pc-bound') !== '1') {
-      topUpBtn.setAttribute('data-pc-bound', '1');
-      topUpBtn.addEventListener('click', function () {
-        window.open('/credits.html?returnUrl=' + encodeURIComponent('/promo-camera-app'), '_blank', 'noopener,noreferrer');
-      });
-    }
-    refreshAppCreditsBadge();
+    if (assetModal) assetModal.hide();
   }
 
   function getChatPanel() {
@@ -260,22 +153,13 @@
   function updateBackLink() {
     var link = document.getElementById('pcBackLink');
     var label = document.getElementById('pcBackLabel');
-    if (!link || isMinimalChrome()) return;
+    if (!link || isEmbedDesign()) return;
     link.setAttribute('href', backHref());
     if (label) {
       label.textContent = isVendorBack()
         ? t('promoCamera.backToMaterials', '返回素材庫')
         : t('promoCamera.backToScene', '返回情境圖');
     }
-  }
-
-  function scrollResultIntoView() {
-    if (!isAppShell()) return;
-    var el = document.getElementById('pcResultArea');
-    if (!el || el.classList.contains('d-none')) return;
-    requestAnimationFrame(function () {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
   }
 
   function showResultLoading() {
@@ -285,7 +169,6 @@
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: '生成中，請稍候…' }));
-    scrollResultIntoView();
   }
 
   function showResultArea(url, data, payload) {
@@ -301,7 +184,6 @@
       user_prompt: payload.user_prompt
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
-    scrollResultIntoView();
   }
 
   function showResultError(msg) {
@@ -311,7 +193,6 @@
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || '生成失敗' }));
-    scrollResultIntoView();
   }
 
   function renderMessages() {
@@ -345,7 +226,6 @@
     var imgs = St.get().images;
     if (!imgs.length) {
       wrap.innerHTML = '';
-      updateComposeSummary();
       return;
     }
     wrap.innerHTML = imgs.map(function (u) {
@@ -359,10 +239,8 @@
         St.removeImage(btn.getAttribute('data-url'));
         renderSelectedThumbs();
         updateGenerateBtn();
-        updateComposeSummary();
       });
     });
-    updateComposeSummary();
   }
 
   function updateCameraBodyImage() {
@@ -451,8 +329,7 @@
     var cur = (St.get().camera || {})[angleCat] || 'keep_reference';
     wrap.innerHTML = list.map(function (r) {
       var active = r.key === cur ? ' active' : '';
-      var chipCls = isAppShell() ? ' pc-app-chip' : '';
-      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + chipCls + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
+      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
     }).join('');
     wrap.querySelectorAll('.pc-angle-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -601,76 +478,6 @@
     btn.disabled = St.get().generating || !St.get().images.length;
   }
 
-  function setComposeExpanded(expanded) {
-    var body = document.getElementById('pcComposeBody');
-    var toggle = document.getElementById('pcComposeToggle');
-    if (!body || !toggle) return;
-    body.classList.toggle('is-collapsed', !expanded);
-    toggle.classList.toggle('is-open', expanded);
-    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    var panel = getChatPanel();
-    if (panel && isAppShell()) {
-      panel.classList.toggle('pc-compose-collapsed', !expanded);
-    }
-  }
-
-  function updateComposeSummary() {
-    var el = document.getElementById('pcComposeSummary');
-    if (!el) return;
-    var st = St.get();
-    var parts = [];
-    var themeEl = document.getElementById('pcThemeSelect');
-    if (themeEl && themeEl.selectedIndex >= 0 && themeEl.options[themeEl.selectedIndex]) {
-      var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
-      if (themeLabel) parts.push(themeLabel);
-    }
-    var ratio = (document.getElementById('pcRatioSelect') || {}).value || st.aspectRatio || '';
-    if (ratio) parts.push(ratio);
-    var mp = (document.getElementById('pcMpSelect') || {}).value || st.megapixels || '';
-    if (mp) parts.push(mp + ' MP');
-    if (!parts.length) parts.push(t('promoCamera.composeSummaryDefault', '點開調整'));
-    el.textContent = parts.join(' · ');
-  }
-
-  function setupGenerateDock() {
-    if (document.getElementById('pcGenerateDock')) return;
-    var btn = document.getElementById('pcGenerateBtn');
-    var pts = document.getElementById('pcPointsDisplay');
-    if (!btn || !pts) return;
-    var inlineRow = btn.closest('.d-flex') || btn.closest('.pc-compose-generate-fallback');
-    var dock = document.createElement('div');
-    dock.id = 'pcGenerateDock';
-    dock.className = 'pc-generate-dock';
-    dock.setAttribute('role', 'region');
-    dock.setAttribute('aria-label', t('promoCamera.generateDockLabel', '生成'));
-    var meta = document.createElement('div');
-    meta.className = 'pc-generate-dock-meta';
-    meta.appendChild(pts);
-    var action = document.createElement('div');
-    action.className = 'pc-generate-dock-action';
-    btn.classList.add('pc-generate-dock-btn');
-    action.appendChild(btn);
-    dock.appendChild(meta);
-    dock.appendChild(action);
-    document.body.appendChild(dock);
-    document.body.classList.add('pc-has-generate-dock');
-    if (inlineRow && inlineRow.parentNode) inlineRow.parentNode.removeChild(inlineRow);
-  }
-
-  function setupComposeCollapse() {
-    if (!isAppShell()) return;
-    var toggle = document.getElementById('pcComposeToggle');
-    var body = document.getElementById('pcComposeBody');
-    if (!toggle || !body || toggle.getAttribute('data-pc-bound') === '1') return;
-    toggle.setAttribute('data-pc-bound', '1');
-    toggle.addEventListener('click', function () {
-      var expanded = body.classList.contains('is-collapsed');
-      setComposeExpanded(expanded);
-    });
-    setComposeExpanded(false);
-    updateComposeSummary();
-  }
-
   function onImagesAdded(urls, sourceType, sourceId) {
     var added = [];
     (urls || []).forEach(function (u) {
@@ -679,7 +486,6 @@
     if (!added.length) return;
     renderSelectedThumbs();
     updateGenerateBtn();
-    updateComposeSummary();
   }
 
   function openAssetPicker() {
@@ -782,14 +588,12 @@
         if (id === 'pcThemeSelect') st.themeKey = el.value;
         if (id === 'pcSceneSelect') st.sceneKey = el.value;
         updateDimsHint();
-        updateComposeSummary();
       });
     });
 
     document.getElementById('pcGenerateBtn').addEventListener('click', function () {
       var st = St.get();
-      if (!st.images.length) return;
-      if (st.generating) return;
+      if (!st.images.length || st.generating) return;
       st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
       st.generating = true;
       updateGenerateBtn();
@@ -808,7 +612,6 @@
         St.get().lastResult = d;
         var url = d.image_url || d.imageData || '';
         showResultArea(url, d, payload);
-        refreshAppCreditsBadge();
       }).catch(function () {
         st.generating = false;
         updateGenerateBtn();
@@ -829,12 +632,9 @@
   }
 
   function boot() {
-    setupGenerateDock();
-    setupComposeCollapse();
-    setupAppCreditsPanel();
     if (isEmbedDesign()) {
-      var toolbar = document.querySelector('#promo-camera-app .pc-page-toolbar');
-      if (toolbar) toolbar.classList.add('d-none');
+      var head = document.querySelector('#promo-camera-app .pc-page-head');
+      if (head) head.classList.add('d-none');
     }
     var buildTag = document.getElementById('pcBuildTag');
     if (buildTag) buildTag.textContent = window.__MATCHDO_PROMO_CAMERA_BUILD;
@@ -856,7 +656,6 @@
       renderAngleButtons();
       updateDimsHint();
       updateLcd();
-      updateComposeSummary();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();
