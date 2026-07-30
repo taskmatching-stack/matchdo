@@ -104,6 +104,7 @@
   display: none;
   align-items: stretch;
   justify-content: stretch;
+  transform: translateX(-15px);
 }
 #promo-camera-app .pc-camera-device.is-lcd-on .pc-camera-lcd-wrap {
   display: flex !important;
