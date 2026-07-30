@@ -765,6 +765,59 @@ body.pc-app-shell .pc-app-footnote {
   display: none;
 }
 
+body.pc-app-shell .pc-app-credits-btn {
+  position: relative;
+  gap: 0.35rem;
+}
+body.pc-app-shell .pc-app-credits-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--pc-primary-soft);
+  color: var(--pc-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+body.pc-app-shell .pc-app-credits-modal .modal-content {
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(74, 85, 104, 0.18);
+}
+body.pc-app-shell .pc-app-credits-modal .modal-header {
+  background: var(--pc-card);
+  border-bottom: 1px solid var(--pc-surface);
+}
+body.pc-app-shell .pc-app-credits-modal .modal-title {
+  color: var(--pc-primary);
+  font-weight: 600;
+}
+body.pc-app-shell .pc-app-credits-balance-wrap {
+  background: linear-gradient(135deg, var(--pc-primary) 0%, var(--pc-primary-dark) 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.875rem;
+}
+body.pc-app-shell .pc-app-credits-balance-label {
+  font-size: 0.75rem;
+  opacity: 0.92;
+}
+body.pc-app-shell .pc-app-credits-balance {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0.15rem 0 0.35rem;
+}
+body.pc-app-shell .pc-app-credits-meta {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
 body.pc-app-shell .pc-app-title {
   color: var(--pc-primary);
 }

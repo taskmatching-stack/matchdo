@@ -28,7 +28,7 @@
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h1 class="h4 mb-0" data-i18n="credits.title">我的點數</h1>
-      <a href="/index.html" class="btn btn-outline-secondary btn-sm" data-i18n="credits.backHome">返回首頁</a>
+      <a href="/index.html" class="btn btn-outline-secondary btn-sm" id="creditsBackLink" data-i18n="credits.backHome">返回首頁</a>
     </div>
 
     <div id="loginRequired" class="alert alert-warning" style="display:none;">
@@ -360,6 +360,12 @@
         document.querySelectorAll('.preset-btn[data-amount]').forEach(function (b) {
           if (b.getAttribute('data-amount') === amount && b.getAttribute('data-credits') === credits) b.classList.add('active');
         });
+      }
+      var backLink = document.getElementById('creditsBackLink');
+      var returnUrl = params ? params.get('returnUrl') : '';
+      if (backLink && returnUrl && returnUrl.startsWith('/') && returnUrl.indexOf('/promo-camera-app') === 0) {
+        backLink.href = returnUrl;
+        backLink.textContent = '返回攝影模擬';
       }
       fetch('/api/points-info').then(function (r) { return r.json(); }).then(function (data) {
         var n = (data && data.points_listing_per_category != null) ? data.points_listing_per_category : 200;

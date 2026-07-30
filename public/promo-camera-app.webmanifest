@@ -6,7 +6,7 @@
   "scope": "/promo-camera-app",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f8f9fa",
+  "background_color": "#F5F7FA",
   "theme_color": "#7A8FA3",
   "lang": "zh-TW",
   "icons": [

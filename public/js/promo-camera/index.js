@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731i';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731j';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -125,7 +125,7 @@
   var Promo = window.MatchdoPromoImage;
   if (!Api || !St || !Promo) return;
 
-  var assetModal = null;
+  var modalInstances = {};
   var lcdFlashTimer = null;
   var dialPulseTimer = null;
 
@@ -133,14 +133,113 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 
+  function getBootstrapModal(el) {
+    if (!el || typeof bootstrap === 'undefined') return null;
+    var id = el.id;
+    if (!id) return new bootstrap.Modal(el);
+    if (!modalInstances[id]) modalInstances[id] = new bootstrap.Modal(el);
+    return modalInstances[id];
+  }
+
   function showBootstrapModal(el) {
-    if (!el || typeof bootstrap === 'undefined') return;
-    if (!assetModal) assetModal = new bootstrap.Modal(el);
-    assetModal.show();
+    var modal = getBootstrapModal(el);
+    if (modal) modal.show();
   }
 
   function hideBootstrapModal(el) {
-    if (assetModal) assetModal.hide();
+    if (!el) return;
+    var id = el.id;
+    if (id && modalInstances[id]) modalInstances[id].hide();
+  }
+
+  function showEl(el, visible) {
+    if (!el) return;
+    el.classList.toggle('d-none', !visible);
+  }
+
+  function setCreditsModalState(state) {
+    showEl(document.getElementById('pcCreditsLoading'), state === 'loading');
+    showEl(document.getElementById('pcCreditsGuest'), state === 'guest');
+    showEl(document.getElementById('pcCreditsPanel'), state === 'ready');
+    var errEl = document.getElementById('pcCreditsError');
+    if (errEl) {
+      if (state === 'error') {
+        errEl.classList.remove('d-none');
+      } else {
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+      }
+    }
+  }
+
+  function updateAppCreditsBadge(balance) {
+    if (!isAppShell()) return;
+    var badge = document.getElementById('pcAppCreditsBadge');
+    if (!badge) return;
+    if (balance == null || balance === '') {
+      badge.classList.add('d-none');
+      badge.textContent = '';
+      return;
+    }
+    badge.textContent = String(balance);
+    badge.classList.remove('d-none');
+  }
+
+  function openAppCreditsModal() {
+    if (!isAppShell()) return;
+    var modalEl = document.getElementById('pcCreditsModal');
+    if (!modalEl) return;
+    setCreditsModalState('loading');
+    showBootstrapModal(modalEl);
+    Api.fetchMeCredits().then(function (res) {
+      if (res.status === 401 || (res.data && res.data.error && res.status === 403)) {
+        setCreditsModalState('guest');
+        updateAppCreditsBadge(null);
+        return;
+      }
+      if (!res.ok || !res.data || res.data.error) {
+        setCreditsModalState('error');
+        var errEl = document.getElementById('pcCreditsError');
+        if (errEl) errEl.textContent = (res.data && res.data.error) ? res.data.error : t('promoCamera.appCreditsLoadError', '無法載入點數，請稍後再試。');
+        return;
+      }
+      var bal = document.getElementById('pcCreditsBalance');
+      var earned = document.getElementById('pcCreditsEarned');
+      var spent = document.getElementById('pcCreditsSpent');
+      if (bal) bal.textContent = String(res.data.balance != null ? res.data.balance : 0);
+      if (earned) earned.textContent = String(res.data.total_earned != null ? res.data.total_earned : 0);
+      if (spent) spent.textContent = String(res.data.total_spent != null ? res.data.total_spent : 0);
+      setCreditsModalState('ready');
+      updateAppCreditsBadge(res.data.balance);
+    }).catch(function () {
+      setCreditsModalState('error');
+      var errEl = document.getElementById('pcCreditsError');
+      if (errEl) errEl.textContent = t('promoCamera.appCreditsLoadError', '無法載入點數，請稍後再試。');
+    });
+  }
+
+  function refreshAppCreditsBadge() {
+    if (!isAppShell()) return;
+    Api.fetchMeCredits().then(function (res) {
+      if (res.ok && res.data && res.data.balance != null) updateAppCreditsBadge(res.data.balance);
+    }).catch(function () { /* ignore */ });
+  }
+
+  function setupAppCreditsPanel() {
+    if (!isAppShell()) return;
+    var btn = document.getElementById('pcAppCreditsBtn');
+    var topUpBtn = document.getElementById('pcCreditsTopUpBtn');
+    if (btn && btn.getAttribute('data-pc-bound') !== '1') {
+      btn.setAttribute('data-pc-bound', '1');
+      btn.addEventListener('click', openAppCreditsModal);
+    }
+    if (topUpBtn && topUpBtn.getAttribute('data-pc-bound') !== '1') {
+      topUpBtn.setAttribute('data-pc-bound', '1');
+      topUpBtn.addEventListener('click', function () {
+        window.open('/credits.html?returnUrl=' + encodeURIComponent('/promo-camera-app'), '_blank', 'noopener,noreferrer');
+      });
+    }
+    refreshAppCreditsBadge();
   }
 
   function getChatPanel() {
@@ -709,6 +808,7 @@
         St.get().lastResult = d;
         var url = d.image_url || d.imageData || '';
         showResultArea(url, d, payload);
+        refreshAppCreditsBadge();
       }).catch(function () {
         st.generating = false;
         updateGenerateBtn();
@@ -731,6 +831,7 @@
   function boot() {
     setupGenerateDock();
     setupComposeCollapse();
+    setupAppCreditsPanel();
     if (isEmbedDesign()) {
       var toolbar = document.querySelector('#promo-camera-app .pc-page-toolbar');
       if (toolbar) toolbar.classList.add('d-none');

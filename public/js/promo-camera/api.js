@@ -57,11 +57,20 @@
     });
   }
 
+  function fetchMeCredits() {
+    return authHeaders(false).then(function (headers) {
+      return fetch('/api/me/credits', { headers: headers, cache: 'no-store' }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
   global.PromoCameraApi = {
     authHeaders: authHeaders,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
     generate: generate,
-    loadDigitalAssets: loadDigitalAssets
+    loadDigitalAssets: loadDigitalAssets,
+    fetchMeCredits: fetchMeCredits
   };
 })(typeof window !== 'undefined' ? window : this);

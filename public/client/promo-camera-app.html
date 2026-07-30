@@ -16,7 +16,7 @@
   <link href="/css/morandi-global.css?v=4" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="/css/image-lightbox.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260731i" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260731j" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
@@ -30,10 +30,11 @@
         </div>
       </div>
       <div class="pc-app-topbar-actions">
-        <a href="/credits.html" class="btn btn-sm btn-outline-primary pc-app-credits-btn" id="pcAppCreditsLink">
+        <button type="button" class="btn btn-sm btn-outline-primary pc-app-credits-btn" id="pcAppCreditsBtn" aria-haspopup="dialog" aria-controls="pcCreditsModal">
           <i class="bi bi-currency-exchange"></i>
           <span data-i18n="nav.myCredits">我的點數</span>
-        </a>
+          <span class="pc-app-credits-badge d-none" id="pcAppCreditsBadge" aria-hidden="true"></span>
+        </button>
       </div>
     </div>
   </header>
@@ -209,6 +210,38 @@
     </footer>
   </div>
 
+  <div class="modal fade" id="pcCreditsModal" tabindex="-1" aria-labelledby="pcCreditsModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content pc-app-credits-modal">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0" id="pcCreditsModalTitle" data-i18n="promoCamera.appCreditsTitle">我的點數</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <div id="pcCreditsLoading" class="text-muted small" data-i18n="home.loading">載入中…</div>
+          <div id="pcCreditsGuest" class="d-none">
+            <p class="small mb-2" data-i18n="promoCamera.appCreditsLoginHint">請先登入以查看點數餘額。</p>
+            <a href="/login.html?returnUrl=%2Fpromo-camera-app" class="btn btn-primary btn-sm" id="pcCreditsLoginLink" data-i18n="credits.loginRequiredLink">登入</a>
+          </div>
+          <div id="pcCreditsPanel" class="d-none">
+            <div class="pc-app-credits-balance-wrap">
+              <div class="pc-app-credits-balance-label" data-i18n="credits.currentBalance">目前餘額</div>
+              <div class="pc-app-credits-balance" id="pcCreditsBalance">0</div>
+              <div class="pc-app-credits-meta small text-muted">
+                <span data-i18n="credits.totalEarned">累計獲得</span> <span id="pcCreditsEarned">0</span>
+                ·
+                <span data-i18n="credits.totalSpent">累計消費</span> <span id="pcCreditsSpent">0</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-3" data-i18n="promoCamera.appCreditsTopUpHint">儲值將在新分頁開啟，不會離開攝影模擬 App。</p>
+            <button type="button" class="btn btn-primary w-100" id="pcCreditsTopUpBtn" data-i18n="promoCamera.appCreditsTopUpBtn">前往儲值</button>
+          </div>
+          <p id="pcCreditsError" class="text-danger small mb-0 d-none"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="pcAssetModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
@@ -234,9 +267,9 @@
   <script src="/js/matchdo-promo-image.js?v=20260730p"></script>
   <script src="/js/digital-asset-picker.js?v=1"></script>
   <script src="/js/image-lightbox.js"></script>
-  <script src="/js/promo-camera/api.js?v=20260730a"></script>
+  <script src="/js/promo-camera/api.js?v=20260731j"></script>
   <script src="/js/promo-camera/state.js?v=20260730a"></script>
-  <script src="/js/promo-camera/index.js?v=20260731g"></script>
+  <script src="/js/promo-camera/index.js?v=20260731j"></script>
   <script>
     if (window.i18n && window.i18n.ready) {
       window.i18n.ready.then(function () {
