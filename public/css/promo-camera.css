@@ -1,3 +1,14 @@
+#promo-camera-app .pc-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+#promo-camera-app .pc-page-head .pc-back-link {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
 #promo-camera-app {
   min-height: calc(100vh - 120px);
 }
@@ -83,6 +94,8 @@
   position: relative;
   margin-bottom: 0.75rem;
   line-height: 0;
+  container-type: inline-size;
+  container-name: pc-cam;
 }
 #promo-camera-app .pc-camera-body-img {
   display: block;
@@ -93,7 +106,7 @@
   user-select: none;
   pointer-events: none;
 }
-/* LCD 文字疊在機身圖螢幕區（可依圖微調 %） */
+/* LCD 文字疊在機身圖螢幕區；位置／字級用 cqw 隨機身寬等比縮放（手機與桌面一致） */
 #promo-camera-app .pc-camera-lcd-wrap {
   position: absolute;
   left: 27%;
@@ -105,6 +118,7 @@
   align-items: stretch;
   justify-content: stretch;
   transform: translateX(-15px);
+  transform: translateX(-4.7cqw);
 }
 #promo-camera-app .pc-camera-device.is-lcd-on .pc-camera-lcd-wrap {
   display: flex !important;
@@ -129,21 +143,25 @@
   color: #2d4a2d;
   font-family: ui-monospace, "Cascadia Code", monospace;
   font-size: clamp(0.48rem, 1.55vw, 0.62rem);
+  font-size: clamp(6px, 2.45cqw, 10px);
   border: none;
   border-radius: 0;
-  padding: 8% 6% 8% 14%;
+  padding: 8% 6% 8% 12%;
   min-height: 0;
+  height: 100%;
   width: 100%;
-  line-height: 1.35;
+  line-height: 1.28;
   box-shadow: none;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
 }
 #promo-camera-app .pc-camera-device.is-film-mode .pc-lcd {
   color: #d4e4c8;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-  padding: 10% 8% 10% 16%;
+  padding: 10% 7% 10% 14%;
   justify-content: center;
 }
 #promo-camera-app .pc-lcd-line {
@@ -199,4 +217,33 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+}
+
+@media (max-width: 991px) {
+  #promo-camera-app .pc-camera-body-img {
+    max-width: min(320px, 100%);
+  }
+  #promo-camera-app .pc-camera-lcd-wrap {
+    left: 27.5%;
+    top: 37%;
+    width: 37.5%;
+    height: 48%;
+    transform: translateX(-12px);
+    transform: translateX(-3.8cqw);
+  }
+  #promo-camera-app .pc-camera-device.is-film-mode .pc-camera-lcd-wrap {
+    left: 27.5%;
+    top: 37.2%;
+    width: 37.5%;
+    height: 47.5%;
+  }
+  #promo-camera-app .pc-lcd {
+    padding: 7% 5% 7% 10%;
+    line-height: 1.22;
+    font-size: clamp(0.45rem, 1.4vw, 0.58rem);
+    font-size: clamp(5.5px, 2.35cqw, 9px);
+  }
+  #promo-camera-app .pc-camera-device.is-film-mode .pc-lcd {
+    padding: 9% 6% 9% 12%;
+  }
 }

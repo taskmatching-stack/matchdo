@@ -112,6 +112,12 @@
   function formatPromoTabPricingHint(data) {
     var std = data && data.points_standard != null ? data.points_standard : 20;
     var sub = data && data.points_subscriber != null ? data.points_subscriber : 15;
+    if (global.i18n && typeof global.i18n.t === 'function') {
+      var tpl = global.i18n.t('customProduct.promoImagePricingPerImage');
+      if (tpl && tpl !== 'customProduct.promoImagePricingPerImage') {
+        return tpl.replace('{std}', std).replace('{sub}', sub);
+      }
+    }
     return '每張 ' + std + ' 點（訂閱會員 ' + sub + ' 點）';
   }
 
@@ -120,6 +126,12 @@
     var std = data && data.points_standard != null ? data.points_standard : 20;
     var sub = data && data.points_subscriber != null ? data.points_subscriber : 10;
     var extra = data && data.points_per_extra_mp != null ? data.points_per_extra_mp : 10;
+    if (global.i18n && typeof global.i18n.t === 'function') {
+      var tpl = global.i18n.t('promoCamera.pricingHint');
+      if (tpl && tpl !== 'promoCamera.pricingHint') {
+        return tpl.replace('{std}', std).replace('{sub}', sub).replace('{extra}', extra);
+      }
+    }
     return '1 MP＝' + std + ' 點（訂閱 ' + sub + ' 點），每多 1 MP ＋' + extra + ' 點';
   }
 

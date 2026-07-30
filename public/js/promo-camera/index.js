@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730o';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730r';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -14,7 +14,72 @@
 
   var lcdPowered = true;
 
-  var RESULT_NOTE_HTML = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>';
+  function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+      var v = window.i18n.t(key);
+      if (v && v !== key) return v;
+    }
+    return fallback != null ? fallback : key;
+  }
+
+  function tpl(key, fallback, vars) {
+    var s = t(key, fallback);
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+      });
+    }
+    return s;
+  }
+
+  function apiLang() {
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    return lang === 'en' ? 'en' : 'zh';
+  }
+
+  function appendLangToUrl(url) {
+    if (apiLang() !== 'en') return url;
+    var hash = '';
+    var hashIdx = url.indexOf('#');
+    if (hashIdx >= 0) {
+      hash = url.slice(hashIdx);
+      url = url.slice(0, hashIdx);
+    }
+    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+    return url + sep + 'lang=en' + hash;
+  }
+
+  function isVendorBack() {
+    return new URLSearchParams(window.location.search).get('back') === 'vendor';
+  }
+
+  function backHref() {
+    if (isVendorBack()) return appendLangToUrl('/client/manufacturer-materials.html#tab-promo');
+    return appendLangToUrl('/custom-product.html?tab=promo-image');
+  }
+
+  function resultNoteHtml() {
+    return '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+      esc(t('promoCamera.resultNote', '生成後可下載，並儲存至「我的數位資產 → 情境圖」。')) + '</p>';
+  }
+
+  function resultPanelOpts(extra) {
+    var base = {
+      resultNoteHtml: resultNoteHtml(),
+      actions: {
+        labels: {
+          download: t('promoCamera.download', '下載'),
+          save: t('promoCamera.save', '儲存到數位資產庫'),
+          saved: t('promoCamera.saved', '已儲存'),
+          viewLibrary: t('promoCamera.viewLibrary', '查看情境圖')
+        },
+        libraryHref: appendLangToUrl('/client/my-custom-products.html?tab=promo')
+      }
+    };
+    if (!extra) return base;
+    Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
+  }
 
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
@@ -46,13 +111,6 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 
-  function backHref() {
-    var p = new URLSearchParams(window.location.search);
-    return p.get('back') === 'vendor'
-      ? '/client/manufacturer-materials.html'
-      : '/custom-product.html?tab=promo-image';
-  }
-
   function showBootstrapModal(el) {
     if (!el || typeof bootstrap === 'undefined') return;
     if (!assetModal) assetModal = new bootstrap.Modal(el);
@@ -67,19 +125,6 @@
     return document.querySelector('#promo-camera-app .pc-chat-panel');
   }
 
-  function resultPanelOpts(extra) {
-    var base = {
-      resultNoteHtml: RESULT_NOTE_HTML,
-      actions: {
-        labels: { download: '下載', save: '儲存到數位資產庫', saved: '已儲存', viewLibrary: '查看情境圖' },
-        libraryHref: '/client/my-custom-products.html?tab=promo'
-      }
-    };
-    if (!extra) return base;
-    Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
-    return base;
-  }
-
   function clearResultArea() {
     var el = document.getElementById('pcResultArea');
     var panel = getChatPanel();
@@ -89,6 +134,18 @@
       el.classList.remove('has-result');
     }
     if (panel) panel.classList.remove('has-result');
+  }
+
+  function updateBackLink() {
+    var link = document.getElementById('pcBackLink');
+    var label = document.getElementById('pcBackLabel');
+    if (!link) return;
+    link.setAttribute('href', backHref());
+    if (label) {
+      label.textContent = isVendorBack()
+        ? t('promoCamera.backToMaterials', '返回素材庫')
+        : t('promoCamera.backToScene', '返回情境圖');
+    }
   }
 
   function showResultLoading() {
@@ -449,7 +506,7 @@
   }
 
   function bindEvents() {
-    document.getElementById('pcBackLink').setAttribute('href', backHref());
+    updateBackLink();
 
     document.getElementById('pcUploadInput').addEventListener('change', function (e) {
       var files = e.target.files;
