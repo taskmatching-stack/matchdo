@@ -1,6 +1,6 @@
 # Google Search Console：Sitemap「無法讀取」— 已查證紀錄
 
-> **最後更新**：2026-07-22  
+> **最後更新**：2026-07-30  
 > **網域**：https://matchdo.cc  
 > **GSC 資源**：`sc-domain:matchdo.cc`（網域資源，僅此一個，無 URL 前綴資源可切換）  
 > **部署**：Google Cloud Run（asia-northeast1）
@@ -95,7 +95,7 @@ Google 爬 `robots.txt` 時可發現 sitemap，**不依賴** GSC 手動提交。
 
 ### 3. 站內 SEO 維護（持續）
 
-- 公開頁維持 `index, follow`；工作區 `/client/*` 維持 `noindex`（見 `architecture-and-seo-principles.md`）
+- 公開頁維持 `index, follow`；**僅** `server.js` blocklist 內的 `/client/*` 與 `/embed/*` 維持 `noindex`（見 `architecture-and-seo-principles.md` §2.1，**勿**整包 `/client/`）
 - `product-tree.html` 已移除 `noindex`（commit `e300622`，2026-07-22）
 - 動態 sitemap 子檔由 DB 自動更新，無需手動改 XML
 

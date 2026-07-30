@@ -22,32 +22,31 @@ function registerSitemapRoutes(app, deps) {
     const { supabase, BASE_URL } = deps;
 
     // GET /sitemap.xml — SEO 用網站地圖「索引」；子 sitemap 持續由 DB/靜態清單更新（見 docs/sitemap.md）
-    // 首頁：全部(/) + 四種 layout_type + 中英文變體（與 hreflang 對應，利於收錄）
+    // 公開 landing（/client/* 工作區不列入，見 architecture-and-seo-principles §2.1 D）
     const SITEMAP_PAGES = [
         { path: '/',                        priority: '1.0', changefreq: 'weekly' },
-        { path: '/?layout_type=user_design', priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=comparison', priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=collection', priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=promo_scene', priority: '0.9', changefreq: 'weekly' },
         { path: '/?lang=en',                priority: '0.95', changefreq: 'weekly' },
-        { path: '/?layout_type=user_design&lang=en', priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=comparison&lang=en',  priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=collection&lang=en',  priority: '0.9', changefreq: 'weekly' },
-        { path: '/?layout_type=promo_scene&lang=en',  priority: '0.9', changefreq: 'weekly' },
         { path: '/custom/',                 priority: '0.9', changefreq: 'weekly' },
         { path: '/custom/gallery.html',     priority: '0.9', changefreq: 'weekly' },
-        { path: '/design-direction/',                 priority: '0.9', changefreq: 'weekly' },
+        { path: '/design-direction/',       priority: '0.9', changefreq: 'weekly' },
         { path: '/subscription-plans.html', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=scene-sim',     priority: '0.8', changefreq: 'monthly' },
+        { path: '/custom-product.html?tab=promo-image',  priority: '0.8', changefreq: 'monthly' },
+        { path: '/custom-product.html?tab=design-to-physical', priority: '0.8', changefreq: 'monthly' },
+        { path: '/custom-product.html?tab=vendor-styles', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
+        { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
+        { path: '/client/ai-edit.html',     priority: '0.75', changefreq: 'monthly' },
+        { path: '/client/ai-upscale.html',  priority: '0.75', changefreq: 'monthly' },
+        { path: '/client/supplier-portal.html', priority: '0.7', changefreq: 'monthly' },
+        { path: '/client/industry-supplier-dashboard.html', priority: '0.7', changefreq: 'monthly' },
+        { path: '/client/vendor-prototype-insights.html', priority: '0.65', changefreq: 'monthly' },
         { path: '/design-direction/analysis.html',     priority: '0.8', changefreq: 'monthly' },
+        { path: '/vendors.html',            priority: '0.8', changefreq: 'weekly' },
         { path: '/about.html',              priority: '0.6', changefreq: 'yearly' },
-        { path: '/contact.html',            priority: '0.6', changefreq: 'yearly' },
-        { path: '/login.html',              priority: '0.3', changefreq: 'yearly' },
-        { path: '/register.html',           priority: '0.3', changefreq: 'yearly' }
-        // 移除無實際內容的 iStudio 範本殼頁：service / feature / project / testimonial / team
-        // credits.html 為登入後才有意義的頁面，不列入公開索引
+        { path: '/contact.html',            priority: '0.6', changefreq: 'yearly' }
+        // 不含 login/register（低價值）；不含首頁 layout_type 變體（避免 dirty sitemap 耗 crawl budget）
     ];
     function escapeXml(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');

@@ -181,7 +181,7 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 | **GET /sitemap-inspiration.xml** | **動態**：靈感牆單一作品獨立 URL（/inspiration/:type/:id），上限 150 筆 | **每次請求即時查 DB** |
 
 - **首頁網址疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang` 可同時出現在同一 URL；sitemap 收錄「全部、三種類型、中英文、主分類」等主要 landing，不列所有組合。
-- **會員頁面**（`/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**，僅收錄對外公開頁與廠商相關頁。
+- **會員／後台**（blocklist 內之 `/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**；**公開工具**（如 `/client/ai-edit.html`、`/promo-camera`）與 **`/vendor-profile.html`** 可收錄。
 - **唯一可能手動**：若新增一種**全新的公開頁面**，在 **`routes/sitemap.js`** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、三種 `/?layout_type=...`、四筆 `?lang=en` 變體、`/subscription-plans.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/custom-product.html?tab=scene-sim`、`/custom-product.html?tab=pattern-extract`、`/remake/`、`/remake-product.html`、about/contact、login/register 等。
 - **GET /robots.txt**：內含 `Sitemap: {BASE_URL}/sitemap.xml` 與 `Disallow: /admin/`、`/api/`、`/payment/`。
 - **Google Search Console**：檔案與 robots.txt 已正確；**GSC「Sitemap 報告」手動提交對 matchdo.cc 目前無法成功**（2026-07-22 已反覆驗證）。**勿再叫使用者重複提交 `sitemap.xml`。** 詳見 **`docs/gsc-sitemap-troubleshooting.md`**。索引成效改看 GSC「網頁索引」、`site:matchdo.cc`、個別 URL「要求建立索引」。

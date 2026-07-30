@@ -1,17 +1,28 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-07-22  
+> **更新日期**：2026-07-30  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **架構 Step 0～4 × B 線頁型**：`docs/architecture-and-seo-principles.md`（A5 已還原，勿當完成）  
 > **推送／部署步驟**：見下方「四、部署流程」
 
-### B 線／產業供應商工作區（2026-06-01）
+### B 線／產業供應商與 `/client/` SEO（2026-07-30 修正）
+
+| 項目 | 政策 |
+|------|------|
+| **`/client/*` noindex** | **blocklist**（`server.js` → `CLIENT_NOINDEX_EXACT`），**非**整包 `/client/` |
+| **可 index 工具／說明** | `ai-edit`、`ai-upscale`、`supplier-portal`、`industry-supplier-catalog`、`industry-supplier-dashboard`、`vendor-prototype-insights`、`/promo-camera` |
+| **設計頁 tab** | `/custom-product.html` 及 `?tab=scene-sim|promo-image|pattern-extract|design-to-physical|vendor-styles` → sitemap-pages |
+| **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
+| **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
+| **空殼緩解（2026-07-30）** | 首頁 `#home-seo-intro` 可見摘要 + `noscript`；`vendor-profile?id=` 動態預填 hero + 簡介段落 |
+
+### B 線／產業供應商工作區（2026-06-01，部分已 supersede）
 
 | 頁面 | SEO 政策 |
 |------|----------|
-| `/client/industry-*.html`、`supplier-catalog-manage.html`、`my-supplier-references.html` | **noindex**（登入工作區，不進 sitemap） |
-| `/client/vendor-product-link-tree.html` | **noindex**（廠商產品關聯編輯；規劃見 `vendor-product-link-tree-ui-plan.md`） |
+| `/client/industry-suppliers.html`、`supplier-catalog-manage.html`、`my-supplier-references.html` | **noindex** |
+| `/client/vendor-product-link-tree.html` | **noindex**（廠商編輯；公開版 `/product-tree.html`） |
 | `/product-tree.html?prototype_asset_id=` | 公開 guide；**index** 僅當主產品 `is_public`；動態 OG；sitemap Phase 2 |
 | 供應商語意資料 | `supplier_catalog_items.ai_tags` + `visual_semantics_events`（`source_type=catalog_item`）；見 `add-supplier-catalog-ai-fields.sql` |
 | 未來供應商公開 SEO 頁 | **尚未定案**（勿用現有 `?id=` 工作區當收錄落地頁） |

@@ -5035,6 +5035,41 @@ app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
+// 登入工作區 noindex：僅擋「個人資料／後台／已廢功能」，工具／說明頁可 index（見使用者 SEO 判斷 2026-07-30）
+const CLIENT_NOINDEX_EXACT = new Set([
+    '/client/dashboard.html',
+    '/client/my-custom-products.html',
+    '/client/messages.html',
+    '/client/find-makers.html',
+    '/client/matched-experts.html',
+    '/client/manufacturer-dashboard.html',
+    '/client/manufacturer-portfolio.html',
+    '/client/manufacturer-materials.html',
+    '/client/manufacturer-inquiries.html',
+    '/client/industry-suppliers.html',
+    '/client/supplier-catalog-manage.html',
+    '/client/my-supplier-references.html',
+    '/client/vendor-product-link-tree.html',
+    '/client/embed-design-records.html',
+    '/client/custom-product-detail.html',
+    // 已廢／初期功能，僅擋索引（檔案保留以免舊連結 404）
+    '/client/my-projects.html',
+    '/client/project-detail.html',
+    '/client/demands.html',
+    '/client/contact-unlocks.html'
+]);
+function pathShouldNoindex(reqPath) {
+    const p = (reqPath || '').split('?')[0];
+    if (p.startsWith('/embed/')) return true;
+    if (CLIENT_NOINDEX_EXACT.has(p)) return true;
+    return false;
+}
+app.use((req, res, next) => {
+    if (pathShouldNoindex(req.path)) {
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+    next();
+});
 // 首頁：僅 / 送 iStudio 內容；/index.html 301 到 /（與 canonical 一致，避免 GSC「替代頁面」重複網址）
 const indexPath = path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html');
 app.get('/index.html', (req, res) => {
@@ -9116,6 +9151,12 @@ app.get('/vendor-profile.html', async (req, res, next) => {
         html = html.replace(/<link rel="alternate" hreflang="zh-TW" href="[^"]*" id="hreflangZh">/, '<link rel="alternate" hreflang="zh-TW" href="' + pageUrl.replace(/"/g, '&quot;') + '" id="hreflangZh">');
         html = html.replace(/<link rel="alternate" hreflang="en" href="[^"]*" id="hreflangEn">/, '<link rel="alternate" hreflang="en" href="' + pageUrl.replace(/"/g, '&quot;') + '&lang=en" id="hreflangEn">');
         html = html.replace(/<link rel="alternate" hreflang="x-default" href="[^"]*">/, '<link rel="alternate" hreflang="x-default" href="' + pageUrl.replace(/"/g, '&quot;') + '">');
+        // 爬蟲可見正文：預填廠商名稱，避免僅 meta 有內容而 body 空殼
+        html = html.replace(/id="profileHero" style="display:none;"/, 'id="profileHero"');
+        html = html.replace(/id="heroName">—<\/h1>/, 'id="heroName">' + name + '</h1>');
+        html = html.replace(/id="pageLoading" class="text-center py-5"/, 'id="pageLoading" class="text-center py-5 d-none"');
+        const introHtml = '<section id="vendor-seo-intro" class="container py-3"><p class="text-muted mb-0">' + desc + '</p></section>';
+        html = html.replace('<div id="profileBody" class="container py-4 d-none">', introHtml + '\n    <div id="profileBody" class="container py-4 d-none">');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=300');
         res.send(html);

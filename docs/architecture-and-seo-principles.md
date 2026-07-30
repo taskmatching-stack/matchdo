@@ -1,6 +1,6 @@
 # 架構優化 × SEO × B 線 — 執行原則（必讀）
 
-**更新**：2026-06-01  
+**更新**：2026-07-30（SEO：`/client/*` 改 blocklist；工具頁可 index）  
 **狀態**：Step 0～4 **有效**；Step 5 **已還原**（進度停在 **A5r 待做**，不是 A5 完成）  
 **相關**：`docs/architecture-optimization-backlog.md`、`docs/SEO-PLAN.md`、`docs/SEO-PROGRESS.md`、`docs/account-one-login-capabilities.md`、`docs/matchdo-todo.md` §6
 
@@ -25,8 +25,8 @@
 
 | 仍成立（勿動核心） | B 線／近期改動後需對齊 |
 |--------------------|-------------------------|
-| 僅 `/inspiration/*` 當 UGC 可索引 URL | B 線 **`/client/*` 工作區** 不得進 sitemap（見 §3） |
-| `routes/sitemap.js` 單一模組 | 供應商上架須走 **§6 視覺語意**（與 `vendor_assets` 同管線） |
+| 僅 `/inspiration/*` 當 UGC 可索引 URL | **`/client/*` 不再整包 noindex**；僅 blocklist 擋個人後台（見 §2.1、§3） |
+| `routes/sitemap.js` 單一模組 | 公開工具頁（AI 編輯、攝影模擬、設計頁 tab 等）可進 `sitemap-pages` |
 | detail `noindex` + canonical | 匯入供應商品項 → `vendor_assets`，`tags_source: import` |
 | 選單 **①②③ 常駐** | 廢止 `nav.show_supplier_zone` 藏選單（見 account 規範） |
 
@@ -76,10 +76,15 @@
 | 頁型 | 路徑範例 | SEO／收錄 |
 |------|----------|-----------|
 | **A 可索引內容** | `/inspiration/{type}/{id}` | SSR + `sitemap-inspiration` |
-| **B 公開工具** | `/custom-product.html`、`/vendors.html` | 靜態 meta + `sitemap-pages` |
+| **B 公開工具** | `/custom-product.html`、`/vendors.html`、`/promo-camera`、`/client/ai-edit.html` | `index, follow` + `sitemap-pages`（設計頁各 tab 用 `?tab=`） |
 | **C 半套 CSR 詳情** | `/client/custom-product-detail.html?id=` | **noindex**；canonical → A |
-| **D 登入工作區** | `/client/manufacturer-*.html`、`/client/industry-*.html`、`supplier-catalog-manage` | **noindex**；**不進 sitemap**；title 即可 |
-| **E 製造商公開頁** | `/vendor-profile.html?id=` | 動態 OG + `sitemap-vendors` |
+| **D 個人後台** | `/client/manufacturer-dashboard.html`、`my-custom-products.html`、`messages.html` 等 | **noindex**（blocklist）；**不進 sitemap** |
+| **D′ 已廢功能** | `/client/my-projects.html`、`demands.html` 等 | **noindex**；檔案保留以免舊連結 404 |
+| **E 廠商公開首頁** | **`/vendor-profile.html?id=`** | **`index, follow`**；動態 OG + 預填可見正文 + `sitemap-vendors` |
+
+**`/client/*` noindex 實作（2026-07-30 起）**：`server.js` 的 `CLIENT_NOINDEX_EXACT` **blocklist** + HTML meta；**禁止**再寫「整包 `/client/*` noindex」。需要點數 ≠ 隱私，工具／說明頁可 index。
+
+**可 index 的 `/client/` 範例（非 exhaustive）**：`ai-edit.html`、`ai-upscale.html`、`supplier-portal.html`、`industry-supplier-catalog.html`、`industry-supplier-dashboard.html`、`vendor-prototype-insights.html`、`promo-camera.html`（正式短網址 `/promo-camera`）。
 
 - 可索引新內容 → **先做 server 動態 HTML**，禁止再新增「只有 `?id=` 的 CSR 詳情」當 SEO 落地頁。
 - 製造商後台 HTML → 編 **`public/client/`**（見 `.cursor/rules/manufacturer-portfolio.mdc`）。
@@ -108,17 +113,17 @@
 
 ---
 
-## 3. B 線與 SEO 的關係（易誤解）
+## 3. B 線與 SEO 的關係（2026-07-30 修正）
 
 | 頁面 | 性質 | SEO 做法 |
 |------|------|----------|
-| `supplier-catalog-manage.html` | ③ 供應商上架工作區 | **D**：`noindex` |
-| `industry-supplier-dashboard.html` | ③ 控制台 | **D** |
-| `industry-suppliers.html`、`industry-supplier-catalog.html` | ② 製造商瀏覽／匯入（需登入） | **D** |
-| `my-supplier-references.html` | ② 已匯入清單 | **D** |
-| 未來「供應商公開首頁」若要做 SEO | 應類似 **E** 或獨立 SSR | 需另案：slug、`sitemap-suppliers`（**尚未定案**） |
+| `supplier-catalog-manage.html` | ③ 供應商上架工作區 | **D**：noindex |
+| `industry-suppliers.html`、`my-supplier-references.html` | ② 製造商瀏覽／匯入清單 | **D**：noindex |
+| `industry-supplier-dashboard.html`、`industry-supplier-catalog.html` | ② 供應商說明／目錄（需點數操作，無個資） | **B**：**index**；catalog 動態 `?id=` 待 Phase 2 sitemap |
+| `supplier-portal.html` | B 線說明 | **B**：**index** |
+| **`/vendor-profile.html?id=`** | **廠商公開首頁**（訪客可瀏覽） | **E**：**index**；**不可**與 `/client/manufacturer-dashboard.html`（後台）混淆 |
 
-**現階段**：B 線 SEO 價值在 **語意資料**（搜尋、風向、匯入後製造商素材庫），不在 Google 收錄 `/client/industry-*.html`。
+**現階段**：B 線 SEO 除公開頁外，語意資料仍服務站內搜尋／風向／匯入；**勿**再將 `industry-supplier-catalog` 等工具頁一律標為 D。
 
 ---
 

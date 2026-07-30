@@ -158,7 +158,8 @@ draft →（付費或預設）→ wall_visible（show_on_homepage）
 | **A. 可索引內容頁** | `/inspiration/*` | Server 組 HTML；分享／sitemap 只用此 URL |
 | **B. 工具／表單頁** | `custom-product.html`、登入 | 靜態 meta 即可，不 per-item |
 | **C. 半套 CSR 詳情** | `custom-product-detail?id=` | **不再新增**；舊鏈 301 或 canonical 到 A（Step 4） |
-| **D. 登入工作區** | `/client/manufacturer-*.html`、`/client/industry-*.html`、`supplier-catalog-manage` | **`noindex`**；不進 sitemap；僅 title（見 `docs/architecture-and-seo-principles.md`） |
+| **D. 個人後台** | `/client/manufacturer-dashboard.html`、`my-custom-products.html` 等 blocklist | **`noindex`**；不進 sitemap（見 `architecture-and-seo-principles.md` §2.1） |
+| **B. 公開工具（含部分 `/client/`）** | `ai-edit.html`、`/promo-camera`、`industry-supplier-catalog.html` | **`index`** + `sitemap-pages` |
 
 ---
 
