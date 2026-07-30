@@ -105,7 +105,6 @@
   align-items: stretch;
   justify-content: stretch;
   transform: translateX(-15px);
-  overflow: visible;
 }
 #promo-camera-app .pc-camera-device.is-lcd-on .pc-camera-lcd-wrap {
   display: flex !important;
@@ -129,23 +128,23 @@
   background: transparent;
   color: #2d4a2d;
   font-family: ui-monospace, "Cascadia Code", monospace;
-  font-size: clamp(0.45rem, 1.45vw, 0.58rem);
+  font-size: clamp(0.48rem, 1.55vw, 0.62rem);
   border: none;
   border-radius: 0;
-  padding: 6% 5% 4% 14%;
+  padding: 8% 6% 8% 14%;
   min-height: 0;
   width: 100%;
-  line-height: 1.22;
+  line-height: 1.35;
   box-shadow: none;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  overflow: visible;
+  justify-content: center;
 }
 #promo-camera-app .pc-camera-device.is-film-mode .pc-lcd {
   color: #d4e4c8;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
   padding: 10% 8% 10% 16%;
+  justify-content: center;
 }
 #promo-camera-app .pc-lcd-line {
   white-space: nowrap;
