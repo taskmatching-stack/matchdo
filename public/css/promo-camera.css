@@ -29,7 +29,12 @@
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  min-height: 420px;
+  min-height: 0;
+}
+@media (min-width: 992px) {
+  body:not(.pc-app-shell):not(.pc-embed-design) #promo-camera-app .pc-chat-panel {
+    min-height: 320px;
+  }
 }
 #promo-camera-app .pc-chat-messages {
   flex: 0 0 auto;
@@ -174,7 +179,21 @@ body.pc-app-shell .pc-chat-compose {
   padding: 0.5rem 0.75rem 0.75rem;
   background: #fff;
 }
-body.pc-app-shell .pc-chat-panel {
+body.pc-app-shell #promo-camera-app .pc-chat-messages {
+  display: none !important;
+}
+body.pc-app-shell #promo-camera-app .pc-chat-panel {
+  min-height: 0 !important;
+  height: auto;
+}
+body.pc-app-shell #promo-camera-app .pc-chat-panel.pc-compose-collapsed .pc-chat-compose {
+  border-top: none;
+  padding: 0.35rem 0.75rem 0.5rem;
+}
+body.pc-app-shell #promo-camera-app .pc-layout {
+  gap: 0.75rem;
+}
+body.pc-app-shell #promo-camera-app {
   min-height: 0;
 }
 #promo-camera-app .pc-angle-btn.active {
@@ -428,9 +447,6 @@ body.pc-app-shell .pc-app-container {
 }
 body.pc-app-shell .pc-app-pricing {
   margin-bottom: 0.75rem;
-}
-body.pc-app-shell #promo-camera-app {
-  min-height: calc(100dvh - 72px);
 }
 body.pc-app-shell .pc-app-footnote {
   margin-top: 1rem;

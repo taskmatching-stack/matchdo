@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731c';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731e';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -496,6 +496,10 @@
     body.classList.toggle('is-collapsed', !expanded);
     toggle.classList.toggle('is-open', expanded);
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    var panel = getChatPanel();
+    if (panel && isAppShell()) {
+      panel.classList.toggle('pc-compose-collapsed', !expanded);
+    }
   }
 
   function updateComposeSummary() {
@@ -566,6 +570,7 @@
       var expanded = body.classList.contains('is-collapsed');
       setComposeExpanded(expanded);
     });
+    setComposeExpanded(false);
     updateComposeSummary();
   }
 
