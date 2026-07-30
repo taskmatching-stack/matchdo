@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730j';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730k';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -12,7 +12,7 @@
     digitalOn: '/img/cam-lcd-on.png'
   };
 
-  var lcdPowered = false;
+  var lcdPowered = true;
 
   var RESULT_NOTE_HTML = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>';
 
@@ -470,27 +470,11 @@
       if (!el) return;
       el.addEventListener('change', function () {
         if (!el.checked) return;
-        var wasFilm = St.get().lookMode === 'film';
         St.setLookMode(el.value);
-        if (el.value === 'film') {
-          lcdPowered = false;
-          fillLookSelect();
-          updateLcd();
-          flashLcd();
-        } else if (wasFilm) {
-          lcdPowered = false;
-          updateCameraBodyImage();
-          fillLookSelect();
-          updateLcd();
-          setTimeout(function () {
-            powerOnLcd();
-            flashLcd();
-          }, 120);
-        } else {
-          fillLookSelect();
-          updateLcd();
-          flashLcd();
-        }
+        lcdPowered = true;
+        fillLookSelect();
+        updateLcd();
+        flashLcd();
       });
     });
 
@@ -576,7 +560,7 @@
 
   function boot() {
     document.getElementById('pcBuildTag').textContent = window.__MATCHDO_PROMO_CAMERA_BUILD;
-    updateCameraBodyImage();
+    updateLcd();
     bindEvents();
     initFromQuery();
     renderMessages();
@@ -593,7 +577,7 @@
       fillCameraSelects();
       renderAngleButtons();
       updateDimsHint();
-      updateCameraBodyImage();
+      updateLcd();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();
