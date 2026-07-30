@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730k';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730m';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -229,12 +229,14 @@
     var lookEl = document.querySelector('#pcLcd .pc-lcd-look');
     var lensEl = document.querySelector('#pcLcd .pc-lcd-lens');
     var optEl = document.querySelector('#pcLcd .pc-lcd-optics');
+    var bladesEl = document.querySelector('#pcLcd .pc-lcd-blades');
     var prefix = s.lookMode === 'film' ? 'FILM' : 'BODY';
     if (lookEl) lookEl.textContent = prefix + ' · ' + s.look;
     if (lensEl) lensEl.textContent = s.lens;
     var angleLine = document.querySelector('#pcLcd .pc-lcd-angle');
     if (angleLine) angleLine.textContent = s.angle || '—';
-    if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev + ' · ' + s.blades;
+    if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev;
+    if (bladesEl) bladesEl.textContent = s.blades;
     updateCameraBodyImage();
   }
 
