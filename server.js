@@ -11611,7 +11611,7 @@ function extractMissingColumnFromSupabaseError(err) {
 /** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
 async function insertProductPromoGenerationRow(payload) {
     let current = Object.assign({}, payload);
-    const optionalStripOrder = ['generation_mode', 'camera_params', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
+    const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
     let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
         const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
@@ -12032,6 +12032,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             ? body.source_type
             : 'upload';
         const sourceId = body.source_id ? String(body.source_id).trim() : null;
+        const clientChannel = normalizePromoClientChannel(body.client_channel);
 
         const pointsToDeduct = await getPointsPromoCameraForResolution(w, h, currentUser.id);
         if (!isAdmin && pointsToDeduct > 0) {
@@ -12087,7 +12088,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 pointsToDeduct,
                 'promo_image',
                 '攝影模擬',
-                { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, generation_mode: 'camera_advanced', reference_count: refBases.length }
+                { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, generation_mode: 'camera_advanced', client_channel: clientChannel, reference_count: refBases.length }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
@@ -12125,6 +12126,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage,
                 generation_mode: 'camera_advanced',
+                client_channel: clientChannel,
                 camera_params: cameraParamsSnapshot
             };
             const ins = await insertProductPromoGenerationRow(promoInsertBase);
@@ -19873,8 +19875,8 @@ async function listAdminGenerationRecords(opts) {
         }
     }
 
-    if (source === 'all' || source === 'promo' || source === 'promo_camera') {
-        const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, camera_params';
+    if (source === 'all' || source === 'promo' || source === 'promo_camera' || source === 'promo_camera_web' || source === 'promo_camera_app') {
+        const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, client_channel, camera_params';
         let promoQ = supabase
             .from('product_promo_generations')
             .select(promoSelectFull)
@@ -19885,7 +19887,7 @@ async function listAdminGenerationRecords(opts) {
         if (from) promoQ = promoQ.gte('created_at', from);
         if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
         let promoRes = await promoQ;
-        if (promoRes.error && (isSupabaseMissingColumnError(promoRes.error, 'scene_key') || isSupabaseMissingColumnError(promoRes.error, 'generation_mode') || isSupabaseMissingColumnError(promoRes.error, 'camera_params'))) {
+        if (promoRes.error && (isSupabaseMissingColumnError(promoRes.error, 'scene_key') || isSupabaseMissingColumnError(promoRes.error, 'generation_mode') || isSupabaseMissingColumnError(promoRes.error, 'camera_params') || isSupabaseMissingColumnError(promoRes.error, 'client_channel'))) {
             promoQ = supabase
                 .from('product_promo_generations')
                 .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at')
@@ -19900,12 +19902,14 @@ async function listAdminGenerationRecords(opts) {
         if (!promoRes.error) {
             (promoRes.data || []).forEach(function (row) {
                 const itemSource = adminPromoGenerationRecordSource(row);
-                if (source === 'promo' && itemSource === 'promo_camera') return;
-                if (source === 'promo_camera' && itemSource !== 'promo_camera') return;
+                if (source === 'promo' && itemSource !== 'promo') return;
+                if (source === 'promo_camera' && itemSource !== 'promo_camera_web' && itemSource !== 'promo_camera_app') return;
+                if (source === 'promo_camera_web' && itemSource !== 'promo_camera_web') return;
+                if (source === 'promo_camera_app' && itemSource !== 'promo_camera_app') return;
                 const prompt = (row.final_prompt || row.user_prompt || '').trim();
                 const themeLabel = (row.scene_template_key || '').trim();
                 const sceneLabel = (row.scene_key || '').trim();
-                const titleParts = [itemSource === 'promo_camera' ? '攝影模擬' : '產品情境圖'];
+                const titleParts = [adminPromoCameraRecordTitleLabel(itemSource)];
                 if (themeLabel) titleParts.push(themeLabel);
                 if (sceneLabel) titleParts.push(sceneLabel);
                 const cameraSummary = formatAdminPromoCameraParamsSummary(row.camera_params);
@@ -19914,7 +19918,8 @@ async function listAdminGenerationRecords(opts) {
                 merged.push({
                     id: row.id,
                     source: itemSource,
-                    generation_mode: row.generation_mode || (itemSource === 'promo_camera' ? 'camera_advanced' : 'standard'),
+                    generation_mode: row.generation_mode || (itemSource === 'promo_camera_web' || itemSource === 'promo_camera_app' ? 'camera_advanced' : 'standard'),
+                    client_channel: row.client_channel || null,
                     created_at: row.created_at || row.completed_at,
                     ai_generated_image_url: row.result_image_url,
                     title: titleParts.join(' · '),
@@ -19947,7 +19952,7 @@ async function listAdminGenerationRecords(opts) {
     });
     const items = merged.slice(offset, offset + limit);
 
-    const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo' || i.source === 'promo_camera') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
+    const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo' || i.source === 'promo_camera_web' || i.source === 'promo_camera_app') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
     const ownerById = {};
     if (ownerIds.length) {
         const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', ownerIds);
@@ -19956,7 +19961,7 @@ async function listAdminGenerationRecords(opts) {
         });
     }
     items.forEach(function (item) {
-        if ((item.source === 'site' || item.source === 'promo' || item.source === 'promo_camera') && item.owner_id && ownerById[item.owner_id]) {
+        if ((item.source === 'site' || item.source === 'promo' || item.source === 'promo_camera_web' || item.source === 'promo_camera_app') && item.owner_id && ownerById[item.owner_id]) {
             const p = ownerById[item.owner_id];
             item.owner_email = p.email || null;
             item.owner_name = p.full_name || null;
@@ -19975,8 +19980,23 @@ async function listAdminGenerationRecords(opts) {
     };
 }
 
+function normalizePromoClientChannel(raw) {
+    const v = String(raw || 'web').trim().toLowerCase();
+    if (v === 'app' || v === 'embed' || v === 'web') return v;
+    return 'web';
+}
+
 function adminPromoGenerationRecordSource(row) {
-    return String(row && row.generation_mode || '').trim() === 'camera_advanced' ? 'promo_camera' : 'promo';
+    const mode = String(row && row.generation_mode || '').trim();
+    if (mode !== 'camera_advanced') return 'promo';
+    const ch = normalizePromoClientChannel(row && row.client_channel);
+    return ch === 'app' ? 'promo_camera_app' : 'promo_camera_web';
+}
+
+function adminPromoCameraRecordTitleLabel(itemSource) {
+    if (itemSource === 'promo_camera_app') return '攝影模擬 App';
+    if (itemSource === 'promo_camera_web') return '攝影模擬 網站';
+    return '產品情境圖';
 }
 
 function formatAdminPromoCameraParamsSummary(cameraParams) {
@@ -19998,7 +20018,7 @@ async function adminGenerationRecordSummaryCounts(opts) {
     const from = (opts.from || '').trim();
     const to = (opts.to || '').trim();
     const qText = (opts.qText || '').trim();
-    const summary = { site: 0, embed: 0, promo: 0, promo_camera: 0, total: 0, filtered: !!qText };
+    const summary = { site: 0, embed: 0, promo: 0, promo_camera_web: 0, promo_camera_app: 0, promo_camera: 0, total: 0, filtered: !!qText };
     if (qText) return summary;
 
     let cpQ = supabase
@@ -20027,9 +20047,26 @@ async function adminGenerationRecordSummaryCounts(opts) {
     if (from) promoCamQ = promoCamQ.gte('created_at', from);
     if (to) promoCamQ = promoCamQ.lte('created_at', to + 'T23:59:59.999Z');
     const promoCamRes = await promoCamQ;
+    let promoCameraTotal = 0;
     if (!promoCamRes.error && promoCamRes.count != null) {
-        summary.promo_camera = promoCamRes.count;
+        promoCameraTotal = promoCamRes.count;
     }
+
+    let promoCamAppQ = supabase
+        .from('product_promo_generations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'success')
+        .not('result_image_url', 'is', null)
+        .eq('generation_mode', 'camera_advanced')
+        .eq('client_channel', 'app');
+    if (from) promoCamAppQ = promoCamAppQ.gte('created_at', from);
+    if (to) promoCamAppQ = promoCamAppQ.lte('created_at', to + 'T23:59:59.999Z');
+    const promoCamAppRes = await promoCamAppQ;
+    if (!promoCamAppRes.error && promoCamAppRes.count != null) {
+        summary.promo_camera_app = promoCamAppRes.count;
+    }
+    summary.promo_camera_web = Math.max(0, promoCameraTotal - summary.promo_camera_app);
+    summary.promo_camera = summary.promo_camera_web + summary.promo_camera_app;
 
     let promoQ = supabase
         .from('product_promo_generations')
@@ -20044,7 +20081,7 @@ async function adminGenerationRecordSummaryCounts(opts) {
         if (promoCamRes.error) summary.promo = promoRes.count;
     }
 
-    summary.total = summary.site + summary.embed + summary.promo + summary.promo_camera;
+    summary.total = summary.site + summary.embed + summary.promo + summary.promo_camera_web + summary.promo_camera_app;
     return summary;
 }
 

@@ -257,5 +257,5 @@ SEO：**可 index**（`meta robots: index, follow`；見 `docs/SEO-PROGRESS.md`�
 - [ ] Phase APP-1：PWA manifest + 登入 redirect 文件
 - [x] Phase APP-1（部分）：`/promo-camera-app` 獨立 UI + `promo-camera-app.webmanifest`（2026-07-31）
 - [ ] Phase APP-2：SDK 抽離 + 型別
-- [ ] Phase APP-3：Capacitor 殼 + 深連結
+- [ ] Phase APP-3：Capacitor 殼 + 深連結 — **細部規格見 [PLAN-promo-camera-capacitor-app.md](PLAN-promo-camera-capacitor-app.md)**（只包 `/promo-camera-app`、作法 B）
 - [ ] （選做）Phase APP-4：原生 UI

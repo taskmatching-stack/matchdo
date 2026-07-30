@@ -13,7 +13,8 @@
     .badge-site { background: #7A8FA3; }
     .badge-embed { background: #6f42c1; }
     .badge-promo { background: #7A8FA3; }
-    .badge-promo-camera { background: #fd7e14; }
+    .badge-promo-camera-web { background: #fd7e14; }
+    .badge-promo-camera-app { background: #e8590c; }
     pre.detail-json { font-size: 0.72rem; max-height: 240px; overflow: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 6px; }
     .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
     .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
@@ -26,7 +27,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、攝影模擬（含成圖、描述、參考來源）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、攝影模擬（網站／App 分開統計）</p>
 
         <div class="row g-2 mb-3" id="summaryRow">
           <div class="col-6 col-md-4 col-lg">
@@ -53,10 +54,16 @@
               <div class="stat-num text-success" id="sumPromo">—</div>
             </div></div>
           </div>
-          <div class="col-6 col-md-6 col-lg">
+          <div class="col-6 col-md-4 col-lg">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">攝影模擬</div>
-              <div class="stat-num" style="color:#fd7e14" id="sumPromoCamera">—</div>
+              <div class="text-muted small">攝影模擬（網站）</div>
+              <div class="stat-num" style="color:#fd7e14" id="sumPromoCameraWeb">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">攝影模擬（App）</div>
+              <div class="stat-num" style="color:#e8590c" id="sumPromoCameraApp">—</div>
             </div></div>
           </div>
         </div>
@@ -72,7 +79,9 @@
                   <option value="site">主站</option>
                   <option value="embed">Embed</option>
                   <option value="promo">情境圖</option>
-                  <option value="promo_camera">攝影模擬</option>
+                  <option value="promo_camera">攝影模擬（全部）</option>
+                  <option value="promo_camera_web">攝影模擬（網站）</option>
+                  <option value="promo_camera_app">攝影模擬（App）</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -169,16 +178,24 @@
 
     function sourceBadge(row) {
       if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
-      if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera">攝影模擬</span>';
+      if (row.source === 'promo_camera_app') return '<span class="badge badge-promo-camera-app">攝影 App</span>';
+      if (row.source === 'promo_camera_web') return '<span class="badge badge-promo-camera-web">攝影 網站</span>';
+      if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera-web">攝影模擬</span>';
       if (row.source === 'promo') return '<span class="badge badge-promo">情境圖</span>';
       return '<span class="badge badge-site">主站</span>';
     }
 
     function sourceLabel(row) {
       if (row.source === 'embed') return 'embed';
+      if (row.source === 'promo_camera_app') return 'promo_camera_app';
+      if (row.source === 'promo_camera_web') return 'promo_camera_web';
       if (row.source === 'promo_camera') return 'promo_camera';
       if (row.source === 'promo') return 'promo';
       return 'site';
+    }
+
+    function isPromoLikeSource(src) {
+      return src === 'promo' || src === 'promo_camera' || src === 'promo_camera_web' || src === 'promo_camera_app';
     }
 
     function formatCameraParamsHtml(row) {
@@ -213,7 +230,8 @@
       document.getElementById('sumSite').textContent = summary.filtered ? '—' : String(summary.site != null ? summary.site : '—');
       document.getElementById('sumEmbed').textContent = summary.filtered ? '—' : String(summary.embed != null ? summary.embed : '—');
       document.getElementById('sumPromo').textContent = summary.filtered ? '—' : String(summary.promo != null ? summary.promo : '—');
-      document.getElementById('sumPromoCamera').textContent = summary.filtered ? '—' : String(summary.promo_camera != null ? summary.promo_camera : '—');
+      document.getElementById('sumPromoCameraWeb').textContent = summary.filtered ? '—' : String(summary.promo_camera_web != null ? summary.promo_camera_web : '—');
+      document.getElementById('sumPromoCameraApp').textContent = summary.filtered ? '—' : String(summary.promo_camera_app != null ? summary.promo_camera_app : '—');
       document.getElementById('summaryFilteredHint').classList.toggle('d-none', !summary.filtered);
     }
 
@@ -249,7 +267,7 @@
         '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(fmtTime(row.created_at)) + '</dd>' +
         '<dt class="col-sm-3">標題</dt><dd class="col-sm-9">' + esc(row.title || '—') + '</dd>' +
         '<dt class="col-sm-3">描述／Prompt</dt><dd class="col-sm-9">' + esc(row.prompt || row.generation_prompt || '—') + '</dd>';
-      if (row.source !== 'promo' && row.source !== 'promo_camera') {
+      if (!isPromoLikeSource(row.source)) {
         html += '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>';
       }
       if (row.source === 'site') {
@@ -260,9 +278,12 @@
         html += '<dt class="col-sm-3">廠商</dt><dd class="col-sm-9">' + esc(row.manufacturer_name || row.manufacturer_id) + '</dd>' +
           '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
           '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? row.points_charged + ' 點' : '—') + '</dd>';
-      } else if (row.source === 'promo' || row.source === 'promo_camera') {
-        html += '<dt class="col-sm-3">帳號</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id || '—') + '</dd>' +
-          '<dt class="col-sm-3">主題</dt><dd class="col-sm-9">' + esc(row.scene_template_key || '—') + '</dd>' +
+      } else if (isPromoLikeSource(row.source)) {
+        html += '<dt class="col-sm-3">帳號</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id || '—') + '</dd>';
+        if (row.source === 'promo_camera_web' || row.source === 'promo_camera_app' || row.source === 'promo_camera') {
+          html += '<dt class="col-sm-3">入口</dt><dd class="col-sm-9">' + esc(row.client_channel || (row.source === 'promo_camera_app' ? 'app' : 'web')) + '</dd>';
+        }
+        html += '<dt class="col-sm-3">主題</dt><dd class="col-sm-9">' + esc(row.scene_template_key || '—') + '</dd>' +
           '<dt class="col-sm-3">場景</dt><dd class="col-sm-9">' + esc(row.scene_key || '—') + '</dd>' +
           '<dt class="col-sm-3">使用者描述</dt><dd class="col-sm-9">' + esc(row.user_prompt || '—') + '</dd>' +
           '<dt class="col-sm-3">尺寸</dt><dd class="col-sm-9">' + esc((row.width && row.height) ? (row.width + '×' + row.height + (row.aspect_ratio ? ' · ' + row.aspect_ratio : '')) : '—') + '</dd>' +

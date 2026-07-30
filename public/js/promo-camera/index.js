@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731a';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731c';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -105,6 +105,16 @@
     return String(row.description || '').trim();
   }
 
+  function localizedOptionName(row) {
+    if (!row) return '';
+    if (apiLang() === 'en') {
+      var meta = row.meta && typeof row.meta === 'object' ? row.meta : {};
+      var en = String(row.name_en || meta.name_en || '').trim();
+      if (en) return en;
+    }
+    return String(row.name || row.key || '').trim();
+  }
+
   function angleOptionList() {
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
     var fromApi = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
@@ -168,7 +178,7 @@
     if (!el || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: '生成中，請稍候…' }));
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '生成中，請稍候…') }));
   }
 
   function showResultArea(url, data, payload) {
@@ -192,7 +202,7 @@
     if (!el || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || '生成失敗' }));
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || t('promoCamera.generateFailedShort', '生成失敗') }));
   }
 
   function renderMessages() {
@@ -200,7 +210,7 @@
     if (!wrap) return;
     var msgs = St.cloneMessages();
     if (!msgs.length) {
-      wrap.innerHTML = '<div class="pc-msg pc-msg-system">請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。</div>';
+      wrap.innerHTML = '<div class="pc-msg pc-msg-system">' + t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。') + '</div>';
       return;
     }
     wrap.innerHTML = msgs.map(function (m) {
@@ -318,7 +328,7 @@
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
     var key = (St.get().camera || {})[angleCat] || '';
     var hit = list.find(function (r) { return r.key === key; });
-    hint.textContent = localizedOptionDescription(hit) || (hit ? (hit.name || '') : t('promoCamera.angleHintDefault', '請點上方按鈕換角度'));
+    hint.textContent = localizedOptionDescription(hit) || (hit ? localizedOptionName(hit) : t('promoCamera.angleHintDefault', '請點上方按鈕換角度'));
   }
 
   function renderAngleButtons() {
@@ -329,7 +339,7 @@
     var cur = (St.get().camera || {})[angleCat] || 'keep_reference';
     wrap.innerHTML = list.map(function (r) {
       var active = r.key === cur ? ' active' : '';
-      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
+      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + active + '" data-key="' + esc(r.key) + '">' + esc(localizedOptionName(r)) + '</button>';
     }).join('');
     wrap.querySelectorAll('.pc-angle-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -380,16 +390,26 @@
     if (film) film.checked = mode === 'film';
   }
 
+  function categoryLabelI18n(cat) {
+    var key = 'promoCamera.cat.' + cat;
+    var localized = t(key, '');
+    if (localized && localized !== key) return localized;
+    return St.getCategoryLabel(cat);
+  }
+
   function applyUiLabels() {
     var group = St.getLookGroup();
     var groupLabel = document.getElementById('pcLookGroupLabel');
-    if (groupLabel && group && group.label) groupLabel.textContent = group.label;
+    if (groupLabel) {
+      var groupText = t('promoCamera.lookGroup', '成像來源');
+      groupLabel.textContent = groupText;
+    }
     var digitalLabel = document.getElementById('pcLookDigitalLabel');
     var filmLabel = document.getElementById('pcLookFilmLabel');
-    if (digitalLabel) digitalLabel.textContent = St.getCategoryLabel(St.getDigitalLookCategory());
-    if (filmLabel) filmLabel.textContent = St.getCategoryLabel(St.getFilmLookCategory());
+    if (digitalLabel) digitalLabel.textContent = categoryLabelI18n(St.getDigitalLookCategory());
+    if (filmLabel) filmLabel.textContent = categoryLabelI18n(St.getFilmLookCategory());
     var lensLabel = document.getElementById('pcLensLabel');
-    if (lensLabel) lensLabel.textContent = St.getCategoryLabel(St.getLensCategory ? St.getLensCategory() : 'lens');
+    if (lensLabel) lensLabel.textContent = categoryLabelI18n(St.getLensCategory ? St.getLensCategory() : 'lens');
   }
 
   function fillCameraSelects() {
@@ -431,7 +451,7 @@
     var themeEl = document.getElementById('pcThemeSelect');
     var sceneEl = document.getElementById('pcSceneSelect');
     Promo.fillSelect(themeEl, opts.themes || [], 'key', 'name', '');
-    Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', '（不選）');
+    Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', t('promoCamera.sceneNone', '（不選）'));
     if (themeEl && St.get().themeKey) themeEl.value = St.get().themeKey;
   }
 
@@ -450,8 +470,9 @@
     var el = document.getElementById('pcPricingIntro');
     var opts = St.get().options;
     if (!el || !opts || !Promo.formatPromoCameraPricingHint) return;
-    el.innerHTML = '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。' +
-      Promo.formatPromoCameraPricingHint(opts) + '。';
+    var suffix = apiLang() === 'en' ? '.' : '。';
+    el.innerHTML = t('promoCamera.introPrefix', '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。') +
+      Promo.formatPromoCameraPricingHint(opts) + suffix;
   }
 
   function updatePoints() {
@@ -462,12 +483,14 @@
     var localEst = Promo.estimatePromoCameraPointsLocal
       ? Promo.estimatePromoCameraPointsLocal(st.width, st.height, opts)
       : Promo.estimatePointsLocal(st.width, st.height, opts.points_standard, opts.points_per_extra_mp);
-    el.textContent = '預估 ' + localEst + ' 點';
+    el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst });
     Api.pointsPreview(st.width, st.height).then(function (res) {
       if (res.ok && res.data && res.data.points != null) {
-        var note = res.data.is_subscriber_pricing ? '（訂閱價）' : '';
-        var mpNote = res.data.megapixels ? '（' + res.data.megapixels + ' MP）' : '';
-        el.textContent = '預估 ' + res.data.points + ' 點' + mpNote + note;
+        var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
+        var text = res.data.megapixels
+          ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
+          : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
+        el.textContent = text + note;
       }
     });
   }
@@ -497,7 +520,7 @@
       var loadingEl = document.getElementById('pcAssetLoading');
       if (loadingEl) loadingEl.classList.add('d-none');
       if (emptyEl) {
-        emptyEl.textContent = '載入失敗，請稍後再試。';
+        emptyEl.textContent = t('promoCamera.assetPickerFailed', '載入失敗，請稍後再試。');
         emptyEl.classList.remove('d-none');
       }
       return;
@@ -605,7 +628,7 @@
         st.generating = false;
         updateGenerateBtn();
         if (!res.ok || !res.data || !res.data.success) {
-          showResultError((res.data && res.data.error) ? res.data.error : '生成失敗');
+          showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'));
           return;
         }
         var d = res.data;
@@ -615,7 +638,7 @@
       }).catch(function () {
         st.generating = false;
         updateGenerateBtn();
-        showResultError('生成失敗，請稍後再試。');
+        showResultError(t('promoCamera.generateFailed', '生成失敗，請稍後再試。'));
       });
     });
   }
@@ -629,6 +652,19 @@
       renderSelectedThumbs();
       updateGenerateBtn();
     }
+  }
+
+  function refreshPromoI18n() {
+    if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+    updatePricingIntro();
+    if (St.get().options) {
+      fillThemeSceneSelects();
+      fillCameraSelects();
+      renderAngleButtons();
+    }
+    renderMessages();
+    refreshAngleHint();
+    updatePoints();
   }
 
   function boot() {
@@ -645,7 +681,7 @@
     renderAngleButtons();
     Api.loadOptions(apiLang()).then(function (res) {
       if (!res.ok || !res.data) {
-        St.pushMessage('system', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql');
+        St.pushMessage('system', t('promoCamera.loadOptionsFailed', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql'));
         renderMessages();
         return;
       }
@@ -663,9 +699,19 @@
     });
   }
 
+  document.addEventListener('matchdo-i18n-applied', refreshPromoI18n);
+
+  function startBoot() {
+    if (window.i18n && window.i18n.ready) {
+      window.i18n.ready.then(boot);
+    } else {
+      boot();
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', startBoot);
   } else {
-    boot();
+    startBoot();
   }
 })();

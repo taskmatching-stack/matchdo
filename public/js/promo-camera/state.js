@@ -201,6 +201,11 @@
     cam._look_mode = state.lookMode;
     var hidden = getUiConfig().ui_hidden_categories || [];
     hidden.forEach(function (cat) { delete cam[cat]; });
+    var clientChannel = 'web';
+    if (document.body && document.body.classList) {
+      if (document.body.classList.contains('pc-app-shell')) clientChannel = 'app';
+      else if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
+    }
     return {
       images: state.images.slice(),
       theme_key: state.themeKey || undefined,
@@ -211,6 +216,7 @@
       user_prompt: state.userPrompt || undefined,
       source_type: state.sourceType,
       source_id: state.sourceId || undefined,
+      client_channel: clientChannel,
       camera: cam
     };
   }

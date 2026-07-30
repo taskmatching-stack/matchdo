@@ -429,12 +429,15 @@
     var img = document.createElement('img');
     img.src = displayUrl;
     img.alt = opts.imageAlt || '情境圖';
-    img.className = 'img-fluid rounded js-preview-enlarge';
+    img.className = 'img-fluid rounded js-preview-enlarge matchdo-enlarge-trigger';
     img.style.maxWidth = '100%';
     img.style.height = 'auto';
     img.style.display = 'block';
     img.style.cursor = 'zoom-in';
-    img.title = '點擊放大';
+    img.setAttribute('aria-label', opts.imageAlt || '生成結果');
+    if (opts.lightboxCaption) {
+      img.setAttribute('data-lightbox-caption', opts.lightboxCaption);
+    }
     inner.appendChild(img);
 
     if (meta && meta.points_deducted != null) {

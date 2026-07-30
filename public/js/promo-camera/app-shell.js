@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731u';
+  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731v';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -311,6 +311,36 @@
     }).catch(function () { /* ignore */ });
   }
 
+  function setupAppLangSwitch() {
+    var wrap = document.querySelector('.pc-app-lang-switch');
+    if (!wrap || wrap.getAttribute('data-pc-bound') === '1') return;
+    wrap.setAttribute('data-pc-bound', '1');
+    var cur = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    wrap.querySelectorAll('.pc-app-lang-link').forEach(function (link) {
+      var lang = link.getAttribute('data-lang');
+      link.classList.toggle('is-active', lang === cur);
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (lang && window.i18n && window.i18n.setLang) window.i18n.setLang(lang);
+      });
+    });
+  }
+
+  function syncAppLoginLinks() {
+    var link = document.getElementById('pcCreditsLoginLink');
+    if (!link) return;
+    var returnUrl = '/promo-camera-app';
+    if (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') returnUrl += '?lang=en';
+    link.href = '/login.html?returnUrl=' + encodeURIComponent(returnUrl);
+  }
+
+  function onI18nApplied() {
+    setupAppLangSwitch();
+    syncAppLoginLinks();
+    syncAppPickerLabels();
+    updateComposeSummary();
+  }
+
   function setupAppCreditsPanel() {
     var btn = document.getElementById('pcAppCreditsBtn');
     var topUpBtn = document.getElementById('pcCreditsTopUpBtn');
@@ -321,7 +351,11 @@
     if (topUpBtn && topUpBtn.getAttribute('data-pc-bound') !== '1') {
       topUpBtn.setAttribute('data-pc-bound', '1');
       topUpBtn.addEventListener('click', function () {
-        window.open('/credits.html?returnUrl=' + encodeURIComponent('/promo-camera-app'), '_blank', 'noopener,noreferrer');
+        var returnUrl = '/promo-camera-app';
+        if (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') {
+          returnUrl += '?lang=en';
+        }
+        window.open('/credits.html?returnUrl=' + encodeURIComponent(returnUrl), '_blank', 'noopener,noreferrer');
       });
     }
     refreshAppCreditsBadge();
@@ -384,6 +418,8 @@
   }
 
   function bootAppShell() {
+    setupAppLangSwitch();
+    syncAppLoginLinks();
     setupGenerateDock();
     setupComposeCollapse();
     setupAppCreditsPanel();
@@ -405,6 +441,8 @@
       new MutationObserver(decorateAngleChips).observe(angleWrap, { childList: true, subtree: true });
     }
   }
+
+  document.addEventListener('matchdo-i18n-applied', onI18nApplied);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootAppShell);

@@ -398,6 +398,32 @@ body.pc-app-shell .pc-app-hint {
 body.pc-app-shell .pc-app-footnote {
   display: none;
 }
+body.pc-app-shell .pc-app-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+body.pc-app-shell .pc-app-lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+body.pc-app-shell .pc-app-lang-link {
+  color: var(--pc-text-muted);
+  text-decoration: none;
+  padding: 0.2rem 0.15rem;
+}
+body.pc-app-shell .pc-app-lang-link.is-active {
+  color: var(--pc-primary);
+  font-weight: 600;
+}
+body.pc-app-shell .pc-app-lang-sep {
+  color: var(--pc-text-light);
+  user-select: none;
+}
 body.pc-app-shell .pc-app-credits-btn {
   position: relative;
   gap: 0.35rem;

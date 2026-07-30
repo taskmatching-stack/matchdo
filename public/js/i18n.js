@@ -92,6 +92,10 @@
             var key = el.getAttribute('data-i18n-alt');
             if (m[key]) el.alt = m[key];
         });
+        document.querySelectorAll('[data-i18n-aria-label]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-aria-label');
+            if (m[key]) el.setAttribute('aria-label', m[key]);
+        });
     }
 
     window.i18n = {
