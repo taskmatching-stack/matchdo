@@ -249,3 +249,10 @@
     transform: translateX(calc(-3.8cqw + 30px));
   }
 }
+
+@media (max-width: 991px) and (min-width: 770px) {
+  #promo-camera-app .pc-camera-lcd-wrap {
+    transform: translateX(58px);
+    transform: translateX(calc(-3.8cqw + 70px));
+  }
+}
