@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731s';
+  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731t';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -84,6 +84,66 @@
     el.textContent = parts.join(' · ');
   }
 
+  function syncAppPickerLabels() {
+    var themeEl = document.getElementById('pcThemeSelect');
+    var sceneEl = document.getElementById('pcSceneSelect');
+    var themeLabel = document.getElementById('pcThemePickerLabel');
+    var sceneLabel = document.getElementById('pcScenePickerLabel');
+    if (themeEl && themeLabel && themeEl.selectedIndex >= 0) {
+      themeLabel.textContent = (themeEl.options[themeEl.selectedIndex].textContent || '').trim() || '—';
+    }
+    if (sceneEl && sceneLabel && sceneEl.selectedIndex >= 0) {
+      sceneLabel.textContent = (sceneEl.options[sceneEl.selectedIndex].textContent || '').trim() || t('promoCamera.sceneNone', '（不選）');
+    }
+  }
+
+  function renderAppPickerList(select, listEl) {
+    if (!select || !listEl) return;
+    listEl.innerHTML = '';
+    if (!select.options.length) {
+      var empty = document.createElement('div');
+      empty.className = 'pc-app-picker-empty';
+      empty.textContent = t('home.loading', '載入中…');
+      listEl.appendChild(empty);
+      return;
+    }
+    Array.prototype.forEach.call(select.options, function (opt) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pc-app-picker-item' + (opt.value === select.value ? ' is-selected' : '');
+      btn.textContent = opt.textContent || opt.value;
+      btn.addEventListener('click', function () {
+        if (select.value !== opt.value) {
+          select.value = opt.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        hideModal(document.getElementById('pcAppPickerModal'));
+      });
+      listEl.appendChild(btn);
+    });
+  }
+
+  function openAppPicker(selectId, title) {
+    var select = document.getElementById(selectId);
+    var modalEl = document.getElementById('pcAppPickerModal');
+    var listEl = document.getElementById('pcAppPickerList');
+    var titleEl = document.getElementById('pcAppPickerTitle');
+    if (!select || !modalEl || !listEl) return;
+    if (titleEl) titleEl.textContent = title || '';
+    renderAppPickerList(select, listEl);
+    showModal(modalEl);
+    if (!select.options.length) {
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries += 1;
+        if (select.options.length || tries > 24) {
+          clearInterval(timer);
+          renderAppPickerList(select, listEl);
+        }
+      }, 200);
+    }
+  }
+
   function renderAppSelectChips(selectId, chipsId) {
     var select = document.getElementById(selectId);
     var wrap = document.getElementById(chipsId);
@@ -111,6 +171,32 @@
   function setupAppFormPickers() {
     renderAppSelectChips('pcRatioSelect', 'pcRatioChips');
     renderAppSelectChips('pcMpSelect', 'pcMpChips');
+    syncAppPickerLabels();
+    var themeBtn = document.getElementById('pcThemePickerBtn');
+    var sceneBtn = document.getElementById('pcScenePickerBtn');
+    if (themeBtn && themeBtn.getAttribute('data-pc-bound') !== '1') {
+      themeBtn.setAttribute('data-pc-bound', '1');
+      themeBtn.addEventListener('click', function () {
+        openAppPicker('pcThemeSelect', t('promoCamera.theme', '主題'));
+      });
+    }
+    if (sceneBtn && sceneBtn.getAttribute('data-pc-bound') !== '1') {
+      sceneBtn.setAttribute('data-pc-bound', '1');
+      sceneBtn.addEventListener('click', function () {
+        openAppPicker('pcSceneSelect', t('promoCamera.sceneOptional', '場景（選填）'));
+      });
+    }
+  }
+
+  function observeThemeSceneSelects() {
+    ['pcThemeSelect', 'pcSceneSelect'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el || typeof MutationObserver === 'undefined') return;
+      new MutationObserver(function () {
+        syncAppPickerLabels();
+        updateComposeSummary();
+      }).observe(el, { childList: true, subtree: true, characterData: true });
+    });
   }
 
   function setComposeExpanded(expanded) {
@@ -253,6 +339,7 @@
       if (!el || el.getAttribute('data-pc-app-bound') === '1') return;
       el.setAttribute('data-pc-app-bound', '1');
       el.addEventListener('change', function () {
+        syncAppPickerLabels();
         updateComposeSummary();
         if (id === 'pcRatioSelect' || id === 'pcMpSelect') {
           renderAppSelectChips(id, id === 'pcRatioSelect' ? 'pcRatioChips' : 'pcMpChips');
@@ -282,14 +369,14 @@
   function waitForThemeOptions(cb) {
     var themeEl = document.getElementById('pcThemeSelect');
     if (!themeEl) return;
-    if (themeEl.options.length > 1) {
+    if (themeEl.options.length > 0) {
       cb();
       return;
     }
     var tries = 0;
     var timer = setInterval(function () {
       tries += 1;
-      if (themeEl.options.length > 1 || tries > 40) {
+      if (themeEl.options.length > 0 || tries > 40) {
         clearInterval(timer);
         cb();
       }
@@ -301,12 +388,14 @@
     setupComposeCollapse();
     setupAppCreditsPanel();
     setupAppFormPickers();
+    observeThemeSceneSelects();
     hookSelectSummary();
     hookGenerateCreditsRefresh();
     hookThumbSummary();
     observeResultArea();
     decorateAngleChips();
     waitForThemeOptions(function () {
+      syncAppPickerLabels();
       setupAppFormPickers();
       updateComposeSummary();
       decorateAngleChips();
