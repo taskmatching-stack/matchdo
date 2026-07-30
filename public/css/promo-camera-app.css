@@ -205,6 +205,14 @@ body.pc-app-shell .pc-app-block-title {
   color: var(--pc-text-muted);
   padding: 0 0.35rem 0.35rem;
 }
+body.pc-app-shell .pc-app-block-title--prominent {
+  font-size: 0.9375rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pc-text);
+  font-weight: 600;
+  padding: 0 0.35rem 0.45rem;
+}
 body.pc-app-shell .pc-app-card {
   background: var(--pc-white);
   border-radius: 14px;
@@ -486,9 +494,24 @@ body.pc-app-shell .pc-app-cam-mini-label {
   color: var(--pc-text-light);
   margin-bottom: 0.35rem;
 }
-body.pc-app-shell .pc-app-cam-segment .btn {
-  min-height: 38px;
-  font-size: 0.8125rem;
+body.pc-app-shell .pc-app-cam-segment.btn-group {
+  display: flex;
+  width: 100%;
+}
+body.pc-app-shell .pc-app-cam-segment.btn-group > .btn,
+body.pc-app-shell .pc-app-cam-segment.btn-group > .btn-check + .btn {
+  flex: 1 1 0;
+  width: 50%;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
 }
 body.pc-app-shell .pc-app-cam-segment .btn-check:checked + .btn-outline-light {
   background: var(--pc-primary);
@@ -517,33 +540,57 @@ body.pc-app-shell .pc-app-cam-hint {
   line-height: 1.35;
 }
 
-body.pc-app-shell .pc-app-picker-dialog {
+body.pc-app-shell #pcAppPickerModal .pc-app-picker-dialog {
   margin: 0;
   max-width: 100%;
   width: 100%;
+  height: 100%;
+  max-height: 100%;
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  transform: none !important;
+  display: flex;
+  flex-direction: column;
+}
+body.pc-app-shell #pcAppPickerModal.show .pc-app-picker-dialog,
+body.pc-app-shell #pcAppPickerModal .pc-app-picker-dialog {
+  transform: none !important;
 }
 body.pc-app-shell .pc-app-picker-modal {
   border: none;
-  border-radius: 16px 16px 0 0;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 -4px 24px rgba(74, 85, 104, 0.16);
+  box-shadow: none;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--pc-white);
 }
 body.pc-app-shell .pc-app-picker-modal .modal-header {
   background: var(--pc-card);
   border-bottom: 1px solid var(--pc-surface);
+  flex: 0 0 auto;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
 }
 body.pc-app-shell .pc-app-picker-modal .modal-title {
   color: var(--pc-primary);
   font-weight: 600;
+  font-size: 1.0625rem;
+}
+body.pc-app-shell .pc-app-picker-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 body.pc-app-shell .pc-app-picker-list {
-  max-height: min(55vh, 320px);
+  flex: 1 1 auto;
+  max-height: none;
+  height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 body.pc-app-shell .pc-app-picker-item {
   display: block;
@@ -553,9 +600,9 @@ body.pc-app-shell .pc-app-picker-item {
   background: var(--pc-white);
   color: var(--pc-text);
   text-align: left;
-  padding: 0.85rem 1rem;
-  font-size: 0.9375rem;
-  line-height: 1.35;
+  padding: 1rem 1.1rem;
+  font-size: 1rem;
+  line-height: 1.4;
   cursor: pointer;
 }
 body.pc-app-shell .pc-app-picker-item.is-selected {
