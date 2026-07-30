@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731b';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731c';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -234,6 +234,7 @@
     var imgs = St.get().images;
     if (!imgs.length) {
       wrap.innerHTML = '';
+      updateComposeSummary();
       return;
     }
     wrap.innerHTML = imgs.map(function (u) {
@@ -247,8 +248,10 @@
         St.removeImage(btn.getAttribute('data-url'));
         renderSelectedThumbs();
         updateGenerateBtn();
+        updateComposeSummary();
       });
     });
+    updateComposeSummary();
   }
 
   function updateCameraBodyImage() {
@@ -486,6 +489,86 @@
     btn.disabled = St.get().generating || !St.get().images.length;
   }
 
+  function setComposeExpanded(expanded) {
+    var body = document.getElementById('pcComposeBody');
+    var toggle = document.getElementById('pcComposeToggle');
+    if (!body || !toggle) return;
+    body.classList.toggle('is-collapsed', !expanded);
+    toggle.classList.toggle('is-open', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function updateComposeSummary() {
+    var el = document.getElementById('pcComposeSummary');
+    if (!el) return;
+    var st = St.get();
+    var parts = [];
+    if (st.images.length) parts.push(t('promoCamera.composeSummaryHasImage', '已選產品圖'));
+    else parts.push(t('promoCamera.composeSummaryNoImage', '尚未選圖'));
+    var themeEl = document.getElementById('pcThemeSelect');
+    if (themeEl && themeEl.selectedIndex >= 0 && themeEl.options[themeEl.selectedIndex]) {
+      var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
+      if (themeLabel) parts.push(themeLabel);
+    }
+    var ratio = (document.getElementById('pcRatioSelect') || {}).value || st.aspectRatio || '';
+    if (ratio) parts.push(ratio);
+    el.textContent = parts.join(' · ');
+  }
+
+  function setupGenerateDock() {
+    if (document.getElementById('pcGenerateDock')) return;
+    var btn = document.getElementById('pcGenerateBtn');
+    var pts = document.getElementById('pcPointsDisplay');
+    if (!btn || !pts) return;
+    var inlineRow = btn.closest('.d-flex');
+    var dock = document.createElement('div');
+    dock.id = 'pcGenerateDock';
+    dock.className = 'pc-generate-dock';
+    dock.setAttribute('role', 'region');
+    dock.setAttribute('aria-label', t('promoCamera.generateDockLabel', '生成'));
+    var meta = document.createElement('div');
+    meta.className = 'pc-generate-dock-meta';
+    meta.appendChild(pts);
+    var action = document.createElement('div');
+    action.className = 'pc-generate-dock-action';
+    btn.classList.add('pc-generate-dock-btn');
+    action.appendChild(btn);
+    dock.appendChild(meta);
+    dock.appendChild(action);
+    document.body.appendChild(dock);
+    document.body.classList.add('pc-has-generate-dock');
+    if (inlineRow && inlineRow.parentNode) inlineRow.parentNode.removeChild(inlineRow);
+  }
+
+  function setupComposeCollapse() {
+    if (!isAppShell()) return;
+    var compose = document.querySelector('#promo-camera-app .pc-chat-compose');
+    if (!compose || document.getElementById('pcComposeToggle')) return;
+    var nodes = [];
+    Array.prototype.slice.call(compose.children).forEach(function (el) { nodes.push(el); });
+    if (!nodes.length) return;
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'pcComposeToggle';
+    toggle.className = 'pc-compose-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML =
+      '<span class="pc-compose-toggle-label">' + esc(t('promoCamera.composeToggleLabel', '來源與情境設定')) + '</span>' +
+      '<span class="pc-compose-summary text-muted" id="pcComposeSummary"></span>' +
+      '<i class="bi bi-chevron-down pc-compose-toggle-icon" aria-hidden="true"></i>';
+    var body = document.createElement('div');
+    body.id = 'pcComposeBody';
+    body.className = 'pc-compose-body is-collapsed';
+    nodes.forEach(function (el) { body.appendChild(el); });
+    compose.appendChild(toggle);
+    compose.appendChild(body);
+    toggle.addEventListener('click', function () {
+      var expanded = body.classList.contains('is-collapsed');
+      setComposeExpanded(expanded);
+    });
+    updateComposeSummary();
+  }
+
   function onImagesAdded(urls, sourceType, sourceId) {
     var added = [];
     (urls || []).forEach(function (u) {
@@ -494,6 +577,7 @@
     if (!added.length) return;
     renderSelectedThumbs();
     updateGenerateBtn();
+    updateComposeSummary();
   }
 
   function openAssetPicker() {
@@ -596,12 +680,17 @@
         if (id === 'pcThemeSelect') st.themeKey = el.value;
         if (id === 'pcSceneSelect') st.sceneKey = el.value;
         updateDimsHint();
+        updateComposeSummary();
       });
     });
 
     document.getElementById('pcGenerateBtn').addEventListener('click', function () {
       var st = St.get();
-      if (!st.images.length || st.generating) return;
+      if (!st.images.length) {
+        if (document.getElementById('pcComposeBody')) setComposeExpanded(true);
+        return;
+      }
+      if (st.generating) return;
       st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
       st.generating = true;
       updateGenerateBtn();
@@ -640,6 +729,8 @@
   }
 
   function boot() {
+    setupGenerateDock();
+    setupComposeCollapse();
     if (isEmbedDesign()) {
       var toolbar = document.querySelector('#promo-camera-app .pc-page-toolbar');
       if (toolbar) toolbar.classList.add('d-none');
@@ -664,6 +755,7 @@
       renderAngleButtons();
       updateDimsHint();
       updateLcd();
+      updateComposeSummary();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();

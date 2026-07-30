@@ -76,6 +76,107 @@
   border-radius: 0 0 12px 12px;
   flex: 0 0 auto;
 }
+
+/* —— 固定底部生成列（全版本）—— */
+.pc-generate-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1040;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid #e5e9ed;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
+  backdrop-filter: blur(8px);
+}
+.pc-generate-dock-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: #6c757d;
+  white-space: nowrap;
+}
+.pc-generate-dock-action {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.pc-generate-dock-btn {
+  min-width: 8.5rem;
+  max-width: 100%;
+  font-weight: 600;
+}
+body.pc-has-generate-dock #promo-camera-app {
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+body.pc-has-generate-dock.pc-app-shell .pc-app-container {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+body.pc-embed-design.pc-has-generate-dock #promo-camera-app {
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* —— App：來源與情境設定收折 —— */
+.pc-compose-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0;
+  border: 1px solid rgba(88, 100, 112, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  color: #4a5568;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.pc-compose-toggle:hover {
+  background: #f8fafc;
+}
+.pc-compose-toggle-label {
+  flex: 0 0 auto;
+}
+.pc-compose-summary {
+  flex: 1 1 auto;
+  font-size: 0.75rem;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.pc-compose-toggle-icon {
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  color: #8a96a3;
+  transition: transform 0.2s ease;
+}
+.pc-compose-toggle.is-open .pc-compose-toggle-icon {
+  transform: rotate(180deg);
+}
+.pc-compose-body {
+  padding-top: 0.75rem;
+}
+.pc-compose-body.is-collapsed {
+  display: none;
+}
+body.pc-app-shell .pc-chat-compose {
+  padding: 0.5rem 0.75rem 0.75rem;
+  background: #fff;
+}
+body.pc-app-shell .pc-chat-panel {
+  min-height: 0;
+}
 #promo-camera-app .pc-angle-btn.active {
   background-color: #7A8FA3;
   border-color: #7A8FA3;
