@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731e';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731f';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -340,7 +340,8 @@
     var cur = (St.get().camera || {})[angleCat] || 'keep_reference';
     wrap.innerHTML = list.map(function (r) {
       var active = r.key === cur ? ' active' : '';
-      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
+      var chipCls = isAppShell() ? ' pc-app-chip' : '';
+      return '<button type="button" class="btn btn-sm btn-outline-secondary pc-angle-btn' + chipCls + active + '" data-key="' + esc(r.key) + '">' + esc(r.name || r.key) + '</button>';
     }).join('');
     wrap.querySelectorAll('.pc-angle-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -524,7 +525,7 @@
     var btn = document.getElementById('pcGenerateBtn');
     var pts = document.getElementById('pcPointsDisplay');
     if (!btn || !pts) return;
-    var inlineRow = btn.closest('.d-flex');
+    var inlineRow = btn.closest('.d-flex') || btn.closest('.pc-compose-generate-fallback');
     var dock = document.createElement('div');
     dock.id = 'pcGenerateDock';
     dock.className = 'pc-generate-dock';

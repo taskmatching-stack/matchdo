@@ -15,7 +15,7 @@
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="/css/image-lightbox.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260731e" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260731f" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
@@ -44,64 +44,92 @@
       <section class="pc-chat-panel" aria-label="對話區">
         <div id="pcChatMessages" class="pc-chat-messages"></div>
         <div id="pcResultArea" class="pc-result-slot d-none" aria-label="生成結果"></div>
-        <div class="pc-chat-compose">
-          <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            <label class="btn btn-sm btn-outline-secondary mb-0">
-              <i class="bi bi-upload"></i> <span data-i18n="promoCamera.uploadImage">上傳圖片</span>
-              <input type="file" id="pcUploadInput" accept="image/*" hidden />
-            </label>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="pcPickAssetBtn"><i class="bi bi-images"></i> <span data-i18n="promoCamera.pickAsset">從數位資產選擇</span></button>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-md-6">
-              <label class="form-label small mb-0" for="pcThemeSelect" data-i18n="promoCamera.theme">主題</label>
-              <select id="pcThemeSelect" class="form-select form-select-sm"></select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small mb-0" for="pcSceneSelect" data-i18n="promoCamera.sceneOptional">場景（選填）</label>
-              <select id="pcSceneSelect" class="form-select form-select-sm"></select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small mb-0" for="pcRatioSelect" data-i18n="promoCamera.aspectRatio">長寬比</label>
-              <select id="pcRatioSelect" class="form-select form-select-sm">
-                <option value="1:1" selected>1:1</option>
-                <option value="4:3">4:3</option>
-                <option value="3:4">3:4</option>
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="21:9">21:9</option>
-                <option value="3:1">3:1</option>
-                <option value="4:1">4:1</option>
-                <option value="9:21">9:21</option>
-                <option value="1:3">1:3</option>
-                <option value="1:4">1:4</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small mb-0" for="pcMpSelect" data-i18n="promoCamera.resolution">解析度</label>
-              <select id="pcMpSelect" class="form-select form-select-sm">
-                <option value="1" selected>1 MP</option>
-                <option value="2">2 MP</option>
-                <option value="3">3 MP</option>
-                <option value="4">4 MP</option>
-              </select>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <p class="form-text small mb-1" id="pcDimsHint">1024×1024</p>
+        <div class="pc-chat-compose pc-app-compose">
+          <div class="pc-app-block">
+            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionSource">產品圖</div>
+            <div class="pc-app-card">
+              <div class="pc-app-thumb-slot">
+                <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="pc-app-split-actions">
+                <label class="pc-app-action pc-app-action--upload mb-0">
+                  <i class="bi bi-upload"></i>
+                  <span data-i18n="promoCamera.uploadImage">上傳圖片</span>
+                  <input type="file" id="pcUploadInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickAssetBtn">
+                  <i class="bi bi-images"></i>
+                  <span data-i18n="promoCamera.pickAsset">從數位資產選擇</span>
+                </button>
+              </div>
             </div>
           </div>
-          <div class="mb-2">
-            <label class="form-label small mb-1" data-i18n="promoCamera.shootingAngle">拍攝角度</label>
-            <div id="pcAngleBtns" class="d-flex flex-wrap gap-1"></div>
-            <p class="form-text small text-muted mb-0 mt-1" id="pcAngleHint" data-i18n="promoCamera.angleHintDefault">請點上方按鈕換角度</p>
+
+          <div class="pc-app-block">
+            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionScene">情境</div>
+            <div class="pc-app-card pc-app-card--list">
+              <div class="pc-app-row">
+                <label class="pc-app-row-label" for="pcThemeSelect" data-i18n="promoCamera.theme">主題</label>
+                <select id="pcThemeSelect" class="pc-app-select"></select>
+              </div>
+              <div class="pc-app-row">
+                <label class="pc-app-row-label" for="pcSceneSelect" data-i18n="promoCamera.sceneOptional">場景（選填）</label>
+                <select id="pcSceneSelect" class="pc-app-select"></select>
+              </div>
+            </div>
           </div>
-          <div class="mb-2">
-            <label class="form-label small mb-1" for="pcPromptInput" data-i18n="promoCamera.description">描述</label>
-            <textarea id="pcPromptInput" class="form-control form-control-sm scene-sim-prompt-input" rows="2" data-i18n-placeholder="promoCamera.descriptionPlaceholder" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影"></textarea>
-            <p class="form-text small text-muted mb-0 mt-1" data-i18n="promoCamera.descriptionHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免 AI 誤判品項。</p>
+
+          <div class="pc-app-block">
+            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionOutput">輸出尺寸</div>
+            <div class="pc-app-card pc-app-card--list">
+              <div class="pc-app-row">
+                <label class="pc-app-row-label" for="pcRatioSelect" data-i18n="promoCamera.aspectRatio">長寬比</label>
+                <select id="pcRatioSelect" class="pc-app-select">
+                  <option value="1:1" selected>1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="21:9">21:9</option>
+                  <option value="3:1">3:1</option>
+                  <option value="4:1">4:1</option>
+                  <option value="9:21">9:21</option>
+                  <option value="1:3">1:3</option>
+                  <option value="1:4">1:4</option>
+                </select>
+              </div>
+              <div class="pc-app-row">
+                <label class="pc-app-row-label" for="pcMpSelect" data-i18n="promoCamera.resolution">解析度</label>
+                <div class="pc-app-row-value">
+                  <select id="pcMpSelect" class="pc-app-select">
+                    <option value="1" selected>1 MP</option>
+                    <option value="2">2 MP</option>
+                    <option value="3">3 MP</option>
+                    <option value="4">4 MP</option>
+                  </select>
+                  <span class="pc-app-row-meta" id="pcDimsHint">1024×1024</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="d-flex flex-wrap align-items-center gap-2">
+
+          <div class="pc-app-block">
+            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionAngle">拍攝角度</div>
+            <div class="pc-app-card pc-app-card--pad">
+              <div id="pcAngleBtns" class="pc-app-chip-scroll d-flex flex-nowrap gap-2"></div>
+              <p class="pc-app-hint mb-0" id="pcAngleHint" data-i18n="promoCamera.angleHintDefault">請點上方按鈕換角度</p>
+            </div>
+          </div>
+
+          <div class="pc-app-block">
+            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionPrompt">描述</div>
+            <div class="pc-app-card pc-app-card--pad">
+              <textarea id="pcPromptInput" class="pc-app-textarea scene-sim-prompt-input" rows="3" data-i18n-placeholder="promoCamera.descriptionPlaceholder" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影"></textarea>
+              <p class="pc-app-hint mb-0" data-i18n="promoCamera.descriptionHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免 AI 誤判品項。</p>
+            </div>
+          </div>
+
+          <div class="d-none pc-compose-generate-fallback">
             <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> <span data-i18n="promoCamera.generateBtn">生成</span></button>
             <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
           </div>
@@ -122,36 +150,42 @@
           </div>
         </div>
 
-        <div class="pc-camera-controls">
-          <div class="mb-2">
-            <span class="pc-control-label" id="pcLookGroupLabel" data-i18n="promoCamera.lookGroup">成像來源</span>
-            <div class="btn-group btn-group-sm w-100 mb-1" role="group" aria-label="成像來源">
+        <div class="pc-camera-controls pc-app-cam-controls">
+          <div class="pc-app-cam-block">
+            <div class="pc-app-cam-block-title" id="pcLookGroupLabel" data-i18n="promoCamera.lookGroup">成像來源</div>
+            <div class="pc-app-cam-segment btn-group w-100 mb-2" role="group" aria-label="成像來源">
               <input type="radio" class="btn-check" name="pcLookMode" id="pcLookDigital" value="digital" checked>
               <label class="btn btn-outline-light" for="pcLookDigital" id="pcLookDigitalLabel">品牌色彩</label>
               <input type="radio" class="btn-check" name="pcLookMode" id="pcLookFilm" value="film">
               <label class="btn btn-outline-light" for="pcLookFilm" id="pcLookFilmLabel">底片模擬</label>
             </div>
-            <select id="pcCam_look" class="form-select form-select-sm"></select>
-            <p class="form-text small text-secondary mb-0 mt-1" id="pcLookHint"></p>
-          </div>
-          <div class="mb-2">
-            <label for="pcCam_lens" id="pcLensLabel">鏡頭</label>
-            <select id="pcCam_lens" class="form-select form-select-sm"></select>
-            <p class="form-text small text-secondary mb-0 mt-1" id="pcLensHint"></p>
-          </div>
-          <div class="pc-settings-row mb-2">
-            <div>
-              <label for="pcCam_aperture" data-i18n="promoCamera.aperture">光圈</label>
-              <select id="pcCam_aperture" class="form-select form-select-sm"></select>
+            <div class="pc-app-cam-row">
+              <select id="pcCam_look" class="pc-app-cam-select"></select>
             </div>
-            <div>
-              <label for="pcCam_exposure_ev">EV</label>
-              <select id="pcCam_exposure_ev" class="form-select form-select-sm"></select>
+            <p class="pc-app-cam-hint mb-0" id="pcLookHint"></p>
+          </div>
+          <div class="pc-app-cam-block">
+            <div class="pc-app-cam-block-title" id="pcLensLabel">鏡頭</div>
+            <div class="pc-app-cam-row">
+              <select id="pcCam_lens" class="pc-app-cam-select"></select>
+            </div>
+            <p class="pc-app-cam-hint mb-0" id="pcLensHint"></p>
+          </div>
+          <div class="pc-app-cam-block pc-app-cam-block--grid">
+            <div class="pc-app-cam-row">
+              <label class="pc-app-cam-mini-label" for="pcCam_aperture" data-i18n="promoCamera.aperture">光圈</label>
+              <select id="pcCam_aperture" class="pc-app-cam-select"></select>
+            </div>
+            <div class="pc-app-cam-row">
+              <label class="pc-app-cam-mini-label" for="pcCam_exposure_ev">EV</label>
+              <select id="pcCam_exposure_ev" class="pc-app-cam-select"></select>
             </div>
           </div>
-          <div class="mb-0">
-            <label for="pcCam_aperture_blades" data-i18n="promoCamera.apertureBlades">光圈葉片</label>
-            <select id="pcCam_aperture_blades" class="form-select form-select-sm"></select>
+          <div class="pc-app-cam-block">
+            <div class="pc-app-cam-block-title" data-i18n="promoCamera.apertureBlades">光圈葉片</div>
+            <div class="pc-app-cam-row">
+              <select id="pcCam_aperture_blades" class="pc-app-cam-select"></select>
+            </div>
           </div>
         </div>
       </aside>
@@ -189,7 +223,7 @@
   <script src="/js/image-lightbox.js"></script>
   <script src="/js/promo-camera/api.js?v=20260730a"></script>
   <script src="/js/promo-camera/state.js?v=20260730a"></script>
-  <script src="/js/promo-camera/index.js?v=20260731e"></script>
+  <script src="/js/promo-camera/index.js?v=20260731f"></script>
   <script>
     if (window.i18n && window.i18n.ready) {
       window.i18n.ready.then(function () {
