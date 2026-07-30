@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730u';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730v';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -82,14 +82,24 @@
   }
 
   var ANGLE_FALLBACK = [
-    { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
-    { key: 'hero_34', name: '45° 英雄角', description: '同一產品改為 45° 英雄角，主視覺面清楚。' },
-    { key: 'front', name: '正視', description: '同一產品改為正面對鏡頭。' },
-    { key: 'side_profile', name: '側面', description: '同一產品改為側面輪廓。' },
-    { key: 'top_down', name: '俯拍', description: '同一產品改為俯拍／平拍視角。' },
-    { key: 'low_angle', name: '低角度', description: '同一產品改為低角度仰拍。' },
-    { key: 'back_34', name: '後 3/4', description: '同一產品改為後 3/4 角度。' }
+    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', description: '不強制改角度，以參考圖構圖為主。', description_en: 'Keep the reference framing; do not force a new camera angle.' },
+    { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle', description: '同一產品改為 45° 英雄角，主視覺面清楚。', description_en: 'Reshoot the same product at a hero 3/4 angle with the primary selling face clearly visible.' },
+    { key: 'front', name: '正視', name_en: 'Front facing', description: '同一產品改為正面對鏡頭。', description_en: 'Reshoot the same product straight-on from the front.' },
+    { key: 'side_profile', name: '側面', name_en: 'Side profile', description: '同一產品改為側面輪廓。', description_en: 'Reshoot the same product from a clean side profile.' },
+    { key: 'top_down', name: '俯拍', name_en: 'Top down', description: '同一產品改為俯拍／平拍視角。', description_en: 'Reshoot the same product from a top-down flat-lay angle.' },
+    { key: 'low_angle', name: '低角度', name_en: 'Low angle', description: '同一產品改為低角度仰拍。', description_en: 'Reshoot the same product from a low upward angle for a hero presence.' },
+    { key: 'back_34', name: '後 3/4', name_en: 'Rear 3/4', description: '同一產品改為後 3/4 角度。', description_en: 'Reshoot the same product from a rear three-quarter angle.' }
   ];
+
+  function localizedOptionDescription(row) {
+    if (!row) return '';
+    if (apiLang() === 'en') {
+      var meta = row.meta && typeof row.meta === 'object' ? row.meta : {};
+      var en = String(row.description_en || meta.description_en || '').trim();
+      return en;
+    }
+    return String(row.description || '').trim();
+  }
 
   function angleOptionList() {
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
@@ -304,7 +314,7 @@
     var angleCat = St.getAngleCategory ? St.getAngleCategory() : 'shooting_angle';
     var key = (St.get().camera || {})[angleCat] || '';
     var hit = list.find(function (r) { return r.key === key; });
-    hint.textContent = (hit && hit.description) ? hit.description : (hit ? (hit.name || '') : '請點上方按鈕換角度');
+    hint.textContent = localizedOptionDescription(hit) || (hit ? (hit.name || '') : t('promoCamera.angleHintDefault', '請點上方按鈕換角度'));
   }
 
   function renderAngleButtons() {
@@ -337,7 +347,7 @@
     var vk = 'key';
     var v = String(selectEl.value || '').trim();
     var hit = (items || []).find(function (r) { return String(r[vk] || '') === v; });
-    hintEl.textContent = (hit && hit.description) ? String(hit.description) : '';
+    hintEl.textContent = localizedOptionDescription(hit);
   }
 
   function fillLookSelect() {
@@ -624,7 +634,7 @@
     initFromQuery();
     renderMessages();
     renderAngleButtons();
-    Api.loadOptions((window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh').then(function (res) {
+    Api.loadOptions(apiLang()).then(function (res) {
       if (!res.ok || !res.data) {
         St.pushMessage('system', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql');
         renderMessages();

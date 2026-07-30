@@ -13580,10 +13580,11 @@ function pickPromoCameraGroupLabel(meta, lang) {
 function applyPromoCameraOptionLocale(row, lang) {
     if (!row) return row;
     const localized = applyPromoSceneTemplateLocale(row, lang);
-    if (lang === 'en' && row.description_en) {
-        localized.description = String(row.description_en).trim() || localized.description;
-    }
     const meta = row.meta && typeof row.meta === 'object' ? Object.assign({}, row.meta) : {};
+    const descEn = row.description_en != null && String(row.description_en).trim()
+        ? String(row.description_en).trim()
+        : (meta.description_en != null ? String(meta.description_en).trim() : '');
+    localized.description = pickVendorLocalizedText(row.description, descEn, lang);
     const groupDisplay = pickPromoCameraGroupLabel(meta, lang);
     if (groupDisplay) meta.group_display = groupDisplay;
     localized.meta = meta;
@@ -13782,25 +13783,25 @@ function normalizePromoCameraParamKey(raw) {
 /** DB 尚無 shooting_angle 種子時，仍提供按鈕與 FLUX prompt（內建，不需使用者手打） */
 const PROMO_CAMERA_ANGLE_FALLBACK_RAW = [
     { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', prompt_fragment: '',
-        description: '不強制改角度，以參考圖構圖為主。', sort_order: 10, is_default: true },
+        description: '不強制改角度，以參考圖構圖為主。', description_en: 'Keep the reference framing; do not force a new camera angle.', sort_order: 10, is_default: true },
     { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle',
         prompt_fragment: 'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference',
-        description: '同一產品改為 45° 英雄角，主視覺面清楚。', sort_order: 20 },
+        description: '同一產品改為 45° 英雄角，主視覺面清楚。', description_en: 'Reshoot the same product at a hero 3/4 angle with the primary selling face clearly visible.', sort_order: 20 },
     { key: 'front', name: '正視', name_en: 'Front facing',
         prompt_fragment: 'Reshoot the same product from a straight front-facing camera angle: symmetrical hero presentation, product centered, clear front design details',
-        description: '同一產品改為正面對鏡頭。', sort_order: 30 },
+        description: '同一產品改為正面對鏡頭。', description_en: 'Reshoot the same product straight-on from the front.', sort_order: 30 },
     { key: 'side_profile', name: '側面', name_en: 'Side profile',
         prompt_fragment: 'Reshoot the same product from a clean side profile angle: show thickness, silhouette, and edge design clearly',
-        description: '同一產品改為側面輪廓。', sort_order: 40 },
+        description: '同一產品改為側面輪廓。', description_en: 'Reshoot the same product from a clean side profile.', sort_order: 40 },
     { key: 'top_down', name: '俯拍', name_en: 'Top down',
         prompt_fragment: 'Reshoot the same product from a top-down camera angle: flat lay style product presentation while keeping the product recognizable',
-        description: '同一產品改為俯拍／平拍視角。', sort_order: 50 },
+        description: '同一產品改為俯拍／平拍視角。', description_en: 'Reshoot the same product from a top-down flat-lay angle.', sort_order: 50 },
     { key: 'low_angle', name: '低角度', name_en: 'Low angle',
         prompt_fragment: 'Reshoot the same product from a low camera angle looking upward: imposing hero presence, product dominates the frame',
-        description: '同一產品改為低角度仰拍。', sort_order: 60 },
+        description: '同一產品改為低角度仰拍。', description_en: 'Reshoot the same product from a low upward angle for a hero presence.', sort_order: 60 },
     { key: 'back_34', name: '後 3/4', name_en: 'Rear 3/4',
         prompt_fragment: 'Reshoot the same product from a rear three-quarter angle: show back design and form while keeping brand identity readable',
-        description: '同一產品改為後 3/4 角度。', sort_order: 70 }
+        description: '同一產品改為後 3/4 角度。', description_en: 'Reshoot the same product from a rear three-quarter angle.', sort_order: 70 }
 ];
 
 function getPromoCameraAngleFallbackOptions(lang) {
@@ -13922,6 +13923,39 @@ function mergePromoCameraOptionMetaFromGroup(prevMeta, groupMetaPatch) {
     return meta;
 }
 
+/** 欄位缺 migration 時，description_en 等仍寫入 meta 供前台／後台讀回 */
+function mergePromoCameraOptionMetaExtras(meta, body) {
+    const m = meta && typeof meta === 'object' ? Object.assign({}, meta) : {};
+    if (!body || body.description_en === undefined) return m;
+    const descEn = body.description_en != null ? String(body.description_en).trim() || null : null;
+    if (descEn) m.description_en = descEn;
+    else delete m.description_en;
+    return m;
+}
+
+function normalizePromoCameraOptionRow(row, groupsById) {
+    if (!row) return row;
+    let out = Object.assign({}, row);
+    if (!out.group_id && groupsById && out.meta && typeof out.meta === 'object' && out.meta.group) {
+        const gname = String(out.meta.group).trim();
+        const cat = String(out.category || '').trim();
+        Object.keys(groupsById).some(function (gid) {
+            const g = groupsById[gid];
+            if (g && String(g.category || '').trim() === cat && (String(g.name || '').trim() === gname || String(g.key || '').trim() === gname)) {
+                out.group_id = gid;
+                return true;
+            }
+            return false;
+        });
+    }
+    out = attachPromoCameraGroupToOption(out, groupsById);
+    const meta = out.meta && typeof out.meta === 'object' ? out.meta : {};
+    if ((out.description_en == null || out.description_en === '') && meta.description_en) {
+        out = Object.assign({}, out, { description_en: String(meta.description_en) });
+    }
+    return out;
+}
+
 async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
     const categoryRes = await fetchPromoCameraParamCategories(activeOnly);
     const categoryKeys = (categoryRes.categories && categoryRes.categories.length)
@@ -13933,12 +13967,20 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
     const groupsIndex = buildPromoCameraGroupsIndex(groupsRes.items || []);
     try {
         const selectFull = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default';
+        const selectMid = 'id, category, key, name, name_en, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default';
         const selectLegacy = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default';
         let q = supabase.from('promo_camera_param_options').select(selectFull)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
         if (activeOnly) q = q.eq('is_active', true);
         let { data, error } = await q;
+        if (error && isSupabaseMissingColumnError(error)) {
+            q = supabase.from('promo_camera_param_options').select(selectMid)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true });
+            if (activeOnly) q = q.eq('is_active', true);
+            ({ data, error } = await q);
+        }
         if (error && isSupabaseMissingColumnError(error)) {
             q = supabase.from('promo_camera_param_options').select(selectLegacy)
                 .order('sort_order', { ascending: true })
@@ -13956,7 +13998,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly, lang) {
         (data || []).forEach(function (row) {
             const cat = String(row.category || '').trim();
             if (!grouped[cat]) grouped[cat] = [];
-            const enriched = attachPromoCameraGroupToOption(row, groupsIndex.byId);
+            const enriched = normalizePromoCameraOptionRow(row, groupsIndex.byId);
             grouped[cat].push(applyPromoCameraOptionLocale(enriched, lang));
         });
         ensurePromoCameraAngleOptions(grouped, lang, 'shooting_angle');
@@ -29300,6 +29342,7 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
 });
 
 const PROMO_CAMERA_PARAM_SELECT = 'id, category, key, name, name_en, name_ja, name_es, name_de, name_fr, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
+const PROMO_CAMERA_PARAM_SELECT_MID = 'id, category, key, name, name_en, prompt_fragment, description, description_en, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
 const PROMO_CAMERA_PARAM_SELECT_LEGACY = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
 const PROMO_CAMERA_GROUP_SELECT = 'id, category, key, name, name_en, sort_order, is_active, created_at, updated_at';
 
@@ -29311,36 +29354,87 @@ function stripPromoCameraParamOptionalFields(payload) {
     return o;
 }
 
-async function updatePromoCameraParamOptionRow(id, updates) {
-    let payload = Object.assign({}, updates);
-    let selectCols = PROMO_CAMERA_PARAM_SELECT;
-    let result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
+async function selectPromoCameraParamRowById(id) {
+    let result = await supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT).eq('id', id).maybeSingle();
     if (result.error && isSupabaseMissingColumnError(result.error)) {
-        payload = stripPromoCameraParamOptionalFields(payload);
-        selectCols = PROMO_CAMERA_PARAM_SELECT_LEGACY;
-        result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
-    } else if (result.error && isSupabaseMissingColumnError(result.error, 'description_en')) {
-        delete payload.description_en;
-        selectCols = 'id, category, key, name, name_en, prompt_fragment, description, meta, group_id, sort_order, is_active, is_default, created_at, updated_at';
-        result = await supabase.from('promo_camera_param_options').update(payload).eq('id', id).select(selectCols).single();
+        result = await supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT_MID).eq('id', id).maybeSingle();
+    }
+    if (result.error && isSupabaseMissingColumnError(result.error)) {
+        result = await supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT_LEGACY).eq('id', id).maybeSingle();
     }
     return result;
 }
 
+async function queryPromoCameraParamOptionsList(category, categoryKeys) {
+    let q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT)
+        .order('category', { ascending: true })
+        .order('sort_order', { ascending: true })
+        .order('key', { ascending: true });
+    if (category && categoryKeys.includes(category)) q = q.eq('category', category);
+    let { data, error } = await q;
+    if (error && isSupabaseMissingColumnError(error)) {
+        q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT_MID)
+            .order('category', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (category && categoryKeys.includes(category)) q = q.eq('category', category);
+        ({ data, error } = await q);
+    }
+    if (error && isSupabaseMissingColumnError(error)) {
+        q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT_LEGACY)
+            .order('category', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (category && categoryKeys.includes(category)) q = q.eq('category', category);
+        ({ data, error } = await q);
+    }
+    return { data, error };
+}
+
+const PROMO_CAMERA_OPTION_OPTIONAL_WRITE_COLS = ['name_ja', 'name_es', 'name_de', 'name_fr', 'description_en', 'group_id'];
+
+function stripOneMissingColumnFromPayload(payload, err) {
+    if (!err || !isSupabaseMissingColumnError(err)) return null;
+    const msg = String(err.message || '');
+    const o = Object.assign({}, payload);
+    for (let i = 0; i < PROMO_CAMERA_OPTION_OPTIONAL_WRITE_COLS.length; i++) {
+        const col = PROMO_CAMERA_OPTION_OPTIONAL_WRITE_COLS[i];
+        if (o[col] !== undefined && msg.indexOf(col) >= 0) {
+            delete o[col];
+            return o;
+        }
+    }
+    return stripPromoCameraParamOptionalFields(payload);
+}
+
+async function updatePromoCameraParamOptionRow(id, updates) {
+    let payload = Object.assign({}, updates);
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const upd = await supabase.from('promo_camera_param_options').update(payload).eq('id', id);
+        if (!upd.error) return selectPromoCameraParamRowById(id);
+        if (!isSupabaseMissingColumnError(upd.error)) return { data: null, error: upd.error };
+        const next = stripOneMissingColumnFromPayload(payload, upd.error);
+        if (!next || JSON.stringify(next) === JSON.stringify(payload)) {
+            return { data: null, error: upd.error };
+        }
+        payload = next;
+    }
+    return { data: null, error: { message: 'update_failed' } };
+}
+
 async function insertPromoCameraParamOptionRow(payload) {
     let row = Object.assign({}, payload);
-    let selectCols = PROMO_CAMERA_PARAM_SELECT;
-    let result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
-    if (result.error && isSupabaseMissingColumnError(result.error)) {
-        row = stripPromoCameraParamOptionalFields(row);
-        selectCols = PROMO_CAMERA_PARAM_SELECT_LEGACY;
-        result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
-    } else if (result.error && isSupabaseMissingColumnError(result.error, 'description_en')) {
-        delete row.description_en;
-        selectCols = 'id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at';
-        result = await supabase.from('promo_camera_param_options').insert(row).select(selectCols).single();
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const ins = await supabase.from('promo_camera_param_options').insert(row).select('id').single();
+        if (!ins.error) return selectPromoCameraParamRowById(ins.data && ins.data.id);
+        if (!isSupabaseMissingColumnError(ins.error)) return { data: null, error: ins.error };
+        const next = stripOneMissingColumnFromPayload(row, ins.error);
+        if (!next || JSON.stringify(next) === JSON.stringify(row)) {
+            return { data: null, error: ins.error };
+        }
+        row = next;
     }
-    return result;
+    return { data: null, error: { message: 'insert_failed' } };
 }
 
 // GET /api/admin/promo-camera-param-categories
@@ -29607,23 +29701,7 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
         const catRes = await fetchPromoCameraParamCategories(false);
         const categoryDefs = catRes.categories && catRes.categories.length ? catRes.categories : [];
         const categoryKeys = categoryDefs.length ? categoryDefs.map(function (c) { return c.key; }) : PROMO_CAMERA_ADMIN_CATEGORIES;
-        let q = supabase.from('promo_camera_param_options').select(PROMO_CAMERA_PARAM_SELECT)
-            .order('category', { ascending: true })
-            .order('sort_order', { ascending: true })
-            .order('key', { ascending: true });
-        if (category && categoryKeys.includes(category)) {
-            q = q.eq('category', category);
-        }
-        let { data, error } = await q;
-        if (error && isSupabaseMissingColumnError(error)) {
-            q = supabase.from('promo_camera_param_options')
-                .select('id, category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default, created_at, updated_at')
-                .order('category', { ascending: true })
-                .order('sort_order', { ascending: true })
-                .order('key', { ascending: true });
-            if (category && categoryKeys.includes(category)) q = q.eq('category', category);
-            ({ data, error } = await q);
-        }
+        let { data, error } = await queryPromoCameraParamOptionsList(category, categoryKeys);
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-promo-camera-params.sql', code: 'MIGRATION_REQUIRED' });
@@ -29634,7 +29712,7 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
         const groupsRes = await fetchPromoCameraParamGroups(false, category || null);
         const groupsIndex = buildPromoCameraGroupsIndex(groupsRes.items || []);
         const enrichedItems = (data || []).map(function (row) {
-            return attachPromoCameraGroupToOption(row, groupsIndex.byId);
+            return normalizePromoCameraOptionRow(row, groupsIndex.byId);
         });
         res.json({
             items: enrichedItems,
@@ -29679,9 +29757,12 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             prompt_fragment: body.prompt_fragment != null ? String(body.prompt_fragment) : '',
             description: body.description != null ? String(body.description).trim() || null : null,
             description_en: body.description_en != null ? String(body.description_en).trim() || null : null,
-            meta: groupResolved
-                ? mergePromoCameraOptionMetaFromGroup(buildPromoCameraOptionMetaFromBody(body, {}), groupResolved.meta)
-                : buildPromoCameraOptionMetaFromBody(body, {}),
+            meta: mergePromoCameraOptionMetaExtras(
+                groupResolved
+                    ? mergePromoCameraOptionMetaFromGroup(buildPromoCameraOptionMetaFromBody(body, {}), groupResolved.meta)
+                    : buildPromoCameraOptionMetaFromBody(body, {}),
+                body
+            ),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
             is_default: !!body.is_default,
@@ -29701,7 +29782,9 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             console.error('POST /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '新增失敗' });
         }
-        res.status(201).json({ item: data });
+        const groupsResPost = await fetchPromoCameraParamGroups(false, null);
+        const groupsIndexPost = buildPromoCameraGroupsIndex(groupsResPost.items || []);
+        res.status(201).json({ item: normalizePromoCameraOptionRow(data, groupsIndexPost.byId) });
     } catch (e) {
         console.error('POST /api/admin/promo-camera-params 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -29747,13 +29830,17 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             }
             return res.status(400).json({ error: groupResolved.error });
         }
-        if (groupResolved) {
-            updates.group_id = groupResolved.group_id;
+        const needsMeta = !!(groupResolved || body.description_en !== undefined || body.meta !== undefined || body.group !== undefined || body.group_en !== undefined);
+        if (needsMeta) {
             const { data: curMetaRow } = await supabase.from('promo_camera_param_options').select('meta').eq('id', id).maybeSingle();
-            updates.meta = mergePromoCameraOptionMetaFromGroup(curMetaRow && curMetaRow.meta, groupResolved.meta);
-        } else if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
-            const { data: cur } = await supabase.from('promo_camera_param_options').select('meta').eq('id', id).maybeSingle();
-            updates.meta = buildPromoCameraOptionMetaFromBody(body, cur && cur.meta);
+            let meta = curMetaRow && curMetaRow.meta && typeof curMetaRow.meta === 'object' ? Object.assign({}, curMetaRow.meta) : {};
+            if (groupResolved) {
+                updates.group_id = groupResolved.group_id;
+                meta = mergePromoCameraOptionMetaFromGroup(meta, groupResolved.meta);
+            } else if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
+                meta = buildPromoCameraOptionMetaFromBody(body, meta);
+            }
+            updates.meta = mergePromoCameraOptionMetaExtras(meta, body);
         }
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
@@ -29774,7 +29861,9 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             console.error('PUT /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json({ item: data });
+        const groupsResPut = await fetchPromoCameraParamGroups(false, null);
+        const groupsIndexPut = buildPromoCameraGroupsIndex(groupsResPut.items || []);
+        res.json({ item: normalizePromoCameraOptionRow(data, groupsIndexPut.byId) });
     } catch (e) {
         console.error('PUT /api/admin/promo-camera-params 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

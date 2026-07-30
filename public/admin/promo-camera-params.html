@@ -26,7 +26,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build modal-feedback-20260730b</small></h4>
+        <h4 class="mb-3">攝影模擬參數 <small class="text-muted fs-6" id="pageBuildTag">build field-persist-fix-20260730d</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -244,16 +244,26 @@
       : 'modal-feedback small rounded px-2 py-2 mb-2 alert ') + (ok ? 'alert-success' : 'alert-danger');
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
+  function getBootstrapModal(el) {
+    if (!el) return null;
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+      if (typeof bootstrap.Modal.getOrCreateInstance === 'function') {
+        return bootstrap.Modal.getOrCreateInstance(el);
+      }
+      return new bootstrap.Modal(el);
+    }
+    return null;
+  }
   function getEditModal() {
     var el = document.getElementById('editModal');
     if (!el) return null;
-    if (!editModal) editModal = bootstrap.Modal.getOrCreateInstance(el);
+    if (!editModal) editModal = getBootstrapModal(el);
     return editModal;
   }
   function getEditGroupModal() {
     var el = document.getElementById('editGroupModal');
     if (!el) return null;
-    if (!editGroupModal) editGroupModal = bootstrap.Modal.getOrCreateInstance(el);
+    if (!editGroupModal) editGroupModal = getBootstrapModal(el);
     return editGroupModal;
   }
   async function authHeaders() {
@@ -272,8 +282,27 @@
     var hit = groups.find(function (g) { return g.id === id; });
     return hit ? (hit.name || hit.key || '') : '';
   }
+  function resolveGroupIdForRow(row) {
+    if (!row) return '';
+    if (row.group_id) return String(row.group_id);
+    var gname = paramGroup(row);
+    if (!gname) return '';
+    var hit = groups.find(function (g) {
+      return g.category === row.category && (g.name === gname || g.key === gname);
+    });
+    return hit ? hit.id : '';
+  }
+  function rowGroupLabel(row) {
+    if (!row) return '—';
+    var gid = resolveGroupIdForRow(row);
+    if (gid) {
+      var byId = groupNameById(gid);
+      if (byId) return byId;
+    }
+    return paramGroup(row) || '—';
+  }
   function optionCountForGroup(groupId) {
-    return items.filter(function (r) { return r.group_id === groupId; }).length;
+    return items.filter(function (r) { return String(resolveGroupIdForRow(r) || '') === String(groupId || ''); }).length;
   }
   function fillGroupSelects(forCategory, preferredGroupId) {
     var cat = forCategory || activeOptionTab;
@@ -411,7 +440,7 @@
     var filtered = items.filter(function (row) {
       if (row.category !== activeOptionTab) return false;
       if (!groupFilter) return true;
-      return String(row.group_id || '') === groupFilter;
+      return String(resolveGroupIdForRow(row) || '') === groupFilter;
     });
     var tb = document.getElementById('listBody');
     var emptyHint = document.getElementById('listEmptyHint');
@@ -423,7 +452,7 @@
       tb.innerHTML = filtered.map(function (row) {
         var frag = (row.prompt_fragment || '').trim();
         var short = frag.length > 40 ? frag.slice(0, 40) + '…' : (frag || '—');
-        var g = paramGroup(row);
+        var g = rowGroupLabel(row);
         var ge = paramGroupEn(row);
         return '<tr>' +
           '<td class="small' + (groupable ? '' : ' d-none') + '">' + esc(g || '—') + (ge ? ('<div class="text-muted">EN: ' + esc(ge) + '</div>') : '') + '</td>' +
@@ -446,10 +475,8 @@
       if (badge) badge.textContent = String(items.filter(function (r) { return r.category === key; }).length);
     });
   }
-  function openEdit(id) {
-    var row = items.find(function (x) { return x.id === id; });
+  function applyEditFormFromRow(row) {
     if (!row) return;
-    showInlineFeedback('editModalFeedback', '', true);
     document.getElementById('editId').value = row.id;
     document.getElementById('editCategory').value = row.category;
     document.getElementById('editKey').value = row.key;
@@ -463,8 +490,20 @@
     document.getElementById('editDescEn').value = row.description_en || '';
     var groupable = isCategoryGroupable(row.category);
     document.getElementById('editGroupCol').classList.toggle('d-none', !groupable);
-    fillGroupSelects(row.category, row.group_id || '');
+    fillGroupSelects(row.category, resolveGroupIdForRow(row));
     document.getElementById('editModalTitle').textContent = '編輯選項 · ' + (row.name || row.key) + ' (' + catLabel(row.category) + ')';
+  }
+  function mergeSavedItem(item) {
+    if (!item || !item.id) return;
+    var idx = items.findIndex(function (x) { return x.id === item.id; });
+    if (idx >= 0) items[idx] = item;
+    else items.push(item);
+  }
+  function openEdit(id) {
+    var row = items.find(function (x) { return x.id === id; });
+    if (!row) return;
+    showInlineFeedback('editModalFeedback', '', true);
+    applyEditFormFromRow(row);
     getEditModal().show();
   }
   function closeModal(modalInst) {
@@ -627,7 +666,14 @@
       }
       showInlineFeedback('editModalFeedback', '✓ 已儲存', true);
       showStatus('已儲存', true);
-      await loadList();
+      if (d.item) {
+        mergeSavedItem(d.item);
+        applyEditFormFromRow(d.item);
+        renderList();
+        renderGroupList();
+      } else {
+        await loadList();
+      }
       setTimeout(function () { closeModal(getEditModal()); }, 450);
     } finally {
       btn.disabled = false;

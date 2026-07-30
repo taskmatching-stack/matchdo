@@ -90,7 +90,49 @@
       return;
     }
     if (document.body) document.body.style.visibility = 'visible';
+    ensureAdminModalsOnBody();
     inject('admin-header', '/admin/partials/header.html');
     inject('admin-sidebar', '/admin/partials/sidebar.html');
   });
+
+  /** 將 modal 移到 body，避免被 container overflow 裁切（Bootstrap 5.0 相容） */
+  function ensureAdminModalsOnBody() {
+    if (!document.body) return;
+    document.querySelectorAll('.modal').forEach(function (modalEl) {
+      if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
+    });
+  }
+  function getAdminBootstrapModal(el) {
+    if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+    if (typeof bootstrap.Modal.getOrCreateInstance === 'function') return bootstrap.Modal.getOrCreateInstance(el);
+    return new bootstrap.Modal(el);
+  }
+  function closeAdminModal(inst) {
+    if (!inst) return;
+    inst.hide();
+    setTimeout(function () {
+      document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+    }, 300);
+  }
+  function showAdminModalFeedback(elId, msg, ok) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    if (!msg) {
+      el.textContent = '';
+      el.className = el.className.replace(/\balert(-success|-danger)?\b/g, '').trim();
+      return;
+    }
+    el.textContent = msg;
+    el.className = (el.className.replace(/\balert(-success|-danger)?\b/g, '').trim() + ' alert ' + (ok ? 'alert-success' : 'alert-danger')).trim();
+    try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  }
+  window.AdminModal = {
+    ensureOnBody: ensureAdminModalsOnBody,
+    get: getAdminBootstrapModal,
+    close: closeAdminModal,
+    feedback: showAdminModalFeedback
+  };
 })();
