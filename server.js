@@ -5117,6 +5117,18 @@ app.get('/manufacturer-dashboard.html', (req, res) => redirectWithQuery(req, res
 app.get('/manufacturer-materials.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-materials.html'));
 app.get('/manufacturer-portfolio.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-portfolio.html'));
 app.get('/manufacturer-inquiries.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-inquiries.html'));
+// 攝影模擬：正式短網址 /promo-camera（舊 /client/promo-camera.html 301 保留 query）
+const promoCameraHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera.html');
+function servePromoCameraPage(req, res) {
+    res.sendFile(promoCameraHtmlPath, (err) => {
+        if (err) {
+            console.error('GET /promo-camera sendFile 失敗:', err.message);
+            res.status(err.status || 500).send(err.status === 404 ? 'File not found' : 'Server error');
+        }
+    });
+}
+app.get(['/promo-camera', '/promo-camera/'], servePromoCameraPage);
+app.get('/client/promo-camera.html', (req, res) => redirectWithQuery301(req, res, '/promo-camera'));
 // 設計風向：舊再製路徑 301 → /design-direction/
 app.get(['/remake', '/remake/', '/remake/index.html'], (req, res) => redirectWithQuery301(req, res, '/design-direction/'));
 app.get('/remake-product.html', (req, res) => redirectWithQuery301(req, res, '/design-direction/analysis.html'));
