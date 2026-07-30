@@ -5152,6 +5152,25 @@ app.get('/manufacturer-dashboard.html', (req, res) => redirectWithQuery(req, res
 app.get('/manufacturer-materials.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-materials.html'));
 app.get('/manufacturer-portfolio.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-portfolio.html'));
 app.get('/manufacturer-inquiries.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-inquiries.html'));
+// 官方版型：訪客／SEO → 設計頁公開 tab；管理員上傳保留 ?official_platform=1&manage=1
+app.get('/client/manufacturer-materials.html', (req, res, next) => {
+    const op = String((req.query && req.query.official_platform) || '').trim().toLowerCase();
+    const manage = String((req.query && req.query.manage) || '').trim().toLowerCase();
+    if ((op === '1' || op === 'true') && manage !== '1' && manage !== 'true') {
+        const params = new URLSearchParams();
+        params.set('tab', 'vendor-styles');
+        params.set('browse', 'official');
+        const ck = String((req.query && req.query.category_key) || '').trim();
+        const sk = String((req.query && req.query.subcategory_key) || '').trim();
+        if (ck) params.set('category_key', ck);
+        if (sk) params.set('subcategory_key', sk);
+        return res.redirect(301, '/custom-product.html?' + params.toString());
+    }
+    next();
+});
+app.get(['/official-templates', '/official-templates/'], (req, res) => {
+    redirectWithQuery301(req, res, '/custom-product.html?tab=vendor-styles&browse=official');
+});
 // 攝影模擬：正式短網址 /promo-camera（舊 /client/promo-camera.html 301 保留 query）
 const promoCameraHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera.html');
 function servePromoCameraPage(req, res) {

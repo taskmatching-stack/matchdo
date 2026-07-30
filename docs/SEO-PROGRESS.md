@@ -15,7 +15,9 @@
 | **設計頁 tab** | `/custom-product.html` 及 `?tab=scene-sim|promo-image|pattern-extract|design-to-physical|vendor-styles` → sitemap-pages |
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
 | **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
-| **空殼緩解（2026-07-30）** | 首頁 `#home-seo-intro` 可見摘要 + `noscript`；`vendor-profile?id=` 動態預填 hero + 簡介段落 |
+| **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |
+| **官方版型短網址** | `/official-templates/` → 301 至設計頁官方 tab；`?official_platform=1`（無 `manage=1`）同上 |
+| **inspiration 上限** | `sitemap-inspiration.xml` 總上限 **500**；`is_public` 版型 **250** 筆 |
 
 ### B 線／產業供應商工作區（2026-06-01，部分已 supersede）
 

@@ -35,6 +35,8 @@ function registerSitemapRoutes(app, deps) {
         { path: '/custom-product.html?tab=promo-image',  priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=design-to-physical', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=vendor-styles', priority: '0.8', changefreq: 'monthly' },
+        { path: '/custom-product.html?tab=vendor-styles&browse=official', priority: '0.78', changefreq: 'monthly' },
+        { path: '/official-templates/',           priority: '0.78', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
         { path: '/client/ai-edit.html',     priority: '0.75', changefreq: 'monthly' },
@@ -84,11 +86,20 @@ function registerSitemapRoutes(app, deps) {
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
     });
-    // 動態：首頁「分類」篩選 URL（custom_product_categories 主分類，/?category_key=xxx），與 layout_type／lang 可疊加
+    // 動態：首頁分類 + 版型庫 tab 分類 landing（/?category_key= 與 custom-product?tab=vendor-styles&…）
     app.get('/sitemap-categories.xml', async (req, res) => {
         const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = [];
+        function pushVendorStylesUrl(catKey, subKey, official) {
+            const params = new URLSearchParams();
+            params.set('tab', 'vendor-styles');
+            params.set('category_key', catKey);
+            if (subKey) params.set('subcategory_key', subKey);
+            if (official) params.set('browse', 'official');
+            const loc = base + '/custom-product.html?' + params.toString();
+            urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.72</priority></url>');
+        }
         try {
             const { data: rows, error } = await supabase.from('custom_product_categories').select('key, sort_order').eq('is_active', true).order('sort_order', { ascending: true });
             if (!error && Array.isArray(rows) && rows.length > 0) {
@@ -96,12 +107,29 @@ function registerSitemapRoutes(app, deps) {
                     if (r && r.key) {
                         const loc = base + '/?category_key=' + encodeURIComponent(r.key);
                         urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.85</priority></url>');
+                        pushVendorStylesUrl(r.key, '', false);
+                        pushVendorStylesUrl(r.key, '', true);
+                    }
+                });
+            }
+            const { data: subRows, error: subErr } = await supabase
+                .from('custom_product_subcategories')
+                .select('category_key, key, sort_order')
+                .eq('is_active', true)
+                .order('category_key', { ascending: true })
+                .order('sort_order', { ascending: true });
+            if (!subErr && Array.isArray(subRows)) {
+                subRows.forEach(s => {
+                    if (s && s.category_key && s.key) {
+                        pushVendorStylesUrl(s.category_key, s.key, false);
+                        pushVendorStylesUrl(s.category_key, s.key, true);
                     }
                 });
             }
         } catch (e) {
             console.warn('sitemap-categories.xml 查詢 custom_product_categories 失敗:', e && e.message);
         }
+        urls.push('  <url><loc>' + escapeXml(base + '/official-templates/') + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>');
         const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
         res.set('Content-Type', 'application/xml; charset=utf-8');
         res.set('Cache-Control', 'public, max-age=3600');
@@ -183,7 +211,7 @@ function registerSitemapRoutes(app, deps) {
     });
 
     // 動態：靈感牆單一作品獨立 URL（/inspiration/:type/:id），收錄近期作品供搜尋引擎索引
-    const SITEMAP_INSPIRATION_LIMIT = 260; // user 50 + port 60 + coll 40 + assets 80 + promo 30
+    const SITEMAP_INSPIRATION_LIMIT = 500;
     app.get('/sitemap-inspiration.xml', async (req, res) => {
         const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
@@ -195,7 +223,7 @@ function registerSitemapRoutes(app, deps) {
                 .not('ai_generated_image_url', 'is', null)
                 .or('show_on_homepage.eq.true,show_on_homepage.is.null')
                 .order('created_at', { ascending: false })
-                .limit(50);
+                .limit(80);
             for (const r of (userRows || [])) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/user_design/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
@@ -205,7 +233,7 @@ function registerSitemapRoutes(app, deps) {
                 .select('id, image_url_before, updated_at, created_at')
                 .eq('show_on_media_wall', true)
                 .order('created_at', { ascending: false })
-                .limit(60);
+                .limit(80);
             for (const r of (portRows || [])) {
                 const type = r.image_url_before ? 'comparison' : 'series';
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
@@ -217,7 +245,7 @@ function registerSitemapRoutes(app, deps) {
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false })
-                .limit(40);
+                .limit(50);
             for (const r of (collRows || [])) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/collection/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url>');
@@ -228,7 +256,7 @@ function registerSitemapRoutes(app, deps) {
                 .eq('is_public', true)
                 .in('asset_kind', ['prototype', 'part', 'material'])
                 .order('updated_at', { ascending: false })
-                .limit(80);
+                .limit(250);
             for (const r of (assetRows || [])) {
                 const kind = String(r.asset_kind || 'prototype').toLowerCase();
                 if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') continue;
@@ -243,7 +271,7 @@ function registerSitemapRoutes(app, deps) {
                 .eq('show_on_homepage', true)
                 .not('result_image_url', 'is', null)
                 .order('created_at', { ascending: false })
-                .limit(30);
+                .limit(50);
             if (promoRes.error && (promoRes.error.code === '42703' || String(promoRes.error.message || '').includes('show_on_homepage'))) {
                 const promoFb = await supabase
                     .from('product_promo_generations')
@@ -251,7 +279,7 @@ function registerSitemapRoutes(app, deps) {
                     .eq('status', 'success')
                     .not('result_image_url', 'is', null)
                     .order('created_at', { ascending: false })
-                    .limit(30);
+                    .limit(50);
                 promoRows = promoFb.data || [];
             } else {
                 promoRows = promoRes.data || [];
