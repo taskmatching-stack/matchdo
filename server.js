@@ -13944,8 +13944,9 @@ function normalizePromoCameraParamKey(raw) {
 
 /** DB 尚無 shooting_angle 種子時，仍提供按鈕與 FLUX prompt（內建，不需使用者手打） */
 const PROMO_CAMERA_ANGLE_FALLBACK_RAW = [
-    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', prompt_fragment: '',
-        description: '不強制改角度，以參考圖構圖為主。', description_en: 'Keep the reference framing; do not force a new camera angle.', sort_order: 10, is_default: true },
+    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle',
+        prompt_fragment: 'Preserve the reference image\'s most complete product presentation viewpoint: keep the same camera angle, crop, and fully visible product geometry as shown — do not reshoot from a different angle or hide structural details visible in the reference',
+        description: '維持參考圖中產品最完整的呈現視角，不另改拍攝角度。', description_en: 'Preserve the reference\'s most complete product presentation angle; do not reshoot from a different viewpoint.', sort_order: 10, is_default: true },
     { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle',
         prompt_fragment: 'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference',
         description: '同一產品改為 45° 英雄角，主視覺面清楚。', description_en: 'Reshoot the same product at a hero 3/4 angle with the primary selling face clearly visible.', sort_order: 20 },

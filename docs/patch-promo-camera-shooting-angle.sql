@@ -15,8 +15,8 @@ INSERT INTO public.promo_camera_param_options
   (category, key, name, name_en, prompt_fragment, description, meta, sort_order, is_active, is_default)
 VALUES
 ('shooting_angle', 'keep_reference', '維持參考角度', 'Keep reference angle',
- '',
- '不強制改角度，以參考圖構圖為主（仍會依廣告底稿重新拍攝）。',
+ 'Preserve the reference image''s most complete product presentation viewpoint: keep the same camera angle, crop, and fully visible product geometry as shown — do not reshoot from a different angle or hide structural details visible in the reference',
+ '維持參考圖中產品最完整的呈現視角，不另改拍攝角度。',
  '{}'::jsonb, 10, true, true),
 ('shooting_angle', 'hero_34', '45° 英雄角', 'Hero 3/4 angle',
  'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference',

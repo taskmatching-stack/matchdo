@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731d';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801a';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -86,7 +86,7 @@
   }
 
   var ANGLE_FALLBACK = [
-    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', description: '不強制改角度，以參考圖構圖為主。', description_en: 'Keep the reference framing; do not force a new camera angle.' },
+    { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', description: '維持參考圖中產品最完整的呈現視角，不另改拍攝角度。', description_en: 'Preserve the reference\'s most complete product presentation angle; do not reshoot from a different viewpoint.' },
     { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle', description: '同一產品改為 45° 英雄角，主視覺面清楚。', description_en: 'Reshoot the same product at a hero 3/4 angle with the primary selling face clearly visible.' },
     { key: 'front', name: '正視', name_en: 'Front facing', description: '同一產品改為正面對鏡頭。', description_en: 'Reshoot the same product straight-on from the front.' },
     { key: 'side_profile', name: '側面', name_en: 'Side profile', description: '同一產品改為側面輪廓。', description_en: 'Reshoot the same product from a clean side profile.' },

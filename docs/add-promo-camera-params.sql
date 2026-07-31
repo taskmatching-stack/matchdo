@@ -65,7 +65,7 @@ INSERT INTO public.promo_camera_param_options (category, key, name, name_en, pro
  'Cinestill 800T tungsten film color response only: cool shadow cast, halation on bright specular points, distinctive emulsion color bias without scene or lighting change', 50, false),
 
 ('shooting_angle', 'keep_reference', '維持參考角度', 'Keep reference angle',
- '', 10, true),
+ 'Preserve the reference image''s most complete product presentation viewpoint: keep the same camera angle, crop, and fully visible product geometry as shown — do not reshoot from a different angle or hide structural details visible in the reference', 10, true),
 ('shooting_angle', 'hero_34', '45° 英雄角', 'Hero 3/4 angle',
  'Reshoot the same product at a hero three-quarter front angle: camera slightly above eye level, primary selling face clearly visible, fresh advertising crop — not the same pose as the reference', 20, false),
 ('shooting_angle', 'front', '正視', 'Front facing',
