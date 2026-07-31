@@ -1,0 +1,111 @@
+/* 攝影參數預設 — Web + App 共用 */
+.pc-preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pc-preset-modal .modal-body {
+  padding-top: 0.75rem;
+}
+
+.pc-preset-save-row {
+  margin-bottom: 0.5rem;
+}
+
+.pc-preset-hint {
+  line-height: 1.45;
+}
+
+.pc-preset-status {
+  min-height: 1.25rem;
+}
+
+.pc-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+}
+
+.pc-preset-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(88, 100, 112, 0.14);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.pc-preset-item-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pc-preset-item-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.pc-preset-item-meta {
+  margin-top: 0.15rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.pc-preset-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+body.pc-app-shell .pc-app-preset-bar {
+  padding: 0 0.15rem;
+}
+
+body.pc-app-shell .pc-app-preset-btn {
+  border-color: var(--pc-border, rgba(88, 100, 112, 0.2));
+  color: var(--pc-primary, #7A8FA3);
+}
+
+body.pc-app-shell .pc-preset-modal .modal-content {
+  border-radius: 0.85rem;
+}
+
+body.pc-app-shell .pc-preset-item {
+  background: var(--pc-card, #F0F3F7);
+  border-color: var(--pc-border, rgba(88, 100, 112, 0.14));
+}
+
+@media (max-width: 575.98px) {
+  .pc-preset-save-row .input-group {
+    flex-wrap: wrap;
+  }
+
+  .pc-preset-save-row .input-group .form-control {
+    width: 100%;
+    border-radius: 0.25rem !important;
+    margin-bottom: 0.35rem;
+  }
+
+  .pc-preset-save-row .input-group .btn {
+    width: 100%;
+    border-radius: 0.25rem !important;
+  }
+
+  .pc-preset-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pc-preset-item-actions {
+    justify-content: flex-end;
+  }
+}

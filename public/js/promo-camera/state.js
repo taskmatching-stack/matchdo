@@ -186,6 +186,55 @@
     if (mp) state.megapixels = mp;
   }
 
+  function optionKeyExists(cat, key) {
+    if (!key || !state.options || !state.options.camera_params) return false;
+    var list = state.options.camera_params[cat] || [];
+    return list.some(function (r) { return r.key === key; });
+  }
+
+  function themeKeyExists(key) {
+    if (!key || !state.options || !state.options.themes) return false;
+    return state.options.themes.some(function (r) { return r.key === key; });
+  }
+
+  function sceneKeyExists(key) {
+    if (!key) return true;
+    if (!state.options || !state.options.scenes) return false;
+    return state.options.scenes.some(function (r) { return r.key === key; });
+  }
+
+  function toPresetSnapshot(name) {
+    return {
+      v: 1,
+      name: String(name || '').trim(),
+      themeKey: state.themeKey || '',
+      sceneKey: state.sceneKey || '',
+      aspectRatio: state.aspectRatio || '1:1',
+      megapixels: state.megapixels || 1,
+      lookMode: state.lookMode === 'film' ? 'film' : 'digital',
+      camera: JSON.parse(JSON.stringify(state.camera || {})),
+      userPrompt: state.userPrompt || ''
+    };
+  }
+
+  function applyPreset(preset) {
+    if (!preset || preset.v !== 1 || !state.options) return false;
+    if (preset.themeKey && themeKeyExists(preset.themeKey)) state.themeKey = preset.themeKey;
+    else if (preset.themeKey === '') state.themeKey = '';
+    if (sceneKeyExists(preset.sceneKey)) state.sceneKey = preset.sceneKey || '';
+    state.aspectRatio = preset.aspectRatio || state.aspectRatio || '1:1';
+    state.megapixels = parseInt(preset.megapixels, 10) || 1;
+    state.userPrompt = String(preset.userPrompt || '');
+    state.lookMode = preset.lookMode === 'film' ? 'film' : 'digital';
+    var incoming = preset.camera && typeof preset.camera === 'object' ? preset.camera : {};
+    Object.keys(incoming).forEach(function (cat) {
+      if (cat.indexOf('_') === 0) return;
+      if (optionKeyExists(cat, incoming[cat])) state.camera[cat] = incoming[cat];
+    });
+    applyLookModeDefaults();
+    return true;
+  }
+
   function pushMessage(role, text, extra) {
     state.messages.push({
       role: role,
@@ -266,6 +315,8 @@
     setLookMode: setLookMode,
     setCameraKey: setCameraKey,
     setDims: setDims,
+    toPresetSnapshot: toPresetSnapshot,
+    applyPreset: applyPreset,
     pushMessage: pushMessage,
     buildGeneratePayload: buildGeneratePayload,
     getLcdSummary: getLcdSummary

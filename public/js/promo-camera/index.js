@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731c';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260731d';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -654,6 +654,32 @@
     }
   }
 
+  function refreshFromState() {
+    var st = St.get();
+    var themeEl = document.getElementById('pcThemeSelect');
+    var sceneEl = document.getElementById('pcSceneSelect');
+    var ratioEl = document.getElementById('pcRatioSelect');
+    var mpEl = document.getElementById('pcMpSelect');
+    var promptEl = document.getElementById('pcPromptInput');
+    if (!st.options) return;
+    fillThemeSceneSelects();
+    if (themeEl && st.themeKey) themeEl.value = st.themeKey;
+    if (sceneEl) sceneEl.value = st.sceneKey || '';
+    if (ratioEl && st.aspectRatio) ratioEl.value = st.aspectRatio;
+    if (mpEl && st.megapixels) mpEl.value = String(st.megapixels);
+    if (promptEl) promptEl.value = st.userPrompt || '';
+    fillCameraSelects();
+    renderAngleButtons();
+    updateDimsHint();
+    updateLcd();
+    updatePoints();
+    document.dispatchEvent(new CustomEvent('matchdo-pc-preset-applied'));
+  }
+
+  window.PromoCameraUi = {
+    refreshFromState: refreshFromState
+  };
+
   function refreshPromoI18n() {
     if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
     updatePricingIntro();
@@ -696,6 +722,7 @@
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();
       }
+      document.dispatchEvent(new CustomEvent('matchdo-pc-options-ready'));
     });
   }
 

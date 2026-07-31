@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731v';
+  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731w';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -341,6 +341,13 @@
     updateComposeSummary();
   }
 
+  function onPresetApplied() {
+    syncAppPickerLabels();
+    updateComposeSummary();
+    renderAppSelectChips('pcRatioSelect', 'pcRatioChips');
+    renderAppSelectChips('pcMpSelect', 'pcMpChips');
+  }
+
   function setupAppCreditsPanel() {
     var btn = document.getElementById('pcAppCreditsBtn');
     var topUpBtn = document.getElementById('pcCreditsTopUpBtn');
@@ -443,6 +450,7 @@
   }
 
   document.addEventListener('matchdo-i18n-applied', onI18nApplied);
+  document.addEventListener('matchdo-pc-preset-applied', onPresetApplied);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootAppShell);
