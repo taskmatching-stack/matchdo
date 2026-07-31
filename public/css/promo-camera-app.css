@@ -699,7 +699,6 @@ body.pc-app-shell.pc-embed-design .pc-app-container {
 body.pc-app-shell.pc-embed-design #promo-camera-app {
   min-height: 0;
 }
-body.pc-app-shell.pc-embed-design .pc-generate-dock {
-  position: sticky;
-  bottom: 0;
+body.pc-app-shell.pc-embed-design.pc-has-generate-dock .pc-app-container {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
