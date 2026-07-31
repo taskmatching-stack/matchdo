@@ -65,12 +65,46 @@
     });
   }
 
+  function listPresets() {
+    return authHeaders(false).then(function (headers) {
+      return fetch('/api/promo-camera/presets', { headers: headers, cache: 'no-store' }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
+  function savePreset(name, snapshot) {
+    return authHeaders(true).then(function (headers) {
+      return fetch('/api/promo-camera/presets', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: name, snapshot: snapshot || {} })
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
+  function deletePreset(id) {
+    return authHeaders(false).then(function (headers) {
+      return fetch('/api/promo-camera/presets/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: headers
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
   global.PromoCameraApi = {
     authHeaders: authHeaders,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
     generate: generate,
     loadDigitalAssets: loadDigitalAssets,
-    fetchMeCredits: fetchMeCredits
+    fetchMeCredits: fetchMeCredits,
+    listPresets: listPresets,
+    savePreset: savePreset,
+    deletePreset: deletePreset
   };
 })(typeof window !== 'undefined' ? window : this);

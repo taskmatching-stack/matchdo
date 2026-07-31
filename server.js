@@ -12173,6 +12173,151 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
     }
 });
 
+const PROMO_CAMERA_USER_PRESETS_MAX = 20;
+
+function normalizePromoCameraPresetSnapshot(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const camera = raw.camera && typeof raw.camera === 'object' ? { ...raw.camera } : {};
+    delete camera._look_mode;
+    return {
+        v: 1,
+        themeKey: String(raw.themeKey || raw.theme_key || '').trim(),
+        sceneKey: String(raw.sceneKey || raw.scene_key || '').trim(),
+        aspectRatio: String(raw.aspectRatio || raw.aspect_ratio || '1:1').trim() || '1:1',
+        megapixels: Math.min(4, Math.max(1, parseInt(raw.megapixels, 10) || 1)),
+        lookMode: (raw.lookMode === 'film' || raw.look_mode === 'film') ? 'film' : 'digital',
+        camera,
+        userPrompt: String(raw.userPrompt || raw.user_prompt || '').trim().slice(0, 2000)
+    };
+}
+
+function mapPromoCameraUserPresetRow(row) {
+    if (!row) return null;
+    const snap = normalizePromoCameraPresetSnapshot(row.snapshot || {});
+    if (snap) snap.name = String(row.name || snap.name || '').trim();
+    return {
+        id: row.id,
+        name: String(row.name || '').trim(),
+        savedAt: row.updated_at ? new Date(row.updated_at).getTime() : (row.created_at ? new Date(row.created_at).getTime() : Date.now()),
+        snapshot: snap || { v: 1 }
+    };
+}
+
+function isPromoCameraPresetsMigrationError(error) {
+    if (!error) return false;
+    const code = String(error.code || '');
+    const msg = String(error.message || error.details || '').toLowerCase();
+    return code === '42P01' || code === 'PGRST205' || msg.includes('promo_camera_user_presets');
+}
+
+/** GET /api/promo-camera/presets — 登入使用者帳號預設列表 */
+app.get('/api/promo-camera/presets', async (req, res) => {
+    try {
+        const user = await getRequestUserFromAuthHeader(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const { data, error } = await supabase
+            .from('promo_camera_user_presets')
+            .select('id, name, snapshot, created_at, updated_at')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false })
+            .limit(PROMO_CAMERA_USER_PRESETS_MAX);
+        if (error) {
+            if (isPromoCameraPresetsMigrationError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-user-presets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('GET /api/promo-camera/presets:', error);
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        res.json({
+            presets: (data || []).map(mapPromoCameraUserPresetRow).filter(Boolean)
+        });
+    } catch (e) {
+        console.error('GET /api/promo-camera/presets:', e);
+        res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** POST /api/promo-camera/presets — 儲存目前攝影參數至帳號 */
+app.post('/api/promo-camera/presets', express.json({ limit: '256kb' }), async (req, res) => {
+    try {
+        const user = await getRequestUserFromAuthHeader(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const name = String((req.body && req.body.name) || '').trim().slice(0, 40);
+        if (!name) return res.status(400).json({ error: '請輸入預設名稱' });
+        const snapshot = normalizePromoCameraPresetSnapshot((req.body && req.body.snapshot) || req.body);
+        if (!snapshot) return res.status(400).json({ error: '參數格式無效' });
+        snapshot.name = name;
+
+        const { count, error: countErr } = await supabase
+            .from('promo_camera_user_presets')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+        if (countErr) {
+            if (isPromoCameraPresetsMigrationError(countErr)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-user-presets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('POST /api/promo-camera/presets count:', countErr);
+            return res.status(500).json({ error: countErr.message || '儲存失敗' });
+        }
+        if ((count || 0) >= PROMO_CAMERA_USER_PRESETS_MAX) {
+            return res.status(400).json({ error: '已達上限（20 組），請先刪除舊預設', code: 'MAX_REACHED' });
+        }
+
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+            .from('promo_camera_user_presets')
+            .insert({
+                user_id: user.id,
+                name,
+                snapshot,
+                created_at: now,
+                updated_at: now
+            })
+            .select('id, name, snapshot, created_at, updated_at')
+            .single();
+        if (error) {
+            if (isPromoCameraPresetsMigrationError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-user-presets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('POST /api/promo-camera/presets:', error);
+            return res.status(500).json({ error: error.message || '儲存失敗' });
+        }
+        res.status(201).json({ preset: mapPromoCameraUserPresetRow(data) });
+    } catch (e) {
+        console.error('POST /api/promo-camera/presets:', e);
+        res.status(500).json({ error: e.message || '儲存失敗' });
+    }
+});
+
+/** DELETE /api/promo-camera/presets/:id */
+app.delete('/api/promo-camera/presets/:id', async (req, res) => {
+    try {
+        const user = await getRequestUserFromAuthHeader(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const presetId = String(req.params.id || '').trim();
+        if (!presetId) return res.status(400).json({ error: '缺少預設 id' });
+        const { data, error } = await supabase
+            .from('promo_camera_user_presets')
+            .delete()
+            .eq('id', presetId)
+            .eq('user_id', user.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            if (isPromoCameraPresetsMigrationError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-camera-user-presets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('DELETE /api/promo-camera/presets:', error);
+            return res.status(500).json({ error: error.message || '刪除失敗' });
+        }
+        if (!data) return res.status(404).json({ error: '找不到此預設' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/promo-camera/presets:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
 /** 情境圖：使用者數位資產庫列表（product_promo_generations） */
 app.get('/api/promo-image/generations', async (req, res) => {
     try {
