@@ -11,7 +11,9 @@ git rev-parse origin/main
 # 兩者相同且 working tree clean
 ```
 
-**本環境基準 commit：** `f5dceeb`（`feat(promo-camera): account-owned camera preset save and apply`）
+**建 L4 前基準 commit：** `f5dceeb`（`feat(promo-camera): account-owned camera preset save and apply`）
+
+**L4 腳手架完成後遠端 HEAD：** `922b8ef`（詳見 [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)）
 
 ---
 
@@ -24,11 +26,13 @@ git rev-parse origin/main
 | 線上 PWA | `https://matchdo.cc/promo-camera-app` | **凍結** — 不為 Store 改 |
 | Store 實驗 | `apps/matchdo-promo-camera/` | **只在此開發** |
 
-線上 PWA 現行 script 順序（`f5dceeb`，**勿改**）：
+線上 PWA 現行 script 順序（`922b8ef` 起；**Store 前置期勿擅自改序**）：
 
 ```text
-api.js → state.js → index.js → presets.js → app-shell.js
+api.js → state.js → index.js → presets.js → app-shell.js → pwa-install-prompt.js
 ```
+
+`pwa-install-prompt.js`：僅獨立 `/promo-camera-app`；`embed=design` 不載入。見 [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md) §3。
 
 ---
 
@@ -69,6 +73,7 @@ Capacitor 初始化時，自 L3b **複製快照**到 `apps/matchdo-promo-camera/
 
 ## 參考
 
+- **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)
 - Cursor 規則：`.cursor/rules/promo-camera-app-isolation.mdc`
 - Capacitor／Store：`docs/PLAN-promo-camera-capacitor-app.md`
 - L4 目錄：`apps/matchdo-promo-camera/README.md`

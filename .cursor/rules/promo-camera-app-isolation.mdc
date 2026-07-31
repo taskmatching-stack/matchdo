@@ -15,13 +15,15 @@ alwaysApply: true
 | **Store 實驗** | `apps/matchdo-promo-camera/` | **只准改這裡** + L4 專用 JS |
 
 **隔離層文件（必先讀）：** `docs/PLAN-promo-camera-app-isolation-layer.md`  
-**基準 commit：** `f5dceeb`（建 L4 前須 `git fetch` 且本機 = `origin/main`）
+**進度 handoff：** `docs/PROGRESS-promo-camera-app-store.md`（接續開發從此看）  
+**基準 commit：** `f5dceeb`（建 L4 前）；**L4 完成後遠端 HEAD：** `922b8ef`
 
 ## 線上 PWA 檔（L3b — 凍結，Store 前置期禁止改）
 
 - `public/client/promo-camera-app.html`
 - `public/css/promo-camera-app.css`
 - `public/js/promo-camera/app-shell.js`
+- `public/js/promo-camera/pwa-install-prompt.js`（僅獨立頁；`embed=design` 不載入）
 - `public/promo-camera-app.webmanifest`
 
 ## Store 前置檔（L4 — 可擴充，未掛線上 PWA）
@@ -58,6 +60,7 @@ alwaysApply: true
 
 ## 參考
 
+- **進度 handoff：** `docs/PROGRESS-promo-camera-app-store.md`
 - 隔離層：`docs/PLAN-promo-camera-app-isolation-layer.md`
 - Capacitor：`docs/PLAN-promo-camera-capacitor-app.md`
 - 歷史還原：`e3c5e6c`

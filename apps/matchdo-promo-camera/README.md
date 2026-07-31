@@ -54,5 +54,6 @@ Store 版打 **`https://matchdo.cc/api/*`**（`store/capacitor-boot.js` 改寫 f
 
 ## 參考
 
+- **進度 handoff：** `docs/PROGRESS-promo-camera-app-store.md`
 - 隔離層：`docs/PLAN-promo-camera-app-isolation-layer.md`
 - 完整規劃：`docs/PLAN-promo-camera-capacitor-app.md`

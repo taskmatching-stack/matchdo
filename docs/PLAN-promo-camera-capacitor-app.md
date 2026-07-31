@@ -1,7 +1,8 @@
 # 攝影模擬 Store App（Capacitor · 作法 B）— 規劃與工時
 
-> **更新**：2026-07-31  
-> **狀態**：已決案 · 待實作  
+> **更新**：2026-08-01  
+> **狀態**：已決案 · **C0～C1 部分完成**（Android 本機可跑；上架／IAP 日後）  
+> **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)
 > **範圍**：**只包** [`https://matchdo.cc/promo-camera-app`](https://matchdo.cc/promo-camera-app) 一頁（及其靜態依賴），**不包**整站 MatchDO。  
 > **相關**：[PLAN-promo-advanced-camera.md §8](PLAN-promo-advanced-camera.md)、[promo-camera-app-isolation](../.cursor/rules/promo-camera-app-isolation.mdc)
 
@@ -387,14 +388,18 @@ Android 與 iOS **共用同一套 `www/`**；差別只在原生殼、權限、IA
 
 ## 10. 待辦（backlog）
 
-- [ ] 建立 `apps/matchdo-promo-camera/` + Capacitor init  
-- [ ] `scripts/sync-www.mjs`（§4 允許清單）  
-- [ ] `www/config/app-config.js`（API origin）  
+- [x] 建立 `apps/matchdo-promo-camera/` + Capacitor init（`ff6e3ce`）  
+- [x] `scripts/sync-www.mjs`（§4 允許清單）  
+- [x] API origin（`store/capacitor-boot.js`，sync 注入 www）  
+- [x] Android 本機模擬器可開頁（Pixel 7 已驗證）  
+- [x] Windows 中文路徑 Gradle patch（`patch-android-gradle.mjs`）  
+- [ ] `sync-www` 納入 `pwa-install-prompt.js`（L3b 新增後接續）  
 - [ ] 登入 deep link 方案定稿  
 - [ ] IAP 商品表 + `POST /api/payment/iap/verify` 規格  
-- [ ] Android 內測 APK  
+- [ ] Android 內測 APK／AAB 上 Play  
 - [ ] Codemagic iOS pipeline（§7.4 輕量、個人免費額）  
 - [ ] Store 上架素材  
+- [x] 線上 PWA iOS／Android「加入主畫面」引導（`pwa-install-prompt.js`）
 
 ---
 
@@ -405,3 +410,4 @@ Android 與 iOS **共用同一套 `www/`**；差別只在原生殼、權限、IA
 | 2026-07-31 | 初版：作法 B 定案、允許清單、工時、無 Mac 雙平台評估 |
 | 2026-07-31 | §7.5：Flutter vs Capacitor（無 Mac 誤解、三種 Flutter 用法、工時對照） |
 | 2026-07-31 | §7.2 雲 Mac 費用明細、§7.4 輕量偶爾打包定案與流程；§1 補充使用型態 |
+| 2026-08-01 | §10 勾選 C0～C1 完成項；PROGRESS handoff；PWA 加入主畫面引導 |

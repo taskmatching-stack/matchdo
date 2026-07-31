@@ -702,3 +702,52 @@ body.pc-app-shell.pc-embed-design #promo-camera-app {
 body.pc-app-shell.pc-embed-design.pc-has-generate-dock .pc-app-container {
   padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
+
+/* PWA 加入主畫面引導（iOS Safari / Android Chrome） */
+.pc-pwa-install-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1080;
+  padding: 0 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+.pc-pwa-install-sheet:not(.d-none) {
+  pointer-events: auto;
+}
+.pc-pwa-install-card {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 1rem 1.1rem 0.75rem;
+  border-radius: 1rem 1rem 0.75rem 0.75rem;
+  background: #fff;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(122, 143, 163, 0.25);
+}
+.pc-pwa-install-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.65rem;
+  color: var(--md-text, #3d4a56);
+}
+.pc-pwa-install-steps {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--md-text-muted, #5c6b78);
+}
+.pc-pwa-install-steps li + li {
+  margin-top: 0.35rem;
+}
+.pc-pwa-install-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+body.pc-pwa-install-open.pc-has-generate-dock .pc-generate-dock {
+  z-index: 1070;
+}
