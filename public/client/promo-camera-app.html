@@ -18,10 +18,16 @@
   <link href="/css/image-lightbox.css" rel="stylesheet" />
   <link href="/css/promo-camera.css?v=20260731a" rel="stylesheet" />
   <link href="/css/promo-camera-presets.css?v=20260731a" rel="stylesheet" />
-  <link href="/css/promo-camera-app.css?v=20260731w" rel="stylesheet" />
+  <link href="/css/promo-camera-app.css?v=20260801a" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
+<script>
+(function () {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('embed') === 'design') document.body.classList.add('pc-embed-design');
+})();
+</script>
   <header class="pc-app-topbar" aria-label="App 標題列">
     <div class="pc-app-topbar-inner">
       <div class="pc-app-brand">
@@ -306,7 +312,7 @@
   <script src="/js/digital-asset-picker.js?v=1"></script>
   <script src="/js/image-lightbox.js?v=20260731v"></script>
   <script src="/js/promo-camera/api.js?v=20260731d"></script>
-  <script src="/js/promo-camera/state.js?v=20260731d"></script>
+  <script src="/js/promo-camera/state.js?v=20260801a"></script>
   <script src="/js/promo-camera/index.js?v=20260731d"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
   <script src="/js/promo-camera/app-shell.js?v=20260731w"></script>

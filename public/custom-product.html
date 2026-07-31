@@ -1446,6 +1446,12 @@
         #custom-product .promo-camera-link a { color: #7A8FA3; text-decoration: none; font-weight: 500; }
         #custom-product .promo-camera-embed-wrap { width: 100%; border-radius: 12px; overflow: hidden; background: #f8f9fa; }
         #custom-product .promo-camera-embed-wrap iframe { display: block; width: 100%; height: min(85vh, 920px); min-height: 720px; border: 0; }
+        @media (max-width: 991px) {
+            #custom-product .promo-camera-embed-wrap iframe {
+                height: calc(100dvh - 10.5rem);
+                min-height: 520px;
+            }
+        }
         #custom-product .promo-image-result { background: #fafafa; border: none; border-radius: 12px; }
         @media (max-width: 768px) {
             #custom-product .promo-field-grid { grid-template-columns: 1fr; }

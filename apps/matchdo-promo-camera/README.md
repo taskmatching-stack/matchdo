@@ -8,6 +8,12 @@
 - Android Studio + JDK（Android 本機建置）
 - iOS：需 macOS 或 Codemagic（見 `docs/PLAN-promo-camera-capacitor-app.md` §7）
 
+### Windows 路徑含中文
+
+若 repo 在 `D:\AI建站\...` 等非 ASCII 路徑，Android 預設會建置失敗。  
+`npm run cap:sync` 會自動在 `android/gradle.properties` 加入 `android.overridePathCheck=true`。  
+若仍失敗，可將整個 repo 移到例如 `D:\matchdo\ai-matching`（純英文路徑）。
+
 ## 第一次設定
 
 ```bash

@@ -5700,7 +5700,10 @@ $(document).ready(function () {
         var frame = document.getElementById('promoCameraEmbedFrame');
         if (!frame || frame.getAttribute('data-loaded') === '1') return;
         var lang = (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') ? '&lang=en' : '';
-        frame.src = '/promo-camera?embed=design' + lang;
+        var mobile = window.matchMedia && window.matchMedia('(max-width: 991px)').matches;
+        frame.src = mobile
+            ? ('/promo-camera-app?embed=design' + lang)
+            : ('/promo-camera?embed=design' + lang);
         frame.setAttribute('data-loaded', '1');
     }
     // 動態網址：?tab=product-design | scene-sim | pattern-extract | design-to-physical

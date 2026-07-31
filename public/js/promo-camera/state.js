@@ -252,8 +252,8 @@
     hidden.forEach(function (cat) { delete cam[cat]; });
     var clientChannel = 'web';
     if (document.body && document.body.classList) {
-      if (document.body.classList.contains('pc-app-shell')) clientChannel = 'app';
-      else if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
+      if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
+      else if (document.body.classList.contains('pc-app-shell')) clientChannel = 'app';
     }
     return {
       images: state.images.slice(),

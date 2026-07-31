@@ -681,3 +681,25 @@ body.pc-app-shell .pc-app-credits-meta {
     display: none;
   }
 }
+
+/* 設計頁 iframe（custom-product tab=promo-camera 行動版）：保留外層 MatchDO 頂部與分頁，僅隱藏 App 內重複頂欄 */
+body.pc-app-shell.pc-embed-design {
+  min-height: 0;
+  background: #f8f9fa !important;
+}
+body.pc-app-shell.pc-embed-design .pc-app-topbar,
+body.pc-app-shell.pc-embed-design .pc-app-footnote {
+  display: none !important;
+}
+body.pc-app-shell.pc-embed-design .pc-app-container {
+  padding-top: 0.35rem;
+  padding-bottom: 0.25rem;
+  max-width: 100%;
+}
+body.pc-app-shell.pc-embed-design #promo-camera-app {
+  min-height: 0;
+}
+body.pc-app-shell.pc-embed-design .pc-generate-dock {
+  position: sticky;
+  bottom: 0;
+}
