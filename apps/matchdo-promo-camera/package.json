@@ -1,0 +1,27 @@
+{
+  "name": "matchdo-promo-camera",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MATCHDO 攝影模擬 Store App（Capacitor L4）",
+  "scripts": {
+    "sync:www": "node scripts/sync-www.mjs",
+    "cap:sync": "npm run sync:www && npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:run:android": "npm run cap:sync && npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/browser": "^6.0.5",
+    "@capacitor/camera": "^6.1.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/splash-screen": "^6.0.3",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@supabase/supabase-js": "2.39.7",
+    "bootstrap": "5.0.0",
+    "bootstrap-icons": "1.11.0"
+  }
+}

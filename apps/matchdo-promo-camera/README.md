@@ -1,29 +1,52 @@
-# Matchdo 攝影模擬 — Store App（L4）
+# MATCHDO 攝影模擬 — Store App（Capacitor L4）
 
-**Capacitor／App Store 專用工作區。不是線上 `/promo-camera-app`。**
+**不是**線上 [`/promo-camera-app`](https://matchdo.cc/promo-camera-app)。線上 PWA 凍結；Store 版在此目錄開發。
 
-## 基準
+## 需求
 
-與雲端一致之 commit：`f5dceeb`（見 `docs/PLAN-promo-camera-app-isolation-layer.md`）。
+- Node.js 18+
+- Android Studio + JDK（Android 本機建置）
+- iOS：需 macOS 或 Codemagic（見 `docs/PLAN-promo-camera-capacitor-app.md` §7）
 
-## 凍結（Store 前置期間勿改）
+## 第一次設定
 
-- `/promo-camera`、`/promo-camera?embed=design`
-- `/promo-camera-app`（`promo-camera-app.html`、`promo-camera-app.css`、`app-shell.js`）
+```bash
+cd apps/matchdo-promo-camera
+npm install
+npm run sync:www
+npx cap add android
+npm run cap:sync
+```
 
-## 下一步（Capacitor init 時再做）
+## 日常開發
 
-1. 讀 `docs/PLAN-promo-camera-app-isolation-layer.md`
-2. 讀 `docs/PLAN-promo-camera-capacitor-app.md` §1A（B+ 原生插件）
-3. 在本目錄 `npx @capacitor/cli init`
-4. 複製 `public/client/promo-camera-app*`、`public/css/promo-camera-app.css` 等至 `www/`（快照，不直接改 L3b 源檔）
-5. Store bundle 額外載入：
-   - `/js/promo-camera/app-runtime.js`
-   - `/js/promo-camera/app-native-bridge.js`（待建）
+```bash
+cd apps/matchdo-promo-camera
+npm run cap:run:android
+```
 
-## L4 專用 JS（repo 根目錄，未掛線上 PWA）
+或同步後用 Android Studio 開啟：
 
-| 檔案 | 用途 |
-|------|------|
-| `public/js/promo-camera/app-runtime.js` | channel、Capacitor 殼偵測 |
-| `public/js/promo-camera/app-native-bridge.js` | 原生 API 橋（待建） |
+```bash
+npm run cap:sync
+npm run cap:open:android
+```
+
+## `www/` 怎麼來
+
+**不要手改 `www/`。** 執行 `npm run sync:www` 會：
+
+1. 自 `public/client/promo-camera-app.html` 產生 `www/index.html`（相對路徑、去 CDN）
+2. 複製 CSS/JS/圖/locales（**不修改** repo 內 L3 源檔）
+3. 在 `www/` 副本 patch 登入／儲值連結 → `https://matchdo.cc/...`
+4. 注入 L4：`store/capacitor-boot.js`、`app-runtime.js`、`app-native-bridge.js`
+5. Vendor Bootstrap 5.0.0、Bootstrap Icons、Supabase JS
+
+## API
+
+Store 版打 **`https://matchdo.cc/api/*`**（`store/capacitor-boot.js` 改寫 fetch）。後端仍用現有 Cloud Run，無需另 deploy API。
+
+## 參考
+
+- 隔離層：`docs/PLAN-promo-camera-app-isolation-layer.md`
+- 完整規劃：`docs/PLAN-promo-camera-capacitor-app.md`
