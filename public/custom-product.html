@@ -620,29 +620,39 @@
             #custom-product #designTabs { margin-bottom: 0.5rem !important; }
             #custom-product .create-panel { grid-template-columns: 1fr; padding: 0.75rem; gap: 0.75rem; }
 
-            /* 1. 結果畫布置頂：1:1 正方形
-               注意：全域 .create-panel-right 在本 @media 之後（覆蓋），故加 !important */
+            /* 1. 結果畫布：無圖時不佔大塊空白；有圖／生成中才展開 */
             #custom-product .create-panel-right {
                 order: -1 !important;
                 width: 100% !important;
                 max-width: 100% !important;
-                aspect-ratio: 1 !important;
                 min-height: unset !important;
-                height: unset !important;
+                height: auto !important;
                 margin: 0 auto !important;
                 overflow: hidden !important;
+                aspect-ratio: unset !important;
+            }
+            #custom-product .create-panel-right:not(.has-result):not(.is-loading) {
+                display: none !important;
+            }
+            #custom-product .create-panel-right.is-loading,
+            #custom-product .create-panel-right.has-result {
+                display: flex !important;
+            }
+            #custom-product .create-panel-right.is-loading {
+                aspect-ratio: 1 !important;
+            }
+            #custom-product .create-panel-right.has-result {
+                padding: 0.5rem !important;
             }
             /* 畫布內的資產庫在手機版隱藏（避免撐高），改由下方獨立顯示 */
             #custom-product .create-panel-right #pastGeneratedGallery {
                 display: none !important;
             }
 
-            /* 初始狀態文字更新為手機引導語 */
+            /* 初始狀態：畫布隱藏，不需額外 placeholder */
             #custom-product #generatedImagePlaceholder::before {
-                content: '⬆️ 結果會出現在這裡';
-                display: block;
-                font-size: 1rem;
-                margin-bottom: 0.4rem;
+                content: none;
+                display: none;
             }
 
             /* 生成中：脈衝光波 */
