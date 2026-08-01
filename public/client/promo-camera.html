@@ -11,7 +11,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="/css/image-lightbox.css" rel="stylesheet" />
   <link href="/css/promo-camera.css?v=20260731a" rel="stylesheet" />
-  <link href="/css/promo-camera-presets.css?v=20260801a" rel="stylesheet" />
+  <link href="/css/promo-camera-presets.css?v=20260801b" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light">
@@ -35,26 +35,28 @@
       <span class="text-muted small">build: <span id="pcBuildTag"></span></span>
     </div>
     <p class="text-muted small" id="pcPricingIntro" data-i18n="promoCamera.pricingLoading">載入點數規則中…</p>
-    <div class="pc-preset-bar mb-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="pcPresetOpenBtn">
-        <i class="bi bi-sliders"></i> <span data-i18n="promoCamera.presetManage">攝影參數</span>
-      </button>
-      <div class="pc-preserve-subjects-wrap">
-        <label class="pc-preserve-subjects-label small mb-0" for="pcPreserveSubjects">
-          <span data-i18n="promoCamera.preserveSubjectsLabel">是否保留人物或動物</span>
-        </label>
-        <select id="pcPreserveSubjects" class="form-select form-select-sm pc-preserve-subjects-select" aria-describedby="pcPreserveSubjectsHint">
-          <option value="keep" data-i18n="promoCamera.preserveSubjectsKeep">保留</option>
-          <option value="exclude" data-i18n="promoCamera.preserveSubjectsExclude">不含</option>
-        </select>
-      </div>
-    </div>
-
     <div class="pc-layout">
       <section class="pc-chat-panel" aria-label="對話區">
         <div id="pcChatMessages" class="pc-chat-messages"></div>
         <div id="pcResultArea" class="pc-result-slot d-none" aria-label="生成結果"></div>
         <div class="pc-chat-compose">
+          <div class="pc-settings-card mb-2">
+            <button type="button" class="pc-settings-row pc-settings-row--action" id="pcPresetOpenBtn">
+              <span class="pc-settings-row-label">
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+                <span data-i18n="promoCamera.presetManage">攝影參數</span>
+              </span>
+              <i class="bi bi-chevron-right pc-settings-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="pc-settings-row pc-settings-row--select">
+              <label class="pc-settings-field-label" for="pcPreserveSubjects" data-i18n="promoCamera.preserveSubjectsLabel">是否保留人物或動物</label>
+              <select id="pcPreserveSubjects" class="pc-settings-inline-select" aria-describedby="pcPreserveSubjectsHint">
+                <option value="keep" data-i18n="promoCamera.preserveSubjectsKeep">保留</option>
+                <option value="exclude" data-i18n="promoCamera.preserveSubjectsExclude">不含</option>
+                <option value="prompt" data-i18n="promoCamera.preserveSubjectsPrompt">依提示詞創作</option>
+              </select>
+            </div>
+          </div>
           <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
           <div class="d-flex flex-wrap gap-2 mb-2">
             <label class="btn btn-sm btn-outline-secondary mb-0">
@@ -197,7 +199,7 @@
   <script src="/js/image-lightbox.js?v=20260731v"></script>
   <script src="/js/promo-camera/api.js?v=20260731d"></script>
   <script src="/js/promo-camera/state.js?v=20260801b"></script>
-  <script src="/js/promo-camera/index.js?v=20260801b"></script>
+  <script src="/js/promo-camera/index.js?v=20260801d"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
   <script src="/js/site-footer.js"></script>
 </body>

@@ -150,22 +150,22 @@ body.pc-app-shell .pc-compose-toggle {
   align-items: center;
   gap: 0.5rem;
   border: none;
-  border-radius: 14px;
-  background: var(--pc-white);
-  padding: 0.875rem 1rem;
-  box-shadow: 0 1px 3px rgba(74, 85, 104, 0.06);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--pc-text);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
   text-align: left;
   cursor: pointer;
   margin: 0;
 }
 body.pc-app-shell .pc-compose-toggle:hover {
-  background: var(--pc-primary-softer);
+  background: transparent;
 }
 body.pc-app-shell .pc-compose-toggle.is-open {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0;
 }
 body.pc-app-shell .pc-compose-summary {
   flex: 1 1 auto;
@@ -178,11 +178,84 @@ body.pc-app-shell .pc-compose-summary {
   color: var(--pc-text-muted);
 }
 body.pc-app-shell .pc-compose-toggle-icon {
-  color: var(--pc-text-muted);
+  flex: 0 0 auto;
+  color: var(--pc-text-light);
+  font-size: 0.75rem;
   transition: transform 0.2s ease;
 }
 body.pc-app-shell .pc-compose-toggle.is-open .pc-compose-toggle-icon {
   transform: rotate(180deg);
+}
+body.pc-app-shell .pc-app-settings-block {
+  margin-bottom: 0.625rem;
+}
+body.pc-app-shell .pc-app-row--action {
+  width: 100%;
+  border: none;
+  background: var(--pc-white);
+  color: var(--pc-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+body.pc-app-shell .pc-app-row--action:hover:not(:disabled) {
+  background: var(--pc-primary-softer);
+}
+body.pc-app-shell .pc-app-row--action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+body.pc-app-shell .pc-app-row-action-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+body.pc-app-shell .pc-app-row-action-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+body.pc-app-shell .pc-app-row--action .pc-compose-toggle-label {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--pc-text);
+}
+body.pc-app-shell .pc-app-row--action .pc-compose-summary {
+  width: 100%;
+  text-align: left;
+}
+body.pc-app-shell .pc-app-row--select {
+  min-width: 0;
+}
+body.pc-app-shell .pc-app-inline-select {
+  flex: 1 1 auto;
+  max-width: 58%;
+  min-width: 0;
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--pc-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: right;
+  text-align-last: right;
+  padding: 0.35rem 1.35rem 0.35rem 0.25rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23A8B2BD' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.1rem center;
+  background-size: 0.65rem;
+}
+body.pc-app-shell .pc-app-inline-select:focus {
+  outline: none;
+  box-shadow: none;
 }
 body.pc-app-shell .pc-compose-body.is-collapsed {
   display: none;

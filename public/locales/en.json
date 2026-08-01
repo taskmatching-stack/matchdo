@@ -1114,6 +1114,8 @@
   "promoCamera.preserveSubjectsLabel": "Keep people or animals",
   "promoCamera.preserveSubjectsKeep": "Keep",
   "promoCamera.preserveSubjectsExclude": "Exclude",
+  "promoCamera.preserveSubjectsPrompt": "From prompt",
+  "promoCamera.appSectionSettings": "Generation settings",
   "promoCamera.pwaInstallTitle": "Add to Home Screen for an app-like experience",
   "promoCamera.pwaInstallIosStep1": "1. Tap the Share button at the bottom of Safari",
   "promoCamera.pwaInstallIosStep2": "2. Choose \"Add to Home Screen\"",

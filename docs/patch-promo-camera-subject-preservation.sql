@@ -24,7 +24,12 @@ INSERT INTO public.promo_camera_param_options (category, key, name, name_en, des
  '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。',
  'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.',
  'Do not include people, hands, body parts, pets, or animals from the reference image in the output; show only the product and an appropriate neutral environment; remove any human or animal subjects even if they appear in the reference',
- 20, false)
+ 20, false),
+('subject_preservation', 'prompt', '依提示詞創作人物／動物', 'Compose people & animals from prompt',
+ '不複製源圖人物或動物；若描述中有寫人物／動物，才依提示詞全新創作。',
+ 'Do not copy people or animals from the reference; include human or animal subjects only when explicitly described in your prompt, composed freshly.',
+ 'Do not copy people, hands, body parts, pets, or animals from the reference image; omit any human or animal subjects from the reference unless the user prompt explicitly describes new people or animals to include, in which case compose those subjects freshly according to the prompt rather than copying the reference subjects',
+ 30, false)
 ON CONFLICT (category, key) DO UPDATE SET
   name = EXCLUDED.name,
   name_en = EXCLUDED.name_en,

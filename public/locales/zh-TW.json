@@ -1154,6 +1154,8 @@
   "promoCamera.preserveSubjectsLabel": "是否保留人物或動物",
   "promoCamera.preserveSubjectsKeep": "保留",
   "promoCamera.preserveSubjectsExclude": "不含",
+  "promoCamera.preserveSubjectsPrompt": "依提示詞創作",
+  "promoCamera.appSectionSettings": "生成設定",
   "promoCamera.pwaInstallTitle": "加入主畫面，像 App 一樣使用",
   "promoCamera.pwaInstallIosStep1": "1. 點 Safari 底部分享按鈕",
   "promoCamera.pwaInstallIosStep2": "2. 選「加入主畫面」",
