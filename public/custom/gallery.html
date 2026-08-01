@@ -264,8 +264,16 @@
 
     // ── 狀態 ──────────────────────────────────────────────────────────────
     let _rawItems = [];
+    let _rawItemsById = {};
     let _lastAssetItems = [];
     let _applyFiltersGen = 0;
+    let _portfolioGridBuilt = false;
+    let _gridClickBound = false;
+    let _galleryAuthHeaders = null;
+    let _galleryAuthPromise = null;
+    let _assetCacheByCat = new Map();
+    let _categoryKeysCache = { sig: '', keys: [] };
+    const PORTFOLIO_VISIBILITY_MAX = 600;
     let categoryList = [];
     let selCat = '';             // 選中的大分類 key
     let selSub = '';             // 選中的小分類 key
@@ -350,19 +358,25 @@
 
     /** 與首頁媒體牆一致：主分類 + 子分類 key，並比對作品列上的 category_key（舊資料常只有作品有分類） */
     function getCategoryKeysToMatch() {
-        if (!selCat) return [];
+        const sig = selCat + '|' + selSub;
+        if (_categoryKeysCache.sig === sig) return _categoryKeysCache.keys;
+        if (!selCat) {
+            _categoryKeysCache = { sig: sig, keys: [] };
+            return _categoryKeysCache.keys;
+        }
         const primary = String(selCat).split('&')[0].trim() || selCat;
         const keys = new Set([selCat, primary]);
         const cat = categoryList.find(c => c.key === primary || c.key === selCat);
         if (cat && cat.subcategories) {
             cat.subcategories.forEach(s => { if (s.key) keys.add(s.key); });
         }
-        return [...keys];
+        _categoryKeysCache = { sig: sig, keys: [...keys] };
+        return _categoryKeysCache.keys;
     }
 
     function portfolioMatchesCategory(p) {
         if (!selCat && !selSub) return true;
-        const mfrCats = p.categories || [];
+        const mfrCats = p.categories || p.manufacturer_categories || [];
         if (selSub) {
             const subPrimary = String(selSub).split('&')[0].trim() || selSub;
             return (p.subcategory_key === selSub || p.subcategory_key === subPrimary) ||
@@ -430,36 +444,59 @@
     }
 
     async function galleryVendorAssetsFetchOpts() {
-        const opts = { cache: 'no-store' };
-        try {
-            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
-                const s = await window.AuthService.getSession();
-                if (s && s.access_token) opts.headers = { Authorization: 'Bearer ' + s.access_token };
-            }
-        } catch (e) { /* ignore */ }
+        const opts = {};
+        if (_galleryAuthHeaders) {
+            opts.headers = _galleryAuthHeaders;
+            return opts;
+        }
+        if (!_galleryAuthPromise) {
+            _galleryAuthPromise = (async function () {
+                try {
+                    if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
+                        const s = await window.AuthService.getSession();
+                        if (s && s.access_token) {
+                            _galleryAuthHeaders = { Authorization: 'Bearer ' + s.access_token };
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            })();
+        }
+        await _galleryAuthPromise;
+        if (_galleryAuthHeaders) opts.headers = _galleryAuthHeaders;
         return opts;
+    }
+
+    function filterGalleryPrototypeAssets(items) {
+        return (items || []).filter(function (x) {
+            if (!x || !x.image_url) return false;
+            const k = String(x.asset_kind || 'prototype').trim().toLowerCase();
+            return !k || k === 'prototype';
+        });
     }
 
     async function fetchVendorAssetsForManufacturer(mfrId) {
         if (!mfrId) return [];
-        const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
+        const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&asset_kind=prototype';
         const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
-        return (d.items || []).filter(x => x && x.image_url);
+        return filterGalleryPrototypeAssets(d.items);
     }
 
     async function fetchVendorAssetsForGallery() {
         if (!selCat && !selCustomizationLevels.length) return [];
         const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
         if (!catKey) return [];
-        let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
+        const cacheKey = catKey + '|' + selCustomizationLevels.join(',');
+        if (_assetCacheByCat.has(cacheKey)) return _assetCacheByCat.get(cacheKey);
+        let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey) + '&asset_kind=prototype';
         if (selCustomizationLevels.length) {
             url += '&customization_levels=' + encodeURIComponent(selCustomizationLevels.join(','));
-            url += '&asset_kind=prototype';
         }
         const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
-        return (d.items || []).filter(x => x && x.image_url);
+        const items = filterGalleryPrototypeAssets(d.items);
+        _assetCacheByCat.set(cacheKey, items);
+        return items;
     }
 
     async function fetchVendorAssetsForCustomizationFilter() {
@@ -467,10 +504,10 @@
         const levels = selCustomizationLevels.join(',');
         const opts = await galleryVendorAssetsFetchOpts();
         async function fetchOne(baseUrl) {
-            let url = baseUrl + '&customization_levels=' + encodeURIComponent(levels) + '&asset_kind=prototype';
+            let url = baseUrl + '&asset_kind=prototype&customization_levels=' + encodeURIComponent(levels);
             const r = await fetch(url, opts);
             const d = await r.json();
-            return (d.items || []).filter(x => x && x.image_url);
+            return filterGalleryPrototypeAssets(d.items);
         }
         if (scopeMfrId) return fetchOne('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(scopeMfrId));
         const catKeys = selCat
@@ -508,6 +545,82 @@
         if ($empty) $empty.classList.toggle('d-none', total > 0);
     }
 
+    function indexRawItems() {
+        _rawItemsById = {};
+        (_rawItems || []).forEach(function (p) {
+            if (p && p.id != null) _rawItemsById[String(p.id)] = p;
+        });
+    }
+
+    function portfolioItemMatchesFilters(p, kw) {
+        if (!p || p.id === 'demo-1') return false;
+        if (scopeMfrId && (p.manufacturer_id || '') !== scopeMfrId) return false;
+        if ((selCat || selSub) && !portfolioMatchesCategory(p)) return false;
+        if (selAreaCodes.length && !locMatchArea(p.manufacturer_location)) return false;
+        if (kw) {
+            return (p.title || '').toLowerCase().includes(kw) ||
+                (p.manufacturer_name || '').toLowerCase().includes(kw) ||
+                (p.manufacturer_location || '').toLowerCase().includes(kw) ||
+                (p.tags || []).some(function (t) { return String(t).toLowerCase().includes(kw); });
+        }
+        return true;
+    }
+
+    function buildPortfolioCardHtml(p) {
+        const title = esc(p.title || '未命名作品');
+        const mfr = esc(p.manufacturer_name || '');
+        const loc = esc(p.manufacturer_location || '');
+        const img = p.image_url ? esc(p.image_url) : '';
+        const tags = (p.tags || []).slice(0, 3).map(function (t) { return '<span class="badge bg-light text-dark me-1">' + esc(t) + '</span>'; }).join('');
+        return '<div class="col-sm-6 col-md-4 col-lg-3 gallery-col-portfolio" data-id="' + esc(p.id) + '">' +
+            '<div class="card h-100 border-0 shadow-sm gallery-card" data-id="' + esc(p.id) + '" style="cursor:pointer;">' +
+            '<div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">' +
+            (img ? '<img src="' + img + '" alt="' + title + '" class="object-fit-cover" loading="lazy" decoding="async" onerror="this.style.background=\'#eee\';this.alt=\'無圖\';" />' :
+                '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>') +
+            '</div><div class="card-body py-2">' +
+            '<h6 class="card-title small text-truncate mb-0">' + title + '</h6>' +
+            '<p class="card-text small text-muted mb-0">' + mfr + (loc ? ' <span class="text-secondary">· ' + loc + '</span>' : '') + '</p>' +
+            (tags ? '<div class="mt-1">' + tags + '</div>' : '') +
+            '</div></div></div>';
+    }
+
+    function renderPortfolioGridOnce() {
+        if (!$grid || _portfolioGridBuilt) return;
+        var list = (_rawItems || []).filter(function (x) { return x && x.id !== 'demo-1'; });
+        $grid.innerHTML = list.map(buildPortfolioCardHtml).join('');
+        _portfolioGridBuilt = true;
+        bindGridClickDelegation();
+        $grid.classList.remove('d-none');
+    }
+
+    function applyPortfolioVisibility() {
+        if (!$grid || !_portfolioGridBuilt) return 0;
+        var kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
+        var visible = 0;
+        $grid.querySelectorAll('.gallery-col-portfolio').forEach(function (col) {
+            var p = _rawItemsById[col.dataset.id];
+            var show = portfolioItemMatchesFilters(p, kw);
+            col.classList.toggle('d-none', !show);
+            if (show) visible++;
+        });
+        return visible;
+    }
+
+    function bindGridClickDelegation() {
+        if (!$grid || _gridClickBound) return;
+        _gridClickBound = true;
+        $grid.addEventListener('click', function (e) {
+            var card = e.target.closest('.gallery-card');
+            if (!card || !card.dataset.id) return;
+            if (card.classList.contains('gallery-card-asset')) openAssetModal(card.dataset.id);
+            else openModal(card.dataset.id);
+        });
+    }
+
+    function invalidatePortfolioGrid() {
+        _portfolioGridBuilt = false;
+    }
+
     // 作品篩選不變；訂製程度篩選時一併顯示符合廠商之作品與素材
     async function applyFilters() {
         const gen = ++_applyFiltersGen;
@@ -515,10 +628,11 @@
         let assetList = [];
 
         if (selCustomizationLevels.length) {
+            invalidatePortfolioGrid();
             try {
                 const rawAssets = await fetchVendorAssetsForCustomizationFilter();
                 if (gen !== _applyFiltersGen) return;
-                const mfrSet = new Set(rawAssets.map(a => a.manufacturer_id).filter(Boolean));
+                const mfrSet = new Set(rawAssets.map(function (a) { return a.manufacturer_id; }).filter(Boolean));
                 portList = filterPortfolioItems(mfrSet);
                 assetList = filterAssetItems(rawAssets);
                 _lastAssetItems = assetList;
@@ -529,7 +643,8 @@
             }
         } else {
             portList = filterPortfolioItems();
-            if (portList.length === 0 && (selCat || scopeMfrId)) {
+            const needAssets = portList.length === 0 && (selCat || scopeMfrId);
+            if (needAssets) {
                 try {
                     const raw = scopeMfrId && !selCat
                         ? await fetchVendorAssetsForManufacturer(scopeMfrId)
@@ -547,15 +662,27 @@
 
         if (gen !== _applyFiltersGen) return;
 
-        if (portList.length) {
+        var portCount = portList.length;
+        var useVisibility = !selCustomizationLevels.length &&
+            portList.length > 0 &&
+            assetList.length === 0 &&
+            (_rawItems || []).length <= PORTFOLIO_VISIBILITY_MAX;
+
+        if (useVisibility) {
+            renderPortfolioGridOnce();
+            portCount = applyPortfolioVisibility();
+        } else if (portList.length) {
+            invalidatePortfolioGrid();
             renderGrid(portList);
             if (assetList.length && selCustomizationLevels.length) appendAssetCardsToGrid(assetList);
         } else if (assetList.length) {
+            invalidatePortfolioGrid();
             renderAssetGrid(assetList);
         } else {
+            invalidatePortfolioGrid();
             if ($grid) $grid.innerHTML = '';
         }
-        updateFilterUi(portList.length, assetList.length);
+        updateFilterUi(portCount, assetList.length);
     }
 
     // ── 大分類按鈕 ────────────────────────────────────────────────────────
@@ -569,8 +696,10 @@
         $cats.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
                 selCat = btn.dataset.catKey || '';
-                selSub = '';  // 換大分類時重置小分類
-                renderCategoryButtons();
+                selSub = '';
+                $cats.querySelectorAll('button').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
                 renderSubcategoryRow();
                 void applyFilters();
             });
@@ -739,11 +868,7 @@
     }
 
     function bindAssetCardClicks(root) {
-        (root || $grid).querySelectorAll('.gallery-card-asset').forEach(el => {
-            if (el.dataset.assetBound === '1') return;
-            el.dataset.assetBound = '1';
-            el.addEventListener('click', () => openAssetModal(el.dataset.id));
-        });
+        bindGridClickDelegation();
     }
 
     function appendAssetCardsToGrid(items) {
@@ -752,39 +877,20 @@
         bindAssetCardClicks($grid);
     }
 
-    // ── 圖牆渲染 ──────────────────────────────────────────────────────────
     function renderGrid(items) {
         if (!$grid) return;
-        $grid.innerHTML = (items||[]).map(p => {
-            const title = esc(p.title||'未命名作品');
-            const mfr = esc(p.manufacturer_name||'');
-            const loc = esc(p.manufacturer_location||'');
-            const img = p.image_url ? esc(p.image_url) : '';
-            const tags = (p.tags||[]).slice(0,3).map(t=>`<span class="badge bg-light text-dark me-1">${esc(t)}</span>`).join('');
-            return `<div class="col-sm-6 col-md-4 col-lg-3">
-                <div class="card h-100 border-0 shadow-sm gallery-card" data-id="${esc(p.id)}" style="cursor:pointer;">
-                    <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
-                        ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
-                    </div>
-                    <div class="card-body py-2">
-                        <h6 class="card-title small text-truncate mb-0">${title}</h6>
-                        <p class="card-text small text-muted mb-0">${mfr}${loc?' <span class="text-secondary">· '+loc+'</span>':''}</p>
-                        ${tags?`<div class="mt-1">${tags}</div>`:''}
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-        $grid.querySelectorAll('.gallery-card').forEach(el => {
-            el.addEventListener('click', () => openModal(el.dataset.id));
-        });
+        invalidatePortfolioGrid();
+        $grid.innerHTML = (items || []).map(buildPortfolioCardHtml).join('');
+        bindGridClickDelegation();
     }
 
     function renderAssetGrid(items) {
         if (!$grid) return;
+        invalidatePortfolioGrid();
         const intro = `<div class="col-12"><div class="alert alert-info py-2 small mb-2">${esc(T.assetsOnlyIntro)}</div></div>`;
         const cards = (items || []).map(buildAssetCardHtml).join('');
         $grid.innerHTML = intro + cards;
-        bindAssetCardClicks($grid);
+        bindGridClickDelegation();
     }
 
     // ── Modal ─────────────────────────────────────────────────────────────
@@ -901,7 +1007,6 @@
         } catch(_) {
             categoryList = [];
         }
-        renderCategoryButtons();
     }
 
     // ── 載入所有作品（只做一次，applyFilters 做所有篩選）────────────────
@@ -926,27 +1031,34 @@
             // 2. comparison 對比作品（補充；限定單一廠商時不混其他廠）
             let compItems = [];
             if (!scopeMfrId) {
-                try {
-                    const cr = await fetch('/api/gallery-items');
-                    const cd = await cr.json();
-                    compItems = (cd.items||[]).filter(x=>x.manufacturer_id);
-                } catch(_){}
+                if (Array.isArray(window.__GALLERY_ITEMS__) && window.__GALLERY_ITEMS__.length) {
+                    compItems = window.__GALLERY_ITEMS__.filter(function (x) { return x && x.manufacturer_id; });
+                } else {
+                    try {
+                        const cr = await fetch('/api/gallery-items');
+                        const cd = await cr.json();
+                        compItems = (cd.items || []).filter(function (x) { return x && x.manufacturer_id; });
+                    } catch (_) { /* ignore */ }
+                }
             }
 
             // 3. 合併（portfolio 優先，不重複）
             const seen = {};
-            portItems.forEach(x=>{ seen[x.id]=true; });
-            _rawItems = portItems.concat(compItems.filter(x=>!seen[x.id]));
+            portItems.forEach(function (x) { seen[x.id] = true; });
+            _rawItems = portItems.concat(compItems.filter(function (x) { return !seen[x.id]; }));
+            _rawItems.forEach(function (p) {
+                if (p && !p.categories && p.manufacturer_categories) {
+                    p.categories = p.manufacturer_categories;
+                }
+            });
+            indexRawItems();
+            invalidatePortfolioGrid();
 
             // 4. 完全沒資料才顯示 demo
             if (!_rawItems.length) _rawItems = [DEMO_ITEM];
-            await applyFilters();
         } catch(err) {
             console.error('圖庫載入失敗', err);
             _rawItems = [DEMO_ITEM];
-            await applyFilters();
-        } finally {
-            if ($loading) $loading.classList.add('d-none');
         }
     }
 
@@ -971,6 +1083,7 @@
         renderCategoryButtons();
         renderSubcategoryRow();
         await applyFilters();
+        if ($loading) $loading.classList.add('d-none');
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);

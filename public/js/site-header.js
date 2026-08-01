@@ -492,7 +492,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                         <div class="dropdown-menu nav-hover-menu">
                             <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '產品設計') + `</a>
                             <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
-                            <a href="/custom-product.html?tab=promo-image" class="dropdown-item"><i class="bi bi-bullhorn"></i>` + (t('nav.marketingVisuals') || '行銷影像') + `</a>
+                            <a href="/custom-product.html?tab=promo-image" class="dropdown-item"><i class="bi bi-megaphone"></i>` + (t('nav.marketingVisuals') || '行銷影像') + `</a>
                             <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
                         </div>
                     </div>

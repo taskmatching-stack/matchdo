@@ -15970,7 +15970,10 @@ app.get('/api/custom-products', async (req, res) => {
             });
         }
 
-        const selectFields = summaryOnly ? 'id' : '*';
+        const listOnly = req.query.list === '1' || req.query.list === 'true';
+        const selectFields = summaryOnly ? 'id' : (listOnly
+            ? 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, image_urls, manufacturing_status, open_for_manufacturing, category, category_key, subcategory_key'
+            : '*');
 
         const { data, error } = await supabase
             .from('custom_products')

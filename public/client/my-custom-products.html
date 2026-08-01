@@ -160,7 +160,7 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-promo" data-bs-toggle="tab" href="#pane-promo">
-                    <i class="bi bi-bullhorn me-1"></i>情境圖
+                    <i class="bi bi-megaphone me-1"></i>情境圖
                     <span class="badge bg-secondary ms-1" id="badgePromo">…</span>
                 </a>
             </li>
@@ -203,7 +203,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <p class="text-muted mb-0 small">產品情境圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
-                        <i class="bi bi-bullhorn me-1"></i>生成情境圖
+                        <i class="bi bi-megaphone me-1"></i>生成情境圖
                     </a>
                 </div>
                 <div id="promoLoading" class="text-center py-5">
@@ -212,11 +212,11 @@
                 </div>
                 <div id="promoList" class="row g-4" style="display:none;"></div>
                 <div id="promoEmpty" class="empty-state" style="display:none;">
-                    <i class="bi bi-bullhorn" style="font-size:4rem;color:#D8DEE6;"></i>
+                    <i class="bi bi-megaphone" style="font-size:4rem;color:#D8DEE6;"></i>
                     <h4 class="mt-3">尚無情境圖</h4>
                     <p>生成成功後會自動出現於此。若當時未寫入資料庫，請在生成結果按「儲存到數位資產庫」。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary mt-3">
-                        <i class="bi bi-bullhorn me-1"></i>去生成情境圖
+                        <i class="bi bi-megaphone me-1"></i>去生成情境圖
                     </a>
                 </div>
             </div>
@@ -327,6 +327,21 @@
             setText('emptyCreateBtnText', c.btnCreate);
         }
 
+        let promoLoaded = false;
+        let favsLoaded = false;
+
+        function ensurePromoTabLoaded() {
+            if (promoLoaded) return;
+            promoLoaded = true;
+            loadPromoCapabilities().then(loadPromoImages);
+        }
+
+        function ensureFavsTabLoaded() {
+            if (favsLoaded) return;
+            favsLoaded = true;
+            loadFavorites();
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             applyDesignDirectionView();
             const isAuth = await AuthMiddleware.requireAuth();
@@ -335,21 +350,28 @@
             const session = await AuthService.getSession();
             authToken = session?.access_token || null;
 
-            // 載入 tab 內容
             loadProducts();
-            loadPromoCapabilities().then(loadPromoImages);
-            loadFavorites();
+
+            var tabPromo = document.getElementById('tab-promo');
+            var tabFavs = document.getElementById('tab-favs');
+            if (tabPromo) tabPromo.addEventListener('shown.bs.tab', ensurePromoTabLoaded);
+            if (tabFavs) tabFavs.addEventListener('shown.bs.tab', ensureFavsTabLoaded);
 
             // ?tab=promo 直接開情境圖
             var tabParam = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
             if (tabParam === 'promo') {
-                var promoTab = document.getElementById('tab-promo');
-                if (promoTab && typeof bootstrap !== 'undefined') {
-                    bootstrap.Tab.getOrCreateInstance(promoTab).show();
+                if (tabPromo && typeof bootstrap !== 'undefined') {
+                    bootstrap.Tab.getOrCreateInstance(tabPromo).show();
+                } else {
+                    ensurePromoTabLoaded();
+                }
+            } else if (tabParam === 'favs') {
+                if (tabFavs && typeof bootstrap !== 'undefined') {
+                    bootstrap.Tab.getOrCreateInstance(tabFavs).show();
+                } else {
+                    ensureFavsTabLoaded();
                 }
             }
-
-            document.getElementById('tab-favs').addEventListener('shown.bs.tab', () => {});
         });
 
         async function loadPromoCapabilities() {
@@ -425,7 +447,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
@@ -542,7 +564,7 @@
                     throw new Error('未找到有效的登入 token');
                 }
 
-                const response = await fetch('/api/custom-products', {
+                const response = await fetch('/api/custom-products?list=1', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -577,14 +599,14 @@
         function renderProducts(products) {
             const container = document.getElementById('productsList');
             container.innerHTML = '';
-
-            products.forEach(product => {
-                const card = createProductCard(product);
-                container.appendChild(card);
+            const frag = document.createDocumentFragment();
+            products.forEach(function (product, idx) {
+                frag.appendChild(createProductCard(product, idx < 6));
             });
+            container.appendChild(frag);
         }
 
-        function createProductCard(product) {
+        function createProductCard(product, eagerImage) {
             const col = document.createElement('div');
             col.className = 'col-md-6 col-lg-4';
             col.dataset.productId = product.id;
@@ -603,9 +625,13 @@
                     ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>開放搜尋中</span>'
                     : '';
 
+            const imgAttrs = eagerImage
+                ? 'loading="eager" fetchpriority="high"'
+                : 'loading="lazy" decoding="async"';
+
             col.innerHTML = `
                 <div class="card product-card h-100">
-                    <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                    <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
                             <h5 class="card-title mb-0">${escapeHtml(product.title)}</h5>
@@ -839,7 +865,7 @@
                             : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
                         return `<div class="col-md-6 col-lg-4">
                             <div class="card product-card h-100">
-                                ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
+                                ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
                                 <div class="card-body d-flex flex-column">
                                     <div class="d-flex align-items-start justify-content-between mb-1">
                                         <h6 class="card-title mb-0 flex-grow-1">${escapeHtml(title)}</h6>
