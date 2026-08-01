@@ -11896,6 +11896,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
         const cameraCategoryRows = camResult.categories || [];
         const cameraUi = buildPromoCameraUiConfigFromCategories(cameraCategoryRows, lang);
         ensurePromoCameraAngleOptions(cameraParams, lang, cameraUi.angle_button_category || 'shooting_angle');
+        ensurePromoCameraSubjectOptions(cameraParams, lang);
         const cameraCategoryKeys = cameraCategoryRows.length
             ? cameraCategoryRows.filter(function (c) { return c.is_active !== false; }).map(function (c) { return c.key; })
             : PROMO_CAMERA_PARAM_CATEGORIES.slice();
@@ -13679,7 +13680,7 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
 }
 
 const PROMO_CAMERA_PARAM_CATEGORIES = [
-    'camera_brand', 'film_simulation', 'shooting_angle', 'aperture', 'exposure_ev',
+    'camera_brand', 'film_simulation', 'shooting_angle', 'subject_preservation', 'aperture', 'exposure_ev',
     'lens', 'aperture_blades'
 ];
 
@@ -13703,6 +13704,7 @@ const PROMO_CAMERA_UI_CONFIG = {
         exposure_ev: 'EV 曝光',
         lens: '鏡頭',
         shooting_angle: '拍攝角度',
+        subject_preservation: '人物／動物',
         focal_length: '焦段（legacy）',
         lens_type: '鏡頭類型（legacy）',
         aperture_blades: '光圈葉片'
@@ -13984,6 +13986,46 @@ function ensurePromoCameraAngleOptions(grouped, lang, angleCat) {
     return grouped;
 }
 
+/** DB 尚無 subject_preservation 種子時，仍提供「是否保留人物／動物」prompt */
+const PROMO_CAMERA_SUBJECT_FALLBACK_RAW = [
+    { key: 'keep', name: '保留人物／動物', name_en: 'Keep people & animals',
+        prompt_fragment: 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them faithfully in the output with the same roles, poses, and spatial relationship to the product; do not remove, replace, or invent new human or animal subjects',
+        description: '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.', sort_order: 10, is_default: true },
+    { key: 'exclude', name: '不含人物／動物', name_en: 'Exclude people & animals',
+        prompt_fragment: 'Do not include people, hands, body parts, pets, or animals from the reference image in the output; show only the product and an appropriate neutral environment; remove any human or animal subjects even if they appear in the reference',
+        description: '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。', description_en: 'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.', sort_order: 20 }
+];
+
+function getPromoCameraSubjectFallbackOptions(lang) {
+    return PROMO_CAMERA_SUBJECT_FALLBACK_RAW.map(function (row) {
+        return applyPromoCameraOptionLocale(Object.assign({
+            category: 'subject_preservation',
+            is_active: true,
+            meta: {}
+        }, row), lang);
+    });
+}
+
+function ensurePromoCameraSubjectOptions(grouped, lang) {
+    const cat = 'subject_preservation';
+    if (!grouped[cat]) grouped[cat] = [];
+    if (!grouped[cat].length) grouped[cat] = getPromoCameraSubjectFallbackOptions(lang);
+    return grouped;
+}
+
+function findPromoCameraSubjectFallbackRow(category, key, lang) {
+    const cat = String(category || '').trim();
+    const k = normalizePromoCameraParamKey(key);
+    if (!k || cat !== 'subject_preservation') return null;
+    const hit = PROMO_CAMERA_SUBJECT_FALLBACK_RAW.find(function (r) { return r.key === k; });
+    if (!hit) return null;
+    return applyPromoCameraOptionLocale(Object.assign({
+        category: cat,
+        is_active: true,
+        meta: {}
+    }, hit), lang);
+}
+
 function findPromoCameraAngleFallbackRow(category, key, lang) {
     const cat = String(category || '').trim();
     const k = normalizePromoCameraParamKey(key);
@@ -14189,7 +14231,8 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
                 .eq('key', k)
                 .maybeSingle();
             if (error || !data || data.is_active === false) {
-                const fb = findPromoCameraAngleFallbackRow(cat, k, 'en');
+                const fb = findPromoCameraAngleFallbackRow(cat, k, 'en')
+                    || findPromoCameraSubjectFallbackRow(cat, k, 'en');
                 if (fb) {
                     const frag = String(fb.prompt_fragment || '').trim();
                     if (frag) {
@@ -14222,6 +14265,7 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
  * 3. 使用者選取之 camera 參數 prompt_fragment（promo_camera_param_options，依分類 sort_order）
  *    - 品牌／底片互斥（sanitizePromoCameraKeys，僅送一種 look）
  *    - shooting_angle 僅在 DB 查無／停用時才用 PROMO_CAMERA_ANGLE_FALLBACK_RAW
+ *    - subject_preservation（人物／動物）僅在 DB 查無時才用 PROMO_CAMERA_SUBJECT_FALLBACK_RAW
  * 4. 使用者描述（原文，無前綴）
  *
  * 刻意不含：英文廣告底稿、photography_prompt_sets、包裝標籤、後端光學／角度包裝句。

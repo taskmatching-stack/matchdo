@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801a';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801b';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -85,6 +85,11 @@
     return base;
   }
 
+  var SUBJECT_FALLBACK = [
+    { key: 'keep', name: '保留', name_en: 'Keep', description: '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.' },
+    { key: 'exclude', name: '不含', name_en: 'Exclude', description: '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。', description_en: 'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.' }
+  ];
+
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', name_en: 'Keep reference angle', description: '維持參考圖中產品最完整的呈現視角，不另改拍攝角度。', description_en: 'Preserve the reference\'s most complete product presentation angle; do not reshoot from a different viewpoint.' },
     { key: 'hero_34', name: '45° 英雄角', name_en: 'Hero 3/4 angle', description: '同一產品改為 45° 英雄角，主視覺面清楚。', description_en: 'Reshoot the same product at a hero 3/4 angle with the primary selling face clearly visible.' },
@@ -120,6 +125,49 @@
     var fromApi = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[angleCat] || [] : [];
     if (fromApi.length) return fromApi;
     return ANGLE_FALLBACK;
+  }
+
+  function subjectOptionList() {
+    var subjectCat = St.getSubjectPreservationCategory ? St.getSubjectPreservationCategory() : 'subject_preservation';
+    var fromApi = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[subjectCat] || [] : [];
+    if (fromApi.length) return fromApi;
+    return SUBJECT_FALLBACK;
+  }
+
+  function fillPreserveSubjectsSelect() {
+    var sel = document.getElementById('pcPreserveSubjects');
+    if (!sel) return;
+    var subjectCat = St.getSubjectPreservationCategory ? St.getSubjectPreservationCategory() : 'subject_preservation';
+    var current = (St.get().camera || {})[subjectCat] || 'keep';
+    var list = subjectOptionList();
+    sel.innerHTML = list.map(function (row) {
+      var label = localizedOptionName(row);
+      return '<option value="' + esc(row.key) + '">' + esc(label) + '</option>';
+    }).join('');
+    if (list.some(function (r) { return r.key === current; })) sel.value = current;
+    else sel.value = list[0] ? list[0].key : 'keep';
+    refreshPreserveSubjectsHint();
+  }
+
+  function refreshPreserveSubjectsHint() {
+    var sel = document.getElementById('pcPreserveSubjects');
+    if (!sel) return;
+    var list = subjectOptionList();
+    var hit = list.find(function (r) { return r.key === sel.value; });
+    var hint = localizedOptionDescription(hit);
+    sel.title = hint || '';
+    sel.setAttribute('aria-label', t('promoCamera.preserveSubjectsLabel', '是否保留人物或動物'));
+  }
+
+  function bindPreserveSubjectsSelect() {
+    var sel = document.getElementById('pcPreserveSubjects');
+    if (!sel || sel.getAttribute('data-pc-bound') === '1') return;
+    sel.setAttribute('data-pc-bound', '1');
+    sel.addEventListener('change', function () {
+      var subjectCat = St.getSubjectPreservationCategory ? St.getSubjectPreservationCategory() : 'subject_preservation';
+      St.setCameraKey(subjectCat, sel.value);
+      refreshPreserveSubjectsHint();
+    });
   }
 
   var Api = window.PromoCameraApi;
@@ -544,6 +592,7 @@
 
   function bindEvents() {
     updateBackLink();
+    bindPreserveSubjectsSelect();
 
     document.getElementById('pcUploadInput').addEventListener('change', function (e) {
       var files = e.target.files;
@@ -670,6 +719,7 @@
     if (promptEl) promptEl.value = st.userPrompt || '';
     fillCameraSelects();
     renderAngleButtons();
+    fillPreserveSubjectsSelect();
     updateDimsHint();
     updateLcd();
     updatePoints();
@@ -687,6 +737,7 @@
       fillThemeSceneSelects();
       fillCameraSelects();
       renderAngleButtons();
+      fillPreserveSubjectsSelect();
     }
     renderMessages();
     refreshAngleHint();
@@ -716,6 +767,7 @@
       fillThemeSceneSelects();
       fillCameraSelects();
       renderAngleButtons();
+      fillPreserveSubjectsSelect();
       updateDimsHint();
       updateLcd();
       if (res.data.camera_migration_hint) {

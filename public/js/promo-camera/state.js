@@ -76,6 +76,10 @@
     return getUiConfig().angle_button_category || 'shooting_angle';
   }
 
+  function getSubjectPreservationCategory() {
+    return 'subject_preservation';
+  }
+
   function visibleCategories() {
     var hidden = getUiConfig().ui_hidden_categories || ['focal_length', 'lens_type'];
     var hiddenSet = {};
@@ -121,6 +125,10 @@
     var angleCat = getAngleCategory();
     if (!state.camera[angleCat]) {
       state.camera[angleCat] = defs[angleCat] || 'keep_reference';
+    }
+    var subjectCat = getSubjectPreservationCategory();
+    if (!state.camera[subjectCat]) {
+      state.camera[subjectCat] = defs[subjectCat] || 'keep';
     }
     delete state.camera.focal_length;
     delete state.camera.lens_type;
@@ -304,6 +312,7 @@
     getFilmLookCategory: getFilmLookCategory,
     getLensCategory: getLensCategory,
     getAngleCategory: getAngleCategory,
+    getSubjectPreservationCategory: getSubjectPreservationCategory,
     getCategoryLabel: getCategoryLabel,
     visibleCategories: visibleCategories,
     get: function () { return state; },

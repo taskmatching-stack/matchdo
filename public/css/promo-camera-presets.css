@@ -6,6 +6,24 @@
   gap: 0.5rem;
 }
 
+.pc-preserve-subjects-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.pc-preserve-subjects-label {
+  color: #5C6670;
+  white-space: nowrap;
+}
+
+.pc-preserve-subjects-select {
+  width: auto;
+  min-width: 5.5rem;
+  max-width: 10rem;
+}
+
 .pc-preset-modal .modal-body {
   padding-top: 0.75rem;
 }
