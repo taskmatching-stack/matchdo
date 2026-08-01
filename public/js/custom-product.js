@@ -461,6 +461,10 @@ $(document).ready(function () {
         mode = (mode === 'official') ? 'official' : 'vendor';
         vendorStylesBrowseMode = mode;
         vendorStylesTabOffset = 0;
+        if (mode === 'official') {
+            var $kind = $('#bs-official-asset-kind');
+            if ($kind.length && !($kind.val() || '').trim()) $kind.val('prototype');
+        }
         syncVendorStylesBrowseModeUi();
     }
 
@@ -524,7 +528,7 @@ $(document).ready(function () {
         var $kind = $('#bs-official-asset-kind');
         if ($kind.length) {
             if (def && def.assetKind && def.assetKind !== 'other') $kind.val(def.assetKind);
-            else $kind.val('');
+            else $kind.val('prototype');
         }
         navigateToVendorStylesOfficialMode();
     }
