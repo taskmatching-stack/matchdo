@@ -80,8 +80,13 @@
     if (ratio) parts.push(ratio);
     var mp = (document.getElementById('pcMpSelect') || {}).value || st.megapixels || '';
     if (mp) parts.push(mp + ' MP');
-    if (!parts.length) parts.push(t('promoCamera.composeSummaryDefault', '點開調整'));
-    el.textContent = parts.join(' · ');
+    if (!parts.length) {
+      el.textContent = t('promoCamera.composeSummaryDefault', '點開調整');
+      el.classList.add('is-placeholder');
+    } else {
+      el.textContent = parts.join(' · ');
+      el.classList.remove('is-placeholder');
+    }
   }
 
   function syncAppPickerLabels() {

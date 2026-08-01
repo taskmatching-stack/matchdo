@@ -148,11 +148,13 @@ body.pc-app-shell .pc-compose-toggle {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
   border: none;
   border-radius: 0;
-  background: transparent;
-  padding: 0;
+  background: var(--pc-white);
+  padding: 0.5rem 0.85rem;
+  min-height: 44px;
   box-shadow: none;
   font-size: inherit;
   font-weight: inherit;
@@ -160,21 +162,40 @@ body.pc-app-shell .pc-compose-toggle {
   text-align: left;
   cursor: pointer;
   margin: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-body.pc-app-shell .pc-compose-toggle:hover {
-  background: transparent;
+body.pc-app-shell .pc-compose-toggle:hover:not(:disabled) {
+  background: var(--pc-primary-softer);
+}
+body.pc-app-shell .pc-compose-toggle:active:not(:disabled) {
+  background: var(--pc-primary-soft);
 }
 body.pc-app-shell .pc-compose-toggle.is-open {
   margin-bottom: 0;
 }
+body.pc-app-shell .pc-compose-toggle-trail {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 62%;
+  margin-left: auto;
+}
 body.pc-app-shell .pc-compose-summary {
   flex: 1 1 auto;
-  font-size: 0.75rem;
-  font-weight: 400;
+  font-size: 0.9375rem;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  color: var(--pc-primary);
+  text-align: right;
+}
+body.pc-app-shell .pc-compose-summary.is-placeholder {
+  font-weight: 400;
   color: var(--pc-text-muted);
 }
 body.pc-app-shell .pc-compose-toggle-icon {
@@ -184,7 +205,7 @@ body.pc-app-shell .pc-compose-toggle-icon {
   transition: transform 0.2s ease;
 }
 body.pc-app-shell .pc-compose-toggle.is-open .pc-compose-toggle-icon {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 body.pc-app-shell .pc-app-settings-block {
   margin-bottom: 0.625rem;
@@ -220,14 +241,18 @@ body.pc-app-shell .pc-app-row-action-stack {
   min-width: 0;
   flex: 1 1 auto;
 }
+body.pc-app-shell .pc-app-row--compose-toggle .pc-compose-toggle-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 body.pc-app-shell .pc-app-row--action .pc-compose-toggle-label {
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--pc-text);
 }
 body.pc-app-shell .pc-app-row--action .pc-compose-summary {
-  width: 100%;
-  text-align: left;
+  width: auto;
+  text-align: right;
 }
 body.pc-app-shell .pc-app-row--select {
   min-width: 0;

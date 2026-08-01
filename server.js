@@ -13988,13 +13988,13 @@ function ensurePromoCameraAngleOptions(grouped, lang, angleCat) {
 
 /** DB 尚無 subject_preservation 種子時，仍提供「是否保留人物／動物」prompt */
 const PROMO_CAMERA_SUBJECT_FALLBACK_RAW = [
-    { key: 'keep', name: '保留人物／動物', name_en: 'Keep people & animals',
+    { key: 'keep', name: '保留', name_en: 'Keep',
         prompt_fragment: 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them faithfully in the output with the same roles, poses, and spatial relationship to the product; do not remove, replace, or invent new human or animal subjects',
         description: '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.', sort_order: 10, is_default: true },
-    { key: 'exclude', name: '不含人物／動物', name_en: 'Exclude people & animals',
+    { key: 'exclude', name: '不含', name_en: 'None',
         prompt_fragment: 'Do not include people, hands, body parts, pets, or animals from the reference image in the output; show only the product and an appropriate neutral environment; remove any human or animal subjects even if they appear in the reference',
         description: '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。', description_en: 'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.', sort_order: 20 },
-    { key: 'prompt', name: '依提示詞創作人物／動物', name_en: 'Compose people & animals from prompt',
+    { key: 'prompt', name: '依提示詞', name_en: 'From prompt',
         prompt_fragment: 'Do not copy people, hands, body parts, pets, or animals from the reference image; omit any human or animal subjects from the reference unless the user prompt explicitly describes new people or animals to include, in which case compose those subjects freshly according to the prompt rather than copying the reference subjects',
         description: '不複製源圖人物或動物；若描述中有寫人物／動物，才依提示詞全新創作。', description_en: 'Do not copy people or animals from the reference; include human or animal subjects only when explicitly described in your prompt, composed freshly.', sort_order: 30 }
 ];

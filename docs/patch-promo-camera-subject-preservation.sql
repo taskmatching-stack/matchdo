@@ -15,17 +15,17 @@ ON CONFLICT (key) DO UPDATE SET
   updated_at = NOW();
 
 INSERT INTO public.promo_camera_param_options (category, key, name, name_en, description, description_en, prompt_fragment, sort_order, is_default) VALUES
-('subject_preservation', 'keep', '保留人物／動物', 'Keep people & animals',
+('subject_preservation', 'keep', '保留', 'Keep',
  '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。',
  'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.',
  'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them faithfully in the output with the same roles, poses, and spatial relationship to the product; do not remove, replace, or invent new human or animal subjects',
  10, true),
-('subject_preservation', 'exclude', '不含人物／動物', 'Exclude people & animals',
+('subject_preservation', 'exclude', '不含', 'None',
  '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。',
  'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.',
  'Do not include people, hands, body parts, pets, or animals from the reference image in the output; show only the product and an appropriate neutral environment; remove any human or animal subjects even if they appear in the reference',
  20, false),
-('subject_preservation', 'prompt', '依提示詞創作人物／動物', 'Compose people & animals from prompt',
+('subject_preservation', 'prompt', '依提示詞', 'From prompt',
  '不複製源圖人物或動物；若描述中有寫人物／動物，才依提示詞全新創作。',
  'Do not copy people or animals from the reference; include human or animal subjects only when explicitly described in your prompt, composed freshly.',
  'Do not copy people, hands, body parts, pets, or animals from the reference image; omit any human or animal subjects from the reference unless the user prompt explicitly describes new people or animals to include, in which case compose those subjects freshly according to the prompt rather than copying the reference subjects',
