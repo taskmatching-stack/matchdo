@@ -76,6 +76,11 @@
       var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
       if (themeLabel) parts.push(themeLabel);
     }
+    var subjectEl = document.getElementById('pcPreserveSubjects');
+    if (subjectEl && subjectEl.selectedIndex >= 0 && subjectEl.options[subjectEl.selectedIndex]) {
+      var subjectLabel = (subjectEl.options[subjectEl.selectedIndex].textContent || '').trim();
+      if (subjectLabel) parts.push(subjectLabel);
+    }
     var ratio = (document.getElementById('pcRatioSelect') || {}).value || st.aspectRatio || '';
     if (ratio) parts.push(ratio);
     var mp = (document.getElementById('pcMpSelect') || {}).value || st.megapixels || '';
@@ -213,6 +218,13 @@
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     var panel = getChatPanel();
     if (panel) panel.classList.toggle('pc-compose-collapsed', !expanded);
+  }
+
+  function hookPreserveSubjectsSummary() {
+    var sel = document.getElementById('pcPreserveSubjects');
+    if (!sel || sel.getAttribute('data-pc-app-summary-bound') === '1') return;
+    sel.setAttribute('data-pc-app-summary-bound', '1');
+    sel.addEventListener('change', updateComposeSummary);
   }
 
   function setupComposeCollapse() {
@@ -434,6 +446,7 @@
     syncAppLoginLinks();
     setupGenerateDock();
     setupComposeCollapse();
+    hookPreserveSubjectsSummary();
     setupAppCreditsPanel();
     setupAppFormPickers();
     observeThemeSceneSelects();
@@ -456,6 +469,10 @@
 
   document.addEventListener('matchdo-i18n-applied', onI18nApplied);
   document.addEventListener('matchdo-pc-preset-applied', onPresetApplied);
+  document.addEventListener('matchdo-pc-options-ready', function () {
+    hookPreserveSubjectsSummary();
+    updateComposeSummary();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootAppShell);

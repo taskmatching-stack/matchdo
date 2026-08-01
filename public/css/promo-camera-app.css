@@ -207,6 +207,29 @@ body.pc-app-shell .pc-compose-toggle-icon {
 body.pc-app-shell .pc-compose-toggle.is-open .pc-compose-toggle-icon {
   transform: rotate(90deg);
 }
+body.pc-app-shell .pc-app-compose-entry {
+  margin-bottom: 0.625rem;
+}
+body.pc-app-shell .pc-app-compose-entry .pc-app-card {
+  box-shadow: 0 1px 3px rgba(74, 85, 104, 0.06);
+}
+body.pc-app-shell .pc-app-compose-entry:has(+ .pc-compose-body:not(.is-collapsed)) {
+  margin-bottom: 0;
+}
+body.pc-app-shell .pc-app-compose-entry:has(+ .pc-compose-body:not(.is-collapsed)) .pc-app-card {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+body.pc-app-shell .pc-compose-body:not(.is-collapsed) {
+  padding: 0.5rem 0 0.35rem;
+  margin-bottom: 0.625rem;
+  margin-top: 0;
+  border-top: 1px solid var(--pc-surface);
+  background: var(--pc-white);
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 1px 3px rgba(74, 85, 104, 0.06);
+}
 body.pc-app-shell .pc-app-settings-block {
   margin-bottom: 0.625rem;
 }
@@ -284,10 +307,6 @@ body.pc-app-shell .pc-app-inline-select:focus {
 }
 body.pc-app-shell .pc-compose-body.is-collapsed {
   display: none;
-}
-body.pc-app-shell .pc-compose-body:not(.is-collapsed) {
-  padding: 0.35rem 0 0;
-  margin-bottom: 0.5rem;
 }
 body.pc-app-shell .pc-app-block {
   margin-bottom: 0.625rem;
