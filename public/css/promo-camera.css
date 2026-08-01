@@ -272,3 +272,18 @@ body.pc-embed-design #promo-camera-app {
 body.pc-embed-design #promo-camera-app .pc-page-head {
   display: none !important;
 }
+body.pc-embed-design #promo-camera-app .pc-page-toolbar {
+  display: none !important;
+}
+body.pc-embed-design #promo-camera-app .pc-build-tag {
+  display: none !important;
+}
+
+/* 部署版本：僅 /promo-camera 獨立頁右下角；embed 隱藏，勿移回頂部 */
+.pc-build-tag {
+  font-size: 0.6875rem;
+  color: #adb5bd;
+  text-align: right;
+  opacity: 0.65;
+  user-select: all;
+}
