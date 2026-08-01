@@ -126,6 +126,13 @@ $(document).ready(function () {
 
     function showBootstrapTab(tabEl) {
         if (!tabEl || typeof bootstrap === 'undefined' || !bootstrap.Tab) return;
+        var groups = document.getElementById('designTabGroups');
+        if (groups) {
+            groups.querySelectorAll('.nav-link.active').forEach(function (link) {
+                link.classList.remove('active');
+                link.setAttribute('aria-selected', 'false');
+            });
+        }
         try {
             if (typeof bootstrap.Tab.getOrCreateInstance === 'function') {
                 bootstrap.Tab.getOrCreateInstance(tabEl).show();
@@ -5777,9 +5784,9 @@ $(document).ready(function () {
     // 初次載入：依 URL 切換 Tab
     applyTabFromUrl();
     // 切換 Tab 時更新網址
-    $('#designTabs').on('shown.bs.tab', function (e) {
-        var $target = $(e.target);
-        var targetId = ($target.attr('id')) ? $target.attr('id') : '';
+    $('#designTabGroups').on('shown.bs.tab', 'button[data-bs-toggle="tab"]', function (e) {
+        var btn = (e.target && e.target.closest) ? e.target.closest('[data-bs-toggle="tab"]') : e.target;
+        var targetId = (btn && btn.id) ? btn.id : '';
         var tabParam = getTabParamFromButtonId(targetId);
         updateUrlForTab(tabParam, !suppressTabHistoryWrite);
         if (tabParam === 'pattern-extract' && typeof updatePatternExtractResolutionDisplay === 'function') {
@@ -5791,6 +5798,9 @@ $(document).ready(function () {
         }
         if (tabParam === 'scene-sim') {
             syncSceneSimProductFromDesign();
+        }
+        if (tabParam === 'promo-camera') {
+            ensurePromoCameraEmbedLoaded();
         }
     });
     // 瀏覽器前進/後退時依網址切換 Tab
