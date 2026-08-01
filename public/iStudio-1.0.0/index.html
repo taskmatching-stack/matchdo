@@ -163,9 +163,6 @@
                 #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap {
                     background: #f0f0f0;
                 }
-                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap::after {
-                    display: none;
-                }
                 #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap > img.mw-promo-contain-img {
                     display: block;
                     width: 100%;
@@ -1293,22 +1290,11 @@
             var currentCategoryKey = '';
             var currentSubcategoryKey = '';
             var currentLayoutType = '';
-            var mediaWallHasUserDesign = false;
 
-            function updateLayoutFilterButtons(hasUserDesign) {
-                mediaWallHasUserDesign = !!hasUserDesign;
-                document.querySelectorAll('.mw-layout-filter[data-layout-type="comparison"], .mw-layout-filter[data-layout-type="series"]').forEach(function (btn) {
-                    btn.classList.toggle('d-none', !mediaWallHasUserDesign);
-                });
-                if (!mediaWallHasUserDesign && (currentLayoutType === 'comparison' || currentLayoutType === 'series')) {
-                    currentLayoutType = '';
-                    updateMediaWallURL({ layout_type: '' });
-                    document.querySelectorAll('.mw-layout-filter').forEach(function (btn) {
-                        var btnType = (btn.getAttribute('data-layout-type') || '').trim();
-                        btn.classList.toggle('active', btnType === currentLayoutType);
-                    });
-                    renderActiveFilterChips();
-                }
+            function mediaWallMatchesLayoutFilter(p, filter) {
+                var t = (p && p.type) || '';
+                if (filter === 'series') return t === 'series' || t === 'collection';
+                return t === filter;
             }
 
             // ── 網址與篩選狀態綁定（SEO／分享／返回） ──
@@ -1557,16 +1543,9 @@
                     clearMediaWallLoadingShell();
                     if (data.error) { showMediaWallLoadError(); return; }
                     var items = data.items || [];
-                    var hasUserDesign = items.some(function (p) { return (p.type || '') === 'user_design'; });
-                    updateLayoutFilterButtons(hasUserDesign);
                     var effectiveLayoutFilter = layoutFilter;
-                    if (!hasUserDesign && (effectiveLayoutFilter === 'comparison' || effectiveLayoutFilter === 'series')) effectiveLayoutFilter = '';
-                    if (effectiveLayoutFilter) items = items.filter(function (p) { return (p.type || '') === effectiveLayoutFilter; });
-                    else if (!hasUserDesign) {
-                        items = items.filter(function (p) {
-                            var t = p.type || '';
-                            return t !== 'comparison' && t !== 'series' && t !== 'collection';
-                        });
+                    if (effectiveLayoutFilter) {
+                        items = items.filter(function (p) { return mediaWallMatchesLayoutFilter(p, effectiveLayoutFilter); });
                     }
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
