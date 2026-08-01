@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801f';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801g';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -86,7 +86,7 @@
   }
 
   var SUBJECT_FALLBACK = [
-    { key: 'keep', name: '保留', name_en: 'Keep', description: '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.' },
+    { key: 'keep', name: '保留', name_en: 'Keep', description: '若源圖有人物、手、寵物或動物，輸出時保留；細節可依描述調整。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them in the output; follow the user prompt for styling details when provided.' },
     { key: 'exclude', name: '不含', name_en: 'None', description: '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。', description_en: 'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.' },
     { key: 'prompt', name: '依提示詞', name_en: 'From prompt', description: '不複製源圖人物或動物；若描述中有寫人物／動物，才依提示詞全新創作。', description_en: 'Do not copy people or animals from the reference; include human or animal subjects only when explicitly described in your prompt, composed freshly.' }
   ];

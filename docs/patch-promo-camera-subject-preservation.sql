@@ -16,9 +16,9 @@ ON CONFLICT (key) DO UPDATE SET
 
 INSERT INTO public.promo_camera_param_options (category, key, name, name_en, description, description_en, prompt_fragment, sort_order, is_default) VALUES
 ('subject_preservation', 'keep', '保留', 'Keep',
- '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。',
- 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.',
- 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them faithfully in the output with the same roles, poses, and spatial relationship to the product; do not remove, replace, or invent new human or animal subjects',
+ '若源圖有人物、手、寵物或動物，輸出時保留；細節可依描述調整。',
+ 'If the reference shows people, hands, pets, or animals, preserve them in the output; follow the user prompt for styling details when provided.',
+ 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them in the output; do not remove, replace, or invent new human or animal subjects',
  10, true),
 ('subject_preservation', 'exclude', '不含', 'None',
  '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。',

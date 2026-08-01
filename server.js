@@ -13989,8 +13989,8 @@ function ensurePromoCameraAngleOptions(grouped, lang, angleCat) {
 /** DB 尚無 subject_preservation 種子時，仍提供「是否保留人物／動物」prompt */
 const PROMO_CAMERA_SUBJECT_FALLBACK_RAW = [
     { key: 'keep', name: '保留', name_en: 'Keep',
-        prompt_fragment: 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them faithfully in the output with the same roles, poses, and spatial relationship to the product; do not remove, replace, or invent new human or animal subjects',
-        description: '若源圖有人物、手、寵物或動物，輸出時保留其角色與產品的空間關係。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them with the same spatial relationship to the product.', sort_order: 10, is_default: true },
+        prompt_fragment: 'If the reference image includes people, hands, body parts, pets, or animals interacting with or near the product, preserve them in the output; do not remove, replace, or invent new human or animal subjects',
+        description: '若源圖有人物、手、寵物或動物，輸出時保留；細節可依描述調整。', description_en: 'If the reference shows people, hands, pets, or animals, preserve them in the output; follow the user prompt for styling details when provided.', sort_order: 10, is_default: true },
     { key: 'exclude', name: '不含', name_en: 'None',
         prompt_fragment: 'Do not include people, hands, body parts, pets, or animals from the reference image in the output; show only the product and an appropriate neutral environment; remove any human or animal subjects even if they appear in the reference',
         description: '輸出僅保留產品與中性環境，移除源圖中的人物、手、寵物或動物。', description_en: 'Show only the product and neutral environment; remove any people, hands, pets, or animals from the reference.', sort_order: 20 },
