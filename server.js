@@ -15971,15 +15971,23 @@ app.get('/api/custom-products', async (req, res) => {
         }
 
         const listOnly = req.query.list === '1' || req.query.list === 'true';
-        const selectFields = summaryOnly ? 'id' : (listOnly
-            ? 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, image_urls, manufacturing_status, open_for_manufacturing, category, category_key, subcategory_key'
-            : '*');
+        const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key';
+        const selectFields = summaryOnly ? 'id' : (listOnly ? listSelect : '*');
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('custom_products')
             .select(selectFields)
             .eq('owner_id', user.id)
             .order('created_at', { ascending: false });
+
+        if (error && error.code === '42703' && listOnly) {
+            const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key';
+            ({ data, error } = await supabase
+                .from('custom_products')
+                .select(fallbackSelect)
+                .eq('owner_id', user.id)
+                .order('created_at', { ascending: false }));
+        }
 
         if (error) {
             console.error('查詢客製產品失敗:', error);

@@ -617,7 +617,7 @@
             const isCompleted = mfgStatus === 'completed';
 
             function toAbs(u) { if (!u || typeof u !== 'string') return ''; if (u.startsWith('http')) return u; return (window.location.origin || '') + (u.startsWith('/') ? '' : '/') + u; }
-            const imageUrl = (product.image_urls && product.image_urls[0]) ? toAbs(product.image_urls[0]) : toAbs(product.ai_generated_image_url || product.reference_image_url) || 'https://via.placeholder.com/400x300?text=No+Image';
+            const imageUrl = toAbs(product.ai_generated_image_url || product.reference_image_url) || 'https://via.placeholder.com/400x300?text=No+Image';
 
             const mfgBadge = isCompleted
                 ? '<span class="badge bg-success ms-1">已完成訂製</span>'
