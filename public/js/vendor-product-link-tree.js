@@ -1827,7 +1827,7 @@
         }
         if (IS_OFFICIAL) {
             var back = document.getElementById('vplt-back-materials');
-            if (back) back.href = '/client/manufacturer-materials.html?official_platform=1';
+            if (back) back.href = '/client/manufacturer-materials.html?official_platform=1&manage=1';
             var titleEl = document.querySelector('.page-title-bar h1');
             if (titleEl) titleEl.textContent = tr('productTree.officialVendorTitle', '產品關聯圖（官方版型庫）');
             document.title = tr('productTree.officialVendorTitle', '產品關聯圖（官方版型庫）') + ' - MatchDO';

@@ -92,6 +92,7 @@
 |------|----------|
 | 攝影模擬（全站選單） | `/promo-camera` |
 | 設計頁內流程 tab | `/custom-product.html?tab=…` |
+| 管理員官方版型上傳 | `/client/manufacturer-materials.html?official_platform=1&manage=1`（**須 manage=1**） |
 | 設計風向首頁 | `/design-direction/` |
 | 廠商後台 | `/client/manufacturer-*.html` |
 | UGC 分享／SEO | `/inspiration/{type}/{id}` |

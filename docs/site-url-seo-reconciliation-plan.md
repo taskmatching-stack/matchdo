@@ -87,7 +87,11 @@ curl -s "https://matchdo.cc/sitemap-pages.xml" | grep product-tree
 
 **已改**：`public/js/site-header.js` 兩處 dropdown → `/promo-camera`
 
-**後續可選**（Phase 3b，未做）：稽核全 repo `href=` 是否仍指舊 `/remake`、`manufacturer-*.html` 根路徑。
+**後續可選**（Phase 3b，2026-08-01）：✅ admin 官方版型庫連結補 `manage=1`（避免 301 到公開設計頁）；全 repo 舊 `/remake`、根目錄 `manufacturer-*` href — public 已無需改。
+
+| Phase | 內容 | 狀態 |
+|-------|------|------|
+| **3b** | Admin 官方版型庫 `manage=1`；vendor link-tree 返回連結 | ✅ |
 
 ---
 
