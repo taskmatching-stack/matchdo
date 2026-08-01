@@ -9,6 +9,15 @@
   z-index: 2;
   flex-shrink: 0;
 }
+#promo-camera-app .pc-tagline {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #7A8FA3;
+  letter-spacing: 0.02em;
+}
+#promo-camera-app .pc-tagline--embed {
+  display: none;
+}
 #promo-camera-app {
   min-height: calc(100vh - 120px);
 }
@@ -273,6 +282,12 @@ body.pc-embed-design #promo-camera-app .pc-page-head {
   display: none !important;
 }
 body.pc-embed-design #promo-camera-app .pc-page-toolbar {
+  display: none !important;
+}
+body.pc-embed-design #promo-camera-app .pc-tagline--embed {
+  display: block;
+}
+body.pc-embed-design #promo-camera-app .pc-tagline--standalone {
   display: none !important;
 }
 body.pc-embed-design #promo-camera-app .pc-build-tag {

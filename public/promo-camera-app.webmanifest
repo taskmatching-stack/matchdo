@@ -1,7 +1,7 @@
 {
   "name": "MatchDO 攝影模擬",
   "short_name": "攝影模擬",
-  "description": "產品情境圖・相機光學 FLUX 模擬",
+  "description": "掌控你的影像風格 · Own Your Visual Style",
   "start_url": "/promo-camera-app",
   "scope": "/promo-camera-app",
   "display": "standalone",

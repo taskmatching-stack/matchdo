@@ -71,9 +71,24 @@ body.pc-app-shell .pc-app-title {
   line-height: 1.2;
 }
 body.pc-app-shell .pc-app-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--pc-text-muted);
   line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+body.pc-app-shell .pc-tagline {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--pc-text-muted);
+  letter-spacing: 0.02em;
+}
+body.pc-app-shell .pc-tagline--embed {
+  display: none;
+}
+body.pc-app-shell.pc-embed-design .pc-tagline--embed {
+  display: block;
+  padding-top: 0.25rem;
 }
 body.pc-app-shell .pc-app-container {
   padding-top: 0.75rem !important;
