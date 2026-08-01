@@ -18,7 +18,7 @@
     <style>
         .material-card { border-radius: 12px; border: 1px solid rgba(88, 100, 112, 0.14); overflow: hidden; transition: box-shadow .15s; background: #fff; }
         .material-card:hover { box-shadow: 0 4px 18px rgba(122, 143, 163, 0.12); }
-        .material-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #EAEEF3; display: block; cursor: zoom-in; }
+        .material-img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; background: #EAEEF3; display: block; cursor: zoom-in; }
         .add-image-preview img { cursor: zoom-in; max-height: 200px; max-width: 100%; object-fit: contain; }
         .pending-image-card { border: 1px solid rgba(88, 100, 112, 0.14); border-radius: 8px; padding: 8px; background: #F5F7FA; display: flex; flex-direction: column; height: 100%; }
         .pending-image-card.is-cover { border-color: #7A8FA3; box-shadow: 0 0 0 1px rgba(122, 143, 163, 0.25); }
@@ -331,6 +331,7 @@
                                     <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
                                     <input type="file" class="form-control add-image-multi" accept="image/*" multiple title="可一次選多張">
                                     <div class="add-pending-images row g-2 mt-2"></div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover mt-2 d-none" disabled><i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（4～9 張）</button>
                                     <p class="form-text text-muted small mb-0" data-i18n="supplierManage.materialMultiColorHint">一張卡片可傳多色：一次選多張圖，待傳清單每張可填色名（如藏青、米白）；第一張為封面，最多 12 張。點圖片＝預覽放大；圖下方可按「AI 重繪」後再發布。</p>
                                 </div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldMaterial">材質（選填）</label><input type="text" class="form-control add-material-type" name="material_type" placeholder="例：全棉斜紋"></div>
@@ -398,6 +399,7 @@
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳或使用 ← → 調整順序；第一張為列表封面。</p>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover mb-2 d-none" id="btn-edit-compose-material-cover" disabled><i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（4～9 張）</button>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
                                 <div id="edit-gallery-optimize-bg-wrap">
                                     <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
@@ -512,6 +514,7 @@
     };
     </script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260802a"></script>
     <script src="/js/vendor-asset-pending-upload.js"></script>
     <script src="/js/supplier-catalog-edit-gallery.js"></script>
     <script>
@@ -541,7 +544,7 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'material-surface-example-20260721';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'material-cover-grid-1x1-20260802';
         var Pending = window.MatchdoVendorAssetPending;
         var EditGallery = window.MatchdoSupplierCatalogEditGallery;
         var editItemCache = null;
@@ -638,8 +641,168 @@
         function collectPendingUploadPayload(form) { return Pending.collectPendingUploadPayload(getPendingImages(form)); }
         function labelFromFilename(name) { return Pending.labelFromFilename(name); }
 
+        function materialCoverComposeApi() {
+            return window.MatchdoMaterialCoverGridCompose || null;
+        }
+
+        function syncMaterialComposeCoverButtonForForm(form) {
+            if (!form) return;
+            var btn = form.querySelector('.btn-compose-material-cover');
+            if (!btn) return;
+            var isMaterial = form.getAttribute('data-kind') === 'material';
+            if (!isMaterial) {
+                btn.classList.add('d-none');
+                return;
+            }
+            btn.classList.remove('d-none');
+            var Compose = materialCoverComposeApi();
+            var n = Compose ? Compose.collectPendingSwatchSources(getPendingImages(form)).length : 0;
+            btn.disabled = !Compose || n < Compose.MIN_COUNT;
+            btn.title = n >= (Compose && Compose.MIN_COUNT)
+                ? ('將 ' + Math.min(n, Compose.MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
+                : ('需至少 ' + (Compose ? Compose.MIN_COUNT : 4) + ' 張單色樣張（不含封面）');
+        }
+
+        function syncEditMaterialComposeCoverButton(item) {
+            var btn = document.getElementById('btn-edit-compose-material-cover');
+            if (!btn) return;
+            var isMaterial = item && normalizeKind(item.item_kind || activeKind) === 'material';
+            if (!isMaterial) {
+                btn.classList.add('d-none');
+                return;
+            }
+            btn.classList.remove('d-none');
+            var Compose = materialCoverComposeApi();
+            var n = Compose && item && EditGallery && EditGallery.catalogImageItems
+                ? collectSupplierEditMaterialSwatchUrls(item).length
+                : 0;
+            btn.disabled = !Compose || n < Compose.MIN_COUNT;
+            btn.title = n >= (Compose && Compose.MIN_COUNT)
+                ? ('將 ' + Math.min(n, Compose.MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
+                : ('需至少 ' + (Compose ? Compose.MIN_COUNT : 4) + ' 張單色樣張（不含封面）');
+        }
+
+        function collectSupplierEditMaterialSwatchUrls(item) {
+            var Compose = materialCoverComposeApi();
+            if (!Compose || !item || !EditGallery || !EditGallery.catalogImageItems) return [];
+            var items = EditGallery.catalogImageItems(item);
+            var urls = [];
+            items.forEach(function (it, idx) {
+                if (idx === 0 || it.is_cover) return;
+                if (it.url) urls.push(it.url);
+            });
+            return urls.slice(0, Compose.MAX_COUNT);
+        }
+
+        async function blobToFile(blob, filename) {
+            return new File([blob], filename || 'image.jpg', { type: blob.type || 'image/jpeg' });
+        }
+
+        async function fileFromImageUrl(url, filename) {
+            var r = await fetch(url, { mode: 'cors' });
+            if (!r.ok) throw new Error('無法讀取圖片');
+            var blob = await r.blob();
+            var type = (blob.type && blob.type.indexOf('image/') === 0) ? blob.type : 'image/jpeg';
+            return new File([blob], filename || 'source.jpg', { type: type });
+        }
+
+        async function handleComposeMaterialCoverPending(form) {
+            var Compose = materialCoverComposeApi();
+            if (!form || !Compose) return;
+            var sources = Compose.collectPendingSwatchSources(getPendingImages(form));
+            if (sources.length < Compose.MIN_COUNT) {
+                toast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
+                return;
+            }
+            if (sources.length > Compose.MAX_COUNT) {
+                toast('將取前 ' + Compose.MAX_COUNT + ' 張拼封面', 'info');
+                sources = sources.slice(0, Compose.MAX_COUNT);
+            }
+            var btn = form.querySelector('.btn-compose-material-cover');
+            var btnHtml = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            try {
+                var blob = await Compose.composeGrid(sources);
+                var file = await blobToFile(blob, 'material-cover-grid.jpg');
+                var list = getPendingImages(form);
+                list.unshift({
+                    id: 'p' + Date.now() + '-cover-' + Math.random().toString(36).slice(2),
+                    file: file,
+                    optimize: false,
+                    label: Compose.coverLabelForCount(sources.length),
+                    link_group: '',
+                    designer_selectable: false,
+                    uploadOriginal: true,
+                    uploadRedraw: false,
+                    uploadUpscale: false,
+                    upscaleProbeDone: false,
+                    upscaleNeeded: true
+                });
+                renderPendingImages(form);
+                Pending.updateAddFormPointsEstimate(form);
+                toast('已產生 1:1 封面色卡（' + sources.length + ' 色），請確認後發布', 'success');
+            } catch (err) {
+                toast((err && err.message) || '拼封面失敗', 'danger');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; syncMaterialComposeCoverButtonForForm(form); }
+            }
+        }
+
+        async function handleComposeMaterialCoverEdit(item) {
+            var Compose = materialCoverComposeApi();
+            if (!Compose || !item) return;
+            var urls = collectSupplierEditMaterialSwatchUrls(item);
+            if (urls.length < Compose.MIN_COUNT) {
+                toast('需至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
+                return;
+            }
+            var btn = document.getElementById('btn-edit-compose-material-cover');
+            var btnHtml = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            try {
+                var files = [];
+                for (var i = 0; i < urls.length; i++) {
+                    files.push(await fileFromImageUrl(urls[i], 'swatch-' + i + '.jpg'));
+                }
+                var blob = await Compose.composeGrid(files);
+                var file = await blobToFile(blob, 'material-cover-grid.jpg');
+                var editImageEl = document.getElementById('edit-image');
+                if (editImageEl && typeof DataTransfer !== 'undefined') {
+                    var dt = new DataTransfer();
+                    dt.items.add(file);
+                    editImageEl.files = dt.files;
+                    showLocalImagePreview(document.getElementById('edit-new-image-preview'), file);
+                    toggleEditImageOptions(true);
+                }
+                toast('已產生 1:1 封面色卡（' + files.length + ' 色），按「儲存」寫入封面', 'success');
+            } catch (err) {
+                toast((err && err.message) || '拼封面失敗', 'danger');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; syncEditMaterialComposeCoverButton(item); }
+            }
+        }
+
+        function wireMaterialComposeCoverButtons() {
+            document.querySelectorAll('form.add-form[data-kind="material"] .btn-compose-material-cover').forEach(function (btn) {
+                if (btn.getAttribute('data-compose-wired') === '1') return;
+                btn.setAttribute('data-compose-wired', '1');
+                btn.addEventListener('click', function () {
+                    var form = btn.closest('form.add-form');
+                    if (form) handleComposeMaterialCoverPending(form);
+                });
+            });
+            var editBtn = document.getElementById('btn-edit-compose-material-cover');
+            if (editBtn && editBtn.getAttribute('data-compose-wired') !== '1') {
+                editBtn.setAttribute('data-compose-wired', '1');
+                editBtn.addEventListener('click', function () {
+                    if (editItemCache) handleComposeMaterialCoverEdit(editItemCache);
+                });
+            }
+        }
+
         function renderEditGalleryGrid(item) {
             if (EditGallery && EditGallery.render) EditGallery.render(item);
+            syncEditMaterialComposeCoverButton(item);
         }
 
         var editImageLabelSaveTimer = null;
@@ -1400,6 +1563,8 @@
             var subSel = form.querySelector('.add-subcategory');
             wireOptimizeBackgroundForm(form);
             wirePendingImageUpload(form);
+            wireMaterialComposeCoverButtons();
+            syncMaterialComposeCoverButtonForForm(form);
             if (kind === 'prototype' && subSel) {
                 catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
             }
@@ -1733,6 +1898,7 @@
             });
         });
 
+        window.MatchdoVendorAssetPendingConfig.syncMaterialComposeCoverButton = syncMaterialComposeCoverButtonForForm;
         window.MatchdoVendorAssetPendingConfig.getOptimizeBackgroundValue = getOptimizeBackgroundValue;
         window.MatchdoVendorAssetPendingConfig.syncAddFormOptimizeBgWrap = syncAddFormOptimizeBgWrap;
         window.MatchdoVendorAssetPendingConfig.getSelectedCatalogGroupIds = getSelectedCatalogGroupIds;

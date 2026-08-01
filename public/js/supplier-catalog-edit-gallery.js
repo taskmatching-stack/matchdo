@@ -784,6 +784,7 @@
   global.MatchdoSupplierCatalogEditGallery = {
     reset: resetEditGalleryState,
     render: renderEditGallery,
+    catalogImageItems: catalogImageItems,
     syncEditGalleryRedrawSettings: syncEditGalleryRedrawSettings,
     syncUpscaleHint: syncEditGalleryUpscaleHint,
     flushBeforeSave: flushEditGallerySlotPreviewsBeforeSave,

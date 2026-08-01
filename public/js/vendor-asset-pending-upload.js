@@ -1109,12 +1109,17 @@
                         if (i > 0) {
                             var moved = list.splice(i, 1)[0];
                             list.unshift(moved);
+                            if (formKind === 'material' && list[0]) list[0].designer_selectable = false;
                             renderPendingImages(form);
                             updateAddFormPointsEstimate(form);
                         }
                     });
                 }
             });
+            if (formKind === 'material' && list[0]) list[0].designer_selectable = false;
+            if (formKind === 'material' && CFG.syncMaterialComposeCoverButton) {
+                CFG.syncMaterialComposeCoverButton(form);
+            }
         }
 
         function collectPreviewCreditTxIds(form) {
