@@ -119,7 +119,7 @@
 |------|------|----------|
 | `supplier-catalog-manage.html` | ③ 供應商上架工作區 | **D**：noindex |
 | `industry-suppliers.html`、`my-supplier-references.html` | ② 製造商瀏覽／匯入清單 | **D**：noindex |
-| `industry-supplier-dashboard.html`、`industry-supplier-catalog.html` | ② 供應商說明／目錄（需點數操作，無個資） | **B**：**index**；catalog 動態 `?id=` 待 Phase 2 sitemap |
+| `industry-supplier-dashboard.html`、`industry-supplier-catalog.html` | ② 供應商說明／目錄（需點數操作，無個資） | **B**：**index**；catalog `?supplier_id=` → **`sitemap-vendors.xml`**（2026-08-01） |
 | `supplier-portal.html` | B 線說明 | **B**：**index** |
 | **`/vendor-profile.html?id=`** | **廠商公開首頁**（訪客可瀏覽） | **E**：**index**；**不可**與 `/client/manufacturer-dashboard.html`（後台）混淆 |
 
@@ -144,7 +144,8 @@
 
 | 改動 | 更新 |
 |------|------|
-| 新公開 URL、sitemap | `SEO-PROGRESS.md`、`architecture-optimization-backlog` §4.2 |
+| 新公開 URL、sitemap | `SEO-PROGRESS.md`、`architecture-optimization-backlog` §4.2、`site-url-seo-reconciliation-plan.md` |
+| 新增／變更 301 | `url-redirect-map.md` |
 | B 線 API／頁面 | `matchdo-todo.md` 近期完成、`三角色架構與AB線說明.md` |
 | 選單／capabilities | `account-one-login-capabilities.md` |
 | FLUX／Gemini 提示詞、材料 optimize、設計頁生圖 | **`docs/flux-and-gemini-prompt-policy.md`** |
@@ -177,4 +178,4 @@
 
 | 日期 | 說明 |
 |------|------|
-| 2026-06-01 | 初版：A1～A5r 對照、B 線頁型 D、語意 catalog_item、A1～A4 不必重做的 reconciliation |
+| 2026-08-01 | Sitemap reconciliation：`sitemap-vendors` 加 product-tree／supplier catalog；移除 categories 重複 `official-templates`；文件對齊 layout_type 政策 |

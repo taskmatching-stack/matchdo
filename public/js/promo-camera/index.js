@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801b';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801c';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',

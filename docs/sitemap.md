@@ -1,6 +1,24 @@
 # MatchDO 網站地圖 (Sitemap)
 
-**說明**：本表「狀態」已依專案實際檔案核對。`/client`、`/expert` 由 server 掛載根目錄的 `client/`、`expert/`；`/admin` 因先掛 `static('public')`，實際由 **public/admin/** 提供。
+**說明**：本表為**人工維護的頁面目錄**（開發對照用）。**SEO 收錄清單以程式為準**：`routes/sitemap.js` → 線上 `/sitemap.xml` 及其子檔。  
+`/client` 製造商後台 HTML 在 **`public/client/`**（Express 先掛 `static('public')`）。
+
+---
+
+## 🔍 SEO Sitemap（搜尋引擎）
+
+| 端點 | 內容 |
+|------|------|
+| `/sitemap.xml` | 索引：`pages`、`categories`、`vendors`、`collections`、`inspiration` |
+| `/sitemap-pages.xml` | 固定公開 landing（設計頁、攝影模擬、B 線說明頁等） |
+| `/sitemap-categories.xml` | DB 主／子分類 + 版型庫 tab landing |
+| `/sitemap-vendors.xml` | 活躍廠商 profile、產業供應商目錄 `?supplier_id=`、公開 prototype 的 `product-tree` |
+| `/sitemap-collections.xml` | `media_collections` 系列頁 |
+| `/sitemap-inspiration.xml` | `/inspiration/{type}/{id}` UGC |
+
+**不含**：`/client/*` 個人後台（blocklist noindex）、`/embed/*`、login/register。
+
+**整體調整計畫**：`docs/site-url-seo-reconciliation-plan.md`｜**301 對照**：`docs/url-redirect-map.md`
 
 ---
 
@@ -18,13 +36,16 @@
 | `/custom-product.html` | `public/custom-product.html` | 產品設計表單（訂製分類） | ✅ 存在 |
 | `/custom-product.html?tab=scene-sim` | 同上 | 產品設計頁「實境模擬」分頁 | ✅ 動態網址 |
 | `/custom-product.html?tab=pattern-extract` | 同上 | 產品設計頁「圖樣提取」分頁 | ✅ 動態網址 |
-| `/remake/` | `public/remake/index.html` | 設計風向首頁（設計意圖分析、必填參考圖） | ✅ 存在 |
-| `/remake-product.html` | `public/remake-product.html` | 設計意圖分析表單（設計風向分類，後台 remake-categories） | ✅ 存在 |
+| `/design-direction/` | `public/design-direction/index.html` | 設計風向首頁（舊 `/remake/` 301 至此） | ✅ 存在 |
+| `/design-direction/analysis.html` | `public/design-direction/analysis.html` | 設計意圖分析（舊 `/remake-product.html` 301 至此） | ✅ 存在 |
+| `/promo-camera` | `public/client/promo-camera.html` | 攝影模擬（舊 `/client/promo-camera.html` 301） | ✅ 存在 |
+| `/promo-camera-app` | `public/client/promo-camera-app.html` | 攝影模擬（手機／App 殼） | ✅ 存在 |
+| `/product-tree.html` | `public/product-tree.html` | 看可搭配 guide（`?prototype_asset_id=` 動態 OG） | ✅ 存在 |
 | `/credits.html` | `public/credits.html` | 我的點數／儲值／訂閱付款 | ✅ 存在 |
 
 ### 多語系與 Sitemap
-- **目前行為**：`/sitemap-pages.xml` 僅列出固定路徑（如 `/remake/`、`/custom/`），**不依語系重複列出**；多語系由**同一 URL** 加 `?lang=en`（或 localStorage）與前台 i18n 切換，搜尋引擎可抓取同一 URL。
-- **分類多語系**：訂製／設計風向分類名稱由 API 支援 `?lang=en|ja|es|de|fr`（`/api/custom-product-categories`、`/api/remake-categories`），前台依語系請求即可顯示對應名稱；sitemap 未單獨列出「分類頁」URL。
+- **目前行為**：`/sitemap-pages.xml` 僅列出固定路徑（如 `/design-direction/`、`/custom/`）及 `/?lang=en`；**不依** `layout_type` 重複列出（省 crawl budget）。
+- **分類多語系**：訂製／設計風向分類名稱由 API 支援 `?lang=en|ja|es|de|fr`（`/api/custom-product-categories`、`/api/remake-categories`），前台依語系請求即可顯示對應名稱；分類 landing 見動態 `sitemap-categories.xml`。
 - **若需擴充**：可產出 `xhtml:link rel="alternate" hreflang` 或依語系拆成多個 sitemap（如 `sitemap-pages-en.xml`），再於 `sitemap.xml` 索引中列入。
 
 ---
@@ -42,6 +63,7 @@
 | `/client/project-items.html` | `client/project-items.html` | 項目/套餐管理介面（專案詳情內可導向，獨立頁尚未建立） | ❌ 未建立 |
 | `/client/matched-experts.html` | `client/matched-experts.html` | 媒合廠商列表 | ✅ 存在 |
 | `/client/contact-unlocks.html` | `client/contact-unlocks.html` | 聯絡紀錄 | ✅ 存在 |
+| `/client/industry-supplier-catalog.html?supplier_id=` | `public/client/industry-supplier-catalog.html` | 產業供應商目錄（需登入；`index`；動態 URL 進 sitemap-vendors） | ✅ 存在 |
 
 ### 客戶流程
 1. **註冊/登入** → 選擇「發案者」角色

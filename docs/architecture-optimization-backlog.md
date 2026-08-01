@@ -118,6 +118,8 @@
 | `/custom-product.html` | `public/custom-product.html` | 靜態 meta | `sitemap-pages` | 工具頁 | 不當 per-design 索引 |
 | `/vendor-profile.html?id=` | `public/vendor-profile.html` | ✅ 有 id 時 server 注入 | `sitemap-vendors` | `manufacturers.is_active` | 維持 |
 | `/custom/gallery.html` | `public/custom/gallery.html` | 靜態 | `sitemap-pages` | 公開 | 維持 |
+| `/product-tree.html` | `public/product-tree.html` | ✅ 有 `prototype_asset_id` 時 server 注入 | `sitemap-pages`（殼）+ `sitemap-vendors`（公開 prototype） | `vendor_assets.is_public` | 維持 |
+| `/client/industry-supplier-catalog.html?supplier_id=` | `public/client/` | ❌ 需登入瀏覽 | `sitemap-vendors`（active 供應商） | `industry_suppliers.is_active` | 維持 |
 | `/vendors.html` | `public/vendors.html` | 靜態 | 手動／pages | 公開 | 維持 |
 | `/client/industry-suppliers.html` 等 B 線 | `public/client/` | ❌ 工作區 | **不進** | 登入＋作品門檻 | **D**：`noindex` |
 | `/client/supplier-catalog-manage.html` | `public/client/` | ❌ | **不進** | 供應商上架 | **D** |

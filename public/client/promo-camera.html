@@ -18,7 +18,11 @@
 <script>
 (function () {
   var p = new URLSearchParams(window.location.search);
-  if (p.get('embed') === 'design') document.body.classList.add('pc-embed-design');
+  if (p.get('embed') === 'design') {
+    document.body.classList.add('pc-embed-design');
+    var robots = document.querySelector('meta[name="robots"]');
+    if (robots) robots.setAttribute('content', 'noindex, follow');
+  }
 })();
 </script>
   <div id="site-header"></div>

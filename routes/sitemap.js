@@ -45,6 +45,7 @@ function registerSitemapRoutes(app, deps) {
         { path: '/client/supplier-portal.html', priority: '0.7', changefreq: 'monthly' },
         { path: '/client/industry-supplier-dashboard.html', priority: '0.7', changefreq: 'monthly' },
         { path: '/client/vendor-prototype-insights.html', priority: '0.65', changefreq: 'monthly' },
+        { path: '/product-tree.html', priority: '0.68', changefreq: 'monthly' },
         { path: '/design-direction/analysis.html',     priority: '0.8', changefreq: 'monthly' },
         { path: '/vendors.html',            priority: '0.8', changefreq: 'weekly' },
         { path: '/about.html',              priority: '0.6', changefreq: 'yearly' },
@@ -130,13 +131,14 @@ function registerSitemapRoutes(app, deps) {
         } catch (e) {
             console.warn('sitemap-categories.xml 查詢 custom_product_categories 失敗:', e && e.message);
         }
-        urls.push('  <url><loc>' + escapeXml(base + '/official-templates/') + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>');
         const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
         res.set('Content-Type', 'application/xml; charset=utf-8');
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
     });
-    // 動態：廠商／製作方列表與詳情頁（由 DB 查詢，每次請求即時更新，新會員/作品上線即被收錄）
+    const SITEMAP_PRODUCT_TREE_LIMIT = 200;
+    const SITEMAP_SUPPLIER_CATALOG_LIMIT = 100;
+    // 動態：廠商／製作方列表與詳情頁；產業供應商目錄 landing；公開主產品「看可搭配」guide
     app.get('/sitemap-vendors.xml', async (req, res) => {
         const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
@@ -151,6 +153,35 @@ function registerSitemapRoutes(app, deps) {
             for (const r of list) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/vendor-profile.html?id=' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>');
+            }
+            const { data: supRows } = await supabase
+                .from('industry_suppliers')
+                .select('id, updated_at, created_at')
+                .eq('is_active', true)
+                .order('updated_at', { ascending: false })
+                .limit(SITEMAP_SUPPLIER_CATALOG_LIMIT);
+            for (const r of (supRows || [])) {
+                if (!r || !r.id) continue;
+                const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
+                const loc = base + '/client/industry-supplier-catalog.html?supplier_id=' + encodeURIComponent(r.id);
+                urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.58</priority></url>');
+            }
+            const { data: protoRows } = await supabase
+                .from('vendor_assets')
+                .select('id, updated_at, created_at, asset_kind, is_public')
+                .eq('is_public', true)
+                .order('updated_at', { ascending: false })
+                .limit(SITEMAP_PRODUCT_TREE_LIMIT + 40);
+            let productTreeCount = 0;
+            for (const r of (protoRows || [])) {
+                if (!r || !r.id) continue;
+                const kind = String(r.asset_kind || '').toLowerCase();
+                if (kind !== 'prototype') continue;
+                if (productTreeCount >= SITEMAP_PRODUCT_TREE_LIMIT) break;
+                productTreeCount += 1;
+                const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
+                const loc = base + '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id);
+                urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.55</priority></url>');
             }
         } catch (e) {
             console.error('sitemap-vendors:', e);

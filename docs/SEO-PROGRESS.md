@@ -1,8 +1,10 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-07-30  
+> **更新日期**：2026-08-01  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
+> **整體調整計畫（URL／sitemap／embed）**：`docs/site-url-seo-reconciliation-plan.md`  
+> **301 對照表**：`docs/url-redirect-map.md`  
 > **架構 Step 0～4 × B 線頁型**：`docs/architecture-and-seo-principles.md`（A5 已還原，勿當完成）  
 > **推送／部署步驟**：見下方「四、部署流程」
 
@@ -11,13 +13,14 @@
 | 項目 | 政策 |
 |------|------|
 | **`/client/*` noindex** | **blocklist**（`server.js` → `CLIENT_NOINDEX_EXACT`），**非**整包 `/client/` |
-| **可 index 工具／說明** | `ai-edit`、`ai-upscale`、`supplier-portal`、`industry-supplier-catalog`、`industry-supplier-dashboard`、`vendor-prototype-insights`、`/promo-camera` |
-| **設計頁 tab** | `/custom-product.html` 及 `?tab=scene-sim|promo-image|pattern-extract|design-to-physical|vendor-styles` → sitemap-pages |
+| **可 index 工具／說明** | `ai-edit`、`ai-upscale`、`supplier-portal`、`industry-supplier-catalog`（`?supplier_id=`）、`industry-supplier-dashboard`、`vendor-prototype-insights`、`/promo-camera`、`/product-tree.html` |
+| **設計頁 tab** | `/custom-product.html` 及 `?tab=scene-sim|promo-image|pattern-extract|design-to-physical|vendor-styles` → sitemap-pages（**不含** `tab=promo-camera`，另有 `/promo-camera`） |
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
 | **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
 | **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |
 | **官方版型短網址** | `/official-templates/` → 301 至設計頁官方 tab；`?official_platform=1`（無 `manage=1`）同上 |
-| **inspiration 上限** | `sitemap-inspiration.xml` 總上限 **500**；`is_public` 版型 **250** 筆 |
+| **embed 設計頁 iframe** | `/promo-camera?embed=design` → **`noindex, follow`**（2026-08-01）；獨立 `/promo-camera` 仍 index |
+| **站內攝影模擬入口** | 全站選單 → `/promo-camera`；設計頁 tab 仍 `?tab=promo-camera` + iframe |
 | **首頁 UX（必守）** | **禁止**在 `#media-wall-section` 前加可見／visually-hidden 文案區塊；SEO 只靠 `<head>` meta／JSON-LD、`/inspiration/*` SSR、sitemap。**勿再犯** 2026-07-30 `#home-seo-intro` 事件 |
 
 ### B 線／產業供應商工作區（2026-06-01，部分已 supersede）
@@ -26,7 +29,8 @@
 |------|----------|
 | `/client/industry-suppliers.html`、`supplier-catalog-manage.html`、`my-supplier-references.html` | **noindex** |
 | `/client/vendor-product-link-tree.html` | **noindex**（廠商編輯；公開版 `/product-tree.html`） |
-| `/product-tree.html?prototype_asset_id=` | 公開 guide；**index** 僅當主產品 `is_public`；動態 OG；sitemap Phase 2 |
+| `/product-tree.html?prototype_asset_id=` | 公開 guide；**index** 僅當主產品 `is_public`；動態 OG；**✅ 2026-08-01** 起由 `sitemap-vendors.xml` 動態收錄（上限 200） |
+| `/client/industry-supplier-catalog.html?supplier_id=` | 產業供應商目錄；**✅ 2026-08-01** 起由 `sitemap-vendors.xml` 動態收錄 active 供應商（上限 100）；裸 `/client/industry-supplier-catalog.html` 會 redirect，**不**列 sitemap-pages |
 | 供應商語意資料 | `supplier_catalog_items.ai_tags` + `visual_semantics_events`（`source_type=catalog_item`）；見 `add-supplier-catalog-ai-fields.sql` |
 | 未來供應商公開 SEO 頁 | **尚未定案**（勿用現有 `?id=` 工作區當收錄落地頁） |
 
@@ -60,9 +64,8 @@
 | sitemap 索引更新 | `/sitemap.xml` 現含**五個**子 sitemap：pages、categories、vendors、collections、**inspiration**（靈感牆獨立 URL） |
 | **UGC 可索引 URL（2026-05-26）** | 客製作品對外收錄為 `https://matchdo.cc/inspiration/user_design/{id}`（SSR）；`/client/custom-product-detail.html` 僅供登入後找廠。**`sitemap-products` 已自索引移除**（路由仍 200） |
 | **Step 4 canonical（2026-05-26）** | `custom-product-detail` 設 `noindex, follow` + `canonical` → `/inspiration/user_design/{id}`（有生成圖或參考圖時）；`sitemap-products.xml` legacy 改輸出 inspiration URL（不再查 `visibility`） |
-| **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
-| **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
-| **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
+| **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，**不列** `layout_type` 組合（避免 dirty sitemap 耗 crawl budget；見 `routes/sitemap.js` 註解）。 |
+| **首頁中英文** | `sitemap-pages.xml` 含 `/` 與 `/?lang=en`；`layout_type` 變體**刻意不列**（同上）。 |
 | **分類** | 動態 `sitemap-categories.xml`：從 **`custom_product_categories`**（`is_active=true`）查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing）。首頁／圖庫同一套分類；**勿**再用 `ai_categories` |
 | **Canonical** | 首頁有篩選參數時 canonical 為目前完整網址；無參數時為 `https://matchdo.cc/`（見 `index.html` 內 `#mw-canonical`） |
 
@@ -72,7 +75,7 @@
 |---------|------|---------|------------------------|
 | `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`routes/sitemap.js`） | 新增靜態頁或首頁篩選 URL 需手動補 | ✅ |
 | `sitemap-categories.xml` | `custom_product_categories`（`is_active=true` 主分類 key） | ✅ 自動 | ✅ |
-| `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 | ✅ |
+| `sitemap-vendors.xml` | `manufacturers`（`is_active=true`）＋ `industry_suppliers` 目錄 landing ＋ `vendor_assets` 公開 prototype「看可搭配」 | ✅ 自動 | ✅ |
 | `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 | ✅ |
 | `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） | ✅ |
 | `sitemap-products.xml` | 同 inspiration 條件 → `/inspiration/user_design/*`（legacy，不查 `visibility`） | 路由保留 | ❌ 2026-05-26 起不索引 |
@@ -84,7 +87,7 @@
 | 首頁 | `Organization` + `WebSite`（含 SearchAction 站內搜尋框） |
 | `custom/index.html` | `WebPage` + `SearchAction` |
 | `custom-product.html` | `WebPage` |
-| `remake/index.html` | `WebPage` |
+| `design-direction/index.html` | `WebPage` |
 | `subscription-plans.html` | `Product` + `Offer` |
 | `vendors.html` | `CollectionPage` |
 | `vendor-profile.html` | ✅ `LocalBusiness`（動態） |
