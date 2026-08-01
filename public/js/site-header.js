@@ -631,10 +631,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     initMobileNavDrawer(headerContainer);
 
     if (user && typeof AuthService !== 'undefined' && AuthService.getSession && !renderOpts.skipDeferredLoads) {
-        loadRenewalReminderBanner(headerContainer);
-        loadHeaderCredits(headerContainer);
-        loadHeaderManufacturerNavLinks(headerContainer);
-        loadHeaderSupplierNavLinks(headerContainer);
+        deferHeaderDeferredLoads(headerContainer);
     }
 
     var langLinks = headerContainer.querySelectorAll('.lang-link');
@@ -675,29 +672,47 @@ function resolveHeaderRoles(user, profile, renderOpts) {
     return { isAdmin: isAdmin, isTesterOrAdmin: isTesterOrAdmin };
 }
 
-/** 已登入時設定「我的廠商首頁」連結（無廠商資料則導向控制台） */
+function deferHeaderDeferredLoads(headerContainer) {
+    var run = function () {
+        loadRenewalReminderBanner(headerContainer);
+        loadHeaderCredits(headerContainer);
+        loadHeaderManufacturerNavLinks(headerContainer);
+        loadHeaderSupplierNavLinks(headerContainer);
+    };
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(run, { timeout: 2500 });
+    } else {
+        setTimeout(run, 0);
+    }
+}
+
+function applyManufacturerNavLink(link, manufacturerId) {
+    if (!link) return;
+    link.href = '/client/manufacturer-dashboard.html';
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+    if (manufacturerId) {
+        link.href = '/vendor-profile.html?id=' + encodeURIComponent(manufacturerId);
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+    }
+}
+
+/** 已登入時設定「我的廠商首頁」連結（用 capabilities.manufacturer_id，避免非廠商打 /api/me/manufacturer 404） */
 function loadHeaderManufacturerNavLinks(headerContainer) {
-    if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
-    window.AuthService.getSession().then(function (session) {
-        if (!session || !session.access_token) return;
-        var link = headerContainer.querySelector('#nav-my-vendor-home');
-        if (!link) return;
-        var fallback = '/client/manufacturer-dashboard.html';
-        link.href = fallback;
-        fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + session.access_token } })
-            .then(function (r) {
-                if (r.status === 404) return null;
-                return r.ok ? r.json() : null;
-            })
-            .then(function (mfr) {
-                if (mfr && mfr.id) {
-                    link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
-                    link.setAttribute('target', '_blank');
-                    link.setAttribute('rel', 'noopener noreferrer');
-                }
-            })
-            .catch(function () {});
-    }).catch(function () {});
+    if (!headerContainer) return;
+    var link = headerContainer.querySelector('#nav-my-vendor-home');
+    if (!link) return;
+    var caps = window.__ME_CAPABILITIES__;
+    if (caps) {
+        applyManufacturerNavLink(link, caps.manufacturer_id || null);
+        return;
+    }
+    fetchMeCapabilities().then(function (c) {
+        applyManufacturerNavLink(link, c && c.manufacturer_id ? c.manufacturer_id : null);
+    }).catch(function () {
+        applyManufacturerNavLink(link, null);
+    });
 }
 
 /** 已登入時設定「我的供應商首頁」連結（無綁定則導向上架頁說明） */

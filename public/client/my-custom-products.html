@@ -187,6 +187,7 @@
                     <p class="mt-3 text-muted">載入中...</p>
                 </div>
                 <div id="productsList" class="row g-4" style="display:none;"></div>
+                <div id="productsLoadSentinel" class="py-1" aria-hidden="true"></div>
                 <p class="text-muted small mb-3 d-none" id="designDirectionFilterNote"></p>
                 <div id="emptyState" class="empty-state" style="display:none;">
                     <i class="bi bi-inbox" style="font-size:4rem;color:#D8DEE6;"></i>
@@ -329,6 +330,43 @@
 
         let promoLoaded = false;
         let favsLoaded = false;
+        const PRODUCTS_PAGE_SIZE = 24;
+        let productsOffset = 0;
+        let productsHasMore = false;
+        let productsLoading = false;
+        let productsTotalLoaded = 0;
+        let productsScrollObserver = null;
+
+        function refreshDesignsBadge() {
+            const badgeEl = document.getElementById('badgeDesigns');
+            if (!badgeEl) return;
+            if (productsHasMore) badgeEl.textContent = productsTotalLoaded + '+';
+            else badgeEl.textContent = String(productsTotalLoaded);
+        }
+
+        function loadDesignsBadgeCount() {
+            if (!authToken) return;
+            fetch('/api/custom-products?summary=1', {
+                headers: { Authorization: 'Bearer ' + authToken }
+            }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+                if (!d || productsHasMore) return;
+                const badgeEl = document.getElementById('badgeDesigns');
+                if (badgeEl && typeof d.count === 'number') badgeEl.textContent = String(d.count);
+            }).catch(function () {});
+        }
+
+        function setupProductsInfiniteScroll() {
+            const sentinel = document.getElementById('productsLoadSentinel');
+            if (!sentinel) return;
+            if (productsScrollObserver) productsScrollObserver.disconnect();
+            if (!productsHasMore) return;
+            productsScrollObserver = new IntersectionObserver(function (entries) {
+                if (entries[0] && entries[0].isIntersecting && productsHasMore && !productsLoading) {
+                    loadProducts(true);
+                }
+            }, { rootMargin: '240px' });
+            productsScrollObserver.observe(sentinel);
+        }
 
         function ensurePromoTabLoaded() {
             if (promoLoaded) return;
@@ -350,7 +388,8 @@
             const session = await AuthService.getSession();
             authToken = session?.access_token || null;
 
-            loadProducts();
+            loadProducts(false);
+            loadDesignsBadgeCount();
 
             var tabPromo = document.getElementById('tab-promo');
             var tabFavs = document.getElementById('tab-favs');
@@ -555,55 +594,77 @@
             }
         }
 
-        async function loadProducts() {
+        async function loadProducts(append) {
+            if (productsLoading) return;
+            if (!authToken) {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                showAlert('未找到有效的登入 token', 'danger');
+                return;
+            }
+            productsLoading = true;
+            const offset = append ? productsOffset : 0;
             try {
-                const session = await AuthService.getSession();
-                const token = session?.access_token;
-
-                if (!token) {
-                    throw new Error('未找到有效的登入 token');
-                }
-
-                const response = await fetch('/api/custom-products?list=1', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                const response = await fetch('/api/custom-products?list=1&limit=' + PRODUCTS_PAGE_SIZE + '&offset=' + offset, {
+                    headers: { Authorization: 'Bearer ' + authToken }
                 });
-
                 const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || '載入失敗');
-                }
+                if (!response.ok) throw new Error(data.error || '載入失敗');
 
                 const products = data.products || [];
-                const badgeEl = document.getElementById('badgeDesigns');
-                if (badgeEl) badgeEl.textContent = products.length;
+                productsHasMore = !!data.hasMore;
+                productsOffset = offset + products.length;
+                productsTotalLoaded = productsOffset;
 
-                document.getElementById('loadingSpinner').style.display = 'none';
-
-                if (products.length === 0) {
-                    document.getElementById('emptyState').style.display = 'block';
-                } else {
-                    document.getElementById('productsList').style.display = 'flex';
-                    renderProducts(products);
+                if (!append) {
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    refreshDesignsBadge();
+                    if (products.length === 0) {
+                        document.getElementById('emptyState').style.display = 'block';
+                        document.getElementById('productsList').style.display = 'none';
+                    } else {
+                        document.getElementById('emptyState').style.display = 'none';
+                        document.getElementById('productsList').style.display = 'flex';
+                        renderProducts(products, 0);
+                    }
+                } else if (products.length) {
+                    appendProducts(products, productsTotalLoaded - products.length);
+                    refreshDesignsBadge();
                 }
-
+                setupProductsInfiniteScroll();
             } catch (error) {
                 console.error('載入產品列表失敗:', error);
-                document.getElementById('loadingSpinner').style.display = 'none';
-                showAlert('載入產品列表失敗: ' + error.message, 'danger');
+                if (!append) {
+                    document.getElementById('loadingSpinner').style.display = 'none';
+                    showAlert('載入產品列表失敗: ' + error.message, 'danger');
+                }
+            } finally {
+                productsLoading = false;
             }
         }
 
-        function renderProducts(products) {
+        function renderProducts(products, globalStartIdx) {
             const container = document.getElementById('productsList');
             container.innerHTML = '';
+            appendProductsBatch(container, products, globalStartIdx || 0, 0);
+        }
+
+        function appendProducts(products, globalStartIdx) {
+            appendProductsBatch(document.getElementById('productsList'), products, globalStartIdx, 0);
+        }
+
+        function appendProductsBatch(container, products, globalStartIdx, startLocalIdx) {
+            const BATCH = 6;
+            const end = Math.min(startLocalIdx + BATCH, products.length);
             const frag = document.createDocumentFragment();
-            products.forEach(function (product, idx) {
-                frag.appendChild(createProductCard(product, idx < 6));
-            });
+            for (let i = startLocalIdx; i < end; i++) {
+                frag.appendChild(createProductCard(products[i], (globalStartIdx + i) < 6));
+            }
             container.appendChild(frag);
+            if (end < products.length) {
+                requestAnimationFrame(function () {
+                    appendProductsBatch(container, products, globalStartIdx, end);
+                });
+            }
         }
 
         function createProductCard(product, eagerImage) {
@@ -808,14 +869,14 @@
                 });
                 if (result.ok) {
                     showAlert(isOpen ? '已開放廠商搜尋' : '已關閉廠商搜尋', 'success');
-                    loadProducts(); // 重新渲染
+                    loadProducts(false); // 重新渲染
                 } else {
                     showAlert(result.error || '操作失敗', 'danger');
-                    loadProducts();
+                    loadProducts(false);
                 }
             } catch (e) {
                 showAlert('操作失敗', 'danger');
-                loadProducts();
+                loadProducts(false);
             }
         };
 
@@ -825,7 +886,7 @@
                 const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
                 if (result.ok) {
                     showAlert('已標記為完成訂製', 'success');
-                    loadProducts();
+                    loadProducts(false);
                 } else {
                     showAlert(result.error || '操作失敗', 'danger');
                 }

@@ -15971,23 +15971,54 @@ app.get('/api/custom-products', async (req, res) => {
         }
 
         const listOnly = req.query.list === '1' || req.query.list === 'true';
-        const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key';
-        const selectFields = summaryOnly ? 'id' : (listOnly ? listSelect : '*');
+        if (listOnly) {
+            const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
+            const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
+            const rangeEnd = offsetN + limitN;
+            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key';
+            let { data, error } = await supabase
+                .from('custom_products')
+                .select(listSelect)
+                .eq('owner_id', user.id)
+                .order('created_at', { ascending: false })
+                .range(offsetN, rangeEnd);
+            if (error && error.code === '42703') {
+                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key';
+                ({ data, error } = await supabase
+                    .from('custom_products')
+                    .select(fallbackSelect)
+                    .eq('owner_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .range(offsetN, rangeEnd));
+            }
+            if (error) {
+                console.error('查詢客製產品 list 失敗:', error);
+                return res.status(500).json({ error: error.message });
+            }
+            const rawList = data || [];
+            const hasMore = rawList.length > limitN;
+            const list = hasMore ? rawList.slice(0, limitN) : rawList;
+            const productsWithOwner = list.map(p => customProductLineage.stripInternalCustomProductFields({
+                ...p,
+                owner_email: ownerEmail,
+                owner_display: ownerDisplay
+            }));
+            return res.json({
+                success: true,
+                products: productsWithOwner,
+                offset: offsetN,
+                hasMore: hasMore,
+                count: productsWithOwner.length
+            });
+        }
+
+        const selectFields = summaryOnly ? 'id' : '*';
 
         let { data, error } = await supabase
             .from('custom_products')
             .select(selectFields)
             .eq('owner_id', user.id)
             .order('created_at', { ascending: false });
-
-        if (error && error.code === '42703' && listOnly) {
-            const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key';
-            ({ data, error } = await supabase
-                .from('custom_products')
-                .select(fallbackSelect)
-                .eq('owner_id', user.id)
-                .order('created_at', { ascending: false }));
-        }
 
         if (error) {
             console.error('查詢客製產品失敗:', error);
