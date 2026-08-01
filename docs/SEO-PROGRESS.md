@@ -273,20 +273,20 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 
 ## 三、靈感牆卡片與 SEO（分析摘要，2026-03-05）
 
-### 3.1 現況：卡片內容是否被搜尋引擎識別？
+### 3.1 現況：卡片內容與生成文字（2026-08-01 更正）
 
-**結論：目前靈感牆每個卡片的「描述／提示詞」幾乎沒有被用在可被搜尋引擎有效識別的語意結構上。**
+**先前文件（2026-03-05）寫「alt 空白、描述只在 data-item」已過期。** 程式已使用 `generation_prompt`／情境描述，且**不改卡片外觀**：
 
-| 項目 | 現況 | 對 SEO 的影響 |
-|------|------|----------------|
-| **卡片 HTML 來源** | 由 JS 動態產生（`renderOne()` + `/api/media-wall`），**初始 HTML 為空**（`#media-wall-grid` 內僅註解） | 爬蟲需執行 JS 才看得到內容；有延遲與預算風險，且非語意化結構 |
-| **標題 (title)** | 僅放在 `<div class="card-title-overlay">` 內，**非 `<h2>`／`<h3>` 或 `<article>`** | 搜尋引擎較難將標題視為「內容標題」層級 |
-| **提示詞／描述 (prompt)** | 只存在 `data-item` 的 JSON 裡（如 `generation_prompt`），**畫面上卡片沒有顯示**；lightbox 打開後才有「提示詞」欄位 | 未以可見、語意化文字出現在 DOM，不利索引與關聯 |
-| **圖片 alt** | 所有卡片內 `<img>` 皆為 **`alt=""`**（空） | 圖片無法以「描述該作品」的 alt 被理解，也影響無障礙與圖片搜尋 |
-| **卡片連結** | `<a href="#">`，**沒有每個作品專屬的 URL**（點擊開 lightbox） | 無法為「單一作品」建立獨立搜尋結果或 canonical URL |
-| **結構化資料** | 首頁有 Organization + WebSite；**沒有 ItemList／ImageGallery 或每張卡片的 CreativeWork** | 搜尋引擎無法以「作品列表＋每則標題／描述」的結構化方式理解靈感牆 |
+| 項目 | 現況 | 說明 |
+|------|------|------|
+| **卡片標題（可見）** | 圖下方白字 `<h2>` | `user_design` 常直接取 `generation_prompt` 前 56 字；情境圖取 `scene_description` |
+| **圖片 alt** | 有內容（最多約 150 字） | 標題 + 提示詞摘要 |
+| **DOM 描述（不另占版面）** | `.media-wall-seo-desc` | 完整提示詞／描述最多 200 字 + 標籤；**visually-hidden**，非 2026-07-30 禁止的 `#home-seo-intro` 可見文案區 |
+| **結構化資料** | `ItemList` + `CreativeWork` JSON-LD | 載入牆後寫入 `<head>`，含 name／description／url |
+| **永久 URL** | `/inspiration/{type}/{id}` SSR | 卡片 `<a href>` 指向此 URL；左鍵仍 `preventDefault` 開 lightbox |
+| **初始 HTML** | `#media-wall-grid` 仍由 JS 填入 | 爬蟲需執行 JS 或讀 JSON-LD／footer 內鏈；**禁止**在 `#media-wall-section` 前加可見 SEO 文案區 |
 
-因此：**卡片上的「描述」並沒有被轉成可被搜尋引擎善用的語意內容**（沒有語意標籤、沒有 alt、沒有 per-item 結構化資料、也沒有獨立 URL）。
+**索引偏少的主因**通常仍是：新站權重、GSC sitemap 報告異常、Google 選擇性收錄——不是生成文字沒進 DOM。
 
 ### 3.2 建議優化方向（規劃；完成狀態見 3.4、3.5）
 

@@ -285,6 +285,14 @@
             </div>
             <div id="media-wall-empty" class="text-center text-muted py-5 d-none"><span data-i18n="home.emptyPrefix">目前尚無作品展示，歡迎來</span> <a href="/custom/" data-i18n="home.emptyLink">客製產品</a> <span data-i18n="home.emptySuffix">創作。</span></div>
             <div id="media-wall-loading" class="text-center py-4" data-i18n="home.loading">載入中...</div>
+            <nav class="media-wall-seo-desc" aria-label="網站主要頁面">
+                <a href="/custom-product.html">產品設計</a>
+                <a href="/custom/gallery.html">圖庫找廠商</a>
+                <a href="/vendors.html">廠商列表</a>
+                <a href="/design-direction/">設計風向</a>
+                <a href="/promo-camera">攝影模擬</a>
+                <a href="/subscription-plans.html">方案與定價</a>
+            </nav>
             <!-- 點擊卡片放大：限制不超出視窗、樣式統一（lightbox 本體已移至 body 下，避免背後版面被擠壓） -->
             <style>
                 html { scrollbar-gutter: stable; }
@@ -1064,6 +1072,8 @@
                     var shortDescSrc = (p.type === 'user_design') ? (promptText || titleRaw) : (p.type === 'promo_scene' ? (promoDesc || titleRaw) : descRaw);
                     var shortDesc = (shortDescSrc || '').slice(0, 80);
                     if (shortDesc.length >= 80 && shortDescSrc.length > 80) shortDesc += '\u2026';
+                    var seoDescFull = (shortDescSrc || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+                    if (seoDescFull.length >= 200 && shortDescSrc.length > 200) seoDescFull += '\u2026';
                     var altSuffix = (shortDesc && shortDesc !== titleRaw) ? (' \u2014 ' + (shortDesc.slice(0, 60))) : '';
                     var altText = (titleRaw + altSuffix).slice(0, 150);
                     var content = '';
@@ -1161,13 +1171,13 @@
                     var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
                         || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId));
                     dataItem.inspiration_url = inspirationHref;
-                    var seoDescSpan = shortDesc ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(shortDesc) + '</span>') : '';
+                    var seoDescSpan = seoDescFull ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(seoDescFull) + '</span>') : '';
                     var seoTagsSpan = displayTags.length ? ('<span class="media-wall-seo-desc">\u6a19\u7c64\uff1a' + esc(displayTags.join(' ')) + '</span>') : '';
                     var tagsBtnHtml = displayTags.length
                         ? ('<button type="button" class="mw-tags-btn" title="' + escAttr((window.i18n && window.i18n.t) ? window.i18n.t('home.tags') : '標籤') + '" aria-expanded="false"><i class="bi bi-tags"></i><span class="mw-tags-count">' + displayTags.length + '</span></button><div class="mw-tags-panel" role="region" aria-hidden="true">' + buildTagsBadgesHtml(displayTags) + '</div>')
                         : '';
-                    // 站內：點卡片開 lightbox；永久連結僅供分享（見 dataItem.inspiration_url）
-                    wrap.innerHTML = '<article class="card"><a href="javascript:void(0)" class="media-wall-card-link text-decoration-none text-dark" data-permalink="' + escAttr(inspirationHref) + '"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
+                    // 站內：左鍵仍開 lightbox（preventDefault）；href 供爬蟲／新分頁直達 /inspiration/*
+                    wrap.innerHTML = '<article class="card"><a href="' + escAttr(inspirationHref) + '" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     var tagsBtn = wrap.querySelector('.mw-tags-btn');

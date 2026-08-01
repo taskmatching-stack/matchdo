@@ -29,6 +29,18 @@ MatchDO 分多期疊加：iStudio 模板、`/remake` 改名、製造商頁搬 `/
 | **4** | 文件＋redirect 對照表 | 無 | ✅ |
 | **5** | 設計頁 tab／iframe 行為 | — | **保留**（使用者已接受同格 UI，不拆） |
 | **6** | 長期 URL 規則統一 | 高 | 📋 待 A5r／另開 PR |
+| **7** | 索引強化（不改牆面外觀） | 低 | ✅ 2026-08-01 |
+
+### Phase 7 — 索引強化（零視覺變更）
+
+| 項目 | 作法 |
+|------|------|
+| 靈感牆卡片 `href` | 改為真實 `/inspiration/…`（左鍵仍 lightbox） |
+| 隱藏描述字數 | `.media-wall-seo-desc` 由 80 → 200 字（仍 visually-hidden） |
+| 首頁靜態內鏈 | 沿用 `.media-wall-seo-desc` 的 `<nav>`，不新增可見區塊 |
+| 頁腳 | 補 gallery／vendors／design-direction／promo-camera；修正 contact 路徑 |
+
+**禁止**：`#home-seo-intro` 式可見文案、改卡片版面、拆 lightbox 同格 UI。
 
 **不在本規劃動手**（除非另開需求）：
 
