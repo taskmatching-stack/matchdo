@@ -54,10 +54,10 @@
         <!-- 儲值點數模式：選擇金額／自訂 -->
         <div id="step1TopUp">
           <div class="step-label" data-i18n="credits.step1">步驟 1：選擇方案或自訂金額</div>
-          <div class="mb-3">
-            <button type="button" class="preset-btn" data-amount="300" data-credits="330">300 <span data-i18n="credits.points">點</span> ＝ 330</button>
-            <button type="button" class="preset-btn" data-amount="900" data-credits="1100">900 ＝ 1100</button>
-            <button type="button" class="preset-btn" data-amount="1800" data-credits="2400">1800 ＝ 2400</button>
+          <div class="mb-3" id="presetBtnWrap">
+            <button type="button" class="preset-btn" data-amount-twd="300" data-amount-usd="11" data-credits="330">300 <span data-i18n="credits.points">點</span> ＝ 330</button>
+            <button type="button" class="preset-btn" data-amount-twd="900" data-amount-usd="33" data-credits="1100">900 ＝ 1100</button>
+            <button type="button" class="preset-btn" data-amount-twd="1800" data-amount-usd="66" data-credits="2400">1800 ＝ 2400</button>
             <button type="button" class="preset-btn" id="presetCustom"><span data-i18n="credits.customAmount">自訂金額</span></button>
           </div>
           <p id="pointsInfoNote" class="text-muted small mb-2" style="display:none;"></p>
@@ -81,7 +81,7 @@
         </div>
         <p class="text-muted small mb-4" id="paymentHint" data-i18n="credits.paymentHint">中文／台灣：綠界（台幣）；英文／海外：PayPal（美金）。</p>
 
-        <div class="step-label" data-i18n="credits.step2">步驟 2：選擇付款方式</div>
+        <div class="step-label" id="step2Label" data-i18n="credits.step2">步驟 2：選擇付款方式</div>
         <div class="d-flex flex-wrap gap-3 mb-4">
           <div class="pay-card" data-provider="ecpay" style="min-width: 220px;">
             <span class="icon text-primary"><i class="bi bi-credit-card"></i></span>
@@ -119,6 +119,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/payment-locale.js"></script>
   <script src="/js/site-header.js"></script>
   <script>
 (function () {
@@ -133,6 +134,56 @@
     }
     var fallback = { 'credits.typePurchase': '儲值', 'credits.typeConsumed': '消費', 'credits.typeGranted': '贈送', 'credits.errAmount': '請填寫金額與點數', 'credits.errProvider': '請選擇付款方式', 'credits.errCreate': '建立訂單失敗', 'credits.renewalReminder': '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。', 'credits.renewNow': '立即續訂' };
     return fallback[key] || key;
+  }
+
+  function isPayPalCheckout() {
+    return window.PaymentLocale && PaymentLocale.isPayPalLocale(lang);
+  }
+
+  function refreshPresetButtons() {
+    var usePayPal = isPayPalCheckout();
+    document.querySelectorAll('.preset-btn[data-amount-twd]').forEach(function (btn) {
+      var twd = btn.getAttribute('data-amount-twd');
+      var usd = btn.getAttribute('data-amount-usd');
+      var credits = btn.getAttribute('data-credits');
+      var amt = usePayPal ? usd : twd;
+      btn.setAttribute('data-amount', amt);
+      if (usePayPal) {
+        btn.innerHTML = '$' + usd + ' = ' + credits + ' <span data-i18n="credits.points">' + t('credits.points') + '</span>';
+      } else {
+        btn.innerHTML = twd + ' <span data-i18n="credits.points">' + t('credits.points') + '</span> ＝ ' + credits;
+      }
+    });
+  }
+
+  function applyPaymentLocale() {
+    var usePayPal = isPayPalCheckout();
+    var isMonthlySub = urlBilling === 'monthly' && urlPlan;
+    var ecpayCard = document.querySelector('.pay-card[data-provider="ecpay"]');
+    var paypalCard = document.querySelector('.pay-card[data-provider="paypal"]');
+    var step2El = document.getElementById('step2Label');
+    var amountInput = document.getElementById('amount');
+
+    refreshPresetButtons();
+
+    if (usePayPal && !isMonthlySub) {
+      if (ecpayCard) ecpayCard.style.display = 'none';
+      if (paypalCard) {
+        paypalCard.style.display = '';
+        paypalCard.classList.add('selected');
+        selectedProvider = 'paypal';
+      }
+      var btnPay = document.getElementById('btnPay');
+      if (btnPay) btnPay.disabled = false;
+      if (step2El) step2El.style.display = 'none';
+      if (amountInput) amountInput.setAttribute('step', '0.01');
+    } else if (!usePayPal) {
+      if (paypalCard) paypalCard.style.display = 'none';
+      if (ecpayCard) ecpayCard.style.display = '';
+      if (step2El) step2El.style.display = '';
+    } else {
+      if (step2El) step2El.style.display = '';
+    }
   }
 
   function show(el, show) { if (el) el.style.display = show ? '' : 'none'; }
@@ -198,7 +249,7 @@
       });
   }
 
-  document.querySelectorAll('.preset-btn[data-amount]').forEach(function (btn) {
+  document.querySelectorAll('.preset-btn[data-amount-twd]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
@@ -221,7 +272,8 @@
   });
 
   document.getElementById('btnPay').addEventListener('click', function () {
-    var amount = parseInt(document.getElementById('amount').value, 10);
+    var amountRaw = document.getElementById('amount').value;
+    var amount = isPayPalCheckout() ? parseFloat(amountRaw) : parseInt(amountRaw, 10);
     var credits = parseInt(document.getElementById('credits').value, 10);
     var errEl = document.getElementById('payError');
     show(errEl, false);
@@ -318,6 +370,10 @@
     urlBilling = (params && params.get('billing')) ? params.get('billing').toLowerCase() : '';
     urlPlan = (params && params.get('plan')) || '';
 
+    if (amount && isPayPalCheckout() && window.PaymentLocale) {
+      amount = String(PaymentLocale.twdToUsd(amount));
+    }
+
     var isSubscriptionMode = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan;
 
     if (isSubscriptionMode) {
@@ -358,7 +414,7 @@
       if (creditsInputTopUp) { creditsInputTopUp.readOnly = false; creditsInputTopUp.classList.remove('bg-light'); if (credits) creditsInputTopUp.value = credits; }
       if (amount && credits) {
         document.querySelectorAll('.preset-btn[data-amount]').forEach(function (b) {
-          if (b.getAttribute('data-amount') === amount && b.getAttribute('data-credits') === credits) b.classList.add('active');
+          if (String(b.getAttribute('data-amount')) === String(amount) && b.getAttribute('data-credits') === credits) b.classList.add('active');
         });
       }
       var backLink = document.getElementById('creditsBackLink');
@@ -383,6 +439,7 @@
       AuthService.getSession().then(function (s) {
         session = s;
         applyUrlParams();
+        applyPaymentLocale();
         loadCredits();
       });
     } else {

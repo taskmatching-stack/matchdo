@@ -170,10 +170,24 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/payment-locale.js"></script>
   <script src="/js/site-header.js"></script>
   <script>
 (function(){
   var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
+  function isPayPalCheckout() {
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    return window.PaymentLocale && PaymentLocale.isPayPalLocale(lang);
+  }
+  function applyPayPalPricingUi() {
+    if (!isPayPalCheckout()) return;
+    var monthlyBtn = document.getElementById('pricingMonthly');
+    var yearlyBtn = document.getElementById('pricingYearly');
+    if (monthlyBtn) monthlyBtn.style.display = 'none';
+    if (yearlyBtn) yearlyBtn.classList.add('active');
+    document.querySelectorAll('.price-monthly').forEach(function (el) { el.classList.add('d-none'); });
+    document.querySelectorAll('.price-yearly').forEach(function (el) { el.classList.remove('d-none'); });
+  }
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
   // 方案名稱對應的 i18n key
   var planNameKeys = ['pricing.planFree', 'pricing.planTier2', 'pricing.planTier3', 'pricing.planTier4'];
@@ -234,6 +248,8 @@
       var planKey = planKeys[sortOrder] || '';
       var yearlyPrice = price * 10;
       var yearlyCredits = Math.floor(credits * 12);
+      var checkoutMonthly = isPayPalCheckout() ? PaymentLocale.planUsdMonthly(sortOrder) : price;
+      var checkoutYearly = isPayPalCheckout() ? PaymentLocale.planUsdYearly(sortOrder) : yearlyPrice;
       var isFree = price === 0;
       var featureListHtml = getPlanFeatures(sortOrder);
       var col = document.createElement('div');
@@ -259,7 +275,7 @@
         (featureListHtml ? '<ul class="feature-list">' + featureListHtml + '</ul>' : '') +
         '<div class="pricing-card-actions">' +
         '<a href="#" class="btn ' + (isFree ? 'btn-outline-primary' : 'btn-primary') + ' btn-subscribe btn-subscribe-plan" ' +
-        'data-amount="' + price + '" data-credits="' + credits + '" data-amount-yearly="' + yearlyPrice + '" data-credits-yearly="' + yearlyCredits + '" ' +
+        'data-amount="' + checkoutMonthly + '" data-credits="' + credits + '" data-amount-yearly="' + checkoutYearly + '" data-credits-yearly="' + yearlyCredits + '" ' +
         (planKey ? 'data-plan="' + planKey + '"' : '') + freeBtnAttrs + '>' + (isFree ? (t('pricing.signInOrRegister') || '註冊／登入') : t('pricing.subscribe')) + '</a>' +
         '</div></div></div>';
       row.appendChild(col);
@@ -272,11 +288,11 @@
       if (btn.getAttribute('data-free-plan') === 'true') return;
       btn.addEventListener('click', function(e){
         e.preventDefault();
-        var isYearly = document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active');
+        var isYearly = isPayPalCheckout() || (document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active'));
         var amount = parseInt(btn.getAttribute(isYearly ? 'data-amount-yearly' : 'data-amount'), 10) || 0;
         var credits = parseInt(btn.getAttribute(isYearly ? 'data-credits-yearly' : 'data-credits'), 10) || 0;
         var plan = btn.getAttribute('data-plan');
-        var billing = isYearly ? 'yearly' : 'monthly';
+        var billing = isPayPalCheckout() ? 'yearly' : (isYearly ? 'yearly' : 'monthly');
         if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
         var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
         if (window.AuthService && AuthService.getSession) {
@@ -328,6 +344,7 @@
     whenReady.then(function(){
       if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
       applyTitle();
+      applyPayPalPricingUi();
     });
 
     function setPricingCycle(isYearly) {
@@ -344,6 +361,7 @@
       var row = document.getElementById('pricingCardsRow');
       if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
       renderPlans(data.plans || []);
+      applyPayPalPricingUi();
       updateFreePlanButton();
     }).catch(function(){
       var row = document.getElementById('pricingCardsRow');
