@@ -6,7 +6,8 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260719-chrome';
+  const BUILD = 'embed-simulator-20260802-engine-brand';
+  const EMBED_ENGINE_BRAND = 'MatchDO Engine';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -741,9 +742,10 @@
         brand.title = vendorName;
       }
     }
-    document.title = `產品試做 - ${vendorName}`;
+    document.title = `${EMBED_ENGINE_BRAND} · 產品試做 - ${vendorName}`;
     if (powered) {
       var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;
+      var poweredLabel = 'Powered by ' + EMBED_ENGINE_BRAND;
       if (embedChrome === 'none') {
         powered.style.display = 'none';
         var floatEl = document.getElementById('simPoweredFloat');
@@ -755,15 +757,19 @@
             floatEl.href = 'https://matchdo.cc';
             floatEl.target = '_blank';
             floatEl.rel = 'noopener noreferrer';
-            floatEl.innerHTML = 'Powered by <img src="/img/matchdo-logo.png" alt="MatchDO">';
             document.body.appendChild(floatEl);
           }
+          floatEl.textContent = poweredLabel;
           floatEl.style.display = '';
         } else if (floatEl) {
           floatEl.style.display = 'none';
         }
       } else {
         powered.style.display = showPowered ? '' : 'none';
+        var poweredLink = powered.querySelector('a');
+        if (poweredLink && !poweredLink.textContent.trim()) {
+          poweredLink.textContent = EMBED_ENGINE_BRAND;
+        }
         var floatHide = document.getElementById('simPoweredFloat');
         if (floatHide) floatHide.style.display = 'none';
       }

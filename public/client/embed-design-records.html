@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>Embed 訪客生圖紀錄 - MatchDO 合做</title>
+    <title>MatchDO Engine 訪客生圖紀錄</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow">
     <link href="../img/favicon.ico" rel="icon">
@@ -26,8 +26,8 @@
         <div class="container" style="max-width: 1100px;">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">Embed 訪客生圖紀錄</h4>
-                    <small class="text-muted">官網 iframe 訪客試做成功後的成圖與搭配資料（扣您的點數）</small>
+                    <h4 class="mb-0 fw-bold">MatchDO Engine 訪客生圖紀錄</h4>
+                    <small class="text-muted">官網 iframe（MatchDO Engine）訪客試做成功後的成圖與搭配資料（扣您的點數）</small>
                 </div>
                 <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>廠商控制台</a>
             </div>
@@ -81,7 +81,7 @@
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Embed 生圖詳情</h5>
+                    <h5 class="modal-title">MatchDO Engine 生圖詳情</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detail-body"></div>
@@ -146,7 +146,7 @@
             var body = document.getElementById('records-body');
             if (!body) return;
             if (!records.length) {
-                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">尚無 Embed 生圖紀錄</td></tr>';
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">尚無 MatchDO Engine 生圖紀錄</td></tr>';
                 return;
             }
             body.innerHTML = records.map(function (row, idx) {

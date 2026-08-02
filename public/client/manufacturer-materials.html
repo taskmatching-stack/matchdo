@@ -881,8 +881,8 @@
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-share-links-wrap">
-                            <label class="form-label fw-semibold">官網嵌入（iframe）</label>
-                            <p class="text-muted small mb-2">像 YouTube／Sketchfab：複製程式碼貼到官網某一區塊。訪客免付點、生圖扣<strong>您的</strong>點數。須保持<strong>上架中</strong>。卡片上的 <i class="bi bi-code-slash"></i> 可一鍵複製預設嵌入碼。</p>
+                            <label class="form-label fw-semibold">MatchDO Engine · 官網嵌入（iframe）</label>
+                            <p class="text-muted small mb-2">像 YouTube／Sketchfab：複製程式碼貼到官網某一區塊。訪客免付點、生圖扣<strong>您的</strong>點數。須保持<strong>上架中</strong>。卡片上的 <i class="bi bi-code-slash"></i> 可一鍵複製 MatchDO Engine 嵌入碼。</p>
                             <div id="edit-share-embed-block">
                                 <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
                                 <div id="edit-share-embed-fields" class="d-none">
@@ -899,7 +899,7 @@
                                             <label class="form-label small text-muted mb-1" for="edit-share-embed-chrome">外框</label>
                                             <select class="form-select form-select-sm" id="edit-share-embed-chrome">
                                                 <option value="minimal" selected>精簡（建議）</option>
-                                                <option value="full">完整品牌列</option>
+                                                <option value="full">完整品牌列（含 MatchDO Engine）</option>
                                                 <option value="none">無外框</option>
                                             </select>
                                         </div>
@@ -930,10 +930,10 @@
                                     </div>
                                     <div class="form-check mt-2 d-none" id="edit-share-embed-scene-sim-wrap">
                                         <input class="form-check-input" type="checkbox" id="edit-share-embed-scene-sim" checked>
-                                        <label class="form-check-label small" for="edit-share-embed-scene-sim">Embed 訪客可使用實境模擬（上傳情境圖合成）</label>
+                                        <label class="form-check-label small" for="edit-share-embed-scene-sim">MatchDO Engine 訪客可使用實境模擬（上傳情境圖合成）</label>
                                     </div>
                                     <p class="small text-muted mb-0 mt-1 d-none" id="edit-share-embed-scene-sim-hint-300">300 方案預設開啟實境模擬，不可關閉。</p>
-                                    <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 Embed 訪客生圖紀錄</a></p>
+                                    <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 MatchDO Engine 訪客生圖紀錄</a></p>
                                 </div>
                             </div>
                             <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用 iframe。</p>
@@ -7057,8 +7057,8 @@
             if (!m || normalizeKind(m.asset_kind) !== 'prototype' || isSeedVendor) return '';
             var isPub = m.is_public !== false;
             var title = isPub
-                ? '複製官網嵌入程式碼（iframe）'
-                : '請先上架後再複製嵌入碼';
+                ? '複製 MatchDO Engine 嵌入碼（iframe）'
+                : '請先上架後再複製 MatchDO Engine 嵌入碼';
             var disabledCls = isPub ? '' : ' disabled';
             var disabledAttr = isPub ? '' : ' disabled tabindex="-1" aria-disabled="true"';
             return '<button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-copy-embed-snippet' + disabledCls + '" ' +
