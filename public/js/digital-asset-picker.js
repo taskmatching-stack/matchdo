@@ -100,29 +100,12 @@
     });
   }
 
-  function dismissParentModal(listEl) {
-    if (!listEl) return;
-    var modalRoot = listEl.closest('.modal');
-    if (!modalRoot || !modalRoot.classList.contains('show')) return;
-    if (typeof bootstrap !== 'undefined' && bootstrap.Modal && typeof bootstrap.Modal.getInstance === 'function') {
-      var inst = bootstrap.Modal.getInstance(modalRoot);
-      if (inst) inst.hide();
-      return;
-    }
-    modalRoot.classList.remove('show');
-    modalRoot.style.display = 'none';
-    modalRoot.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-    document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
-  }
-
   function openBrowseLightbox(listEl, items, index) {
     if (!global.MatchdoImageLightbox || typeof global.MatchdoImageLightbox.open !== 'function') return;
     var imageItems = (items || []).map(function (item) {
       return { url: (item.url || '').trim(), label: item.title || '' };
     }).filter(function (it) { return it.url; });
     if (!imageItems.length) return;
-    dismissParentModal(listEl);
     var idx = Math.max(0, Math.min(index || 0, imageItems.length - 1));
     global.MatchdoImageLightbox.open({ imageItems: imageItems, index: idx });
   }
