@@ -108,7 +108,20 @@
             box-sizing: border-box;
         }
         .pending-image-card .pending-footer-actions .btn { flex: 1 1 0 !important; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        #edit-gallery-grid > [class*="col-"], .add-pending-images > [class*="col-"] { display: flex; }
+        #edit-gallery-grid > [class*="col-"], .add-pending-images > [class*="col-"] { display: flex; flex-direction: column; }
+        .material-cover-compose-slot {
+            flex: 0 0 auto;
+            min-height: 2.125rem;
+            margin-bottom: 0.5rem;
+            width: 100%;
+        }
+        .material-cover-compose-slot .btn-compose-material-cover {
+            width: 100%;
+            white-space: normal;
+            line-height: 1.25;
+        }
+        .material-cover-compose-slot--spacer { visibility: hidden; pointer-events: none; }
+        .edit-gallery-col > .pending-image-card, .pending-list-col > .pending-image-card { flex: 1 1 auto; width: 100%; }
         .pending-image-card.is-new-redraw { border-color: #8FA89E; box-shadow: 0 0 0 2px rgba(143, 168, 158, 0.35); }
         .pending-redraw-badge { font-size: 0.65rem; }
         .pending-redraw-new-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(88, 100, 112, 0.2); }
@@ -683,7 +696,6 @@
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
                                     <input type="file" class="form-control add-image-multi" accept="image/*" multiple title="可一次選多張圖片">
                                     <div class="add-pending-images row g-2 mt-2"></div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover mt-2 d-none" disabled><i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（4～9 張）</button>
                                     <p class="form-text text-muted small mb-1 mt-2 vendor-only-not-official" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（即為參考圖）或自行上傳；匯入後會出現在下方清單。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.materialMultiImageHint">在上方「選擇檔案」可一次選多張（第一張為封面，最多 48 張色卡／細節）；選完會出現在下方待傳清單。點圖片＝預覽放大；圖下方可按「AI 重繪」，勾選要上傳的圖後再發布。</p>
                                     <p class="form-text text-muted small mb-1"><strong>封面請放一張「多色滿版色卡」</strong>（AI 只讀封面產標籤／說明）。其餘單色樣張給設計者選用；封面設為僅展示且不另耗 AI token。</p>
@@ -971,7 +983,6 @@
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳圖卡左側︙把手調整順序；第一張為列表封面。</p>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover mb-2 d-none" id="btn-edit-compose-material-cover" disabled><i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（4～9 張）</button>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3">
                                 <div id="edit-gallery-optimize-bg-wrap">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
@@ -1105,7 +1116,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-save-close-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-compose-cover-slot-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2865,6 +2876,18 @@
             return item;
         }
 
+        /** 材料：封面欄上方拼色卡按鈕；其餘欄用等高 spacer 對齊圖卡 */
+        function materialCoverComposeSlotHtml(kindOrAsset, isCover, forEdit) {
+            if (!materialGallerySwatchAutoSelectable(kindOrAsset)) return '';
+            if (isCover) {
+                var idAttr = forEdit ? ' id="btn-edit-compose-material-cover"' : '';
+                return '<div class="material-cover-compose-slot">' +
+                    '<button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover"' + idAttr + ' disabled>' +
+                    '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（4～9 張）</button></div>';
+            }
+            return '<div class="material-cover-compose-slot material-cover-compose-slot--spacer" aria-hidden="true"></div>';
+        }
+
         /** 數位原型／配件／材料：可勾選「設計者可選／僅展示」（材料封面強制僅展示） */
         function vendorDesignerSelectableEnabledForKind(kindOrAsset) {
             var k = typeof kindOrAsset === 'string' ? normalizeKind(kindOrAsset) : normalizeKind(kindOrAsset && kindOrAsset.asset_kind);
@@ -4120,6 +4143,9 @@
                 col.className = 'col-6 col-sm-4 col-md-3 pending-list-col';
                 col.setAttribute('data-pending-id', item.id);
                 col.setAttribute('draggable', list.length > 1 ? 'true' : 'false');
+                if (formKind === 'material') {
+                    col.insertAdjacentHTML('beforeend', materialCoverComposeSlotHtml(formKind, idx === 0, false));
+                }
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + ((item.redrawPreviewUrl || item.upscalePreviewUrl) ? ' is-new-redraw' : '');
                 var url = '';
@@ -4275,7 +4301,7 @@
             }
             btn.classList.remove('d-none');
             var Compose = materialCoverComposeApi();
-            var n = Compose ? Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: true }).length : 0;
+            var n = Compose ? Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false }).length : 0;
             btn.disabled = !Compose || n < Compose.MIN_COUNT;
             btn.title = n >= (Compose && Compose.MIN_COUNT)
                 ? ('將 ' + Math.min(n, Compose.MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
@@ -4285,12 +4311,6 @@
         function syncEditMaterialComposeCoverButton(m) {
             var btn = document.getElementById('btn-edit-compose-material-cover');
             if (!btn) return;
-            var isMaterial = m && normalizeKind(m.asset_kind) === 'material';
-            if (!isMaterial) {
-                btn.classList.add('d-none');
-                return;
-            }
-            btn.classList.remove('d-none');
             var Compose = materialCoverComposeApi();
             var n = Compose && m ? collectEditMaterialSwatchSources(m).length : 0;
             btn.disabled = !Compose || n < Compose.MIN_COUNT;
@@ -4315,7 +4335,7 @@
                 assetImageItems(m).forEach(function (x) {
                     if (x.url === key) it = x;
                 });
-                if (it && it.designer_selectable !== false && !Compose.isAiDerivedItem(it)) {
+                if (it && !Compose.isAiDerivedItem(it)) {
                     sources.push(it.url);
                 }
             });
@@ -4326,7 +4346,7 @@
             var Compose = materialCoverComposeApi();
             if (!form || !Compose) return;
             var list = getPendingImages(form);
-            var sources = Compose.collectPendingSwatchSources(list, { requireSelectable: true });
+            var sources = Compose.collectPendingSwatchSources(list, { requireSelectable: false });
             if (sources.length < Compose.MIN_COUNT) {
                 showToast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
                 return;
@@ -4421,23 +4441,20 @@
         }
 
         function wireMaterialComposeCoverButtons() {
-            document.querySelectorAll('form.add-form[data-kind="material"] .btn-compose-material-cover').forEach(function (btn) {
-                if (btn.getAttribute('data-compose-wired') === '1') return;
-                btn.setAttribute('data-compose-wired', '1');
-                btn.addEventListener('click', function () {
-                    var form = btn.closest('form.add-form');
-                    if (form) handleComposeMaterialCoverPending(form);
-                });
-            });
-            var editBtn = document.getElementById('btn-edit-compose-material-cover');
-            if (editBtn && editBtn.getAttribute('data-compose-wired') !== '1') {
-                editBtn.setAttribute('data-compose-wired', '1');
-                editBtn.addEventListener('click', function () {
+            if (window.__matchdoComposeCoverDelegated) return;
+            window.__matchdoComposeCoverDelegated = true;
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.btn-compose-material-cover');
+                if (!btn || btn.disabled) return;
+                if (btn.id === 'btn-edit-compose-material-cover') {
                     var mid = document.getElementById('edit-id').value;
                     var cur = materialsAll.find(function (x) { return x.id === mid; });
                     if (cur) handleComposeMaterialCoverEdit(cur);
-                });
-            }
+                    return;
+                }
+                var form = btn.closest('form.add-form');
+                if (form && form.getAttribute('data-kind') === 'material') handleComposeMaterialCoverPending(form);
+            });
         }
 
         function collectPreviewCreditTxIds(form) {
@@ -4693,7 +4710,9 @@
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-local-redraw-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-local-d2p-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '')
                 );
-                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col edit-gallery-local-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-local-id="' + esc(item.id) + '" data-gallery-key="local:' + esc(item.id) + '"><div class="pending-image-card' + (asCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col edit-gallery-local-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-local-id="' + esc(item.id) + '" data-gallery-key="local:' + esc(item.id) + '">' +
+                    materialCoverComposeSlotHtml(m && m.asset_kind, asCover, true) +
+                    '<div class="pending-image-card' + (asCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
                     pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, localPrefix) + pendingDerivedThumbsHtml(item, localPrefix, upscaleOn) + '</div>' +
@@ -4770,7 +4789,9 @@
                             : ''
                     }) +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-gallery-url="' + esc(url) + '" data-gallery-key="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-gallery-url="' + esc(url) + '" data-gallery-key="' + esc(url) + '">' +
+                    materialCoverComposeSlotHtml(m && m.asset_kind, isCover, true) +
+                    '<div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
                     pendingCardBadgeRow(coverBadge, newBadge) +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
