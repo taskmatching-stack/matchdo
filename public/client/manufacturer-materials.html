@@ -1111,12 +1111,12 @@
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260803c"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260803d"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-compose-unified-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-save-fast-close-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2177,6 +2177,61 @@
             if (!assetId) return;
             clearTimeout(editImageLabelSaveTimer);
             editImageLabelSaveTimer = setTimeout(function () { saveImageLabels(assetId); }, 400);
+        }
+
+        function awaitEditImageLabelsIdle() {
+            return new Promise(function (resolve) {
+                function tick() {
+                    if (!editImageLabelSaveInFlight) {
+                        resolve();
+                        return;
+                    }
+                    setTimeout(tick, 40);
+                }
+                tick();
+            });
+        }
+
+        /** 圖片名稱／連動／可選是否與快取不同（僅改標題等時可略過 PATCH） */
+        function editGalleryImageLabelsNeedSave(assetId) {
+            if (editImageLabelSaveTimer || editImageLabelSaveInFlight || editImageLabelSaveQueuedId) return true;
+            var m = materialsAll.find(function (x) { return x.id === assetId; });
+            var live = readEditGalleryLiveMetaFromDom();
+            if (!live) return false;
+            var items = assetImageItems(m || {});
+            if (!items.length && !live.hasCoverFields) return false;
+            if (live.hasCoverFields && items[0]) {
+                var cover = items[0];
+                var coverLabel = (live.cover_label != null ? live.cover_label : '').trim();
+                if (coverLabel !== String(cover.label || '').trim()) return true;
+                if (m && normalizeKind(m.asset_kind) !== 'material') {
+                    var coverLg = (live.cover_link_group != null ? live.cover_link_group : '').trim();
+                    if (coverLg !== String(cover.link_group || '').trim()) return true;
+                    if (live.cover_designer_selectable !== undefined &&
+                        !!live.cover_designer_selectable !== (cover.designer_selectable !== false)) return true;
+                }
+            }
+            for (var i = 1; i < items.length; i++) {
+                var it = items[i];
+                if (!it || !it.url) continue;
+                var p = live.byUrl[it.url];
+                if (!p) continue;
+                var lbl = (p.label != null ? p.label : '').trim();
+                if (lbl !== String(it.label || '').trim()) return true;
+                if (m && normalizeKind(m.asset_kind) !== 'material') {
+                    var lg = (p.link_group != null ? p.link_group : '').trim();
+                    if (lg !== String(it.link_group || '').trim()) return true;
+                    if (p.designer_selectable !== undefined &&
+                        !!p.designer_selectable !== (it.designer_selectable !== false)) return true;
+                }
+            }
+            return false;
+        }
+
+        function deferRenderGridAfterEditSave() {
+            requestAnimationFrame(function () {
+                try { renderGrid(); } catch (e) { console.error(e); }
+            });
         }
 
         function imageLabelsSchemaHint(data) {
@@ -3720,7 +3775,8 @@
             return { ok: true, data: data };
         }
 
-        async function flushEditGallerySlotPreviewsBeforeSave() {
+        async function flushEditGallerySlotPreviewsBeforeSave(opts) {
+            opts = opts || {};
             var urls = Object.keys(editGallerySlotPreview).filter(function (u) {
                 var s = editGallerySlotPreview[u];
                 return s && pendingHasDerivedPreview(s);
@@ -3751,7 +3807,7 @@
                 }
                 var id = document.getElementById('edit-id').value;
                 if (lastData) afterEditGalleryMutation(id, lastData);
-                renderGrid();
+                if (!opts.skipRenderGrid) renderGrid();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; }) || lastData;
                 if (refreshed) afterEditGalleryMutation(id, refreshed);
                 setEditGalleryStatus('已依勾選寫入圖庫', 'success');
@@ -8981,19 +9037,20 @@
             if (saveBtn && saveBtn.disabled) return;
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
-            if (saveBtn) saveBtn.disabled = true;
+            var saveBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '儲存中…'; }
             try {
             await ensureTokenFresh();
-            // 先把名稱／連動／可選寫入（文字欄改為 blur 才存，按儲存時強制 flush）
             if (id && (editKind === 'prototype' || editKind === 'part' || editKind === 'material')) {
                 clearTimeout(editImageLabelSaveTimer);
                 editImageLabelSaveTimer = null;
-                await saveImageLabels(id);
+                await awaitEditImageLabelsIdle();
+                if (editGalleryImageLabelsNeedSave(id)) await saveImageLabels(id);
             }
             if ((editKind === 'prototype' || editKind === 'part' || editKind === 'material')) {
                 var localOk = await flushEditGalleryLocalAddsBeforeSave();
                 if (!localOk) return;
-                var slotOk = await flushEditGallerySlotPreviewsBeforeSave();
+                var slotOk = await flushEditGallerySlotPreviewsBeforeSave({ skipRenderGrid: true });
                 if (!slotOk) return;
             }
             if (editKind === 'prototype') {
@@ -9069,17 +9126,17 @@
                 patchMaterialsAllItem(id, data);
                 var savedKind = normalizeKind((data && data.asset_kind) || editKind);
                 if (savedKind === 'prototype' || savedKind === 'part' || savedKind === 'material') {
-                    renderGrid();
                     clearEditGallerySlotPreviews();
                     clearEditGalleryLocalAdds();
                     hideEditModal();
+                    deferRenderGridAfterEditSave();
                 } else {
                     hideEditModal();
                     await loadMaterials();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
             } finally {
-                if (saveBtn) saveBtn.disabled = false;
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnHtml; }
                 unlockPageScroll(false);
             }
         });

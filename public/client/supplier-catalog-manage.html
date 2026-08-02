@@ -525,7 +525,7 @@
     };
     </script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260803c"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260803d"></script>
     <script src="/js/vendor-asset-pending-upload.js"></script>
     <script src="/js/supplier-catalog-edit-gallery.js"></script>
     <script>
@@ -1741,6 +1741,10 @@
         if (btnEditSave) btnEditSave.addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-kind').value || activeKind);
+            var saveBtnHtml = btnEditSave.innerHTML;
+            btnEditSave.disabled = true;
+            btnEditSave.textContent = '儲存中…';
+            try {
             if (editKind === 'prototype') {
                 var editSubErr = validatePrototypeSubcategory(
                     document.getElementById('edit-subcategory'),
@@ -1790,15 +1794,21 @@
             if (r.status === 402) { toast((data.error || '點數不足') + (data.required ? ' (' + data.required + ')' : ''), 'danger'); return; }
             if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
             if (editModal) editModal.hide();
-            try {
-                await uploadEditGalleryPending(id);
-            } catch (ge) {
-                toast(ge.message, 'warning');
-            }
             var okMsg = tr('supplierManage.saved', '已更新');
             if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
             toast(okMsg, 'success');
-            await refreshList();
+            Promise.resolve().then(async function () {
+                try {
+                    await uploadEditGalleryPending(id);
+                } catch (ge) {
+                    toast(ge.message, 'warning');
+                }
+                await refreshList();
+            });
+            } finally {
+                btnEditSave.disabled = false;
+                btnEditSave.innerHTML = saveBtnHtml;
+            }
         });
 
         document.getElementById('supplier-public-copy').addEventListener('click', function () {

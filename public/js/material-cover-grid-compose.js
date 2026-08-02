@@ -1,5 +1,5 @@
 /**
- * 材料封面：3～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 contain 不裁切）
+ * 材料封面：3～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 cover 滿格、等比裁切不拉伸）
  */
 (function (global) {
   'use strict';
@@ -56,11 +56,12 @@
 
   function computeCellRects(size, gap, rowCounts) {
     var rows = rowCounts.length;
+    var maxCols = Math.max.apply(null, rowCounts);
+    var cellW = (size - gap * (maxCols - 1)) / maxCols;
     var cellH = (size - gap * (rows - 1)) / rows;
     var rects = [];
     rowCounts.forEach(function (cols, rowIdx) {
       var y = rowIdx * (cellH + gap);
-      var cellW = (size - gap * (cols - 1)) / cols;
       var rowTotalW = cols * cellW + gap * (cols - 1);
       var offsetX = (size - rowTotalW) / 2;
       for (var c = 0; c < cols; c++) {
@@ -75,16 +76,22 @@
     return rects;
   }
 
-  function drawImageContain(ctx, img, rect) {
+  /** object-fit: cover — 等比放大至填滿格內，裁切超出部分（不拉伸紋路） */
+  function drawImageCover(ctx, img, rect) {
     var iw = img.naturalWidth || img.width;
     var ih = img.naturalHeight || img.height;
     if (!iw || !ih) return;
-    var scale = Math.min(rect.w / iw, rect.h / ih);
+    var scale = Math.max(rect.w / iw, rect.h / ih);
     var dw = iw * scale;
     var dh = ih * scale;
     var dx = rect.x + (rect.w - dw) / 2;
     var dy = rect.y + (rect.h - dh) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.w, rect.h);
+    ctx.clip();
     ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.restore();
   }
 
   function isAiDerivedItem(it) {
@@ -111,7 +118,7 @@
     var imgs = await Promise.all(imageSources.map(loadImage));
     var rects = computeCellRects(CANVAS_SIZE, GAP, rowCounts);
     for (var i = 0; i < imgs.length; i++) {
-      drawImageContain(ctx, imgs[i], rects[i]);
+      drawImageCover(ctx, imgs[i], rects[i]);
     }
 
     return new Promise(function (resolve, reject) {
