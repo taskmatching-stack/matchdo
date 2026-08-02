@@ -1,5 +1,5 @@
 /**
- * 材料封面：3～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 cover 滿格、等比裁切不拉伸）
+ * 材料封面：2～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 cover 滿格、等比裁切不拉伸）
  */
 (function (global) {
   'use strict';
@@ -7,11 +7,12 @@
   var CANVAS_SIZE = 1024;
   var GAP = 3;
   var BG = '#EAEEF3';
-  var MIN_COUNT = 3;
+  var MIN_COUNT = 2;
   var MAX_COUNT = 9;
 
   function getRowLayout(count) {
     var map = {
+      2: [2],
       3: [3],
       4: [2, 2],
       5: [3, 2],
@@ -152,7 +153,7 @@
       var idAttr = forEdit ? ' id="btn-edit-compose-material-cover"' : '';
       return '<div class="material-cover-compose-slot">' +
         '<button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover"' + idAttr + ' disabled>' +
-        '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（3～9 張）</button></div>';
+        '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（2～9 張）</button></div>';
     }
     return '<div class="material-cover-compose-slot material-cover-compose-slot--spacer" aria-hidden="true"></div>';
   }
