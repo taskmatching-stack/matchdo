@@ -2,7 +2,7 @@
   "name": "matchdo-promo-camera",
   "private": true,
   "version": "0.1.0",
-  "description": "MATCHDO 攝影模擬 Store App（Capacitor L4）",
+  "description": "MATCHDO 商攝導演 Store App（Capacitor L4）",
   "scripts": {
     "sync:www": "node scripts/sync-www.mjs",
     "patch:android": "node scripts/patch-android-gradle.mjs",

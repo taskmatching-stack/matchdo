@@ -27,7 +27,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、攝影模擬（網站／App 分開統計）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、商攝導演（網站／App 分開統計）</p>
 
         <div class="row g-2 mb-3" id="summaryRow">
           <div class="col-6 col-md-4 col-lg">
@@ -56,13 +56,13 @@
           </div>
           <div class="col-6 col-md-4 col-lg">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">攝影模擬（網站）</div>
+              <div class="text-muted small">商攝導演（網站）</div>
               <div class="stat-num" style="color:#fd7e14" id="sumPromoCameraWeb">—</div>
             </div></div>
           </div>
           <div class="col-6 col-md-4 col-lg">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">攝影模擬（App）</div>
+              <div class="text-muted small">商攝導演（App）</div>
               <div class="stat-num" style="color:#e8590c" id="sumPromoCameraApp">—</div>
             </div></div>
           </div>
@@ -79,9 +79,9 @@
                   <option value="site">主站</option>
                   <option value="embed">Embed</option>
                   <option value="promo">情境圖</option>
-                  <option value="promo_camera">攝影模擬（全部）</option>
-                  <option value="promo_camera_web">攝影模擬（網站）</option>
-                  <option value="promo_camera_app">攝影模擬（App）</option>
+                  <option value="promo_camera">商攝導演（全部）</option>
+                  <option value="promo_camera_web">商攝導演（網站）</option>
+                  <option value="promo_camera_app">商攝導演（App）</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -180,7 +180,7 @@
       if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
       if (row.source === 'promo_camera_app') return '<span class="badge badge-promo-camera-app">攝影 App</span>';
       if (row.source === 'promo_camera_web') return '<span class="badge badge-promo-camera-web">攝影 網站</span>';
-      if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera-web">攝影模擬</span>';
+      if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera-web">商攝導演</span>';
       if (row.source === 'promo') return '<span class="badge badge-promo">情境圖</span>';
       return '<span class="badge badge-site">主站</span>';
     }

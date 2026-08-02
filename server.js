@@ -12032,7 +12032,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             }
         }
         if (!currentUser) {
-            return res.status(401).json({ success: false, error: '請先登入後再使用攝影模擬' });
+            return res.status(401).json({ success: false, error: '請先登入後再使用商攝導演' });
         }
         const body = req.body || {};
         const resolvedRefs = await resolvePromoCameraReferences(body);
@@ -12107,7 +12107,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 currentUser.id,
                 pointsToDeduct,
                 'promo_image',
-                '攝影模擬',
+                '商攝導演',
                 { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, generation_mode: 'camera_advanced', client_channel: clientChannel, reference_count: refBases.length }
             );
             if (!consumed.ok) {
@@ -13604,7 +13604,7 @@ async function resolvePromoCameraReferences(body) {
     }
     if (!raw.length && typeof b.image === 'string' && b.image.trim()) raw.push(b.image.trim());
     if (raw.length > 1) {
-        return { error: '攝影模擬一次只能使用一張參考圖', images: [], urls: [] };
+        return { error: '商攝導演一次只能使用一張參考圖', images: [], urls: [] };
     }
     return resolvePromoImageReferences(b);
 }
@@ -20276,8 +20276,8 @@ function adminPromoGenerationRecordSource(row) {
 }
 
 function adminPromoCameraRecordTitleLabel(itemSource) {
-    if (itemSource === 'promo_camera_app') return '攝影模擬 App';
-    if (itemSource === 'promo_camera_web') return '攝影模擬 網站';
+    if (itemSource === 'promo_camera_app') return '商攝導演 App';
+    if (itemSource === 'promo_camera_web') return '商攝導演 網站';
     return '產品情境圖';
 }
 

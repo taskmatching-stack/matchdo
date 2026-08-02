@@ -1,6 +1,6 @@
 {
   "appId": "cc.matchdo.promocamera",
-  "appName": "MATCHDO 攝影模擬",
+  "appName": "MATCHDO 商攝導演",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

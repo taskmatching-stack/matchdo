@@ -149,7 +149,7 @@
   }
 
   function emptyMessage(tab) {
-    if (tab === 'promo') return '尚無情境圖，請先在攝影模擬或設計頁生成。';
+    if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
     if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
     return '尚無設計圖，請先在產品設計中生成並儲存。';
   }

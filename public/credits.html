@@ -365,7 +365,7 @@
       var returnUrl = params ? params.get('returnUrl') : '';
       if (backLink && returnUrl && returnUrl.startsWith('/') && returnUrl.indexOf('/promo-camera-app') === 0) {
         backLink.href = returnUrl;
-        backLink.textContent = '返回攝影模擬';
+        backLink.textContent = '返回商攝導演';
       }
       fetch('/api/points-info').then(function (r) { return r.json(); }).then(function (data) {
         var n = (data && data.points_listing_per_category != null) ? data.points_listing_per_category : 200;
