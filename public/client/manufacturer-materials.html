@@ -1105,7 +1105,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-cover-grid-1x1-20260802';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-save-close-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2115,7 +2115,11 @@
                 } else if (it.url && live.byUrl[it.url]) {
                     var p = live.byUrl[it.url];
                     if (p.label !== undefined) row.label = p.label;
-                    if (p.designer_selectable !== undefined) row.designer_selectable = p.designer_selectable;
+                    if (normalizeKind(m.asset_kind) === 'material') {
+                        row.designer_selectable = true;
+                    } else if (p.designer_selectable !== undefined) {
+                        row.designer_selectable = p.designer_selectable;
+                    }
                     if (row.designer_selectable === false) row.link_group = '';
                     else if (p.link_group !== undefined) row.link_group = p.link_group;
                 }
@@ -2244,7 +2248,11 @@
                     body.cover_link_group = (coverLgIn.value || '').trim();
                 }
                 entries.forEach(function (ent) {
-                    if (ent.designer_selectable === false) ent.link_group = '';
+                    if (mSave && normalizeKind(mSave.asset_kind) === 'material') {
+                        ent.designer_selectable = true;
+                    } else if (ent.designer_selectable === false) {
+                        ent.link_group = '';
+                    }
                 });
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(assetId) + '/image-labels', {
                     method: 'PATCH',
@@ -2797,16 +2805,18 @@
             return out;
         }
 
-        function collectPendingUploadPayload(pendingList) {
+        function collectPendingUploadPayload(pendingList, formKind, galleryOnlyUpload) {
             var uploadFiles = [];
             var uploadLabels = [];
             var uploadLinkGroups = [];
             var uploadDesignerSelectable = [];
             var uploadDerived = [];
             var optIdx = [];
-            (pendingList || []).forEach(function (p) {
+            (pendingList || []).forEach(function (p, pIdx) {
                 var lg = (p.link_group || '').trim();
-                var selectable = p.designer_selectable !== false;
+                var selectable = materialGallerySwatchAutoSelectable(formKind)
+                    ? (galleryOnlyUpload ? true : pIdx > 0)
+                    : (p.designer_selectable !== false);
                 var entries = pendingUploadEntries(p);
                 var startIdx = uploadFiles.length;
                 entries.forEach(function (ent) {
@@ -2834,6 +2844,25 @@
             if (!kindOrAsset) return false;
             if (typeof kindOrAsset === 'string') return normalizeKind(kindOrAsset) === 'prototype';
             return normalizeKind(kindOrAsset.asset_kind) === 'prototype';
+        }
+
+        /** 材料：封面僅展示；其餘色卡一律設計者可選（不需勾選框） */
+        function materialGallerySwatchAutoSelectable(kindOrAsset) {
+            return normalizeKind(typeof kindOrAsset === 'string' ? kindOrAsset : (kindOrAsset && kindOrAsset.asset_kind)) === 'material';
+        }
+
+        function designerSelectableFieldHtmlForItem(kindOrAsset, item, isCover, inputClass, dataUrl) {
+            if (materialGallerySwatchAutoSelectable(kindOrAsset)) {
+                return isCover ? pendingMaterialCoverLockedHtml() : '';
+            }
+            if (!vendorDesignerSelectableEnabledForKind(kindOrAsset)) return '';
+            return pendingDesignerSelectableFieldHtml(item, inputClass, dataUrl);
+        }
+
+        function ensureMaterialGalleryItemSelectable(item, kindOrAsset, isCover) {
+            if (!materialGallerySwatchAutoSelectable(kindOrAsset)) return item;
+            item.designer_selectable = !isCover;
+            return item;
         }
 
         /** 數位原型／配件／材料：可勾選「設計者可選／僅展示」（材料封面強制僅展示） */
@@ -4084,6 +4113,9 @@
             var upscaleOn = vendorUpscaleEnabledForKind(formKind);
             if (formKind === 'material' && list[0]) list[0].designer_selectable = false;
             list.forEach(function (item, idx) {
+                if (formKind === 'material' && idx > 0) item.designer_selectable = true;
+            });
+            list.forEach(function (item, idx) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3 pending-list-col';
                 col.setAttribute('data-pending-id', item.id);
@@ -4132,9 +4164,7 @@
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending', upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     (formKind === 'prototype' && item.designer_selectable !== false ? pendingLinkGroupFieldHtml(item) : '') +
-                    (formKind === 'material' && idx === 0
-                        ? pendingMaterialCoverLockedHtml()
-                        : (vendorDesignerSelectableEnabledForKind(formKind) ? pendingDesignerSelectableFieldHtml(item) : '')) +
+                    designerSelectableFieldHtmlForItem(formKind, item, idx === 0) +
                     '<div class="pending-actions">' +
                     pendingDragRowHtml(list.length) +
                     aiPairHtml +
@@ -4612,7 +4642,6 @@
                 editGalleryLocalAsCoverId = null;
             }
             var showLinkGroup = m && normalizeKind(m.asset_kind) === 'prototype';
-            var showDesignerSelectable = vendorDesignerSelectableEnabledForKind(m);
             var isMaterialKind = m && normalizeKind(m.asset_kind) === 'material';
             var lightboxItems = [];
             orderKeys.forEach(function (key) {
@@ -4670,11 +4699,7 @@
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, localPrefix) + pendingDerivedThumbsHtml(item, localPrefix, upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-local-image-label" data-local-id="' + esc(item.id) + '" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     (showLinkGroup && item.designer_selectable !== false ? pendingLinkGroupFieldHtml(item) : '') +
-                    (showDesignerSelectable
-                        ? (asCover && isMaterialKind
-                            ? pendingMaterialCoverLockedHtml()
-                            : pendingDesignerSelectableFieldHtml(item))
-                        : '') +
+                    designerSelectableFieldHtmlForItem(m && m.asset_kind, item, asCover) +
                     '<div class="pending-actions">' +
                     moveHtml +
                     localAiPair +
@@ -4700,13 +4725,9 @@
                         ? '<input type="text" class="form-control form-control-sm mt-1 edit-cover-link-group" id="edit-cover-link-group" placeholder="連動組（同色同款填相同，例：black）" value="' + esc(linkGroupVal) + '">'
                         : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-link-group-input" data-url="' + esc(url) + '" placeholder="連動組（同色同款填相同）" value="' + esc(linkGroupVal) + '">')
                     : '';
-                var selectableField = showDesignerSelectable
-                    ? (isCover && isMaterialKind
-                        ? pendingMaterialCoverLockedHtml()
-                        : (isCover
-                            ? pendingDesignerSelectableFieldHtml(it, 'edit-cover-designer-selectable')
-                            : pendingDesignerSelectableFieldHtml(it, 'edit-gallery-designer-selectable', url)))
-                    : '';
+                var selectableField = designerSelectableFieldHtmlForItem(m && m.asset_kind, it, isCover, isCover
+                    ? 'edit-cover-designer-selectable'
+                    : 'edit-gallery-designer-selectable', isCover ? undefined : url);
                 var slotPrefix = 'egslot-' + idx;
                 var displayUrl = editGalleryDisplayUrl(url, slot);
                 var imgHtml = (slot && slot.imageBusy)
@@ -5609,7 +5630,7 @@
                     showToast(pendingErr, 'danger');
                     return false;
                 }
-                var payload = collectPendingUploadPayload(opts.pendingItems);
+                var payload = collectPendingUploadPayload(opts.pendingItems, mBefore && mBefore.asset_kind, true);
                 uploadFiles = payload.uploadFiles;
                 uploadLabels = payload.uploadLabels;
                 uploadLinkGroups = payload.uploadLinkGroups;
@@ -8251,7 +8272,7 @@
                     msgEl.textContent = pendingSelErr;
                     return;
                 }
-                var payload = collectPendingUploadPayload(pending);
+                var payload = collectPendingUploadPayload(pending, kind);
                 uploadFiles = payload.uploadFiles;
                 uploadLabels = payload.uploadLabels;
                 uploadLinkGroups = payload.uploadLinkGroups;
@@ -8839,17 +8860,21 @@
                 return;
             }
             if (!file && !id) return;
+            var t = await getToken();
+            if (!t) { showToast('請先登入', 'warning'); return; }
             var btn = document.getElementById('btn-edit-generate-description');
             btn.disabled = true;
             try {
                 var fd = new FormData();
                 fd.append('category_key', cat || '');
+                fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
+                fd.append('asset_kind', document.getElementById('edit-asset-kind').value || '');
                 fd.append('title', document.getElementById('edit-title').value || '');
                 if (file) fd.append('image', file);
                 else fd.append('asset_id', id);
                 var r = await fetch('/api/me/vendor-assets/generate-description', {
                     method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token },
+                    headers: { Authorization: 'Bearer ' + t },
                     body: fd
                 });
                 var data = await r.json().catch(function () { return {}; });
@@ -9007,15 +9032,13 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
-                var saved = patchMaterialsAllItem(id, data);
-                var latest = materialsAll.find(function (x) { return x.id === id; }) || saved;
-                var savedKind = normalizeKind((latest && latest.asset_kind) || editKind);
+                patchMaterialsAllItem(id, data);
+                var savedKind = normalizeKind((data && data.asset_kind) || editKind);
                 if (savedKind === 'prototype' || savedKind === 'part' || savedKind === 'material') {
-                    refreshEditModalAfterSave(latest, { galleryOnly: false });
                     renderGrid();
-                    unlockPageScroll(false);
-                    var nImg = assetImageUrls(latest).length;
-                    setEditGalleryStatus('已儲存。圖庫共 ' + nImg + ' 張；若要白底請對各圖按「AI 重繪」', 'success');
+                    clearEditGallerySlotPreviews();
+                    clearEditGalleryLocalAdds();
+                    hideEditModal();
                 } else {
                     hideEditModal();
                     await loadMaterials();

@@ -1661,12 +1661,12 @@ function buildVendorAssetImageItems(row) {
             sort_order: g.sort_order != null ? g.sort_order : idx + 1,
             label: String(g.label || '').trim() || labelFromImageUrl(g.url),
             is_cover: false,
-            designer_selectable: g.designer_selectable !== false
+            designer_selectable: kind === 'material' ? true : (g.designer_selectable !== false)
         };
         if (normalizeVendorAiDerivedKind(g.ai_derived)) item.ai_derived = normalizeVendorAiDerivedKind(g.ai_derived);
         if (g.source_url) item.source_url = String(g.source_url).trim();
         if (g.link_group) item.link_group = g.link_group;
-        if (g.designer_selectable === false) item.designer_selectable = false;
+        if (kind !== 'material' && g.designer_selectable === false) item.designer_selectable = false;
         items.push(item);
     });
     return items;
@@ -4343,7 +4343,8 @@ async function runVendorAssetImageSemantics(file, context, ownerId) {
 async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, ownerId) {
     const assetKind = normalizeVendorAssetKind(context.asset_kind);
     const patternIntent = normalizePatternIntent(context.pattern_intent);
-    const skipSemantics = (assetKind === 'other' && patternIntent !== 'style');
+    const forDescription = context.purpose === 'description';
+    const skipSemantics = (assetKind === 'other' && patternIntent !== 'style' && !forDescription);
     if (skipSemantics) {
         return {
             tags: [],
@@ -4369,7 +4370,11 @@ async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, owner
         imageEntries,
         vendorAssetAiSemanticsMaxImages(assetKind)
     );
-    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, context);
+    let semanticsContext = context;
+    if (forDescription && assetKind === 'other' && patternIntent !== 'style') {
+        semanticsContext = { ...context, asset_kind: 'prototype' };
+    }
+    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, semanticsContext);
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
         source_id: null,
@@ -4408,13 +4413,14 @@ async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
     if (!imageEntries.length) throw new Error('無圖片可分析');
     const assetKind = normalizeVendorAssetKind(context.asset_kind || row.asset_kind);
     const patternIntent = normalizePatternIntent(context.pattern_intent);
-    if (assetKind === 'other' && patternIntent !== 'style') {
+    const forDescription = context.purpose === 'description';
+    if (assetKind === 'other' && patternIntent !== 'style' && !forDescription) {
         return { tags: [], semantics: null, description: null, model: null, prompt_version: null };
     }
-    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, {
-        ...context,
-        asset_kind: assetKind
-    });
+    const semanticsContext = (forDescription && assetKind === 'other' && patternIntent !== 'style')
+        ? { ...context, asset_kind: 'prototype' }
+        : { ...context, asset_kind: assetKind };
+    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, semanticsContext);
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
         source_id: row.id || null,
@@ -19004,6 +19010,8 @@ async function vendorAssetSemanticsContextFields(opts) {
         description: (o.description || '').trim(),
         design_highlight: (o.design_highlight || '').trim(),
         material_catalog_hint: o.material_catalog_hint || undefined,
+        pattern_intent: o.pattern_intent || undefined,
+        purpose: o.purpose || undefined,
         image_label: o.image_label || undefined,
         image_url: o.image_url || undefined
     };
@@ -23508,29 +23516,41 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
             category_key: body.category_key,
             subcategory_key: body.subcategory_key,
             title: body.title,
-            description: body.description
+            description: body.description,
+            pattern_intent: body.pattern_intent,
+            purpose: 'description'
         });
         if (!imageFile && assetId) {
             const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-                assetId, manufacturerId, 'id, image_url, category_key, subcategory_key, title, description, asset_kind'
+                assetId,
+                manufacturerId,
+                'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, image_semantics_json'
             );
             if (rowErr) {
                 console.error('generate-description select:', rowErr);
                 return res.status(500).json({ error: '查詢失敗' });
             }
-            if (!row || !row.image_url) return res.status(404).json({ error: '找不到該素材或無圖片' });
+            if (!row || !buildVendorAssetImageItems(row).length) {
+                return res.status(404).json({ error: '找不到該素材或無圖片' });
+            }
+            const assetKind = normalizeVendorAssetKind(row.asset_kind);
+            let materialHint = '';
+            if (assetKind === 'material') {
+                materialHint = await materialCatalogHintForVendorAsset(manufacturerId, assetId);
+            }
+            const semJson = parseImageSemanticsJson(row.image_semantics_json);
             context = await vendorAssetSemanticsContextFields({
-                asset_kind: row.asset_kind,
+                asset_kind: assetKind,
                 category_key: (body.category_key || '').trim() || row.category_key || '',
                 subcategory_key: (body.subcategory_key || '').trim() || row.subcategory_key || '',
                 title: (body.title || '').trim() || row.title || '',
                 description: (body.description || '').trim() || row.description || '',
-                image_url: row.image_url
+                material_catalog_hint: materialHint || undefined,
+                pattern_intent: (semJson && semJson.pattern_intent) ? semJson.pattern_intent : undefined,
+                purpose: 'description'
             });
-            imageFile = await fetchPortfolioImageFileFromUrl(row.image_url);
-            if (!imageFile) return res.status(503).json({ error: '無法讀取素材圖片' });
             const ownerId = seedUser.id;
-            const result = await runVendorAssetImageSemantics(imageFile, context, ownerId);
+            const result = await runVendorAssetImageSemanticsFromRow(row, context, ownerId);
             const description = result.description || vendorAssetDescriptionFromSemantics(result.semantics);
             if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
             const pointsRequired = await getPointsVendorAssetDescription();
@@ -23575,6 +23595,10 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
         if (token) {
             const { data: { user } } = await supabase.auth.getUser(token);
             ownerId = user?.id || null;
+        }
+        if (assetId && normalizeVendorAssetKind(context.asset_kind) === 'material') {
+            const hint = await materialCatalogHintForVendorAsset(manufacturerId, assetId);
+            if (hint) context.material_catalog_hint = hint;
         }
         const pointsRequired = await getPointsVendorAssetDescription();
         let isAdmin = false;
@@ -24702,6 +24726,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
         const newEntries = await uploadVendorAssetGalleryFiles(
             manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable, uploadSourceUrls
         );
+        if (assetKind === 'material') {
+            newEntries.forEach(function (e) { delete e.designer_selectable; });
+        }
         let merged = existing.concat(newEntries);
         merged = applyCoverDesignerSelectableMeta(
             merged,
@@ -24815,6 +24842,9 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                     } else if (g.link_group) {
                         next.link_group = g.link_group;
                     }
+                }
+                if (normalizeVendorAssetKind(row.asset_kind) === 'material') {
+                    delete next.designer_selectable;
                 }
                 return next;
             });
