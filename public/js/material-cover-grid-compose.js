@@ -55,21 +55,23 @@
     });
   }
 
+  /** 每一列橫向滿版；欄數較少的列加寬格子，避免下排左右留白 */
   function computeCellRects(size, gap, rowCounts) {
     var rows = rowCounts.length;
     var maxCols = Math.max.apply(null, rowCounts);
-    var cellW = (size - gap * (maxCols - 1)) / maxCols;
+    var defaultCellW = (size - gap * (maxCols - 1)) / maxCols;
     var cellH = (size - gap * (rows - 1)) / rows;
     var rects = [];
     rowCounts.forEach(function (cols, rowIdx) {
       var y = rowIdx * (cellH + gap);
-      var rowTotalW = cols * cellW + gap * (cols - 1);
-      var offsetX = (size - rowTotalW) / 2;
+      var rowCellW = cols < maxCols
+        ? (size - gap * (cols - 1)) / cols
+        : defaultCellW;
       for (var c = 0; c < cols; c++) {
         rects.push({
-          x: offsetX + c * (cellW + gap),
+          x: c * (rowCellW + gap),
           y: y,
-          w: cellW,
+          w: rowCellW,
           h: cellH
         });
       }

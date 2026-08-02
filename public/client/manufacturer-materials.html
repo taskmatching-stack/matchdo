@@ -1111,12 +1111,12 @@
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260803e"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260803g"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-compose-min2-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'modal-scroll-unlock-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1726,6 +1726,24 @@
             }
         }
 
+        function forceCloseEditModalDom() {
+            var el = document.getElementById('edit-modal');
+            if (!el) return;
+            el.classList.remove('show');
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+            el.removeAttribute('aria-modal');
+            el.removeAttribute('role');
+        }
+
+        function scheduleEditModalScrollUnlock() {
+            setTimeout(function () {
+                var el = document.getElementById('edit-modal');
+                if (el && el.classList.contains('show')) forceCloseEditModalDom();
+                unlockPageScroll(true);
+            }, 500);
+        }
+
         function cleanupStrayModalBackdrops() {
             unlockPageScroll(false);
         }
@@ -1743,7 +1761,7 @@
             el.addEventListener('shown.bs.modal', function () { dedupeModalBackdrops(); });
             el.addEventListener('hidden.bs.modal', function () {
                 if (typeof onHiddenExtra === 'function') onHiddenExtra();
-                setTimeout(function () { unlockPageScroll(false); }, 100);
+                setTimeout(function () { unlockPageScroll(true); }, 350);
             });
         }
 
@@ -1785,12 +1803,21 @@
         }
 
         function hideEditModal() {
-            if (editModalEl) {
-                editModalEl.hide();
-                setTimeout(function () { unlockPageScroll(false); }, 350);
-            } else {
-                unlockPageScroll(false);
+            var el = document.getElementById('edit-modal');
+            bindEditModalHiddenOnce();
+            var wasOpen = !!(el && el.classList.contains('show'));
+            if (wasOpen && editModalEl) {
+                try {
+                    editModalEl.hide();
+                } catch (err) {
+                    forceCloseEditModalDom();
+                    scheduleEditModalScrollUnlock();
+                }
+            } else if (wasOpen) {
+                forceCloseEditModalDom();
+                scheduleEditModalScrollUnlock();
             }
+            if (wasOpen && editModalEl) scheduleEditModalScrollUnlock();
             var hasPending = false;
             try {
                 document.querySelectorAll('.add-form').forEach(function (f) {
@@ -7568,6 +7595,7 @@
                     onGoToPage: function (newOffset) {
                         materialsListOffsetByKind[activeKind] = newOffset;
                         renderGrid();
+                        unlockPageScroll(true);
                     }
                 });
             }
@@ -9137,7 +9165,6 @@
             } catch (err) { showToast(err.message, 'danger'); }
             } finally {
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnHtml; }
-                unlockPageScroll(false);
             }
         });
 
