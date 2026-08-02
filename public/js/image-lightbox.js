@@ -130,6 +130,10 @@
         imgEl.addEventListener('load', function () {
             if (root && root.classList.contains('is-open')) fitLightboxImage();
         });
+        imgEl.addEventListener('error', function () {
+            if (!root || !root.classList.contains('is-open')) return;
+            resetLightboxImageSizing();
+        });
     }
 
     function updateGalleryChrome() {
@@ -353,5 +357,9 @@
         }
     }
 
-    global.MatchdoImageLightbox = { open: open, close: close, openFromImg: openFromImg };
+    function isOpen() {
+        return !!(root && root.classList.contains('is-open'));
+    }
+
+    global.MatchdoImageLightbox = { open: open, close: close, openFromImg: openFromImg, isOpen: isOpen };
 })(typeof window !== 'undefined' ? window : global);

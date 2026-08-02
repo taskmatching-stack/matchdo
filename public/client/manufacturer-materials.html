@@ -1116,7 +1116,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-upload-verify-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'upscale-btn-probe-fix-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1366,11 +1366,8 @@
         }
 
         function clearEditGalleryLocalAdds() {
-            (editGalleryLocalAdds || []).forEach(function (item) {
-                if (item && item.objectUrl) {
-                    try { URL.revokeObjectURL(item.objectUrl); } catch (_) {}
-                }
-            });
+            closeMatchdoLightboxIfOpen();
+            (editGalleryLocalAdds || []).forEach(revokePendingItemObjectUrl);
             editGalleryLocalAdds = [];
             editGalleryLocalAsCoverId = null;
             if (editGalleryDisplayOrder && editGalleryDisplayOrder.length) {
@@ -1447,7 +1444,6 @@
                 editGalleryLocalAdds.push({
                     id: 'el' + Date.now() + '-' + i,
                     file: file,
-                    objectUrl: URL.createObjectURL(file),
                     optimize: false,
                     label: labelFromFilename(file.name),
                     link_group: '',
@@ -1574,10 +1570,6 @@
         async function previewEditLocalUpscale(item, scaleOpt) {
             if (!item || item.imageBusy) return;
             if (!vendorUpscaleEnabledForEditAsset()) return;
-            if (item.upscaleProbeDone && item.upscaleNeeded === false) {
-                showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
-                return;
-            }
             var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
             var dimW = item.upscaleWidth || 0;
@@ -2842,9 +2834,46 @@
             });
         }
 
+        function pendingItemFileKey(file) {
+            if (!file) return '';
+            return String(file.name || '') + '|' + String(file.size || 0) + '|' + String(file.lastModified || 0) + '|' + String(file.type || '');
+        }
+
+        /** 待傳／編輯本機圖：同一 File 重用 blob URL，避免重繪時撤銷仍被燈箱使用的 URL */
+        function ensurePendingItemObjectUrl(item) {
+            if (!item || !item.file) {
+                revokePendingItemObjectUrl(item);
+                return '';
+            }
+            var key = pendingItemFileKey(item.file);
+            if (item.objectUrl && item._objectUrlFileKey === key) return item.objectUrl;
+            revokePendingItemObjectUrl(item);
+            item.objectUrl = URL.createObjectURL(item.file);
+            item._objectUrlFileKey = key;
+            return item.objectUrl;
+        }
+
+        function revokePendingItemObjectUrl(item) {
+            if (!item) return;
+            if (item.objectUrl) {
+                try { URL.revokeObjectURL(item.objectUrl); } catch (_) {}
+                item.objectUrl = null;
+            }
+            item._objectUrlFileKey = '';
+        }
+
+        function closeMatchdoLightboxIfOpen() {
+            var lb = document.getElementById('matchdo-image-lightbox');
+            if (lb && lb.classList.contains('is-open') && window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
+                window.MatchdoImageLightbox.close();
+            }
+        }
+
         function clearPendingImages(form) {
             if (!form) return;
+            closeMatchdoLightboxIfOpen();
             var wrap = form.querySelector('.add-pending-images');
+            getPendingImages(form).forEach(revokePendingItemObjectUrl);
             revokePendingImageUrls(wrap);
             if (wrap) wrap.innerHTML = '';
             form._pendingImages = [];
@@ -3263,24 +3292,58 @@
             return '<div class="pending-ai-pair">' + (innerHtml || '') + '</div>';
         }
 
-        function probeImageDimensionsFromFile(file) {
+        function probeImageDimensionsFromFile(file, item) {
             return new Promise(function (resolve) {
-                if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                if (!file) {
                     resolve({ width: 0, height: 0 });
                     return;
                 }
-                var objUrl = URL.createObjectURL(file);
-                var img = new Image();
-                img.onload = function () {
-                    URL.revokeObjectURL(objUrl);
-                    resolve({ width: img.naturalWidth || 0, height: img.naturalHeight || 0 });
-                };
-                img.onerror = function () {
-                    URL.revokeObjectURL(objUrl);
+                var typeOk = file.type && file.type.indexOf('image/') === 0;
+                var extOk = /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i.test(file.name || '');
+                if (!typeOk && !extOk) {
                     resolve({ width: 0, height: 0 });
-                };
-                img.src = objUrl;
+                    return;
+                }
+                function finish(width, height) {
+                    resolve({ width: width | 0, height: height | 0 });
+                }
+                if (typeof createImageBitmap === 'function') {
+                    createImageBitmap(file).then(function (bmp) {
+                        finish(bmp.width, bmp.height);
+                        if (bmp.close) bmp.close();
+                    }).catch(function () {
+                        probeImageDimensionsViaObjectUrl(file, item, finish);
+                    });
+                    return;
+                }
+                probeImageDimensionsViaObjectUrl(file, item, finish);
             });
+        }
+
+        function probeImageDimensionsViaObjectUrl(file, item, finish) {
+            var objUrl = '';
+            var revokeAfter = false;
+            if (item && item.file === file && item.objectUrl) {
+                objUrl = ensurePendingItemObjectUrl(item);
+            }
+            if (!objUrl) {
+                objUrl = URL.createObjectURL(file);
+                revokeAfter = true;
+            }
+            var img = new Image();
+            img.onload = function () {
+                if (revokeAfter) {
+                    try { URL.revokeObjectURL(objUrl); } catch (_) {}
+                }
+                finish(img.naturalWidth || 0, img.naturalHeight || 0);
+            };
+            img.onerror = function () {
+                if (revokeAfter) {
+                    try { URL.revokeObjectURL(objUrl); } catch (_) {}
+                }
+                finish(0, 0);
+            };
+            img.src = objUrl;
         }
 
         function probeImageDimensionsFromUrl(url) {
@@ -3312,23 +3375,24 @@
         }
 
         function pendingUpscaleBtnDisabled(item) {
-            if (item.imageBusy) return true;
-            if (item.upscaleProbeDone === true && item.upscaleNeeded === false) return true;
-            return false;
+            return !!item.imageBusy;
         }
 
         function pendingUpscaleBtnTitle(item) {
             if (item.imageBusy) return '';
-            if (item.upscaleProbeDone !== true) return '正在檢查解析度…';
-            if (item.upscaleNeeded === false) return item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大';
+            if (item.upscaleProbeDone !== true) return '正在檢查解析度…（仍可點擊，送出時由伺服器判斷）';
+            if (item.upscaleNeeded === false) return (item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大') + '（仍可嘗試）';
             return item.upscaleHint || ('圖片 <0.5 MP 才可 AI 放大（' + VENDOR_UPSCALE_RULE_TEXT + '）');
         }
 
         function probePendingItemUpscale(form, item, rerenderFn) {
             if (!item || !item.file) return Promise.resolve();
+            var key = pendingItemFileKey(item.file);
+            if (item.upscaleProbeDone && item._upscaleProbeFileKey === key) return Promise.resolve();
             item.upscaleProbeDone = false;
-            return probeImageDimensionsFromFile(item.file).then(function (dim) {
+            return probeImageDimensionsFromFile(item.file, item).then(function (dim) {
                 applyItemUpscaleProbe(item, dim.width, dim.height);
+                item._upscaleProbeFileKey = key;
                 if (typeof rerenderFn === 'function') rerenderFn();
             });
         }
@@ -3351,12 +3415,11 @@
             grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
                 var url = btn.getAttribute('data-url');
                 var probe = galleryUpscaleProbe[url];
+                btn.disabled = false;
                 if (!probe) {
-                    btn.disabled = false;
                     btn.title = '解析度檢查中，仍可嘗試；' + VENDOR_UPSCALE_RULE_TEXT;
                     return;
                 }
-                btn.disabled = !probe.needed;
                 btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
             });
         }
@@ -3988,10 +4051,6 @@
             if (item.imageBusy) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (!vendorUpscaleEnabledForKind(kind)) return;
-            if (item.upscaleProbeDone && item.upscaleNeeded === false) {
-                showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
-                return;
-            }
             var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
             var dimW = item.upscaleWidth || 0;
@@ -4224,10 +4283,10 @@
         }
 
         function renderPendingImages(form) {
+            closeMatchdoLightboxIfOpen();
             var wrap = form.querySelector('.add-pending-images');
             var list = getPendingImages(form);
             if (!wrap) return;
-            revokePendingImageUrls(wrap);
             wrap.innerHTML = '';
             var formKind = form.getAttribute('data-kind') || 'prototype';
             var upscaleOn = vendorUpscaleEnabledForKind(formKind);
@@ -4248,7 +4307,7 @@
                 var url = '';
                 var objectUrl = '';
                 if (item.file) {
-                    objectUrl = URL.createObjectURL(item.file);
+                    objectUrl = ensurePendingItemObjectUrl(item);
                     url = objectUrl;
                 } else if (item.redrawPreviewUrl) {
                     url = item.redrawPreviewUrl;
@@ -4357,7 +4416,10 @@
                 }
                 card.querySelector('.pending-remove').addEventListener('click', function () {
                     var i = list.findIndex(function (x) { return x.id === item.id; });
-                    if (i >= 0) list.splice(i, 1);
+                    if (i >= 0) {
+                        revokePendingItemObjectUrl(list[i]);
+                        list.splice(i, 1);
+                    }
                     renderPendingImages(form);
                     updateAddFormPointsEstimate(form);
                     schedulePendingDraftSave(form);
@@ -4521,7 +4583,6 @@
                 var newItem = {
                     id: 'el' + Date.now() + '-grid',
                     file: file,
-                    objectUrl: URL.createObjectURL(file),
                     optimize: false,
                     label: Compose.coverLabelForCount(loaded.length),
                     link_group: '',
@@ -4536,7 +4597,13 @@
                 var coverKey = editGalleryDisplayOrder && editGalleryDisplayOrder[0];
                 if (coverKey && String(coverKey).indexOf('local:') === 0) {
                     var oldId = String(coverKey).slice(6);
-                    editGalleryLocalAdds = editGalleryLocalAdds.filter(function (x) { return x.id !== oldId; });
+                    editGalleryLocalAdds = editGalleryLocalAdds.filter(function (x) {
+                        if (x.id === oldId) {
+                            revokePendingItemObjectUrl(x);
+                            return false;
+                        }
+                        return true;
+                    });
                     editGalleryDisplayOrder = editGalleryDisplayOrder.filter(function (k) { return k !== coverKey; });
                 }
                 editGalleryLocalAdds.unshift(newItem);
@@ -4753,6 +4820,7 @@
             var items = assetImageItems(m);
             var locals = editGalleryLocalAdds || [];
             if (!items.length && !locals.length) {
+                closeMatchdoLightboxIfOpen();
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
                 grid.setAttribute('data-live-asset-id', editId ? String(editId) : '');
                 syncEditGalleryRedrawSettings();
@@ -4777,7 +4845,10 @@
             orderKeys.forEach(function (key) {
                 if (String(key).indexOf('local:') === 0) {
                     var loc = findEditLocalById(String(key).slice(6));
-                    if (loc) lightboxItems.push({ url: loc.objectUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) });
+                    if (loc) {
+                        var locUrl = ensurePendingItemObjectUrl(loc);
+                        if (locUrl) lightboxItems.push({ url: locUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) });
+                    }
                 } else if (cardsByUrl[key]) {
                     lightboxItems.push({ url: cardsByUrl[key].url, label: displayGalleryImageLabel(cardsByUrl[key]) });
                 }
@@ -4786,7 +4857,7 @@
             var upscaleOn = vendorUpscaleEnabledForEditAsset();
             function buildEditLocalCardHtml(item, lidx, asCover) {
                 var hasPreview = pendingHasAiPreview(item);
-                var previewUrl = item.objectUrl;
+                var previewUrl = ensurePendingItemObjectUrl(item);
                 var localPrefix = 'edit-local-' + lidx;
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
@@ -4929,6 +5000,7 @@
                     html += buildEditSavedCardHtml(cardsByUrl[key], gIdx >= 0 ? gIdx : ordIdx, isCover);
                 }
             });
+            closeMatchdoLightboxIfOpen();
             grid.innerHTML = html;
             grid.setAttribute('data-live-asset-id', editId ? String(editId) : '');
             var coverLabelIn = document.getElementById('edit-cover-label');
@@ -5160,9 +5232,7 @@
                         e.stopPropagation();
                         var i = editGalleryLocalAdds.indexOf(item);
                         if (i >= 0) {
-                            if (item.objectUrl) {
-                                try { URL.revokeObjectURL(item.objectUrl); } catch (_) {}
-                            }
+                            revokePendingItemObjectUrl(item);
                             editGalleryLocalAdds.splice(i, 1);
                         }
                         if (editGalleryLocalAsCoverId === item.id) editGalleryLocalAsCoverId = null;
@@ -5199,10 +5269,6 @@
                 return false;
             }
             var probe = galleryUpscaleProbe[sourceUrl];
-            if (probe && !probe.needed) {
-                showToast((probe.hint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
-                return false;
-            }
             var scale = (opts && opts.scale != null)
                 ? ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(opts.scale)) || (parseInt(opts.scale, 10) || 2))
                 : 2;

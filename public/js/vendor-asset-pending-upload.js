@@ -454,24 +454,51 @@
             return '<div class="pending-ai-pair">' + (innerHtml || '') + '</div>';
         }
 
-        function probeImageDimensionsFromFile(file) {
+        function probeImageDimensionsFromFile(file, item) {
             return new Promise(function (resolve) {
-                if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                if (!file) {
                     resolve({ width: 0, height: 0 });
                     return;
                 }
-                var objUrl = URL.createObjectURL(file);
-                var img = new Image();
-                img.onload = function () {
-                    URL.revokeObjectURL(objUrl);
-                    resolve({ width: img.naturalWidth || 0, height: img.naturalHeight || 0 });
-                };
-                img.onerror = function () {
-                    URL.revokeObjectURL(objUrl);
+                var typeOk = file.type && file.type.indexOf('image/') === 0;
+                var extOk = /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i.test(file.name || '');
+                if (!typeOk && !extOk) {
                     resolve({ width: 0, height: 0 });
-                };
-                img.src = objUrl;
+                    return;
+                }
+                function finish(width, height) {
+                    resolve({ width: width | 0, height: height | 0 });
+                }
+                if (typeof createImageBitmap === 'function') {
+                    createImageBitmap(file).then(function (bmp) {
+                        finish(bmp.width, bmp.height);
+                        if (bmp.close) bmp.close();
+                    }).catch(function () {
+                        probeImageDimensionsViaObjectUrl(file, item, finish);
+                    });
+                    return;
+                }
+                probeImageDimensionsViaObjectUrl(file, item, finish);
             });
+        }
+
+        function probeImageDimensionsViaObjectUrl(file, item, finish) {
+            var objUrl = (item && item.objectUrl) ? item.objectUrl : URL.createObjectURL(file);
+            var revokeAfter = !(item && item.objectUrl);
+            var img = new Image();
+            img.onload = function () {
+                if (revokeAfter) {
+                    try { URL.revokeObjectURL(objUrl); } catch (_) {}
+                }
+                finish(img.naturalWidth || 0, img.naturalHeight || 0);
+            };
+            img.onerror = function () {
+                if (revokeAfter) {
+                    try { URL.revokeObjectURL(objUrl); } catch (_) {}
+                }
+                finish(0, 0);
+            };
+            img.src = objUrl;
         }
 
         function probeImageDimensionsFromUrl(url) {
@@ -503,23 +530,25 @@
         }
 
         function pendingUpscaleBtnDisabled(item) {
-            if (item.imageBusy) return true;
-            if (item.upscaleProbeDone === true && item.upscaleNeeded === false) return true;
-            return false;
+            return !!item.imageBusy;
         }
 
         function pendingUpscaleBtnTitle(item) {
             if (item.imageBusy) return '';
-            if (item.upscaleProbeDone !== true) return '正在檢查解析度…';
-            if (item.upscaleNeeded === false) return item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大';
+            if (item.upscaleProbeDone !== true) return '正在檢查解析度…（仍可點擊，送出時由伺服器判斷）';
+            if (item.upscaleNeeded === false) return (item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大') + '（仍可嘗試）';
             return item.upscaleHint || ('圖片 <0.5 MP 才可 AI 放大（' + VENDOR_UPSCALE_RULE_TEXT + '）');
         }
 
         function probePendingItemUpscale(form, item, rerenderFn) {
             if (!item || !item.file) return Promise.resolve();
+            var file = item.file;
+            var key = String(file.name || '') + '|' + String(file.size || 0) + '|' + String(file.lastModified || 0) + '|' + String(file.type || '');
+            if (item.upscaleProbeDone && item._upscaleProbeFileKey === key) return Promise.resolve();
             item.upscaleProbeDone = false;
-            return probeImageDimensionsFromFile(item.file).then(function (dim) {
+            return probeImageDimensionsFromFile(item.file, item).then(function (dim) {
                 applyItemUpscaleProbe(item, dim.width, dim.height);
+                item._upscaleProbeFileKey = key;
                 if (typeof rerenderFn === 'function') rerenderFn();
             });
         }
@@ -539,12 +568,11 @@
             grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
                 var url = btn.getAttribute('data-url');
                 var probe = galleryUpscaleProbe[url];
+                btn.disabled = false;
                 if (!probe) {
-                    btn.disabled = false;
                     btn.title = '解析度檢查中，仍可嘗試；' + VENDOR_UPSCALE_RULE_TEXT;
                     return;
                 }
-                btn.disabled = !probe.needed;
                 btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
             });
         }
@@ -928,10 +956,6 @@
             if (item.imageBusy) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (!vendorUpscaleEnabledForKind(kind)) return;
-            if (item.upscaleProbeDone && item.upscaleNeeded === false) {
-                showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
-                return;
-            }
             var scale = (global.MatchdoUpscaleScale && global.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
             if (!confirmUpscaleInputLimit(item.upscaleWidth || 0, item.upscaleHeight || 0)) return;
