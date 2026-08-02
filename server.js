@@ -13654,11 +13654,18 @@ function joinPromoPromptParts(parts) {
     return (parts || []).map(function (p) { return String(p || '').trim(); }).filter(Boolean).join('. ').trim();
 }
 
-/** 情境圖／攝影模擬：正面描述滿版輸出；不寫 letterbox／留白等失敗樣態，避免 FLUX 誤判 */
+/** 情境圖／攝影模擬（有選場景）：新商業環境＋滿版；不寫 letterbox／留白等失敗樣態 */
 function promoFluxFillFramePromptPart(width, height) {
     const w = Math.min(2048, Math.max(512, Number(width) || 1024));
     const h = Math.min(2048, Math.max(512, Number(height) || 1024));
     return 'Output one new ' + w + '×' + h + ' commercial photograph with full-bleed composition: environment, lighting, and product extend naturally to all four edges of the frame. Use the reference for product identity only; direct a fresh advertising shot with new framing, crop, and camera angle';
+}
+
+/** 攝影模擬（不選場景）：保留原圖場景／環境，延伸填滿輸出尺寸 */
+function promoFluxPreserveReferenceScenePromptPart(width, height) {
+    const w = Math.min(2048, Math.max(512, Number(width) || 1024));
+    const h = Math.min(2048, Math.max(512, Number(height) || 1024));
+    return 'Output one ' + w + '×' + h + ' photograph that preserves the reference image\'s existing scene, environment, background, lighting mood, and spatial context — keep the same real-world setting as the reference, not a studio swap or invented location. When the output aspect ratio differs from the reference, naturally extend or reframe within that same scene so the environment and product continuously fill the entire frame edge to edge';
 }
 
 /**
@@ -14298,6 +14305,7 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
  * 攝影模擬 /api/promo-camera/generate 專用（與 buildPromoImagePrompt 完全分離）。
  *
  * 組裝順序（joinPromoPromptParts，以 . 串接）：
+ * 0. 滿版／場景基底：有 scene_key → 新商業環境；無 scene_key → 保留原圖場景並延伸填滿
  * 1. theme.prompt + theme.composition（promo_scene_templates，slot=theme）
  * 2. scene.prompt + scene.composition（promo_scene_templates，slot=scene）
  * 3. 使用者選取之 camera 參數 prompt_fragment（promo_camera_param_options，依分類 sort_order）
@@ -14313,7 +14321,10 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
-    const parts = [promoFluxFillFramePromptPart(width, height)];
+    const hasScene = Boolean(String(sceneKey || '').trim());
+    const parts = [hasScene
+        ? promoFluxFillFramePromptPart(width, height)
+        : promoFluxPreserveReferenceScenePromptPart(width, height)];
     parts.push.apply(parts, collectPromoSceneTemplateParts(theme, scene));
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
