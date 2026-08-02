@@ -151,6 +151,7 @@ function buildIndexHtml() {
     /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/bootstrap@5\.0\.0[\s\S]*?<script src="\/js\/promo-camera\/app-shell\.js[^"]*"><\/script>\s*/i,
     ''
   );
+  html = html.replace(/<script src="\/js\/promo-camera\/pwa-install-prompt\.js[^"]*"><\/script>\s*/i, '');
 
   const scripts = [
     '<script src="js/vendor/bootstrap.bundle.min.js"></script>',
@@ -166,8 +167,8 @@ function buildIndexHtml() {
     '<script src="js/promo-camera/app-runtime.js"></script>',
     '<script src="js/promo-camera/index.js"></script>',
     '<script src="js/promo-camera/presets.js"></script>',
-    '<script src="js/promo-camera/app-native-bridge.js"></script>',
-    '<script src="js/promo-camera/app-shell.js"></script>'
+    '<script src="js/promo-camera/app-shell.js"></script>',
+    '<script src="js/promo-camera/app-native-bridge.js"></script>'
   ].join('\n  ');
 
   const i18nMarker = html.indexOf('function pcAppApplyI18n()');
