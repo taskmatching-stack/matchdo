@@ -1111,12 +1111,12 @@
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260803b"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260803c"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-compose-min3-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-compose-unified-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2879,13 +2879,10 @@
         /** 材料：封面欄上方拼色卡按鈕；其餘欄用等高 spacer 對齊圖卡 */
         function materialCoverComposeSlotHtml(kindOrAsset, isCover, forEdit) {
             if (!materialGallerySwatchAutoSelectable(kindOrAsset)) return '';
-            if (isCover) {
-                var idAttr = forEdit ? ' id="btn-edit-compose-material-cover"' : '';
-                return '<div class="material-cover-compose-slot">' +
-                    '<button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover"' + idAttr + ' disabled>' +
-                    '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（3～9 張）</button></div>';
-            }
-            return '<div class="material-cover-compose-slot material-cover-compose-slot--spacer" aria-hidden="true"></div>';
+            var Compose = materialCoverComposeApi();
+            return Compose && Compose.materialCoverComposeSlotHtml
+                ? Compose.materialCoverComposeSlotHtml(isCover, forEdit)
+                : '';
         }
 
         /** 數位原型／配件／材料：可勾選「設計者可選／僅展示」（材料封面強制僅展示） */
@@ -4291,37 +4288,47 @@
         }
 
         function syncMaterialComposeCoverButtonForForm(form) {
-            if (!form) return;
-            var btn = form.querySelector('.btn-compose-material-cover');
+            if (!form || form.getAttribute('data-kind') !== 'material') return;
+            var grid = form.querySelector('.add-pending-images');
+            var btn = grid ? grid.querySelector('.btn-compose-material-cover') : null;
             if (!btn) return;
-            var isMaterial = form.getAttribute('data-kind') === 'material';
-            if (!isMaterial) {
-                btn.classList.add('d-none');
+            var Compose = materialCoverComposeApi();
+            if (!Compose) {
+                btn.disabled = true;
+                btn.title = '拼封面模組未載入，請重新整理頁面';
                 return;
             }
-            btn.classList.remove('d-none');
-            var Compose = materialCoverComposeApi();
-            var n = Compose ? Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false }).length : 0;
-            btn.disabled = !Compose || n < Compose.MIN_COUNT;
-            btn.title = n >= (Compose && Compose.MIN_COUNT)
-                ? ('將 ' + Math.min(n, Compose.MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
-                : ('需至少 ' + (Compose ? Compose.MIN_COUNT : 3) + ' 張單色樣張（不含封面）；目前 ' + n + ' 張');
+            if (Compose.syncMaterialCoverComposeButton) Compose.syncMaterialCoverComposeButton(btn, grid);
         }
 
         function syncEditMaterialComposeCoverButton(m) {
             var btn = document.getElementById('btn-edit-compose-material-cover');
+            var grid = document.getElementById('edit-gallery-grid');
             if (!btn) return;
             var Compose = materialCoverComposeApi();
-            var n = Compose && m ? collectEditMaterialSwatchSources(m).length : 0;
-            btn.disabled = !Compose || n < Compose.MIN_COUNT;
-            btn.title = n >= (Compose && Compose.MIN_COUNT)
-                ? ('將 ' + Math.min(n, Compose.MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
-                : ('需至少 ' + (Compose ? Compose.MIN_COUNT : 3) + ' 張單色樣張（不含封面）；目前 ' + n + ' 張');
+            if (!Compose) {
+                btn.disabled = true;
+                btn.title = '拼封面模組未載入，請重新整理頁面';
+                return;
+            }
+            if (Compose.syncMaterialCoverComposeButton) Compose.syncMaterialCoverComposeButton(btn, grid);
         }
 
         function collectEditMaterialSwatchSources(m) {
             var Compose = materialCoverComposeApi();
             if (!Compose || !m) return [];
+            var grid = document.getElementById('edit-gallery-grid');
+            if (grid && Compose.collectMaterialSwatchSourcesFromGrid) {
+                var cols = grid.querySelectorAll(':scope > [class*="col-"]');
+                if (cols.length > 1) {
+                    return Compose.collectMaterialSwatchSourcesFromGrid(grid, {
+                        resolveLocalFile: function (id) {
+                            var loc = findEditLocalById(id);
+                            return loc && loc.file ? loc.file : null;
+                        }
+                    });
+                }
+            }
             var sources = [];
             var orderKeys = normalizeEditGalleryDisplayOrder(m);
             orderKeys.forEach(function (key, ordIdx) {
@@ -4340,8 +4347,18 @@
         async function handleComposeMaterialCoverPending(form) {
             var Compose = materialCoverComposeApi();
             if (!form || !Compose) return;
-            var list = getPendingImages(form);
-            var sources = Compose.collectPendingSwatchSources(list, { requireSelectable: false });
+            var grid = form.querySelector('.add-pending-images');
+            var sources = grid && Compose.collectMaterialSwatchSourcesFromGrid
+                ? Compose.collectMaterialSwatchSourcesFromGrid(grid, {
+                    resolvePendingFile: function (id) {
+                        var p = getPendingImages(form).find(function (x) { return x.id === id; });
+                        return p && p.file ? p.file : null;
+                    }
+                })
+                : [];
+            if (!sources.length) {
+                sources = Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false });
+            }
             if (sources.length < Compose.MIN_COUNT) {
                 showToast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
                 return;
@@ -4356,6 +4373,7 @@
             try {
                 var blob = await Compose.composeGrid(sources);
                 var file = new File([blob], 'material-cover-grid.jpg', { type: 'image/jpeg' });
+                var list = getPendingImages(form);
                 list.unshift({
                     id: 'p' + Date.now() + '-cover-' + Math.random().toString(36).slice(2),
                     file: file,

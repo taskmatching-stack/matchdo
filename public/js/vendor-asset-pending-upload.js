@@ -1016,7 +1016,14 @@
             var upscaleOn = vendorUpscaleEnabledForKind(formKind);
             list.forEach(function (item, idx) {
                 var col = document.createElement('div');
-                col.className = 'col-6 col-sm-4 col-md-3';
+                col.className = 'col-6 col-sm-4 col-md-3 pending-list-col';
+                col.setAttribute('data-pending-id', item.id);
+                if (formKind === 'material') {
+                    var Compose = global.MatchdoMaterialCoverGridCompose;
+                    if (Compose && Compose.materialCoverComposeSlotHtml) {
+                        col.insertAdjacentHTML('beforeend', Compose.materialCoverComposeSlotHtml(idx === 0, false));
+                    }
+                }
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + ((item.redrawPreviewUrl || item.upscalePreviewUrl) ? ' is-new-redraw' : '');
                 card.dataset.pendingId = item.id;

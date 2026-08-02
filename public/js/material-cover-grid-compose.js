@@ -139,6 +139,66 @@
     return '多色色卡（' + n + '色）';
   }
 
+  /** 封面欄上方拼色卡按鈕；其餘欄用等高 spacer 對齊圖卡 */
+  function materialCoverComposeSlotHtml(isCover, forEdit) {
+    if (isCover) {
+      var idAttr = forEdit ? ' id="btn-edit-compose-material-cover"' : '';
+      return '<div class="material-cover-compose-slot">' +
+        '<button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover"' + idAttr + ' disabled>' +
+        '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（3～9 張）</button></div>';
+    }
+    return '<div class="material-cover-compose-slot material-cover-compose-slot--spacer" aria-hidden="true"></div>';
+  }
+
+  function countMaterialSwatchCols(gridEl) {
+    if (!gridEl) return 0;
+    var cols = gridEl.querySelectorAll(':scope > [class*="col-"]');
+    return Math.max(0, cols.length - 1);
+  }
+
+  /** 編輯／待傳 grid：跳過封面欄（index 0），依 DOM 欄位取樣張來源 */
+  function collectMaterialSwatchSourcesFromGrid(gridEl, opts) {
+    opts = opts || {};
+    var sources = [];
+    if (!gridEl) return sources;
+    var cols = gridEl.querySelectorAll(':scope > [class*="col-"]');
+    cols.forEach(function (col, idx) {
+      if (idx === 0) return;
+      if (opts.resolveLocalFile) {
+        var localId = col.getAttribute('data-local-id');
+        if (localId) {
+          var localFile = opts.resolveLocalFile(localId);
+          if (localFile) {
+            sources.push(localFile);
+            return;
+          }
+        }
+      }
+      if (opts.resolvePendingFile) {
+        var pendingId = col.getAttribute('data-pending-id');
+        if (pendingId) {
+          var pendingFile = opts.resolvePendingFile(pendingId);
+          if (pendingFile) {
+            sources.push(pendingFile);
+            return;
+          }
+        }
+      }
+      var url = col.getAttribute('data-gallery-url');
+      if (url) sources.push(url);
+    });
+    return sources.slice(0, MAX_COUNT);
+  }
+
+  function syncMaterialCoverComposeButton(btn, gridEl) {
+    if (!btn) return;
+    var n = countMaterialSwatchCols(gridEl);
+    btn.disabled = n < MIN_COUNT;
+    btn.title = n >= MIN_COUNT
+      ? ('將 ' + Math.min(n, MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
+      : ('需至少 ' + MIN_COUNT + ' 張單色樣張（不含封面）；目前 ' + n + ' 張');
+  }
+
   global.MatchdoMaterialCoverGridCompose = {
     CANVAS_SIZE: CANVAS_SIZE,
     MIN_COUNT: MIN_COUNT,
@@ -146,6 +206,10 @@
     getRowLayout: getRowLayout,
     composeGrid: composeGrid,
     collectPendingSwatchSources: collectPendingSwatchSources,
+    materialCoverComposeSlotHtml: materialCoverComposeSlotHtml,
+    countMaterialSwatchCols: countMaterialSwatchCols,
+    collectMaterialSwatchSourcesFromGrid: collectMaterialSwatchSourcesFromGrid,
+    syncMaterialCoverComposeButton: syncMaterialCoverComposeButton,
     coverLabelForCount: coverLabelForCount,
     isAiDerivedItem: isAiDerivedItem
   };

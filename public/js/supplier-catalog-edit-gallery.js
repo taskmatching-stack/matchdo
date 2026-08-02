@@ -442,7 +442,14 @@
               : '') +
             '</div>')) +
         '</div>';
-      return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+      var isMaterial = catalogItemAssetKind(item) === 'material';
+      var Compose = global.MatchdoMaterialCoverGridCompose;
+      var composeSlot = (isMaterial && Compose && Compose.materialCoverComposeSlotHtml)
+        ? Compose.materialCoverComposeSlotHtml(isCover, true)
+        : '';
+      return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '">' +
+        composeSlot +
+        '<div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
         pendingCardBadgeRow(coverBadge, newBadge) +
         '<div class="pending-card-media">' + imgHtml + '</div>' +
         (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
@@ -529,6 +536,8 @@
     }
     bindEditGalleryReorder(grid);
     syncEditGalleryRedrawSettings();
+    var cfgSync = getCfg().syncMaterialComposeCoverButton;
+    if (cfgSync && catalogItemAssetKind(item) === 'material') cfgSync(item);
   }
   async function previewGallerySlotRedraw(item, sourceUrl) {
     if (!sourceUrl || editGalleryUploading) return;
