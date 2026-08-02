@@ -1,5 +1,5 @@
 /**
- * 材料封面：4～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 contain 不裁切）
+ * 材料封面：3～9 張單色樣張拼成 1:1 色卡（零 FLUX；格內 contain 不裁切）
  */
 (function (global) {
   'use strict';
@@ -7,11 +7,12 @@
   var CANVAS_SIZE = 1024;
   var GAP = 3;
   var BG = '#EAEEF3';
-  var MIN_COUNT = 4;
+  var MIN_COUNT = 3;
   var MAX_COUNT = 9;
 
   function getRowLayout(count) {
     var map = {
+      3: [3],
       4: [2, 2],
       5: [3, 2],
       6: [3, 3],
