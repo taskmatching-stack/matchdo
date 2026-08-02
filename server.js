@@ -1424,6 +1424,45 @@ function sampleVendorAssetEntriesForAiSemantics(entries, maxN) {
     return [cover].concat(picked);
 }
 
+/** 材料「產生說明」：色卡封面僅展示，優先用可選用的單色樣張 */
+function entriesForVendorAssetAiSemantics(items, assetKind, context) {
+    const list = (items || []).filter(Boolean);
+    const kind = normalizeVendorAssetKind(assetKind);
+    if (context && context.purpose === 'description' && kind === 'material' && list.length > 1) {
+        const selectable = list.filter(function (e, idx) {
+            return idx > 0 && e.designer_selectable !== false && String(e.url || '').trim();
+        });
+        if (selectable.length) return selectable;
+    }
+    return list;
+}
+
+async function fetchVendorAssetImagePartsForSemantics(pool, maxN, deps) {
+    const imageEntries = [];
+    const tried = new Set();
+    const order = (pool || []).filter(Boolean);
+    async function tryEntry(it, fallbackLabel) {
+        const url = String(it.url || '').trim();
+        if (!url || tried.has(url)) return;
+        tried.add(url);
+        try {
+            const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, url);
+            const lbl = (it.label || '').trim() || fallbackLabel;
+            imageEntries.push({ part, label: lbl });
+        } catch (fetchErr) {
+            console.warn('fetchVendorAssetImagePartsForSemantics skip url:', url.slice(0, 96), fetchErr.message || fetchErr);
+        }
+    }
+    const preferred = sampleVendorAssetEntriesForAiSemantics(order, Math.max(maxN, order.length));
+    for (let i = 0; i < preferred.length && imageEntries.length < maxN; i++) {
+        await tryEntry(preferred[i], i === 0 ? '封面' : `圖 ${i + 1}`);
+    }
+    for (let j = 0; j < order.length && imageEntries.length < maxN; j++) {
+        await tryEntry(order[j], `圖 ${j + 1}`);
+    }
+    return imageEntries;
+}
+
 function normalizeImageLinkGroup(raw) {
     if (raw == null) return '';
     return String(raw).trim().slice(0, 48);
@@ -4396,21 +4435,11 @@ async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
     const items = buildVendorAssetImageItems(row);
     if (!items.length) throw new Error('無圖片可分析');
     const assetKindEarly = normalizeVendorAssetKind(context.asset_kind || row.asset_kind);
-    const sampled = sampleVendorAssetEntriesForAiSemantics(
-        items,
-        vendorAssetAiSemanticsMaxImages(assetKindEarly)
-    );
+    const maxN = vendorAssetAiSemanticsMaxImages(assetKindEarly);
+    const pool = entriesForVendorAssetAiSemantics(items, assetKindEarly, context);
     const deps = getVisualSemanticsDeps();
-    const imageEntries = [];
-    for (let i = 0; i < sampled.length; i++) {
-        const it = sampled[i];
-        const url = (it.url || '').trim();
-        if (!url) continue;
-        const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, url);
-        const lbl = (it.label || '').trim() || (i === 0 ? '封面' : `圖 ${i + 1}`);
-        imageEntries.push({ part, label: lbl });
-    }
-    if (!imageEntries.length) throw new Error('無圖片可分析');
+    const imageEntries = await fetchVendorAssetImagePartsForSemantics(pool, maxN, deps);
+    if (!imageEntries.length) throw new Error('無法讀取圖片（請確認圖片可存取）');
     const assetKind = normalizeVendorAssetKind(context.asset_kind || row.asset_kind);
     const patternIntent = normalizePatternIntent(context.pattern_intent);
     const forDescription = context.purpose === 'description';
@@ -4424,7 +4453,7 @@ async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
         source_id: row.id || null,
-        image_url: sampled[0] && sampled[0].url ? sampled[0].url : null,
+        image_url: pool[0] && pool[0].url ? pool[0].url : null,
         text_input: imageEntries.length > 1
             ? `multi_image:${imageEntries.length}/${items.length}`
             : null,
@@ -11808,7 +11837,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         let generationId = null;
         let librarySaveWarning = null;
         const primaryUrl = refUrls[0] || '';
-        const promoShowOnHomepage = true;
+        const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(currentUser.id, body);
         if (!resultImageUrl) {
             librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
         } else {
@@ -12124,7 +12153,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
         let generationId = null;
         let librarySaveWarning = null;
         const primaryUrl = refUrls[0] || '';
-        const promoShowOnHomepage = true;
+        const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(currentUser.id, body);
         const cameraParamsSnapshot = {
             keys: cameraKeys,
             resolved: cameraResolved
@@ -12740,6 +12769,10 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         }
         if (!imageUrl) imageUrl = `data:${mime};base64,${imageData}`;
 
+        const showOnHomepageForInsert = currentUser
+            ? await resolveDesignShowOnHomepageFromRequest(currentUser.id, req.body)
+            : true;
+
         // ── 先回傳生成成功，不與扣點／寫入綁在一起 ──
         res.json({
             success: true,
@@ -12751,6 +12784,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             usedFlux,
             seedUsed: seedNum,
             mode: hasRefs ? 'image-to-image' : 'text-to-image',
+            show_on_homepage: showOnHomepageForInsert,
             ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
         });
 
@@ -12786,7 +12820,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
-                    const showOnHomepage = await defaultShowOnHomepageForNewDesign(currentUser.id);
+                    const showOnHomepage = showOnHomepageForInsert;
                     const autoLineage = hasRefs && fluxReferenceSources.length
                         ? await customProductLineage.computeCustomProductLineage(
                             supabase, currentUser.id, fluxReferenceSources
@@ -13062,10 +13096,18 @@ async function canControlDesignShowOnHomepage(userId) {
     return hasActivePaidSubscription(userId);
 }
 
-/** 新設計寫入時媒體牆預設：免費＝公開；付費／管理員／測試員＝預設不公開（可於資產庫勾選） */
+/** 新設計寫入時媒體牆預設：一律預設公開；付費／管理員／測試員可於設計頁取消勾選 */
 async function defaultShowOnHomepageForNewDesign(userId) {
+    void userId;
+    return true;
+}
+
+/** 依請求 body 與會員資格決定 show_on_homepage（免費強制 true） */
+async function resolveDesignShowOnHomepageFromRequest(userId, body) {
     if (!userId) return true;
-    return !(await canControlDesignShowOnHomepage(userId));
+    if (!(await canControlDesignShowOnHomepage(userId))) return true;
+    if (body && typeof body.show_on_homepage !== 'undefined') return !!body.show_on_homepage;
+    return true;
 }
 
 const VENDOR_ASSET_MEMBERSHIP_HIDE_COL = 'public_hidden_by_membership';
@@ -15965,7 +16007,7 @@ app.post('/api/custom-products', async (req, res) => {
             generation_seed: seedVal,
             show_on_homepage: typeof show_on_homepage !== 'undefined'
                 ? !!show_on_homepage
-                : await defaultShowOnHomepageForNewDesign(user.id)
+                : true
         };
         if (insertPayload.show_on_homepage === false && !(await canControlDesignShowOnHomepage(user.id))) {
             return res.status(403).json({ error: '需付費訂閱才能將設計圖設為不公開' });
@@ -16684,8 +16726,11 @@ app.get('/api/media-wall', async (req, res) => {
             }
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
             items = items.slice(offset, offset + perPage);
-        } else if (layoutOnly === 'user_design' || layoutOnly === 'promo_scene' || layoutOnly === 'comparison' || layoutOnly === 'series' || layoutOnly === 'collection') {
+        } else {
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
+            if (!layoutOnly) {
+                items = items.slice(offset, offset + perPage);
+            }
         }
 
         await enrichMediaWallRefManufacturers(items);
@@ -24726,6 +24771,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
         const newEntries = await uploadVendorAssetGalleryFiles(
             manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable, uploadSourceUrls
         );
+        if (!newEntries.length) {
+            return res.status(500).json({ error: '圖片上傳至 Storage 失敗，請改用 JPG／PNG／WebP 後重試' });
+        }
         if (assetKind === 'material') {
             newEntries.forEach(function (e) { delete e.designer_selectable; });
         }
@@ -24747,6 +24795,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
                 return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-gallery-images.sql 新增多角度圖欄位' });
             }
             return res.status(500).json({ error: '更新失敗' });
+        }
+        const afterGallery = parseGalleryImages(updated && updated.gallery_images);
+        if (afterGallery.length < existing.length + newEntries.length) {
+            return res.status(500).json({
+                error: '圖片可能未寫入資料庫。請在 Supabase 執行 docs/add-vendor-asset-gallery-images.sql',
+                gallery_images_missing: true
+            });
         }
         let balanceAfter = null;
         if (!isAdmin && pointsRequired > 0) {

@@ -1594,23 +1594,15 @@
                     } else {
                         grid.classList.remove('mw-promo-scene-grid');
                         clearPromoSceneGridMetrics();
-                        var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
-                        var collections = items.filter(is1x2);
-                        var ones = items.filter(function (p) { return !is1x2(p); });
-                        var comparisons = ones.filter(function (p) { return (p.type || '') === 'comparison'; });
-                        var designs = ones.filter(function (p) { return (p.type || '') === 'user_design'; });
-                        var max1x2Total = 8;
-                        collections = collections.slice(0, max1x2Total);
-                        var maxDesignPerBlock = 11;
-                        var displayOrder = [];
-                        var i1x2 = 0, iComp = 0, iDesign = 0;
-                        while (i1x2 < collections.length || iComp < comparisons.length || iDesign < designs.length) {
-                            if (i1x2 < collections.length) displayOrder.push(collections[i1x2++]);
-                            if (iComp < comparisons.length) displayOrder.push(comparisons[iComp++]);
-                            for (var k = 0; k < maxDesignPerBlock && iDesign < designs.length; k++) displayOrder.push(designs[iDesign++]);
-                        }
+                        var sortedAll = items.slice().sort(function (a, b) {
+                            var ta = a.created_at ? Date.parse(a.created_at) : 0;
+                            var tb = b.created_at ? Date.parse(b.created_at) : 0;
+                            if (isNaN(ta)) ta = 0;
+                            if (isNaN(tb)) tb = 0;
+                            return tb - ta;
+                        });
                         listForLD = [];
-                        displayOrder.forEach(function (p) {
+                        sortedAll.forEach(function (p) {
                             var rendered = appendRenderedItem(p);
                             if (rendered) listForLD.push(rendered);
                         });

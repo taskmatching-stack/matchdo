@@ -243,3 +243,27 @@ body.pc-app-shell .pc-preset-item {
     justify-content: flex-end;
   }
 }
+
+/* 成像來源：品牌色彩／底片模擬 — Web／App／嵌入／PWA 四端共用 */
+#promo-camera-app .pc-look-segment.btn-group,
+body.pc-app-shell .pc-look-segment.pc-app-cam-segment.btn-group {
+  display: flex;
+  width: 100%;
+}
+#promo-camera-app .pc-look-segment.btn-group > .btn-check + .btn,
+body.pc-app-shell .pc-look-segment.pc-app-cam-segment.btn-group > .btn-check + .btn {
+  flex: 1 1 0;
+  width: 50%;
+  margin: 0;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 0.75rem !important;
+  font-size: 0.9375rem !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: center;
+  box-sizing: border-box;
+}

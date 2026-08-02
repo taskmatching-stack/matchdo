@@ -274,7 +274,10 @@
       source_type: state.sourceType,
       source_id: state.sourceId || undefined,
       client_channel: clientChannel,
-      camera: cam
+      camera: cam,
+      show_on_homepage: (global.MatchdoShowOnHomepageControl
+        ? global.MatchdoShowOnHomepageControl.readChecked('pcShowOnHomepage')
+        : true)
     };
   }
 

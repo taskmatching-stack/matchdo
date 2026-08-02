@@ -1116,7 +1116,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'modal-scroll-unlock-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'gallery-upload-verify-20260803';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1309,7 +1309,11 @@
             if (incoming.image_url != null) merged.image_url = incoming.image_url;
             if (incoming.gallery_images != null) merged.gallery_images = incoming.gallery_images;
             if (incoming.image_urls != null) merged.image_urls = incoming.image_urls;
-            if (incoming.image_items != null) merged.image_items = incoming.image_items;
+            if (incoming.image_items != null) {
+                merged.image_items = incoming.image_items;
+            } else if (incoming.gallery_images != null || incoming.image_urls != null || incoming.image_count != null) {
+                delete merged.image_items;
+            }
             if (incoming.image_count != null) merged.image_count = incoming.image_count;
             if (incoming.cover_image_label !== undefined) merged.cover_image_label = incoming.cover_image_label;
             if (incoming.cover_link_group !== undefined) merged.cover_link_group = incoming.cover_link_group;
@@ -2030,10 +2034,23 @@
             }
         }
 
+        function assetImageUrlsFromRecord(m) {
+            if (!m) return [];
+            if (m.image_urls && m.image_urls.length) return m.image_urls.slice();
+            var urls = [];
+            var cover = String(m.image_url || '').trim();
+            if (cover) urls.push(cover);
+            (m.gallery_images || []).forEach(function (g) {
+                var u = typeof g === 'string' ? g : (g && g.url);
+                if (u && urls.indexOf(u) < 0) urls.push(u);
+            });
+            return urls;
+        }
+
         function assetImageItems(m) {
             if (!m) return [];
             if (m.image_items && m.image_items.length) return m.image_items.slice();
-            return assetImageUrls(m).map(function (url, idx) {
+            return assetImageUrlsFromRecord(m).map(function (url, idx) {
                 return { url: url, sort_order: idx, label: labelFromImageUrl(url), is_cover: idx === 0 };
             });
         }
@@ -5834,13 +5851,17 @@
                 assetImageUrls(mergedUpload).forEach(function (u) {
                     if (urlsBeforeUpload.indexOf(u) === -1) lastNew = u;
                 });
-                var urlCount = assetImageUrls(mergedUpload).length;
-                if (urlCount <= countBefore) {
-                    var migHint = '圖片可能未寫入資料庫。請在 Supabase 執行 docs/add-vendor-asset-gallery-images.sql，或開 F12 → Network 查看 gallery-images 回應。';
+                var apiCount = typeof data.image_count === 'number' ? data.image_count : assetImageUrls(data).length;
+                var urlCount = typeof mergedUpload.image_count === 'number' ? mergedUpload.image_count : assetImageUrls(mergedUpload).length;
+                var effectiveCount = Math.max(apiCount, urlCount);
+                if (effectiveCount <= countBefore) {
+                    var migHint = '圖片可能未寫入資料庫（上傳前 ' + countBefore + ' 張，回應 ' + effectiveCount + ' 張）。請在 Supabase 執行 docs/add-vendor-asset-gallery-images.sql，或開 F12 → Network 查看 gallery-images 回應。';
+                    if (data.error) migHint = data.error + '（' + countBefore + '→' + effectiveCount + '）';
                     setEditGalleryStatus(migHint, 'danger');
                     showToast(migHint, 'danger');
                     return false;
                 }
+                urlCount = effectiveCount;
                 setEditGalleryStatus(optIdx.length
                     ? '已上傳並重繪，目前共 ' + urlCount + ' 張'
                     : ('已上傳原圖，目前共 ' + urlCount + ' 張；若要白底請對各圖按「AI 重繪」'), 'success');

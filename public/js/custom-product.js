@@ -89,6 +89,81 @@ $(document).ready(function () {
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）
     let lastGeneratedSeed = null;      // 最近一次使用的 Seed（可重現風格，供儲存）
+    let lastGeneratedProductId = null; // 最近一次自動寫入的 custom_products id
+    let designShowOnHomepageCanControl = false;
+
+    function readDesignShowOnHomepageChecked() {
+        var el = document.getElementById('designShowOnHomepage');
+        return !el || !!el.checked;
+    }
+
+    function syncDesignShowOnHomepageUi() {
+        var $cb = $('#designShowOnHomepage');
+        var $hint = $('#designShowOnHomepageHint');
+        if (!$cb.length) return;
+        if (designShowOnHomepageCanControl) {
+            $cb.prop('disabled', false);
+            if (!$cb.data('userTouched')) $cb.prop('checked', true);
+            $hint.text(t('customProduct.paidUserShowHint') || '付費會員可取消勾選；未勾選的設計圖不會出現在首頁媒體牆');
+        } else {
+            $cb.prop('checked', true).prop('disabled', true);
+            $hint.text(t('customProduct.freeUserShowHint') || '免費用戶預設展示在首頁，無法取消');
+        }
+    }
+
+    function initDesignShowOnHomepageControl() {
+        if (typeof canControlDesignShowOnHomepage === 'function') {
+            canControlDesignShowOnHomepage().then(function (can) {
+                designShowOnHomepageCanControl = !!can;
+                syncDesignShowOnHomepageUi();
+            }).catch(function () { syncDesignShowOnHomepageUi(); });
+        } else {
+            syncDesignShowOnHomepageUi();
+        }
+    }
+
+    function patchDesignShowOnHomepage(productId, checked) {
+        if (!productId) return Promise.resolve(false);
+        return new Promise(function (resolve) {
+            getAuthToken(function (token) {
+                if (!token) { resolve(false); return; }
+                var url = '/api/custom-products/' + encodeURIComponent(productId) + '?show_on_homepage=' + (checked ? 'true' : 'false');
+                fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ show_on_homepage: checked })
+                }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                    .then(function (res) { resolve(!!res.ok); })
+                    .catch(function () { resolve(false); });
+            });
+        });
+    }
+
+    function rememberGeneratedProductFromGallery(imageUrl) {
+        if (!imageUrl) return;
+        var norm = normalizeGalleryImageUrl(imageUrl);
+        if (!norm) return;
+        getAuthToken(function (token) {
+            if (!token) return;
+            fetch('/api/custom-products?gallery=1&limit=8&offset=0', {
+                headers: { Authorization: 'Bearer ' + token },
+                cache: 'no-store'
+            }).then(function (r) { return r.json(); }).then(function (data) {
+                var list = (data && data.products) ? data.products : [];
+                for (var i = 0; i < list.length; i++) {
+                    var p = list[i];
+                    var u = galleryProductImageUrl(p);
+                    if (u && u === norm) {
+                        lastGeneratedProductId = p.id || null;
+                        $('#pastGeneratedGallery .past-item-wrap').filter(function () {
+                            return $(this).attr('data-image-url') === norm;
+                        }).attr('data-show-on-homepage', p.show_on_homepage === false ? '0' : '1');
+                        break;
+                    }
+                }
+            }).catch(function () {});
+        });
+    }
 
     // 設計行為追蹤：再設計進入時設為 true，生圖成功後送 redesign_generate_ok 並可清除
     window.fromRedesign = !!(typeof sessionStorage !== 'undefined' && sessionStorage.getItem('redesignImageUrl'));
@@ -1974,6 +2049,10 @@ $(document).ready(function () {
 
     $(function () {
         window.__matchdoFluxStaffDebug = false;
+        initDesignShowOnHomepageControl();
+        if (window.MatchdoShowOnHomepageControl) {
+            window.MatchdoShowOnHomepageControl.init('promoImageShowOnHomepage', 'promoImageShowOnHomepageHint');
+        }
         if (window.AuthService && typeof AuthService.isAdmin === 'function') {
             AuthService.isAdmin().then(function (ok) {
                 if (ok) window.__matchdoFluxStaffDebug = true;
@@ -4326,6 +4405,7 @@ $(document).ready(function () {
                 }
             }
             if (seedNum != null) payload.seed = seedNum;
+            payload.show_on_homepage = readDesignShowOnHomepageChecked();
             try {
                 if (window.i18n && typeof window.i18n.getLang === 'function') payload.ui_locale = window.i18n.getLang();
             } catch (e) { /* ignore */ }
@@ -4373,6 +4453,10 @@ $(document).ready(function () {
                 lastGeneratedPrompt = prompt || '';
                 lastGeneratedSeed = (result.seedUsed != null && result.seedUsed !== '') ? result.seedUsed : null;
                 if (lastGeneratedSeed != null) $('#generationSeed').val(lastGeneratedSeed);
+                if (typeof result.show_on_homepage === 'boolean') {
+                    $('#designShowOnHomepage').prop('checked', result.show_on_homepage);
+                }
+                lastGeneratedProductId = null;
                 addGeneratedThumbnailToGallery(result.imageData, prompt, lastGeneratedSeed);
                 var imgSrc = result.imageUrl || result.imageData || '';
                 if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
@@ -4391,6 +4475,10 @@ $(document).ready(function () {
                 showGeneratedResult();
                 invalidateGalleryCache();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setTimeout(function () {
+                    rememberGeneratedProductFromGallery(lastGeneratedImageUrl);
+                    try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
+                }, 1800);
             } else if (response.status === 402) {
                 $('#generatedImagePreview').html(`
                     <div class="alert alert-warning">
@@ -4658,6 +4746,7 @@ $(document).ready(function () {
             };
             if (firstRefImageUrl) payload.reference_image_url = firstRefImageUrl;
             if (refSourcesList.length) payload.reference_sources = refSourcesList;
+            payload.show_on_homepage = readDesignShowOnHomepageChecked();
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>儲存中...');
             fetch('/api/custom-products', {
                 method: 'POST',
@@ -4771,7 +4860,7 @@ $(document).ready(function () {
         var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
         var ownerDisplay = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
         var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
-        var showOnHomepage = p.show_on_homepage === true;
+        var showOnHomepage = p.show_on_homepage !== false;
         var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
         var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
         var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
@@ -5495,7 +5584,22 @@ $(document).ready(function () {
         }
     });
 
-    // 「展示在首頁」勾選變更時呼叫 PATCH 更新
+    // 「展示在首頁」勾選變更（設計區 + 歷史 modal 共用 PATCH）
+    $(document).on('change', '#designShowOnHomepage', function () {
+        $(this).data('userTouched', true);
+        var checked = $(this).prop('checked');
+        var $hint = $('#designShowOnHomepageHint');
+        if (lastGeneratedProductId) {
+            patchDesignShowOnHomepage(lastGeneratedProductId, checked).then(function (ok) {
+                if (ok && $hint.length) {
+                    $hint.text(checked ? '已設定為展示在首頁' : '已取消展示在首頁').css('color', 'var(--bs-success)');
+                } else if (!ok && $hint.length) {
+                    $hint.text('更新失敗，請稍後再試').css('color', 'var(--bs-danger)');
+                }
+            });
+        }
+    });
+
     $(document).on('change', '#pastItemModalShowOnHomepage', function () {
         var productId = $(this).data('product-id');
         var wrap = $(this).data('source-wrap');
@@ -5662,6 +5766,7 @@ $(document).ready(function () {
             if (event === 'INITIAL_SESSION' && historyLoadedOnce) return;
             if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                 historyLoadedOnce = true;
+                initDesignShowOnHomepageControl();
                 if (session && session.access_token) {
                     tryLoadHistoryWhenAuthReady(session.access_token);
                 } else {
@@ -6587,7 +6692,10 @@ $(document).ready(function () {
             user_prompt: ($('#promoImagePrompt').val() || '').trim(),
             photography_set_id: ($('#promoImagePhotoSelect').val() || '').trim() || undefined,
             source_type: window.promoImageSourceProductId ? 'custom_product' : (window.promoImageSourceType || 'digital_asset'),
-            source_id: window.promoImageSourceProductId || undefined
+            source_id: window.promoImageSourceProductId || undefined,
+            show_on_homepage: (window.MatchdoShowOnHomepageControl
+                ? window.MatchdoShowOnHomepageControl.readChecked('promoImageShowOnHomepage')
+                : true)
         };
         $btn.prop('disabled', true);
         $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);

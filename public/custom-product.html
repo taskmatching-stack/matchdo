@@ -1591,6 +1591,11 @@
                                 </button>
                                 <span class="points-hint text-muted small" id="generatePointsDisplay" data-i18n="customProduct.generatePointsAbout" title="無參考圖 15 點，有參考圖 20 點">無參考圖 15 點／有參考圖 20 點</span>
                             </div>
+                            <div class="form-check form-switch mt-2 mb-0" id="designShowOnHomepageWrap">
+                                <input class="form-check-input" type="checkbox" role="switch" id="designShowOnHomepage" checked disabled>
+                                <label class="form-check-label small" for="designShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
+                            </div>
+                            <p class="text-muted small mb-0 mt-1" id="designShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
                         </div>
                         <div class="create-panel-right" id="generatedImagePreviewWrap">
                             <div id="generatedImagePreview"></div>
@@ -1893,6 +1898,11 @@
 
                                 <div class="promo-action-bar">
                                     <span class="promo-points" id="promoImagePointsDisplay">每張 20 點</span>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="promoImageShowOnHomepage" checked disabled>
+                                        <label class="form-check-label small" for="promoImageShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
+                                    </div>
+                                    <p class="promo-field-hint mb-0" id="promoImageShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
                                     <button type="button" class="btn btn-primary promo-generate-btn" id="promoImageApplyBtn">
                                         <i class="fas fa-bullhorn me-2"></i>生成情境圖
                                     </button>
@@ -1977,7 +1987,8 @@
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260730e" defer></script>
     <script src="/js/digital-asset-picker.js?v=2" defer></script>
-    <script src="js/custom-product.js?v=142" defer></script>
+    <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
+    <script src="js/custom-product.js?v=144" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

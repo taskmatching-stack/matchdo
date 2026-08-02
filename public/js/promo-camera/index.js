@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260801g';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260803a';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -755,6 +755,9 @@
     updateLcd();
     bindEvents();
     initFromQuery();
+    if (window.MatchdoShowOnHomepageControl) {
+      window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint');
+    }
     renderMessages();
     renderAngleButtons();
     Api.loadOptions(apiLang()).then(function (res) {

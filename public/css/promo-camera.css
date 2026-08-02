@@ -212,6 +212,19 @@
   border-color: #666;
   font-size: 0.75rem;
 }
+#promo-camera-app .pc-camera-controls .pc-look-segment .btn-outline-light,
+#promo-camera-app .pc-camera-controls .pc-app-cam-segment .btn-outline-light {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 0.75rem !important;
+  font-size: 0.9375rem !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  box-sizing: border-box;
+}
 #promo-camera-app .pc-camera-controls .btn-check:checked + .btn-outline-light {
   background: #444;
   color: #fff;
