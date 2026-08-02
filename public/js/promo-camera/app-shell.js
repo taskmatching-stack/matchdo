@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260731w';
+  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260802a';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -365,6 +365,39 @@
     renderAppSelectChips('pcMpSelect', 'pcMpChips');
   }
 
+  function setupAppAssetLibrary() {
+    var btn = document.getElementById('pcAppLibraryBtn');
+    var modalEl = document.getElementById('pcAssetLibraryModal');
+    if (!btn || !modalEl || btn.getAttribute('data-pc-bound') === '1') return;
+    btn.setAttribute('data-pc-bound', '1');
+    var libraryMount = null;
+    btn.addEventListener('click', function () {
+      showModal(modalEl);
+      if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
+        var emptyEl = document.getElementById('pcLibraryEmpty');
+        var loadingEl = document.getElementById('pcLibraryLoading');
+        if (loadingEl) loadingEl.classList.add('d-none');
+        if (emptyEl) {
+          emptyEl.textContent = t('promoCamera.assetPickerFailed', '載入失敗，請稍後再試。');
+          emptyEl.classList.remove('d-none');
+        }
+        return;
+      }
+      if (!libraryMount) {
+        libraryMount = window.MatchdoDigitalAssetPicker.mount({
+          tabsEl: document.getElementById('pcLibraryPickerTabs'),
+          listEl: document.getElementById('pcLibraryList'),
+          emptyEl: document.getElementById('pcLibraryEmpty'),
+          loadingEl: document.getElementById('pcLibraryLoading'),
+          initialTab: 'promo',
+          mode: 'browse'
+        });
+      } else if (typeof libraryMount.reload === 'function') {
+        libraryMount.reload('promo');
+      }
+    });
+  }
+
   function setupAppCreditsPanel() {
     var btn = document.getElementById('pcAppCreditsBtn');
     var topUpBtn = document.getElementById('pcCreditsTopUpBtn');
@@ -448,6 +481,7 @@
     setupComposeCollapse();
     hookPreserveSubjectsSummary();
     setupAppCreditsPanel();
+    setupAppAssetLibrary();
     setupAppFormPickers();
     observeThemeSceneSelects();
     hookSelectSummary();

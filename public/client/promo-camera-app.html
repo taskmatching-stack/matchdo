@@ -19,8 +19,8 @@
   <link href="/css/image-lightbox.css" rel="stylesheet" />
   <link href="/css/promo-camera.css?v=20260802a" rel="stylesheet" />
   <link href="/css/promo-camera-presets.css?v=20260801b" rel="stylesheet" />
-  <link href="/css/promo-camera-app.css?v=20260802a" rel="stylesheet" />
-  <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
+  <link href="/css/promo-camera-app.css?v=20260802b" rel="stylesheet" />
+  <link href="/css/digital-asset-picker.css?v=2" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
 <script>
@@ -48,6 +48,10 @@
           <span class="pc-app-lang-sep" aria-hidden="true">|</span>
           <a href="#" class="pc-app-lang-link" data-lang="en" data-i18n="nav.langEn">EN</a>
         </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary pc-app-library-btn" id="pcAppLibraryBtn" aria-haspopup="dialog" aria-controls="pcAssetLibraryModal">
+          <i class="bi bi-collection"></i>
+          <span data-i18n="promoCamera.appLibraryBtn">數位資產</span>
+        </button>
         <button type="button" class="btn btn-sm btn-outline-primary pc-app-credits-btn" id="pcAppCreditsBtn" aria-haspopup="dialog" aria-controls="pcCreditsModal">
           <i class="bi bi-currency-exchange"></i>
           <span data-i18n="nav.myCredits">我的點數</span>
@@ -318,6 +322,24 @@
     </div>
   </div>
 
+  <div class="modal fade" id="pcAssetLibraryModal" tabindex="-1" aria-labelledby="pcAssetLibraryTitle" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-scrollable pc-app-library-dialog">
+      <div class="modal-content pc-app-library-modal">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0" id="pcAssetLibraryTitle" data-i18n="promoCamera.appLibraryTitle">數位資產庫</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="home.close" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-2" data-i18n="promoCamera.appLibraryHint">點縮圖可放大檢視；要設為產品圖請用下方「從數位資產選擇」。</p>
+          <div id="pcLibraryPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
+          <div id="pcLibraryLoading" class="text-muted small" data-i18n="home.loading">載入中…</div>
+          <p id="pcLibraryEmpty" class="text-muted small d-none mb-0"></p>
+          <div id="pcLibraryList" class="row g-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="pcAssetModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
@@ -341,13 +363,13 @@
   <script src="/js/auth-middleware.js"></script>
   <script src="/js/i18n.js"></script>
   <script src="/js/matchdo-promo-image.js?v=20260731v"></script>
-  <script src="/js/digital-asset-picker.js?v=1"></script>
+  <script src="/js/digital-asset-picker.js?v=2"></script>
   <script src="/js/image-lightbox.js?v=20260731v"></script>
   <script src="/js/promo-camera/api.js?v=20260731d"></script>
   <script src="/js/promo-camera/state.js?v=20260801b"></script>
   <script src="/js/promo-camera/index.js?v=20260801f"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
-  <script src="/js/promo-camera/app-shell.js?v=20260801f"></script>
+  <script src="/js/promo-camera/app-shell.js?v=20260802a"></script>
   <script src="/js/promo-camera/pwa-install-prompt.js?v=20260801a"></script>
   <script>
     function pcAppApplyI18n() {

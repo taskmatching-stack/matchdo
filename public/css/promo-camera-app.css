@@ -560,6 +560,15 @@ body.pc-app-shell .pc-app-credits-btn {
   position: relative;
   gap: 0.35rem;
 }
+body.pc-app-shell .pc-app-library-btn {
+  gap: 0.35rem;
+}
+body.pc-app-shell .pc-app-library-modal .modal-body {
+  padding-top: 0.75rem;
+}
+body.pc-app-shell .pc-app-library-dialog {
+  max-width: 920px;
+}
 body.pc-app-shell .pc-app-credits-badge {
   display: inline-flex;
   align-items: center;

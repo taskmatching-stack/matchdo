@@ -11645,6 +11645,20 @@ async function insertProductPromoGenerationRow(payload) {
     return { id: null, error: '寫入資產庫失敗' };
 }
 
+/** 情境圖寫入後確保 show_on_homepage=true（insert 若因缺欄剝除而落預設 false 時補上） */
+async function ensurePromoGenerationShowOnHomepage(generationId, showOn) {
+    if (!generationId || !showOn) return { ok: true };
+    const { error } = await supabase.from('product_promo_generations')
+        .update({ show_on_homepage: true })
+        .eq('id', generationId);
+    if (!error) return { ok: true };
+    if (isSupabaseMissingColumnError(error, 'show_on_homepage')) {
+        return { ok: false, missingColumn: true };
+    }
+    console.warn('ensurePromoGenerationShowOnHomepage:', error.message);
+    return { ok: false, error: error.message };
+}
+
 async function uploadPromoResultImageBuffer(userId, buffer) {
     if (!buffer) return null;
     try {
@@ -11736,7 +11750,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
         }
-        const finalPrompt = await buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, refBases.length);
+        const finalPrompt = await buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, refBases.length, w, h);
         const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
             themeKey,
             sceneKey,
@@ -11819,6 +11833,11 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             } else if (ins.stripped && ins.stripped.includes('show_on_homepage')) {
                 console.error('❌ 嚴重：show_on_homepage 欄位不存在！新圖無法顯示在首頁。請執行：docs/add-promo-show-on-homepage.sql');
                 librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
+            } else if (promoShowOnHomepage) {
+                const ensured = await ensurePromoGenerationShowOnHomepage(generationId, true);
+                if (!ensured.ok && ensured.missingColumn) {
+                    librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
+                }
             }
         }
         if (generationId) {
@@ -12045,7 +12064,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
         }
-        const built = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, refBases.length);
+        const built = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, w, h);
         const finalPrompt = built.prompt;
         const cameraResolved = built.camera_resolved || {};
         const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
@@ -12134,6 +12153,14 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             generationId = ins.id;
             if (!generationId) {
                 librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
+            } else if (ins.stripped && ins.stripped.includes('show_on_homepage')) {
+                console.error('❌ 嚴重：show_on_homepage 欄位不存在！新圖無法顯示在首頁。請執行：docs/add-promo-show-on-homepage.sql');
+                librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
+            } else if (promoShowOnHomepage) {
+                const ensured = await ensurePromoGenerationShowOnHomepage(generationId, true);
+                if (!ensured.ok && ensured.missingColumn) {
+                    librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
+                }
             }
         }
         if (generationId) {
@@ -13627,6 +13654,13 @@ function joinPromoPromptParts(parts) {
     return (parts || []).map(function (p) { return String(p || '').trim(); }).filter(Boolean).join('. ').trim();
 }
 
+/** 情境圖／攝影模擬：正面描述滿版輸出；不寫 letterbox／留白等失敗樣態，避免 FLUX 誤判 */
+function promoFluxFillFramePromptPart(width, height) {
+    const w = Math.min(2048, Math.max(512, Number(width) || 1024));
+    const h = Math.min(2048, Math.max(512, Number(height) || 1024));
+    return 'Output one new ' + w + '×' + h + ' commercial photograph with full-bleed composition: environment, lighting, and product extend naturally to all four edges of the frame. Use the reference for product identity only; direct a fresh advertising shot with new framing, crop, and camera angle';
+}
+
 /**
  * 情境圖 /api/promo-image/generate 專用（與攝影模擬分離）。
  * 組裝順序：
@@ -13637,13 +13671,14 @@ function joinPromoPromptParts(parts) {
  * 5) photography_prompt_sets body_text（選填）
  * 不進 prompt：中文 name／description、攝影模擬七維參數
  */
-async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, referenceCount) {
+async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, referenceCount, width, height) {
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
     const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
     const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
     const parts = [];
+    parts.push(promoFluxFillFramePromptPart(width, height));
     parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
     parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
     parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
@@ -14274,11 +14309,12 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
  * 刻意不含：英文廣告底稿、photography_prompt_sets、包裝標籤、後端光學／角度包裝句。
  * 不進 prompt：name、description、分組名稱、中文 UI 文案。
  */
-async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys) {
+async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, width, height) {
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
-    const parts = collectPromoSceneTemplateParts(theme, scene);
+    const parts = [promoFluxFillFramePromptPart(width, height)];
+    parts.push.apply(parts, collectPromoSceneTemplateParts(theme, scene));
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
     const cam = await resolvePromoCameraPromptFragments(cameraKeys, cameraUi);

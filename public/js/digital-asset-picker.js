@@ -100,19 +100,33 @@
     });
   }
 
-  function renderGrid(listEl, items, onPick) {
+  function openBrowseLightbox(items, index) {
+    if (!global.MatchdoImageLightbox || typeof global.MatchdoImageLightbox.open !== 'function') return;
+    var images = (items || []).map(function (item) {
+      return { src: item.url, caption: item.title || '' };
+    }).filter(function (img) { return img.src; });
+    if (!images.length) return;
+    var idx = Math.max(0, Math.min(index || 0, images.length - 1));
+    global.MatchdoImageLightbox.open({ images: images, index: idx });
+  }
+
+  function renderGrid(listEl, items, onPick, gridOpts) {
     if (!listEl) return;
+    gridOpts = gridOpts || {};
+    var browseMode = gridOpts.mode === 'browse';
     listEl.innerHTML = '';
-    items.forEach(function (item) {
+    items.forEach(function (item, index) {
       var col = document.createElement('div');
       col.className = 'col-6 col-md-4 col-lg-3';
       var badge = item.badge ? '<span class="dap-badge">' + esc(item.badge) + '</span>' : '';
+      var zoomHint = browseMode ? '<span class="dap-zoom-hint"><i class="bi bi-zoom-in" aria-hidden="true"></i></span>' : '';
       col.innerHTML =
-        '<div class="dap-card" tabindex="0" role="button"' +
+        '<div class="dap-card' + (browseMode ? ' dap-card--browse' : '') + '" tabindex="0" role="button"' +
         ' data-url="' + esc(item.url) + '"' +
+        ' data-index="' + index + '"' +
         ' data-source-type="' + esc(item.sourceType || 'digital_asset') + '"' +
         ' data-source-id="' + esc(item.sourceId || '') + '">' +
-        '<div class="dap-thumb-wrap">' + badge +
+        '<div class="dap-thumb-wrap">' + badge + zoomHint +
         '<img class="dap-thumb" src="' + esc(item.url) + '" alt="" loading="lazy" decoding="async">' +
         '</div>' +
         '<p class="dap-title">' + esc(item.title || '') + '</p></div>';
@@ -120,6 +134,11 @@
     });
     listEl.querySelectorAll('.dap-card').forEach(function (card) {
       card.addEventListener('click', function () {
+        if (browseMode) {
+          var idx = parseInt(card.getAttribute('data-index'), 10);
+          openBrowseLightbox(items, isNaN(idx) ? 0 : idx);
+          return;
+        }
         onPick({
           url: card.getAttribute('data-url'),
           sourceType: card.getAttribute('data-source-type') || 'digital_asset',
@@ -130,7 +149,7 @@
   }
 
   function emptyMessage(tab) {
-    if (tab === 'promo') return '尚無情境圖，請先在設計頁生成並儲存。';
+    if (tab === 'promo') return '尚無情境圖，請先在攝影模擬或設計頁生成。';
     if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
     return '尚無設計圖，請先在產品設計中生成並儲存。';
   }
@@ -141,11 +160,14 @@
    * @param {HTMLElement} opts.listEl  row g-2 container
    * @param {HTMLElement} opts.emptyEl
    * @param {HTMLElement} opts.loadingEl
-   * @param {function} opts.onPick ({url, sourceType, sourceId})
+   * @param {function} [opts.onPick] ({url, sourceType, sourceId})
    * @param {string} [opts.initialTab]
+   * @param {string} [opts.mode] 'pick'（預設）| 'browse'（點擊放大，不選圖）
    */
   function mount(opts) {
-    var state = { tab: opts.initialTab || 'designs' };
+    opts = opts || {};
+    var mode = opts.mode === 'browse' ? 'browse' : 'pick';
+    var state = { tab: opts.initialTab || 'designs', items: [] };
 
     function load(tab) {
       state.tab = tab;
@@ -174,7 +196,8 @@
           return;
         }
         if (opts.emptyEl) opts.emptyEl.classList.add('d-none');
-        renderGrid(opts.listEl, items, opts.onPick);
+        state.items = items;
+        renderGrid(opts.listEl, items, opts.onPick, { mode: mode });
       }).catch(function () {
         if (opts.loadingEl) opts.loadingEl.classList.add('d-none');
         if (opts.emptyEl) {
