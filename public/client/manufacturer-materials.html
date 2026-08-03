@@ -1026,7 +1026,7 @@
                                 <button type="button" class="btn btn-outline-secondary" id="btn-edit-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
                             </div>
                             <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-regenerate-tags"><span class="btn-edit-regenerate-tags-label">AI 重生標籤</span> — <span id="edit-points-regenerate-tags" class="fw-semibold">1</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
-                            <p class="form-text text-muted small mb-0">讀取封面與所有多角度圖綜合產生標籤。</p>
+                            <p class="form-text text-muted small mb-0" id="edit-regenerate-tags-hint">讀取封面與所有多角度圖綜合產生標籤。</p>
                         </div>
                         <div id="edit-image-options" class="mb-3 d-none">
                             <div class="form-check mb-1">
@@ -1116,7 +1116,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upscale-btn-probe-fix-20260803';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-cover-ai-read-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3575,10 +3575,16 @@
             var bgWrap = document.getElementById('edit-gallery-optimize-bg-wrap');
             var standWrap = document.getElementById('edit-gallery-optimize-stand-wrap');
             var surfWrap = document.getElementById('edit-material-surface-wrap');
+            var regenHint = document.getElementById('edit-regenerate-tags-hint');
             if (settings) settings.classList.toggle('d-none', !!isMaterial);
             if (bgWrap) bgWrap.classList.remove('d-none');
             if (standWrap) standWrap.classList.remove('d-none');
             if (surfWrap) surfWrap.classList.toggle('d-none', !isMaterial);
+            if (regenHint) {
+                regenHint.textContent = isMaterial
+                    ? '材料只讀封面（多色拼合色卡）產生標籤；單色樣張不送 AI。'
+                    : '讀取封面與所有多角度圖綜合產生標籤。';
+            }
         }
 
         function showAiPromptAfterPreview(data) {

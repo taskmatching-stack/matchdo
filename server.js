@@ -1424,15 +1424,13 @@ function sampleVendorAssetEntriesForAiSemantics(entries, maxN) {
     return [cover].concat(picked);
 }
 
-/** 材料「產生說明」：色卡封面僅展示，優先用可選用的單色樣張 */
+/** 材料「產生說明／標籤」：只讀封面（多色拼合色卡）；單色樣張供設計者選用，不送 Gemini */
 function entriesForVendorAssetAiSemantics(items, assetKind, context) {
     const list = (items || []).filter(Boolean);
     const kind = normalizeVendorAssetKind(assetKind);
-    if (context && context.purpose === 'description' && kind === 'material' && list.length > 1) {
-        const selectable = list.filter(function (e, idx) {
-            return idx > 0 && e.designer_selectable !== false && String(e.url || '').trim();
-        });
-        if (selectable.length) return selectable;
+    if (kind === 'material' && list.length) {
+        const cover = list.find(function (e) { return e.is_cover; }) || list[0];
+        return cover ? [cover] : list.slice(0, 1);
     }
     return list;
 }
@@ -4405,10 +4403,14 @@ async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, owner
         });
     }
     if (!imageEntries.length) throw new Error('無圖片可分析');
-    imageEntries = sampleVendorAssetEntriesForAiSemantics(
-        imageEntries,
-        vendorAssetAiSemanticsMaxImages(assetKind)
-    );
+    if (assetKind === 'material') {
+        imageEntries = imageEntries.slice(0, 1);
+    } else {
+        imageEntries = sampleVendorAssetEntriesForAiSemantics(
+            imageEntries,
+            vendorAssetAiSemanticsMaxImages(assetKind)
+        );
+    }
     let semanticsContext = context;
     if (forDescription && assetKind === 'other' && patternIntent !== 'style') {
         semanticsContext = { ...context, asset_kind: 'prototype' };
@@ -4484,10 +4486,11 @@ async function tryRefreshVendorAssetTagsFromAllImages(row, context, ownerId) {
 async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, context, ownerId) {
     const gallery = parseGalleryImages(row && row.gallery_images);
     if (!gallery.length) {
+        const ak = normalizeVendorAssetKind(context.asset_kind || (row && row.asset_kind));
         return runVendorAssetImageSemanticsFromFiles([{
             file: coverFile,
             label: (row && row.cover_image_label) || labelFromOriginalFilename(coverFile.originalname) || '封面'
-        }], context, ownerId);
+        }], { ...context, asset_kind: ak, material_cover_composite: ak === 'material' }, ownerId);
     }
     const assetKind = normalizeVendorAssetKind(context.asset_kind || (row && row.asset_kind));
     const patternIntent = normalizePatternIntent(context.pattern_intent);
@@ -4497,6 +4500,13 @@ async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, cont
     const coverLabel = (row && row.cover_image_label && String(row.cover_image_label).trim())
         || labelFromOriginalFilename(coverFile.originalname)
         || '封面';
+    const assetKindCover = normalizeVendorAssetKind(context.asset_kind || (row && row.asset_kind));
+    if (assetKindCover === 'material') {
+        return runVendorAssetImageSemanticsFromFiles([{
+            file: coverFile,
+            label: coverLabel
+        }], { ...context, asset_kind: assetKindCover, material_cover_composite: true }, ownerId);
+    }
     const staged = [{
         kind: 'cover',
         file: coverFile,
@@ -19060,6 +19070,9 @@ async function vendorAssetSemanticsContextFields(opts) {
         image_label: o.image_label || undefined,
         image_url: o.image_url || undefined
     };
+    if (ctx.asset_kind === 'material') {
+        ctx.material_cover_composite = o.material_cover_composite !== false;
+    }
     if (categoryKey && subcategoryKey) {
         const name = await lookupAiSubcategoryName(categoryKey, subcategoryKey);
         if (name) ctx.subcategory_name = name;
