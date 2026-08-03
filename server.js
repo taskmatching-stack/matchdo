@@ -16736,11 +16736,8 @@ app.get('/api/media-wall', async (req, res) => {
             }
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
             items = items.slice(offset, offset + perPage);
-        } else {
+        } else if (layoutOnly === 'user_design' || layoutOnly === 'promo_scene' || layoutOnly === 'comparison' || layoutOnly === 'series' || layoutOnly === 'collection') {
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
-            if (!layoutOnly) {
-                items = items.slice(offset, offset + perPage);
-            }
         }
 
         await enrichMediaWallRefManufacturers(items);
