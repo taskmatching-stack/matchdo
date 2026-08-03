@@ -126,8 +126,8 @@
                 #media-wall-section .d-flex.flex-wrap { margin-bottom: 0.5rem; }
                 /* 網格填滿可用寬度，左右對稱、Chrome/Edge 一致；不設 max-width 讓寬螢幕也塞滿 */
                 #media-wall-grid-wrap { width: 100%; max-width: 100%; margin-left: 0; margin-right: 0; box-sizing: border-box; }
-                /* 欄用 minmax(260px, 1fr) 讓最後一欄擴充填滿，列固定高度維持方形感 */
-                #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
+                /* 欄寬固定 260px（勿 1fr 拉寬），列同高 → 單格 1:1；設計圖 contain 不裁切 */
+                #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, 260px); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
                 #media-wall-grid .media-wall-item { min-height: 0; }
                 #media-wall-grid .media-wall-1x2 { grid-column: span 1; grid-row: span 2; min-height: 0; }
                 #media-wall-grid .media-wall-1x2-pos0 { grid-column: 1; grid-row: 1 / 3; }
@@ -144,7 +144,7 @@
                 #media-wall-grid .media-wall-comparison-pos4 { grid-column: -2 / -1 !important; grid-row: 10 / 11 !important; }
                 #media-wall-grid .media-wall-comparison-pos5 { grid-column: 1 !important; grid-row: 11 / 12 !important; }
                 @media (max-width: 767px) {
-                    #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
+                    #media-wall-grid { grid-template-columns: repeat(3, calc((100% - 16px) / 3)); grid-auto-rows: calc((100% - 16px) / 3); }
                 }
                 /* 情境圖：只保留圓角；縮圖 cover 填滿格位（允許裁切兩端） */
                 #media-wall-grid.mw-promo-scene-grid {
@@ -177,6 +177,7 @@
                 #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
                 #media-wall-grid .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
                 #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+                #media-wall-grid .media-wall-item[data-type="user_design"] .card-img-wrap > img { object-fit: contain; }
                 #media-wall-grid .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
                 #media-wall-grid .card:hover .card-img-wrap::after { opacity: 0; }
                 #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff !important; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 1px #7A8FA3, 0 1px 3px rgba(0,0,0,.9); }
