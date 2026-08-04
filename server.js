@@ -23649,8 +23649,23 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             }
         }
 
-        const file = await vendorAssetFileFromMulter(req.file);
-        if (!file) return res.status(400).json({ error: '請上傳色卡圖片' });
+        // 雙色卡：必須用上傳的 Step1 色卡當 input_image（勿走 hex 重畫／硬合成取代參考圖）
+        // 直接用 multer buffer，避免額外重壓改變分界
+        if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+            return res.status(400).json({ error: '請上傳色卡圖片（上方 2/3·1/3 預覽圖）' });
+        }
+        const swatchBuffer = req.file.buffer;
+        const swatchMime = (req.file.mimetype || 'image/png').split(';')[0].trim() || 'image/png';
+        let swatchMeta = { width: 0, height: 0 };
+        try {
+            const sharp = require('sharp');
+            const m = await sharp(swatchBuffer, { failOn: 'none' }).metadata();
+            swatchMeta = { width: m.width || 0, height: m.height || 0 };
+        } catch (_) { /* ignore */ }
+        if (swatchMeta.width < 8 || swatchMeta.height < 8) {
+            return res.status(400).json({ error: '色卡圖片無效' });
+        }
+
         const mainMaterial = body.main_material || body.mainMaterial || '';
         const accentMaterial = body.accent_material || body.accentMaterial || '';
         const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
@@ -23668,10 +23683,19 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
                 return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
             }
         }
+
+        // 先上傳「實際收到的色卡」供前端核對（證明有把上方圖送進來）
+        const echoName = `dual-color-ref-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${swatchMime.includes('png') ? 'png' : 'jpg'}`;
+        const { publicUrl: referenceEchoUrl } = await uploadToSupabaseStorage(
+            'custom-products',
+            storageFolder,
+            { buffer: swatchBuffer, mimetype: swatchMime, originalname: echoName }
+        );
+
         let optimized;
         try {
             const result = await optimizeMaterialDualColorWithFlux(
-                file.buffer, mainMaterial, accentMaterial, boundary
+                swatchBuffer, mainMaterial, accentMaterial, boundary
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
@@ -23723,7 +23747,13 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             credit_transaction_id: creditTransactionId,
             ai_prompt: aiPromptUsed,
             library_saved: librarySaved,
-            library_save_error: librarySaveError
+            library_save_error: librarySaveError,
+            // 核對用：後端實際收到並送進 FLUX 的色卡
+            reference_echo_url: referenceEchoUrl,
+            reference_bytes: swatchBuffer.length,
+            reference_width: swatchMeta.width,
+            reference_height: swatchMeta.height,
+            reference_mimetype: swatchMime
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/material-dual-color-flux:', e);
