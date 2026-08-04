@@ -8,72 +8,49 @@
 - 兩個 HEX 輸入即可
 - 輸出：扁平雙色色卡（無縫線、無灰底、無第三色）
 
-### Step 2 — FLUX img2img（成功後扣點）
+### Step 2 — 分區材質化 + 程式合成（成功後扣點）
 
-- 參考圖：Step 1 色卡
-- 使用者填寫：
-  - **主色區材質**（必填）
-  - **配色區材質**（必填）
-  - **分界處**（選填；空白則 prompt 不帶此段；使用者自由描述，prompt 不寫死「縫線」等字）
-- **顏色不必再填**：FLUX prompt **不寫 HEX／色名**，只要求 **依參考色卡保留上下色塊與 2/3–1/3 分界**；實際色相由 Step1 色卡 img 決定
-- 輸出：1024×1024，沿用 `bfl_flux_model_vendor_material`、`skipPromptTranslation: true`
+- **不再**把整張 2/3–1/3 雙色卡丟給 FLUX 一次 img2img（模型常漂成上下各半）
+- 正確流程：
+  1. 主色／配色各做一張 1024 滿版純色
+  2. 各自用 **`buildVendorAssetMaterialFluxOptimizePrompt`**（與材料 AI 重繪同一句）做材質化
+  3. **sharp 硬合成**：上 `floor(1024×2/3)`、下其餘 1/3
+- 分界處（選填）：在接縫疊約 3% 高的材質細帶（不改變 2/3–1/3 面積）
+- 輸出：1024×1024；點數仍為一次 `points_material_dual_color_flux`（內部可跑 2～3 次 BFL）
 
 ## 點數
 
 | 行為 | payment_config key | 預設 | 管理區 |
 |------|-------------------|------|--------|
 | Step1 色卡 canvas | — | 0 | — |
-| Step2 FLUX 材質生成 | `points_material_dual_color_flux` | **5** | `/admin/membership.html` → 點數規則 → **材料雙色卡** |
+| Step2 分區材質＋合成 | `points_material_dual_color_flux` | **5** | `/admin/membership.html` → 點數規則 → **材料雙色卡** |
 
 - 後端：`getPointsMaterialDualColorFlux()`（`server.js`）
 - 前台讀價：`GET /api/me/vendor-assets/upload-pricing` → `points_dual_color_flux`
 - 實作 API 時：**FLUX 成功後**才 `deductUserCredits`；失敗不扣
 
-## FLUX prompt（中文 Gemini 寫法，新 builder，勿改 `buildVendorAssetMaterialFluxOptimizePrompt`）
+## FLUX prompt（各區獨立，沿用材料重繪句）
 
-送 FLUX 時 **`skipPromptTranslation: true`**（與既有材料 optimize 相同，中文直送 BFL）。
-
-**顏色不在 prompt 重複填**；色相由 Step1 色卡參考圖決定，prompt 只描述「上下色塊改為何種材質」。
-
-### 基本句（無縫線）
+每區送：
 
 ```
-嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為{主色區材質}材質，下方色塊改為{配色區材質}材質，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字
+保持顏色並優化此{材質}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此{材質}材質色卡質感。
 ```
 
-範例（使用者填「編織布」「粒面皮革」）：
-
-```
-嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為編織布材質，下方色塊改為粒面皮革材質，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字
-```
-
-### 有填「分界處」選填欄時追加
-
-在兩段材質句與「只轉換…」之間插入（**空白則整段省略**；使用者字串原樣嵌入，**不**在模板寫死「縫線」）：
-
-```
-嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為{主色區材質}材質，下方色塊改為{配色區材質}材質，分界處改為{分界處描述}，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字
-```
-
-範例（使用者填「同色明線車縫」）：
-
-```
-嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為編織布材質，下方色塊改為粒面皮革材質，分界處改為同色明線車縫，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字
-```
+版面**不**靠 prompt 約束，由 `optimizeMaterialDualColorWithFlux` 程式合成鎖定。
 
 ### Builder 規則
 
 - `{主色區材質}`、`{配色區材質}`：trim 後必填；空則 API 400
-- `{分界處描述}`（參數 `stitchMaterial`）：trim 後有值才插入「分界處改為…」句
-- 使用者字串**原樣嵌入**，不加 HEX、色名、regex 推斷
-- **版面鎖定**：明示上 2/3、下 1/3，並禁止 1/2–1/2（FLUX 常見漂移）
-- 輸出尺寸仍由後端 FLUX 參數固定 **1024×1024**（prompt 內文與參數一致）
+- `{分界處描述}`：有值才跑細帶材質化
+- **版面鎖定**：程式 `topH = floor(1024 * 2 / 3)`，禁止再依賴單次全圖 FLUX
+- 輸出尺寸固定 **1024×1024**
 
 ### 建議函式簽名
 
 ```js
-function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial) {
-  // 回傳上述中文單段 prompt
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, colorHex) {
+  // 分區材料 FLUX + sharp 合成上 2/3、下 1/3
 }
 ```
 
@@ -81,7 +58,7 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
 
 - [x] `public/client/material-dual-color.html` + 素材庫入口
 - [x] `POST /api/me/vendor-assets/material-dual-color-flux`
-- [x] `buildMaterialDualColorFluxPrompt(...)` — `server.js`（中文 Gemini 句型）
+- [x] 分區材質化 + 硬合成鎖定 2/3–1/3（修 FLUX 漂成 1/2–1/2）
 - [x] 生成結果一鍵「加入材料待傳清單」（同格原圖色卡＋FLUX 新圖，預設只上傳新圖）
 
 ## 參考

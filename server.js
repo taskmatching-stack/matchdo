@@ -3752,24 +3752,32 @@ function normalizeDualColorMaterialField(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 64);
 }
 
+/** @deprecated 單次全圖 img2img 無法鎖定 2/3–1/3；改走分區材質化＋程式合成 */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial) {
     const main = normalizeDualColorMaterialField(mainMaterial);
     const accent = normalizeDualColorMaterialField(accentMaterial);
     if (!main) throw new Error('請填主色區材質');
     if (!accent) throw new Error('請填配色區材質');
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    // 版面鎖定：Step1 色卡為上 2/3 主色、下 1/3 配色；FLUX 易漂成 1/2–1/2，須明示禁止均分
     let prompt = `嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為${main}材質，下方色塊改為${accent}材質`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     prompt += '，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字';
     return prompt;
 }
 
-/** 材料雙色卡 Step2 FLUX img2img（獨立於 buildVendorAssetMaterialFluxOptimizePrompt） */
-async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial) {
-    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial);
+async function createSolidColorJpegBuffer(hex, size) {
+    const sharp = require('sharp');
+    const c = normalizeMaterialComboHex(hex);
+    if (!c) throw new Error('無效色碼');
+    return sharp({
+        create: { width: size, height: size, channels: 3, background: c }
+    }).jpeg({ quality: 95 }).toBuffer();
+}
+
+/** 單色滿版 → 材料 FLUX（與廠商材料 AI 重繪同一套 prompt） */
+async function fluxMaterializeSolidSwatch(solidJpegBuffer, materialSurfaceType) {
+    const prepared = await prepareVendorMaterialFluxImage(solidJpegBuffer);
+    const prompt = buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
         width: 1024,
@@ -3781,6 +3789,111 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return { buffer: buf, prompt };
+}
+
+/**
+ * 材料雙色卡 Step2：上下區各自材質化後，程式硬合成上 2/3、下 1/3。
+ * 不再把整張雙色卡丟給 FLUX（模型會漂成 1/2–1/2）。
+ */
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, colorHex) {
+    const sharp = require('sharp');
+    const SIZE = 1024;
+    const topH = Math.floor(SIZE * 2 / 3);
+    const bottomH = SIZE - topH;
+    let mainHex = normalizeMaterialComboHex(colorHex && (colorHex.mainHex || colorHex.main_hex));
+    let accentHex = normalizeMaterialComboHex(colorHex && (colorHex.accentHex || colorHex.accent_hex));
+    // 缺 HEX 時自上傳色卡取樣上下區代表色
+    if ((!mainHex || !accentHex) && fileBuffer && fileBuffer.length) {
+        try {
+            const meta = await sharp(fileBuffer, { failOn: 'none' }).metadata();
+            const w = meta.width || SIZE;
+            const h = meta.height || SIZE;
+            const sampleTop = Math.max(1, Math.floor(h * 2 / 3));
+            const sampleBot = Math.max(1, h - sampleTop);
+            if (!mainHex) {
+                const px = await sharp(fileBuffer, { failOn: 'none' })
+                    .extract({ left: 0, top: 0, width: w, height: sampleTop })
+                    .resize(1, 1, { fit: 'cover' })
+                    .removeAlpha()
+                    .raw()
+                    .toBuffer();
+                mainHex = '#' + [px[0], px[1], px[2]].map(function (n) {
+                    return n.toString(16).padStart(2, '0');
+                }).join('').toUpperCase();
+            }
+            if (!accentHex) {
+                const px = await sharp(fileBuffer, { failOn: 'none' })
+                    .extract({ left: 0, top: sampleTop, width: w, height: sampleBot })
+                    .resize(1, 1, { fit: 'cover' })
+                    .removeAlpha()
+                    .raw()
+                    .toBuffer();
+                accentHex = '#' + [px[0], px[1], px[2]].map(function (n) {
+                    return n.toString(16).padStart(2, '0');
+                }).join('').toUpperCase();
+            }
+        } catch (_) { /* fall through */ }
+    }
+    if (!mainHex || !accentHex) throw new Error('缺少主色／配色');
+
+    const [mainSolid, accentSolid] = await Promise.all([
+        createSolidColorJpegBuffer(mainHex, SIZE),
+        createSolidColorJpegBuffer(accentHex, SIZE)
+    ]);
+    const [mainRes, accentRes] = await Promise.all([
+        fluxMaterializeSolidSwatch(mainSolid, mainMaterial),
+        fluxMaterializeSolidSwatch(accentSolid, accentMaterial)
+    ]);
+
+    const topPart = await sharp(mainRes.buffer)
+        .resize(SIZE, topH, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 92 })
+        .toBuffer();
+    const bottomPart = await sharp(accentRes.buffer)
+        .resize(SIZE, bottomH, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 92 })
+        .toBuffer();
+
+    const composites = [
+        { input: topPart, top: 0, left: 0 },
+        { input: bottomPart, top: topH, left: 0 }
+    ];
+
+    const stitch = normalizeDualColorMaterialField(stitchMaterial);
+    let stitchPrompt = '';
+    if (stitch) {
+        // 分界細帶：在接縫處疊一條材質帶（高度約 3%，仍不改變 2/3–1/3 面積）
+        const bandH = Math.max(16, Math.round(SIZE * 0.03));
+        const bandY = Math.max(0, Math.min(SIZE - bandH, topH - Math.floor(bandH / 2)));
+        const stitchSolid = await createSolidColorJpegBuffer(mainHex, SIZE);
+        const stitchRes = await fluxMaterializeSolidSwatch(stitchSolid, stitch);
+        const band = await sharp(stitchRes.buffer)
+            .extract({
+                left: 0,
+                top: Math.max(0, Math.floor((SIZE - bandH) / 2)),
+                width: SIZE,
+                height: bandH
+            })
+            .jpeg({ quality: 92 })
+            .toBuffer();
+        composites.push({ input: band, top: bandY, left: 0 });
+        stitchPrompt = stitchRes.prompt;
+    }
+
+    const out = await sharp({
+        create: { width: SIZE, height: SIZE, channels: 3, background: mainHex }
+    })
+        .composite(composites)
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+
+    const prompt = [
+        '程式鎖定版面：上2/3主色區、下1/3配色區（非 FLUX 自由構圖）',
+        '主色區：' + mainRes.prompt,
+        '配色區：' + accentRes.prompt
+    ].concat(stitchPrompt ? ['分界：' + stitchPrompt] : []).join(' ｜ ');
+
+    return { buffer: out, prompt };
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
@@ -23649,6 +23762,12 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
         const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
         let aiPromptUsed;
         try {
+            // 預檢材質欄位（與分區材料 FLUX 同一套 normalize）
+            buildVendorAssetMaterialFluxOptimizePrompt(mainMaterial);
+            buildVendorAssetMaterialFluxOptimizePrompt(accentMaterial);
+            if (normalizeDualColorMaterialField(boundary)) {
+                buildVendorAssetMaterialFluxOptimizePrompt(boundary);
+            }
             aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary);
         } catch (promptErr) {
             return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質' });
@@ -23664,7 +23783,14 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
         let optimized;
         try {
             const result = await optimizeMaterialDualColorWithFlux(
-                file.buffer, mainMaterial, accentMaterial, boundary
+                file.buffer,
+                mainMaterial,
+                accentMaterial,
+                boundary,
+                {
+                    mainHex: body.main_hex || body.mainHex,
+                    accentHex: body.accent_hex || body.accentHex
+                }
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
