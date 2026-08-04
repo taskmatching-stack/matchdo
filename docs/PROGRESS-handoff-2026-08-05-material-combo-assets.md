@@ -96,7 +96,7 @@ Agent 給指令時**禁止**刪掉 grep。
 | `custom-product.js` | `?v=148` |
 | `digital-asset-picker.js` | `?v=3` |
 | 我的資產頁 console | `__MATCHDO_MY_ASSETS_BUILD = 'material-combo-tab-library-20260804'` |
-| 材料組合生成頁 | `__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-gen-no-mfr-gate-20260804'` |
+| 材料組合生成頁 | `__MATCHDO_DUAL_COLOR_BUILD` 見 `docs/PLAN-material-dual-color-compose.md`（目前含 75／25、印花圖樣／印花色） |
 
 ### 4.4 建議手動驗收
 
@@ -104,6 +104,15 @@ Agent 給指令時**禁止**刪掉 grep。
 2. 設計頁 → 材料槽 → **我的資產庫** → 選材料組合 → 參考圖出現、材料補充有雙色說明  
 3. 右側資產庫點縮圖 → **加入參考圖**  
 4. 用材料組合圖生設計（先前 blob URL 會 500；現應走 `data:` URL）
+
+### 4.5 印花 × 比例（2026-08-05 晚間補記）
+
+詳見 **`docs/PLAN-material-dual-color-compose.md`**。摘要：
+
+- 色卡與 prompt：**上方 75%／下方 25%**
+- **印花圖樣** 實測較能保留印花圖原色；**印花色** 較不保留 → 先不改 code，文件已對齊實測
+- 色卡有送 `input_image`；比例漂屬 FLUX 重排
+- 頁面不顯示整段「材質描述／實際送出」
 
 ---
 
