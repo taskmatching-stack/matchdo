@@ -1042,7 +1042,7 @@
   "promoCamera.backToScene": "Back to scene images",
   "promoCamera.backToMaterials": "Back to materials",
   "promoCamera.pageHeading": "Commercial Photography Director",
-  "promoCamera.introPrefix": "Upload or pick <strong>one</strong> product reference, then tune camera parameters for FLUX output quality.",
+  "promoCamera.introPrefix": "Upload or pick <strong>one</strong> product reference, then tune camera parameters for output quality.",
   "promoCamera.pricingHint": "1 MP = {std} pts (subscribers {sub} pts), +{extra} pts per extra MP",
   "promoCamera.uploadImage": "Upload image",
   "promoCamera.pickAsset": "From digital assets",

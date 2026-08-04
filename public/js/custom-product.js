@@ -188,7 +188,7 @@ $(document).ready(function () {
         if (!sent && !composed) return '';
         var body = '';
         if (sent) {
-            body += '<p class="mb-1 text-muted small">送 BFL（英譯後）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
+            body += '<p class="mb-1 text-muted small">送出（英譯後）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
         }
         if (composed && composed !== sent) {
             body += '<p class="mb-1 text-muted small">組裝原文（英譯前）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
@@ -196,7 +196,7 @@ $(document).ready(function () {
         if (debugFlux.referenceMap && debugFlux.referenceMap.length) {
             body += '<p class="mb-1 text-muted small">參考圖對照</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
         }
-        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">管理員：送 FLUX 提示詞</summary><div class="mt-2">' + body + '</div></details>';
+        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">管理員：生圖提示詞</summary><div class="mt-2">' + body + '</div></details>';
     }
 
     function showBootstrapTab(tabEl) {

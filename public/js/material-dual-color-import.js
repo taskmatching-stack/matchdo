@@ -88,7 +88,7 @@
   }
 
   async function saveImport(meta, swatchFile, fluxFile) {
-    if (!fluxFile) throw new Error('缺少 FLUX 結果');
+    if (!fluxFile) throw new Error('缺少材質生成結果');
     await idbPut(FLUX_IDB_KEY, fluxFile);
     if (swatchFile) await idbPut(SWATCH_IDB_KEY, swatchFile);
     else await idbDeletePrefix('material:dual-color-import:swatch');
@@ -118,11 +118,11 @@
     }
     if (data && data.preview_url) {
       var res = await fetch(data.preview_url, { mode: 'cors' });
-      if (!res.ok) throw new Error('無法讀取 FLUX 結果');
+      if (!res.ok) throw new Error('無法讀取材質生成結果');
       var blob = await res.blob();
       return new File([blob], filename || 'dual-color-flux.jpg', { type: blob.type || 'image/jpeg' });
     }
-    throw new Error('無法讀取 FLUX 結果');
+    throw new Error('無法讀取材質生成結果');
   }
 
   global.MatchdoDualColorImport = {

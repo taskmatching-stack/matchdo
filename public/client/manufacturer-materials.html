@@ -654,7 +654,7 @@
                 <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="flex-grow-1 min-w-0">
                         <h6 class="fw-semibold mb-1"><i class="bi bi-layout-split me-1 text-primary"></i>材料組合 <span class="text-muted fw-normal small">Material Combination</span></h6>
-                        <p class="text-muted small mb-0">主色＋配色拼 1024 色卡（Step1 免費）→ FLUX 材質化（Step2 扣點）→ 可「加入材料待傳清單」再發布。</p>
+                        <p class="text-muted small mb-0">主色＋配色拼色卡 → 材質化 → 加入待傳清單後發布。</p>
                     </div>
                     <a href="/client/material-dual-color.html" class="btn btn-primary flex-shrink-0 material-combination-entry-link"><i class="bi bi-box-arrow-up-right me-1"></i>開啟材料組合</a>
                 </div>
@@ -713,7 +713,7 @@
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                                    <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                                 </div>
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -1000,7 +1000,7 @@
                         <div id="edit-material-surface-wrap" class="mb-3 d-none">
                             <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                            <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                            <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                         </div>
                         <div class="mb-3 d-none" id="edit-images-material-wrap">
                             <label class="form-label">參考圖</label>
@@ -1149,7 +1149,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-combo-tab-nav-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'no-model-names-copy-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -4889,7 +4889,7 @@
             schedulePendingDraftSave(form);
             startTokenRefreshTimer();
             await MatchdoDualColorImport.clearImport();
-            showToast('已加入材料待傳清單（材料組合：上方色卡／下方 FLUX 材質；預設只上傳新圖）', 'success');
+            showToast('已加入材料待傳清單（材料組合：上方色卡／下方材質圖；預設只上傳新圖）', 'success');
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return true;
         }

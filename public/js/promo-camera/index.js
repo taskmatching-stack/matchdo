@@ -520,7 +520,7 @@
     var opts = St.get().options;
     if (!el || !opts || !Promo.formatPromoCameraPricingHint) return;
     var suffix = apiLang() === 'en' ? '.' : '。';
-    el.innerHTML = t('promoCamera.introPrefix', '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。') +
+    el.innerHTML = t('promoCamera.introPrefix', '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬輸出畫質。') +
       Promo.formatPromoCameraPricingHint(opts) + suffix;
   }
 

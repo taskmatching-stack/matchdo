@@ -1082,7 +1082,7 @@
   "promoCamera.backToScene": "返回情境圖",
   "promoCamera.backToMaterials": "返回素材庫",
   "promoCamera.pageHeading": "商攝導演",
-  "promoCamera.introPrefix": "上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬 FLUX 畫質。",
+  "promoCamera.introPrefix": "上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬輸出畫質。",
   "promoCamera.pricingHint": "1 MP＝{std} 點（訂閱 {sub} 點），每多 1 MP ＋{extra} 點",
   "promoCamera.uploadImage": "上傳圖片",
   "promoCamera.pickAsset": "從數位資產選擇",

@@ -80,7 +80,7 @@ $(document).ready(function () {
         preview.empty();
         var files = Array.from((e.target.files || []).slice(0, 8));
         if (files.length >= 1) {
-            preview.append($('<span class="text-muted small"></span>').text('已選 ' + files.length + ' 張（FLUX 2.0 最多 8 張）'));
+            preview.append($('<span class="text-muted small"></span>').text('已選 ' + files.length + ' 張（最多 8 張）'));
             files.forEach(function (file, i) {
                 var reader = new FileReader();
                 reader.onload = function (ev) {
@@ -155,7 +155,7 @@ $(document).ready(function () {
 
             if (result.success) {
                 generatedImageData = result.imageData;
-                var engine = result.usedFlux ? 'FLUX 2.0 PRO' : 'Gemini';
+                var engine = result.usedFlux ? '參考圖生圖' : '文字生圖';
                 $('#generatedImagePreview').html(
                     '<div class="card">' +
                     '<img src="' + result.imageData + '" class="card-img-top" alt="AI 生成產品圖">' +
