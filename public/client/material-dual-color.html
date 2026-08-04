@@ -153,19 +153,12 @@
                             <label class="form-label small mb-1">分界處（選填）</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" placeholder="例：同色明線車縫" maxlength="64">
                         </div>
-                        <div class="col-12">
-                            <p class="form-text text-muted small mb-0">
-                                材質描述（送 FLUX）：
-                                <strong id="mdc-prompt-preview" class="fw-normal text-dark">（填主色／配色區材質或選圖樣後顯示）</strong>
-                            </p>
-                        </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
                         <button type="button" class="btn btn-primary" id="mdc-generate-btn" disabled><i class="bi bi-stars me-1"></i>生成材質圖</button>
                         <span class="text-muted small" id="mdc-points-label"></span>
                     </div>
                     <div id="mdc-status" class="small mt-2 text-muted"></div>
-                    <div id="mdc-ai-prompt-used" class="small mt-1 text-muted d-none"></div>
                     <div id="mdc-result-wrap" class="mdc-preview-wrap mt-3 d-none">
                         <p class="small fw-semibold mb-1">生成結果</p>
                         <img id="mdc-result-img" alt="材質化結果" />
@@ -203,7 +196,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-keep-ratio-no-negation-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-no-prompt-echo-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -229,8 +222,6 @@
         var mainMaterial = document.getElementById('mdc-main-material');
         var accentMaterial = document.getElementById('mdc-accent-material');
         var boundary = document.getElementById('mdc-boundary');
-        var promptPreview = document.getElementById('mdc-prompt-preview');
-        var aiPromptUsedEl = document.getElementById('mdc-ai-prompt-used');
         var printKindWrap = document.getElementById('mdc-print-kind-wrap');
         var generateBtn = document.getElementById('mdc-generate-btn');
         var pointsLabel = document.getElementById('mdc-points-label');
@@ -260,39 +251,11 @@
             }
         }
 
-        /** 與 server 同一模板：印花圖樣／印花色 */
-        function buildDualColorPromptPreview(main, accent, stitch) {
-            main = String(main || '').trim();
-            accent = String(accent || '').trim();
-            stitch = String(stitch || '').trim();
-            var hasMainPat = zoneHasPattern('main');
-            var hasAccentPat = zoneHasPattern('accent');
-            if (!hasMainPat && !main) return '';
-            if (!hasAccentPat && !accent) return '';
-            var printWord = getPrintKind() === 'color' ? '印花色' : '印花圖樣';
-            function phrase(material, hasPat, side) {
-                if (hasPat) return (side === 'main' ? '上方' : '下方') + printWord + (material || '') + '材質';
-                return material + '材質';
-            }
-            var p = '依原圖上方色塊改為' + phrase(main, hasMainPat, 'main') + '，下方色塊改為' + phrase(accent, hasAccentPat, 'accent');
-            if (stitch) p += '，分界處改為' + stitch;
-            p += '，解析度1024x1024，請維持原圖色塊比例';
-            return p;
-        }
-
-        function updatePromptPreview() {
-            syncPrintKindVisibility();
-            var p = buildDualColorPromptPreview(mainMaterial.value, accentMaterial.value, boundary.value);
-            if (promptPreview) {
-                promptPreview.textContent = p || '（填主色／配色區材質或選圖樣後顯示）';
-            }
-        }
-
         function updateGenerateEnabled() {
             var mainOk = !!(mainMaterial.value || '').trim() || zoneHasPattern('main');
             var accentOk = !!(accentMaterial.value || '').trim() || zoneHasPattern('accent');
             generateBtn.disabled = !mainOk || !accentOk || !swatchBlob;
-            updatePromptPreview();
+            syncPrintKindVisibility();
         }
 
         function renderZonePattern(zone) {
@@ -594,15 +557,6 @@
                 lastFluxResponse = d;
                 resultImg.src = d.preview_url || ('data:image/jpeg;base64,' + d.preview_base64);
                 resultWrap.classList.remove('d-none');
-                if (aiPromptUsedEl) {
-                    if (d.ai_prompt) {
-                        aiPromptUsedEl.textContent = '實際送出：' + d.ai_prompt;
-                        aiPromptUsedEl.classList.remove('d-none');
-                    } else {
-                        aiPromptUsedEl.textContent = '';
-                        aiPromptUsedEl.classList.add('d-none');
-                    }
-                }
                 if (d.preview_url) {
                     downloadBtn.href = d.preview_url;
                     downloadBtn.classList.remove('d-none');
@@ -644,7 +598,7 @@
             el.addEventListener('input', function () { updateGenerateEnabled(); });
         });
         document.querySelectorAll('input[name="mdc-print-kind"]').forEach(function (el) {
-            el.addEventListener('change', function () { updatePromptPreview(); });
+            el.addEventListener('change', function () { syncPrintKindVisibility(); });
         });
 
         bindColorSync(mainColor, mainHex);
