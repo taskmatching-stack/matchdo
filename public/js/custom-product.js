@@ -5121,10 +5121,11 @@ $(document).ready(function () {
             setGallerySentinelState('hidden');
             var wrap = $('#pastGeneratedGallery');
             var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-            grid.removeClass('is-promo-tab is-favorites-tab is-material-combo-tab');
+            grid.removeClass('is-promo-tab is-favorites-tab is-material-combo-tab is-print-tab');
             if (tab === 'promo') grid.addClass('is-promo-tab');
             else if (tab === 'favorites') grid.addClass('is-favorites-tab');
             else if (tab === 'material_combo') grid.addClass('is-material-combo-tab');
+            else if (tab === 'print') grid.addClass('is-print-tab');
             grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + (t('home.loading') || '載入中…') + '</p>');
             refreshPastGeneratedGallery(undefined, { force: true });
         });
@@ -5134,7 +5135,7 @@ $(document).ready(function () {
         var url = normalizeGalleryImageUrl(item.url);
         if (!url) return null;
         var promptText = String(item.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        var tip = promptText || (tab === 'promo' ? '情境圖' : (tab === 'material_combo' ? '材料組合' : '我的最愛'));
+        var tip = promptText || (tab === 'promo' ? '情境圖' : (tab === 'material_combo' ? '材料組合' : (tab === 'print' ? '印花' : '我的最愛')));
         var comboJson = item.material_combo ? JSON.stringify(item.material_combo) : '';
         var $cell = $('<div class="past-item-wrap"></div>').attr({
             'data-image-url': url,
@@ -5143,10 +5144,16 @@ $(document).ready(function () {
             'data-owner-display': galleryOwnerDisplay || ''
         });
         if (comboJson) $cell.attr('data-material-combo', comboJson);
+        if (tab === 'material_combo' && item.sourceId) {
+            $cell.attr('data-combo-id', item.sourceId);
+        }
         var $img = $('<img>').attr({ src: url, alt: '', loading: 'lazy', decoding: 'async' });
         $img.on('error', function () { $(this).addClass('past-item-img-error'); });
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(tip));
+        if (tab === 'material_combo' && item.sourceId) {
+            attachPastMaterialComboDeleteBtn($cell, item.sourceId);
+        }
         return $cell;
     }
 
@@ -5162,10 +5169,11 @@ $(document).ready(function () {
         function renderAltItems(items) {
             if (myGen !== galleryPaging.fetchGen) return;
             var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-            grid.empty().removeClass('is-promo-tab is-favorites-tab is-material-combo-tab');
+            grid.empty().removeClass('is-promo-tab is-favorites-tab is-material-combo-tab is-print-tab');
             if (tab === 'promo') grid.addClass('is-promo-tab');
             else if (tab === 'favorites') grid.addClass('is-favorites-tab');
             else if (tab === 'material_combo') grid.addClass('is-material-combo-tab');
+            else if (tab === 'print') grid.addClass('is-print-tab');
             updatePastGalleryTabsActive(tab);
             if (!items.length) {
                 var emptyMsg = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.emptyMessage)
@@ -5453,6 +5461,52 @@ $(document).ready(function () {
                     var modalEl = document.getElementById('pastItemModal');
                     if (modalEl && typeof hideBootstrapModal === 'function') hideBootstrapModal(modalEl);
                 }
+            });
+        });
+        $cell.append($del);
+    }
+
+    function deleteMaterialComboById(comboId, cb) {
+        if (!comboId) return;
+        if (!confirm('確定要刪除此材料組合？刪除後無法復原。')) return;
+        getAuthToken(function (token) {
+            if (!token) {
+                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                return;
+            }
+            fetch('/api/me/material-combo-generations/' + encodeURIComponent(comboId), {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(function (res) {
+                return res.text().then(function (text) {
+                    var data = {};
+                    try { data = (text && text.trim().startsWith('{')) ? JSON.parse(text) : {}; } catch (e) {}
+                    return { ok: res.ok, data: data };
+                });
+            }).then(function (r) {
+                if (r.ok && r.data && r.data.success) {
+                    if (typeof cb === 'function') cb(true);
+                } else {
+                    alert((r.data && r.data.error) || '刪除失敗');
+                    if (typeof cb === 'function') cb(false);
+                }
+            }).catch(function () {
+                alert('刪除失敗');
+                if (typeof cb === 'function') cb(false);
+            });
+        });
+    }
+
+    function attachPastMaterialComboDeleteBtn($cell, comboId) {
+        if (!comboId || !$cell || !$cell.length) return;
+        var label = '刪除';
+        var $del = $('<button type="button" class="past-item-delete" aria-label="' + label + '" title="' + label + '">×</button>');
+        $del.on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteMaterialComboById(comboId, function (ok) {
+                if (!ok) return;
+                $cell.remove();
             });
         });
         $cell.append($del);

@@ -3758,9 +3758,10 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!main) throw new Error('請填主色區材質');
     if (!accent) throw new Error('請填配色區材質');
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${main}材質，下方色塊改為${accent}材質`;
+    // 版面鎖定：Step1 色卡為上 2/3 主色、下 1/3 配色；FLUX 易漂成 1/2–1/2，須明示禁止均分
+    let prompt = `嚴格依原圖版面：上方約三分之二為主色區、下方約三分之一為配色區；水平分界位置與原圖完全一致，禁止改成上下各半或均分。依原圖上方色塊改為${main}材質，下方色塊改為${accent}材質`;
     if (stitch) prompt += `，分界處改為${stitch}`;
-    prompt += '，解析度1024x1024，不需要文字';
+    prompt += '，只轉換各區材質紋理與光影，不改變各區顏色與面積比例，解析度1024x1024，不需要文字';
     return prompt;
 }
 
@@ -23520,6 +23521,48 @@ app.get('/api/me/material-combo-generations', async (req, res) => {
     } catch (e) {
         console.error('GET /api/me/material-combo-generations:', e);
         res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** DELETE /api/me/material-combo-generations/:id — 刪除自己的材料組合紀錄 */
+app.delete('/api/me/material-combo-generations/:id', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+
+        const { data: row, error: findErr } = await supabase
+            .from('user_material_combo_generations')
+            .select('id, user_id')
+            .eq('id', id)
+            .maybeSingle();
+        if (findErr) {
+            if (isSupabaseMissingTableError(findErr) || findErr.code === '42P01') {
+                return res.status(503).json({
+                    error: '材料組合資料表尚未建立',
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-material-combo-generations.sql'
+                });
+            }
+            return res.status(500).json({ error: findErr.message });
+        }
+        if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到材料組合紀錄' });
+
+        const { error } = await supabase
+            .from('user_material_combo_generations')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true, message: '已刪除材料組合' });
+    } catch (e) {
+        console.error('DELETE /api/me/material-combo-generations/:id:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
     }
 });
 

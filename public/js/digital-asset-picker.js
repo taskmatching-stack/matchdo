@@ -1,5 +1,6 @@
 /**
- * 數位資產選擇器（設計圖／材料組合／情境圖／我的最愛）— custom-product、promo-camera 共用
+ * 數位資產選擇器（設計圖／材料組合／印花／情境圖／我的最愛）— custom-product、promo-camera 共用
+ * 印花 TAB 為佔位，供日後搭配使用；目前無資料來源。
  */
 (function (global) {
   'use strict';
@@ -7,6 +8,7 @@
   var TABS = [
     { key: 'designs', label: '設計圖' },
     { key: 'material_combo', label: '材料組合' },
+    { key: 'print', label: '印花' },
     { key: 'promo', label: '情境圖' },
     { key: 'favorites', label: '我的最愛' }
   ];
@@ -31,6 +33,10 @@
   function fetchTabItems(tab) {
     return authHeaders().then(function (headers) {
       if (!headers.Authorization) return { ok: false, error: 'login' };
+      // 印花：佔位 TAB，尚未接資料來源
+      if (tab === 'print') {
+        return { ok: true, data: { items: [], placeholder: true } };
+      }
       var url;
       if (tab === 'promo') url = '/api/promo-image/generations?limit=48&offset=0';
       else if (tab === 'favorites') url = '/api/me/favorites';
@@ -44,6 +50,7 @@
 
   function normalizeItems(tab, data) {
     var items = [];
+    if (tab === 'print') return items;
     if (tab === 'promo') {
       (data.items || []).forEach(function (row) {
         var url = (row.image_url || '').trim();
@@ -175,6 +182,7 @@
 
   function emptyMessage(tab) {
     if (tab === 'material_combo') return '尚無材料組合，請至「材料組合」頁生成後會自動出現於此。';
+    if (tab === 'print') return '印花資產庫即將開放，敬請期待。';
     if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
     if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
     return '尚無設計圖，請先在產品設計中生成並儲存。';
