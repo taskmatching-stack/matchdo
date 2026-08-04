@@ -665,6 +665,11 @@
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
                 <div class="alert alert-success border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuideMaterial"><strong>材料/顏色</strong>給<strong>主產品</strong>用（整件衣服的布料、皮革色卡、織紋滿版圖）。<strong>不要</strong>把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。</div>
+                <div class="alert alert-light border small py-2 mb-3" role="note">
+                    <i class="bi bi-layout-split me-1"></i>
+                    需要<strong>主色＋配色</strong>雙色材質色卡？請用
+                    <a href="/client/material-dual-color.html" class="alert-link">雙色卡材質生成</a>（Step1 免費拼色卡，Step2 FLUX 依色卡取色；成功後扣點）。
+                </div>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel d-none">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i><span data-i18n="baseModels.addMaterialTitle">新增材料/顏色</span></span>
@@ -1116,7 +1121,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-cover-ai-read-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-dual-color-entry-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;

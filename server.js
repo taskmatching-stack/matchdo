@@ -3747,6 +3747,41 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
 }
 
+/** 材料雙色卡 Step2：中文 Gemini 寫法，skipPromptTranslation 直送 BFL（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
+function normalizeDualColorMaterialField(raw) {
+    return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 64);
+}
+
+function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial) {
+    const main = normalizeDualColorMaterialField(mainMaterial);
+    const accent = normalizeDualColorMaterialField(accentMaterial);
+    if (!main) throw new Error('請填主色區材質');
+    if (!accent) throw new Error('請填配色區材質');
+    const stitch = normalizeDualColorMaterialField(stitchMaterial);
+    let prompt = `依原圖上方色塊改為${main}材質，下方色塊改為${accent}材質`;
+    if (stitch) prompt += `，分界處改為${stitch}`;
+    prompt += '，解析度1024x1024，不需要文字';
+    return prompt;
+}
+
+/** 材料雙色卡 Step2 FLUX img2img（獨立於 buildVendorAssetMaterialFluxOptimizePrompt） */
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial) {
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
+    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial);
+    const fluxOpts = {
+        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
+        width: 1024,
+        height: 1024,
+        skipPromptTranslation: true,
+        safetyTolerance: 2
+    };
+    const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+    if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    return { buffer: buf, prompt };
+}
+
 /** 攝影參數提示詞：追加於各 FLUX prompt 最後（見 docs/add-photography-prompt-sets.sql） */
 function appendPhotographyParams(prompt, photoLine) {
     const p = String(prompt || '').trim();
@@ -7570,7 +7605,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -7600,6 +7635,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
+            points_material_dual_color_flux: parseInt(obj.points_material_dual_color_flux, 10) || 5,
             points_promo_image_standard: parseInt(obj.points_promo_image_standard, 10) || parseInt(obj.points_promo_image_base, 10) || 20,
             points_promo_image_subscriber: parseInt(obj.points_promo_image_subscriber, 10) || 15,
             points_promo_camera_standard: parseInt(obj.points_promo_camera_standard, 10) || 20,
@@ -7641,6 +7677,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
         if (body.points_design_to_physical_vendor !== undefined) await upsert('points_design_to_physical_vendor', body.points_design_to_physical_vendor);
+        if (body.points_material_dual_color_flux !== undefined) await upsert('points_material_dual_color_flux', body.points_material_dual_color_flux);
         if (body.points_promo_image_standard !== undefined) await upsert('points_promo_image_standard', body.points_promo_image_standard);
         if (body.points_promo_image_subscriber !== undefined) await upsert('points_promo_image_subscriber', body.points_promo_image_subscriber);
         if (body.points_promo_camera_standard !== undefined) await upsert('points_promo_camera_standard', body.points_promo_camera_standard);
@@ -13412,6 +13449,13 @@ async function getPointsVendorAssetDescription() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_description');
     const v = rows && rows[0] && rows[0].value != null ? parseInt(rows[0].value, 10) : NaN;
     return Number.isFinite(v) && v >= 0 ? v : 1;
+}
+
+/** 材料雙色卡 Step2 FLUX 材質生成（預設 5 點；Step1 色卡 canvas 不扣點） */
+async function getPointsMaterialDualColorFlux() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_material_dual_color_flux');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 5);
 }
 
 /** 編輯區 AI 重生標籤（預設 1 點；上傳含 AI 標籤仍用 points_vendor_asset_upload 預設 5 點） */
@@ -23205,6 +23249,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
+            points_dual_color_flux: await getPointsMaterialDualColorFlux(),
             optimize_includes_tags: true
         });
     } catch (e) {
@@ -23328,6 +23373,85 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-image-redraw:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-assets/material-dual-color-flux — 雙色卡 Step2 FLUX 材質化（成功後扣點）
+app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'), async (req, res) => {
+    try {
+        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
+        if (!uploadUser) return;
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳色卡圖片' });
+        const body = req.body || {};
+        const mainMaterial = body.main_material || body.mainMaterial || '';
+        const accentMaterial = body.accent_material || body.accentMaterial || '';
+        const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
+        let aiPromptUsed;
+        try {
+            aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary);
+        } catch (promptErr) {
+            return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質' });
+        }
+        const pointsRequired = await getPointsMaterialDualColorFlux();
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        let optimized;
+        try {
+            const result = await optimizeMaterialDualColorWithFlux(
+                file.buffer, mainMaterial, accentMaterial, boundary
+            );
+            optimized = result.buffer;
+            aiPromptUsed = result.prompt;
+        } catch (optErr) {
+            console.error('material-dual-color-flux optimize:', optErr);
+            const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
+            return res.status(mapped.status).json(mapped.body);
+        }
+        const previewName = `dual-color-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products', `vendor-assets-preview/${manufacturerId}`, { buffer: optimized, mimetype: 'image/jpeg', originalname: previewName }
+        );
+        let balanceAfter = null;
+        let creditTransactionId = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'material_dual_color_flux',
+                `材料雙色卡 FLUX 材質生成（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, preview: true }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
+        }
+        res.json({
+            preview_url: publicUrl,
+            preview_base64: optimized.toString('base64'),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            credit_transaction_id: creditTransactionId,
+            ai_prompt: aiPromptUsed
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/material-dual-color-flux:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
