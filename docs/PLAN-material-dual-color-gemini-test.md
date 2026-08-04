@@ -145,21 +145,58 @@ Batch 價約半價；材料組合即時互動不建議先走 Batch。
 
 ---
 
-## 6. 頻率限制（RPM／TPM／IPM）
+## 6. 頻率／花費上限（Tier 1 定案）
 
-官方說明重點（[rate-limits](https://ai.google.dev/gemini-api/docs/rate-limits)）：
+前提：站上已有 **`GEMINI_API_KEY`**（Paid；兩款 Nano Banana 圖模 **無 Free Tier**）。
 
-- 限額依 **專案 × 模型 × 付費階** 而變，**沒有**寫死在文件裡可抄的通用 RPM 表  
-- 生圖另有 **Images per minute（IPM）** 概念  
-- 實際數字：到 **Google AI Studio → 專案 Rate limits** 查看  
-- 付費階（摘要）：Tier1 綁卡；Tier2 累計付滿 $100 + 3 天；Tier3 累計 $1000 + 30 天  
-- 另有 **10 分鐘滾動消費上限**（如 Tier1 $10／10min）— 密集測圖時可能先撞這個  
+官方（[rate-limits](https://ai.google.dev/gemini-api/docs/rate-limits)）：
 
-**實務建議（測試期）：**
+- RPM／TPM／**IPM** 依專案顯示，**沒有**全球固定表 → 以 **AI Studio → Projects → Rate limits** 為準  
+- Tier 升降：Tier1＝已綁 billing；Tier2＝累計付 ≥$100 + 首付後 3 天；Tier3＝≥$1000 + 30 天  
+- **Tier 1 另有 10 分鐘滾動消費上限 ≈ $10／10min**（常比 RPM 先撞到）
 
-- 沿用本站 `runInGeminiQueue` 串行／限流  
-- 429 → 指數退避；UI 顯示「稍後再試」  
-- 實作前在 AI Studio 截一張該專案對 `gemini-3.1-flash-lite-image`／`gemini-3.1-flash-image` 的 RPM／IPM 貼進本文件「專案實測」小節
+### 6.1 成本換算（1K 輸出）
+
+| 模型 | 約美元／張 | Tier1 $10／10min 理論上限 |
+|------|------------|---------------------------|
+| Lite（無印花） | ~$0.034 | ~290 張／10min（理論；實際會先撞 IPM） |
+| Flash（有印花） | ~$0.067 | ~149 張／10min（理論） |
+
+### 6.2 本站「軟上限」（實作時 env，預設偏保守）
+
+目標：先撞**我們的上限**，少撞 Google 429／花超 $10／10min。
+
+| env（建議名） | Tier1 建議預設 | 作用 |
+|---------------|----------------|------|
+| `GEMINI_IMAGE_CONCURRENCY` | `1` | 同時只跑 1 張生圖（沿用／強化 queue） |
+| `GEMINI_IMAGE_MIN_INTERVAL_MS` | `8000`（約 7～8 張／分） | 兩次生圖最短間隔 |
+| `GEMINI_IMAGE_MAX_PER_MIN` | `6` | 滑動 60 秒內最多 N 張 |
+| `GEMINI_IMAGE_MAX_PER_10MIN` | `80` | 對齊 <$10／10min（80×$0.067≈$5.4，留緩衝） |
+| `GEMINI_IMAGE_MAX_PER_DAY` | `200` | 日上限，防測到爆 |
+| （可選）`MATERIAL_DUAL_COLOR_ENGINE` | `gemini`／`flux` | 測完可切回 FLUX |
+
+超限回應：HTTP **429**，body 含 `retry_after_sec`；前端「請稍後再試」。  
+Google 回 429：指數退避（最多 3 次）後同錯給使用者。
+
+範圍：材料組合 Gemini 生圖（及之後若共用 `runInGeminiImageQueue`）；**勿**把標籤／翻譯文字 Gemini 也鎖進同一 IPM 日額（可分開或只限 image modalities）。
+
+### 6.3 你在 Tier1 該怎麼調整（操作）
+
+1. **AI Studio** 打開該 API key 所屬專案 → **Rate limits**  
+   - 記下 `gemini-3.1-flash-lite-image`、`gemini-3.1-flash-image` 的 **RPM／IPM**  
+   - 若 IPM &lt; 6：把 `GEMINI_IMAGE_MAX_PER_MIN` 調成 **IPM−1**（至少 1）  
+2. **測圖節奏**：手動連點不要超過每分鐘 6 次；一次測完等 10～15 秒  
+3. **快撞 $10／10min**：暫時停測或把 `GEMINI_IMAGE_MAX_PER_10MIN` 降到 `40`  
+4. **要更大額度（升 Tier2）**：該專案累計付費滿 **$100**，且距第一次成功付款滿 **3 天** → 自動升階（到 AI Studio Projects 看目前 Tier）  
+5. **不要**靠多開 API key 加額度（官方是專案／帳號額度，多 key 通常不疊加）  
+6. Cloud Run／主機 env 設上表變數後 **redeploy** 才生效  
+
+### 6.4 專案實測（請你補）
+
+| 模型 | AI Studio RPM | IPM | 備註 |
+|------|---------------|-----|------|
+| `gemini-3.1-flash-lite-image` | （待填） | （待填） | |
+| `gemini-3.1-flash-image` | （待填） | （待填） | |
 
 ---
 
@@ -184,8 +221,16 @@ Batch 價約半價；材料組合即時互動不建議先走 Batch。
 
 ---
 
-## 9. 待你拍板再實作
+## 9. 已拍板／待拍板
 
-1. 測試期預設引擎：`gemini` 全站材料組合？或僅 env 開關給你測？  
-2. API 走 **generateContent（建議）** 還是 **interactions**？  
-3. 是否要我現在就打 git tag `material-combo-flux-baseline-6d15ef8`？（不動業務 code）
+**已確認**
+
+- 站內有 `GEMINI_API_KEY`（Paid）  
+- Tier **1** → 採 §6.2 保守軟上限；以 AI Studio IPM 微調 `GEMINI_IMAGE_MAX_PER_MIN`  
+- FLUX 還原釘：`6d15ef8`
+
+**待你說「開始寫」再實作**
+
+1. 預設引擎：`gemini` 全開材料組合，或 env 開關？  
+2. API：`generateContent`（建議）還是 `interactions`？  
+3. 是否打 git tag `material-combo-flux-baseline-6d15ef8`？
