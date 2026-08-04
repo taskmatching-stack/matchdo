@@ -120,6 +120,7 @@
                         <img id="mdc-result-img" alt="FLUX 材質化結果" />
                         <div class="d-flex flex-wrap gap-2 mt-2">
                             <a href="#" class="btn btn-sm btn-outline-secondary d-none" id="mdc-download-btn" download="material-dual-color.jpg"><i class="bi bi-download me-1"></i>下載 JPG</a>
+                            <button type="button" class="btn btn-sm btn-success d-none" id="mdc-add-pending-btn"><i class="bi bi-inbox me-1"></i>加入材料待傳清單</button>
                         </div>
                     </div>
                 </div>
@@ -129,10 +130,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260804a"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260804b"></script>
+    <script src="/js/material-dual-color-import.js?v=20260804b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-dual-color-20260804a';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-dual-color-20260804b';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var token = null;
         var pointsFlux = 5;
@@ -154,6 +156,8 @@
         var resultWrap = document.getElementById('mdc-result-wrap');
         var resultImg = document.getElementById('mdc-result-img');
         var downloadBtn = document.getElementById('mdc-download-btn');
+        var addPendingBtn = document.getElementById('mdc-add-pending-btn');
+        var lastFluxResponse = null;
 
         function authHeaders() {
             var h = { Accept: 'application/json' };
@@ -305,8 +309,11 @@
                 if (!res.ok) {
                     statusEl.textContent = d.error || '生成失敗';
                     statusEl.className = 'small mt-2 text-danger';
+                    lastFluxResponse = null;
+                    if (addPendingBtn) addPendingBtn.classList.add('d-none');
                     return;
                 }
+                lastFluxResponse = d;
                 if (resultObjectUrl) URL.revokeObjectURL(resultObjectUrl);
                 var src = d.preview_url;
                 if (d.preview_base64) {
@@ -323,8 +330,9 @@
                 }
                 var pts = d.points_deducted != null ? d.points_deducted : 0;
                 var bal = d.balance_after != null ? '，剩餘 ' + d.balance_after + ' 點' : '';
-                statusEl.textContent = '生成完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '') + (d.ai_prompt ? '' : '');
+                statusEl.textContent = '生成完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '');
                 statusEl.className = 'small mt-2 text-success';
+                if (addPendingBtn) addPendingBtn.classList.remove('d-none');
             } catch (e) {
                 statusEl.textContent = '連線失敗，請稍後重試';
                 statusEl.className = 'small mt-2 text-danger';
@@ -342,6 +350,38 @@
 
         bindColorSync(mainColor, mainHex);
         bindColorSync(accentColor, accentHex);
+
+        if (addPendingBtn) {
+            addPendingBtn.addEventListener('click', async function () {
+                if (!lastFluxResponse || !window.MatchdoDualColorImport) return;
+                addPendingBtn.disabled = true;
+                statusEl.textContent = '正在加入待傳清單…';
+                statusEl.className = 'small mt-2 text-muted';
+                try {
+                    var main = (mainMaterial.value || '').trim();
+                    var accent = (accentMaterial.value || '').trim();
+                    var fluxFile = await MatchdoDualColorImport.fluxFileFromApiResponse(lastFluxResponse, 'dual-color-flux.jpg');
+                    var swatchFile = swatchBlob ? new File([swatchBlob], 'dual-color-swatch.jpg', { type: 'image/jpeg' }) : null;
+                    await MatchdoDualColorImport.saveImport({
+                        mainMaterial: main,
+                        accentMaterial: accent,
+                        boundary: (boundary.value || '').trim(),
+                        mainHex: mainHex.value,
+                        accentHex: accentHex.value,
+                        label: (main && accent) ? (main + '／' + accent) : '雙色卡',
+                        redrawChargedPts: lastFluxResponse.points_deducted || 0,
+                        previewCreditTxId: lastFluxResponse.credit_transaction_id || null,
+                        redrawPreviewStorageUrl: lastFluxResponse.preview_url || ''
+                    }, swatchFile, fluxFile);
+                    window.location.href = '/client/manufacturer-materials.html#tab-material';
+                } catch (e) {
+                    statusEl.textContent = e.message || '加入待傳失敗';
+                    statusEl.className = 'small mt-2 text-danger';
+                    addPendingBtn.disabled = false;
+                }
+            });
+        }
+
         initAuth();
     })();
     </script>

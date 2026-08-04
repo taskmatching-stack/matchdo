@@ -1117,11 +1117,12 @@
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
     <script src="/js/material-cover-grid-compose.js?v=20260803g"></script>
+    <script src="/js/material-dual-color-import.js?v=20260804b"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-dual-color-entry-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-dual-color-pending-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -4750,6 +4751,64 @@
                 }
             }
             return added;
+        }
+
+        /** 雙色卡頁「加入待傳」：原圖＝色卡、新圖＝FLUX 材質（預設只上傳新圖） */
+        async function applyDualColorPendingImport() {
+            if (!window.MatchdoDualColorImport) return false;
+            var meta = MatchdoDualColorImport.peekImportMeta();
+            if (!meta) return false;
+            var blobs = await MatchdoDualColorImport.loadImportBlobs();
+            if (!blobs.flux) {
+                await MatchdoDualColorImport.clearImport();
+                return false;
+            }
+            switchKind('material');
+            openAddFormPanel('material');
+            var form = document.querySelector('.add-form[data-kind="material"]');
+            if (!form) {
+                await MatchdoDualColorImport.clearImport();
+                return false;
+            }
+            var list = getPendingImages(form);
+            var itemId = 'dc' + Date.now();
+            var item = {
+                id: itemId,
+                file: blobs.swatch || null,
+                optimize: true,
+                label: meta.label || meta.mainMaterial || '雙色卡',
+                link_group: '',
+                designer_selectable: true,
+                uploadOriginal: false,
+                uploadRedraw: true,
+                uploadUpscale: false,
+                redrawPreviewUrl: meta.redrawPreviewStorageUrl || '',
+                redrawPreviewStorageUrl: meta.redrawPreviewStorageUrl || '',
+                redrawChargedPts: meta.redrawChargedPts || 0,
+                previewCreditTxId: meta.previewCreditTxId || null,
+                redrawFile: blobs.flux,
+                upscaleProbeDone: false,
+                upscaleNeeded: true
+            };
+            if (!item.redrawPreviewUrl && blobs.flux) {
+                item.redrawPreviewUrl = URL.createObjectURL(blobs.flux);
+                item._redrawPreviewObjectUrl = item.redrawPreviewUrl;
+            }
+            if (!item.file && item.redrawFile) item.uploadOriginal = false;
+            list.push(item);
+            var surf = form.querySelector('.add-material-surface-type');
+            if (surf && meta.mainMaterial) surf.value = meta.mainMaterial;
+            syncMaterialFluxPromptPreviewEl(form.querySelector('.material-flux-prompt-preview'), meta.mainMaterial || '');
+            var titleEl = form.querySelector('.add-title');
+            if (titleEl && !String(titleEl.value || '').trim() && meta.label) titleEl.value = meta.label;
+            renderPendingImages(form);
+            updateAddFormPointsEstimate(form);
+            schedulePendingDraftSave(form);
+            startTokenRefreshTimer();
+            await MatchdoDualColorImport.clearImport();
+            showToast('已加入材料待傳清單（上方色卡／下方 FLUX 材質；預設只上傳新圖）', 'success');
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return true;
         }
 
         function wirePendingImageUpload(form) {
@@ -9715,6 +9774,7 @@
                 var urlParams = new URLSearchParams(window.location.search);
                 supplierImportFilterId = urlParams.get('supplier_id') || null;
                 switchKind(activeKind);
+                try { await applyDualColorPendingImport(); } catch (dcErr) { /* ignore */ }
                 if (urlParams.get('open_import') === '1' && capabilities && capabilities.can_browse_supplier_catalog) {
                     setTimeout(function () { openSupplierImportModal(); }, 400);
                 }

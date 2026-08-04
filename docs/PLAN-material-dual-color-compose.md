@@ -81,7 +81,7 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
 - [x] `public/client/material-dual-color.html` + 素材庫入口
 - [x] `POST /api/me/vendor-assets/material-dual-color-flux`
 - [x] `buildMaterialDualColorFluxPrompt(...)` — `server.js`（中文 Gemini 句型）
-- [x] 成功扣點、前台按鈕顯示「消耗 N 點」
+- [x] 生成結果一鍵「加入材料待傳清單」（同格原圖色卡＋FLUX 新圖，預設只上傳新圖）
 
 ## 參考
 
