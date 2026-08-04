@@ -306,7 +306,7 @@
                     <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="/client/material-dual-color.html" class="btn btn-sm btn-outline-primary d-none" id="btn-material-combination" title="Material Combination"><i class="bi bi-layout-split me-1"></i>材料組合</a>
+                    <a href="/client/material-dual-color.html" class="btn btn-sm btn-success" id="btn-material-combination" title="Material Combination"><i class="bi bi-layout-split me-1"></i>材料組合</a>
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary product-link-tree-entry"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary vendor-only-not-official"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
                     <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i>返回後台</a>
@@ -315,6 +315,23 @@
             </div>
         </div>
     </div>
+    <script>
+    (function () {
+        function materialCombinationHrefEarly() {
+            var base = '/client/material-dual-color.html';
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) return base + '?official_platform=1';
+            return base;
+        }
+        function syncMaterialCombinationLinksEarly() {
+            var href = materialCombinationHrefEarly();
+            var btn = document.getElementById('btn-material-combination');
+            if (btn) btn.href = href;
+            document.querySelectorAll('.material-combination-entry-link').forEach(function (a) { a.href = href; });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncMaterialCombinationLinksEarly);
+        else syncMaterialCombinationLinksEarly();
+    })();
+    </script>
 
     <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert"></div>
 
@@ -330,7 +347,7 @@
 
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
             <i class="bi bi-collection me-2"></i>
-            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、情境圖、零件、材料、產品關聯圖）。內容會出現在設計頁「官方版型」。
+            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、情境圖、零件、材料、<strong>材料組合</strong>、產品關聯圖）。上方綠色「材料組合」或切至「材料/顏色」分頁頂部卡片可開啟。內容會出現在設計頁「官方版型」。
         </div>
 
         <div id="main-content" class="d-none">
@@ -628,6 +645,15 @@
             </div>
 
             <div id="panel-material" class="asset-kind-panel d-none" hidden>
+            <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4" id="material-combination-entry-card" data-hint-no-collapse="1">
+                <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="flex-grow-1 min-w-0">
+                        <h6 class="fw-semibold mb-1"><i class="bi bi-layout-split me-1 text-primary"></i>材料組合 <span class="text-muted fw-normal small">Material Combination</span></h6>
+                        <p class="text-muted small mb-0">主色＋配色拼 1024 色卡（Step1 免費）→ FLUX 材質化（Step2 扣點）→ 可「加入材料待傳清單」再發布。</p>
+                    </div>
+                    <a href="/client/material-dual-color.html" class="btn btn-primary flex-shrink-0 material-combination-entry-link"><i class="bi bi-box-arrow-up-right me-1"></i>開啟材料組合</a>
+                </div>
+            </div>
             <div class="card border-0 shadow-sm mb-3 border-start border-success border-4 catalog-groups-card" data-catalog-kind="material">
                 <div class="card-body py-3">
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-0">
@@ -1118,7 +1144,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-combination-entry-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-combination-always-visible-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7952,11 +7978,12 @@
         }
 
         function syncMaterialCombinationEntry() {
+            var href = materialCombinationHref();
             var btn = document.getElementById('btn-material-combination');
-            if (!btn) return;
-            var show = activeKind === 'material';
-            btn.classList.toggle('d-none', !show);
-            if (show) btn.href = materialCombinationHref();
+            if (btn) btn.href = href;
+            document.querySelectorAll('.material-combination-entry-link').forEach(function (a) {
+                a.href = href;
+            });
         }
 
         function openAddFormPanel(kind) {
