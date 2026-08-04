@@ -3753,7 +3753,8 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 雙色卡 FLUX 短中文：必須標明上方主色區／下方配色區；有印花時保留該區材質名（若有填）。
+ * 雙色卡 FLUX 短中文：標明上方主色區／下方配色區。
+ * 有印花＋材質＝該區為「圖N印花圖樣的{材質}材質」（印花布料語意，非把材質換成圖樣）。
  * 圖1＝色卡；圖2／圖3＝主／配區印花（有選才佔號）。
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
@@ -3766,9 +3767,11 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
 
     function zoneDesc(zoneLabel, material, hasPat, imgN) {
+        if (hasPat && material) {
+            return `${zoneLabel}改為圖${imgN}印花圖樣的${material}材質`;
+        }
         if (hasPat) {
-            const mat = material ? `（${material}）` : '';
-            return `${zoneLabel}${mat}改為圖${imgN}印花圖樣`;
+            return `${zoneLabel}改為圖${imgN}印花圖樣`;
         }
         return `${zoneLabel}改為${material}材質`;
     }

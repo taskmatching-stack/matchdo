@@ -117,7 +117,7 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">每區各自指定：填材質名稱，及／或為<strong>該區</strong>導入／上傳印花。有圖樣時提示詞會寫明「上方主色區／下方配色區」並保留材質名。</p>
+                    <p class="small text-muted mb-3">每區各自指定材質；可再為該區加印花圖樣＝「印花的該材質」（例：圖2印花圖樣的尼龍布材質）。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
@@ -201,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-zoned-print-prompt-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-on-material-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -253,9 +253,11 @@
             if (!hasMainPat && !main) return '';
             if (!hasAccentPat && !accent) return '';
             function zoneDesc(label, material, hasPat, imgN) {
+                if (hasPat && material) {
+                    return label + '改為圖' + imgN + '印花圖樣的' + material + '材質';
+                }
                 if (hasPat) {
-                    var mat = material ? ('（' + material + '）') : '';
-                    return label + mat + '改為圖' + imgN + '印花圖樣';
+                    return label + '改為圖' + imgN + '印花圖樣';
                 }
                 return label + '改為' + material + '材質';
             }
