@@ -96,7 +96,7 @@
                             </div>
                         </div>
                     </div>
-                    <p class="small text-muted mb-2">色卡固定為上方主色 2/3、下方配色 1/3。生成時上下區<strong>分別</strong>做材質化，再由程式硬合成此比例（不交給 AI 決定版面）。</p>
+                    <p class="small text-muted mb-2">色卡固定為上方主色 2/3、下方配色 1/3。生成對齊 BFL 官網：中文短句＋整張色卡一次 img2img（不做英文翻譯）。</p>
                     <div class="mdc-preview-wrap mb-0">
                         <canvas id="mdc-swatch-canvas" width="1024" height="1024" aria-label="雙色色卡預覽"></canvas>
                     </div>
@@ -144,7 +144,7 @@
     <script src="/js/material-dual-color-import.js?v=20260804c"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-hard-composite-2-3-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-bfl-official-zh-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -215,7 +215,7 @@
                 swatchCanvas.width = canvas.width;
                 swatchCanvas.height = canvas.height;
                 ctx.drawImage(canvas, 0, 0);
-                swatchBlob = await Compose.canvasToBlob(canvas, 'image/jpeg', 0.92);
+                swatchBlob = await Compose.canvasToBlob(canvas, 'image/png');
                 updateGenerateEnabled();
             } catch (e) {
                 swatchBlob = null;
@@ -326,7 +326,7 @@
             statusEl.className = 'small mt-2 text-muted';
             try {
                 var fd = new FormData();
-                fd.append('image', swatchBlob, 'material-combination-swatch.jpg');
+                fd.append('image', swatchBlob, 'material-combination-swatch.png');
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
                 if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
@@ -402,7 +402,7 @@
                     var main = (mainMaterial.value || '').trim();
                     var accent = (accentMaterial.value || '').trim();
                     var fluxFile = await MatchdoDualColorImport.fluxFileFromApiResponse(lastFluxResponse, 'material-combination-flux.jpg');
-                    var swatchFile = swatchBlob ? new File([swatchBlob], 'material-combination-swatch.jpg', { type: 'image/jpeg' }) : null;
+                    var swatchFile = swatchBlob ? new File([swatchBlob], 'material-combination-swatch.png', { type: swatchBlob.type || 'image/png' }) : null;
                     await MatchdoDualColorImport.saveImport({
                         returnTarget: returnTarget,
                         mainMaterial: main,
