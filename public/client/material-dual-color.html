@@ -56,8 +56,6 @@
             border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
             object-fit: cover; display: block;
         }
-        #mdcPrintPickerModal.modal.show { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
-        #mdcPrintPickerModal.modal.show .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
     </style>
 </head>
 <body>
@@ -182,10 +180,10 @@
     </div>
 
     <div class="modal fade" id="mdcPrintPickerModal" tabindex="-1" aria-labelledby="mdcPrintPickerLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h6 class="modal-title" id="mdcPrintPickerLabel">從印花資產庫選擇圖樣</h6>
+                    <h6 class="modal-title" id="mdcPrintPickerLabel">從數位資產選擇圖片</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
@@ -205,7 +203,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-kind-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-picker-modal-lg-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
