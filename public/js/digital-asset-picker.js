@@ -129,18 +129,31 @@
     return items;
   }
 
-  function renderTabs(container, activeTab, onChange) {
+  function renderTabs(container, activeTab, onChange, allowedTabs) {
     if (!container) return;
-    container.innerHTML = TABS.map(function (t) {
-      return '<button type="button" class="dap-tab' + (t.key === activeTab ? ' active' : '') + '" data-dap-tab="' + t.key + '">' + esc(t.label) + '</button>';
-    }).join('');
-    container.querySelectorAll('[data-dap-tab]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var key = btn.getAttribute('data-dap-tab');
-        if (!key || key === activeTab) return;
-        onChange(key);
+    var tabs = TABS;
+    if (Array.isArray(allowedTabs) && allowedTabs.length) {
+      var allow = {};
+      allowedTabs.forEach(function (k) { allow[k] = true; });
+      tabs = TABS.filter(function (t) { return allow[t.key]; });
+      if (!tabs.length) tabs = TABS;
+    }
+    if (tabs.length <= 1) {
+      container.innerHTML = '';
+      container.classList.add('d-none');
+    } else {
+      container.classList.remove('d-none');
+      container.innerHTML = tabs.map(function (t) {
+        return '<button type="button" class="dap-tab' + (t.key === activeTab ? ' active' : '') + '" data-dap-tab="' + t.key + '">' + esc(t.label) + '</button>';
+      }).join('');
+      container.querySelectorAll('[data-dap-tab]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-dap-tab');
+          if (!key || key === activeTab) return;
+          onChange(key);
+        });
       });
-    });
+    }
   }
 
   function openBrowseLightbox(listEl, items, index) {
@@ -210,17 +223,23 @@
    * @param {HTMLElement} opts.loadingEl
    * @param {function} [opts.onPick] ({url, sourceType, sourceId})
    * @param {string} [opts.initialTab]
+   * @param {string[]} [opts.allowedTabs] 僅顯示這些 TAB（例：['print']）
    * @param {string} [opts.mode] 'pick'（預設）| 'browse'（點擊放大，不選圖）
    */
   function mount(opts) {
     opts = opts || {};
     var mode = opts.mode === 'browse' ? 'browse' : 'pick';
-    var state = { tab: opts.initialTab || 'designs', items: [] };
+    var allowedTabs = Array.isArray(opts.allowedTabs) ? opts.allowedTabs : null;
+    var initial = opts.initialTab || 'designs';
+    if (allowedTabs && allowedTabs.length && allowedTabs.indexOf(initial) < 0) {
+      initial = allowedTabs[0];
+    }
+    var state = { tab: initial, items: [] };
 
     function load(tab) {
       state.tab = tab;
       if (opts.tabsEl) {
-        renderTabs(opts.tabsEl, tab, load);
+        renderTabs(opts.tabsEl, tab, load, allowedTabs);
       }
       if (opts.listEl) opts.listEl.innerHTML = '';
       if (opts.emptyEl) opts.emptyEl.classList.add('d-none');

@@ -3753,33 +3753,60 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 與 BFL 官網成功案例同一模板（勿加「嚴格版面／禁止均分」等額外句，易成汙染）：
- * 依原圖上方色塊改為{主}材質，下方色塊改為{配}材質，解析度1024x1024，不需要文字
+ * 與 BFL 官網成功案例同一短中文模板。
+ * 區有印花圖樣時改寫為「圖N印花圖樣」（圖1＝色卡；圖2／圖3＝主／配區圖樣）。
  */
-function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial) {
+function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
+    const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
+    const hasMainPat = !!opts.hasMainPattern;
+    const hasAccentPat = !!opts.hasAccentPattern;
     const main = normalizeDualColorMaterialField(mainMaterial);
     const accent = normalizeDualColorMaterialField(accentMaterial);
-    if (!main) throw new Error('請填主色區材質');
-    if (!accent) throw new Error('請填配色區材質');
+    if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
+    if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
+    let imgN = 2;
+    const mainDesc = hasMainPat ? (`圖${imgN++}印花圖樣`) : (`${main}材質`);
+    const accentDesc = hasAccentPat ? (`圖${imgN}印花圖樣`) : (`${accent}材質`);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${main}材質，下方色塊改為${accent}材質`;
+    let prompt = `依原圖上方色塊改為${mainDesc}，下方色塊改為${accentDesc}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     prompt += '，解析度1024x1024，不需要文字';
     return prompt;
 }
 
+function dualColorPatternRefToFluxInput(ref) {
+    if (!ref) return null;
+    if (typeof ref === 'string') {
+        const s = ref.trim();
+        return s || null;
+    }
+    if (ref.url && String(ref.url).trim()) return String(ref.url).trim();
+    if (ref.buffer && ref.buffer.length) {
+        let mime = (ref.mimetype || 'image/png').split(';')[0].trim() || 'image/png';
+        if (ref.buffer[0] === 0xff && ref.buffer[1] === 0xd8) mime = 'image/jpeg';
+        else if (ref.buffer[0] === 0x89 && ref.buffer[1] === 0x50) mime = 'image/png';
+        else if (ref.buffer[0] === 0x52 && ref.buffer[1] === 0x49) mime = 'image/webp';
+        return `data:${mime};base64,${ref.buffer.toString('base64')}`;
+    }
+    return null;
+}
+
 /**
- * 材料雙色卡 Step2：整張 Step1 色卡（上 2/3、下 1/3）一次 img2img。
- * 對齊官網：中文短 prompt + 原圖 input_image + seed + safety_tolerance=2；
- * 不做英文翻譯、不加攝影參數；disable_pup=true（FLUX.2 pro 預設會 upsampling 改寫短句）。
+ * 材料雙色卡 Step2：整張 Step1 色卡（上 2/3、下 1/3）一次 img2img；可附主／配區印花圖樣為 input_image_2／3。
+ * 對齊官網：中文短 prompt + seed + safety_tolerance=2 + disable_pup；不做英文翻譯、不加攝影參數。
  */
-async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial) {
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    // 色卡原樣送出（前端為 1024 PNG）；不經 prepare 重壓、不翻譯、不 upsampling
+    const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
+    const mainPat = dualColorPatternRefToFluxInput(refs.main);
+    const accentPat = dualColorPatternRefToFluxInput(refs.accent);
+    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
+        hasMainPattern: !!mainPat,
+        hasAccentPattern: !!accentPat
+    });
     let mime = 'image/png';
     if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) mime = 'image/jpeg';
     else if (fileBuffer[0] === 0x52 && fileBuffer[1] === 0x49) mime = 'image/webp';
-    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
         width: 1024,
@@ -3788,8 +3815,10 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         safetyTolerance: 2,
         promptUpsampling: false
     };
-    const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
-    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+    const images = [`data:${mime};base64,${fileBuffer.toString('base64')}`];
+    if (mainPat) images.push(mainPat);
+    if (accentPat) images.push(accentPat);
+    const buf = await generateImageWithFlux2Pro(prompt, images, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return { buffer: buf, prompt };
 }
@@ -23630,7 +23659,11 @@ app.delete('/api/me/material-combo-generations/:id', async (req, res) => {
 });
 
 // POST /api/me/vendor-assets/material-dual-color-flux — 雙色卡 Step2 材質化（登入＋扣點；不限廠商）
-app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'), async (req, res) => {
+app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'main_pattern', maxCount: 1 },
+    { name: 'accent_pattern', maxCount: 1 }
+]), async (req, res) => {
     try {
         const seedUser = await getRequestUserFromAuthHeader(req);
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
@@ -23668,20 +23701,36 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             }
         }
 
-        // 雙色卡：Step1 色卡整張當 input_image；prompt 僅官網短中文（無 echo／無額外改寫）
-        if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+        const files = req.files || {};
+        const swatchFile = Array.isArray(files.image) ? files.image[0] : null;
+        if (!swatchFile || !swatchFile.buffer || !swatchFile.buffer.length) {
             return res.status(400).json({ error: '請上傳色卡圖片' });
         }
-        const swatchBuffer = req.file.buffer;
+        const swatchBuffer = swatchFile.buffer;
 
         const mainMaterial = body.main_material || body.mainMaterial || '';
         const accentMaterial = body.accent_material || body.accentMaterial || '';
         const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
+        const mainPatternFile = Array.isArray(files.main_pattern) ? files.main_pattern[0] : null;
+        const accentPatternFile = Array.isArray(files.accent_pattern) ? files.accent_pattern[0] : null;
+        const mainPatternUrl = String(body.main_pattern_url || body.mainPatternUrl || '').trim();
+        const accentPatternUrl = String(body.accent_pattern_url || body.accentPatternUrl || '').trim();
+        const patternRefs = {
+            main: mainPatternFile && mainPatternFile.buffer && mainPatternFile.buffer.length
+                ? { buffer: mainPatternFile.buffer, mimetype: mainPatternFile.mimetype }
+                : (mainPatternUrl || null),
+            accent: accentPatternFile && accentPatternFile.buffer && accentPatternFile.buffer.length
+                ? { buffer: accentPatternFile.buffer, mimetype: accentPatternFile.mimetype }
+                : (accentPatternUrl || null)
+        };
         let aiPromptUsed;
         try {
-            aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary);
+            aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary, {
+                hasMainPattern: !!(patternRefs.main),
+                hasAccentPattern: !!(patternRefs.accent)
+            });
         } catch (promptErr) {
-            return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質' });
+            return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質或選擇印花圖樣' });
         }
         const pointsRequired = await getPointsMaterialDualColorFlux();
         const ownerId = seedUser.id;
@@ -23695,7 +23744,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
         let optimized;
         try {
             const result = await optimizeMaterialDualColorWithFlux(
-                swatchBuffer, mainMaterial, accentMaterial, boundary
+                swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
