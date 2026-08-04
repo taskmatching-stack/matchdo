@@ -3753,29 +3753,29 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 對齊 BFL 官網成功案例（雙色卡 ± 印花）：
- * 依原圖上方色塊改為印花尼龍布材質，下方色塊改為皮革材質，解析度1024x1024，請維持原圖色塊比例
- * 無印花時結尾用「不需要文字」（先前無印花官網句）。
+ * 對齊 BFL 官網：有印花＝只在「上方或下方」其中一區的材質前加「印花」二字；印花參考圖最多一張。
+ * 例：依原圖上方色塊改為印花尼龍布材質，下方色塊改為皮革材質，解析度1024x1024，請維持原圖色塊比例
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
     const hasMainPat = !!opts.hasMainPattern;
     const hasAccentPat = !!opts.hasAccentPattern;
+    if (hasMainPat && hasAccentPat) {
+        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+    }
     const main = normalizeDualColorMaterialField(mainMaterial);
     const accent = normalizeDualColorMaterialField(accentMaterial);
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
 
-    function zoneMaterialPhrase(material, hasPat) {
+    function phrase(material, hasPat) {
         if (hasPat && material) return `印花${material}材質`;
         if (hasPat) return '印花材質';
         return `${material}材質`;
     }
 
-    const mainPhrase = zoneMaterialPhrase(main, hasMainPat);
-    const accentPhrase = zoneMaterialPhrase(accent, hasAccentPat);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${mainPhrase}，下方色塊改為${accentPhrase}`;
+    let prompt = `依原圖上方色塊改為${phrase(main, hasMainPat)}，下方色塊改為${phrase(accent, hasAccentPat)}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     if (hasMainPat || hasAccentPat) {
         prompt += '，解析度1024x1024，請維持原圖色塊比例';
@@ -3835,8 +3835,12 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         promptUpsampling: hasAnyPat
     };
     const images = [dualColorBufferToDataUrl(fileBuffer)];
+    // 印花最多一張：主或配擇一
+    if (mainPat && accentPat) {
+        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+    }
     if (mainPat) images.push(mainPat);
-    if (accentPat) images.push(accentPat);
+    else if (accentPat) images.push(accentPat);
     const buf = await generateImageWithFlux2Pro(prompt, images, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return { buffer: buf, prompt };
@@ -23742,6 +23746,9 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
                 ? { buffer: accentPatternFile.buffer, mimetype: accentPatternFile.mimetype }
                 : (accentPatternUrl || null)
         };
+        if (patternRefs.main && patternRefs.accent) {
+            return res.status(400).json({ error: '印花圖樣只能用於主色區或配色區其中一區，不可同時兩張' });
+        }
         let aiPromptUsed;
         try {
             aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary, {

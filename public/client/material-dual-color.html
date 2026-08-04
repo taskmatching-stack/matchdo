@@ -117,7 +117,7 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">對齊 BFL 官網：色卡＋印花一次送出。有印花時寫「印花尼龍布材質」並開 prompt upsampling；無印花關 PUP。</p>
+                    <p class="small text-muted mb-3">印花圖樣<strong>只能上或下擇一</strong>（不可兩區都傳）。有傳圖＝該區材質前加「印花」二字，對齊官網。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
@@ -201,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-match-bfl-official-print-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-one-zone-only-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -296,7 +296,7 @@
             updateGenerateEnabled();
         }
 
-        function clearZonePattern(zone) {
+        function clearZonePattern(zone, skipRender) {
             var p = zonePatterns[zone];
             if (p.objectUrl) {
                 try { URL.revokeObjectURL(p.objectUrl); } catch (_) {}
@@ -304,21 +304,43 @@
             zonePatterns[zone] = { url: null, file: null, objectUrl: null };
             var fileInput = document.getElementById('mdc-' + zone + '-pattern-file');
             if (fileInput) fileInput.value = '';
-            renderZonePattern(zone);
+            if (!skipRender) renderZonePattern(zone);
+            else {
+                var wrap = document.getElementById('mdc-' + zone + '-pattern-wrap');
+                var img = document.getElementById('mdc-' + zone + '-pattern-img');
+                var clearBtn = document.getElementById('mdc-' + zone + '-clear-print');
+                if (img) img.removeAttribute('src');
+                if (wrap) wrap.classList.add('d-none');
+                if (clearBtn) clearBtn.classList.add('d-none');
+            }
         }
 
         function setZonePatternFromUrl(zone, url) {
-            clearZonePattern(zone);
+            var other = zone === 'main' ? 'accent' : 'main';
+            if (zoneHasPattern(other)) clearZonePattern(other, true);
+            clearZonePattern(zone, true);
             zonePatterns[zone] = { url: url, file: null, objectUrl: null };
             renderZonePattern(zone);
+            renderZonePattern(other);
+            if (statusEl) {
+                statusEl.textContent = '印花僅能一區：已套用至' + (zone === 'main' ? '主色區' : '配色區') + '（另一區若有圖樣已清除）';
+                statusEl.className = 'small mt-2 text-muted';
+            }
         }
 
         function setZonePatternFromFile(zone, file) {
             if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
-            clearZonePattern(zone);
+            var other = zone === 'main' ? 'accent' : 'main';
+            if (zoneHasPattern(other)) clearZonePattern(other, true);
+            clearZonePattern(zone, true);
             var objectUrl = URL.createObjectURL(file);
             zonePatterns[zone] = { url: null, file: file, objectUrl: objectUrl };
             renderZonePattern(zone);
+            renderZonePattern(other);
+            if (statusEl) {
+                statusEl.textContent = '印花僅能一區：已套用至' + (zone === 'main' ? '主色區' : '配色區') + '（另一區若有圖樣已清除）';
+                statusEl.className = 'small mt-2 text-muted';
+            }
         }
 
         function openPrintPicker(zone) {
@@ -531,8 +553,7 @@
                     fd.append('main_pattern', zonePatterns.main.file, zonePatterns.main.file.name || 'main-pattern.png');
                 } else if (zonePatterns.main.url) {
                     fd.append('main_pattern_url', zonePatterns.main.url);
-                }
-                if (zonePatterns.accent.file) {
+                } else if (zonePatterns.accent.file) {
                     fd.append('accent_pattern', zonePatterns.accent.file, zonePatterns.accent.file.name || 'accent-pattern.png');
                 } else if (zonePatterns.accent.url) {
                     fd.append('accent_pattern_url', zonePatterns.accent.url);
