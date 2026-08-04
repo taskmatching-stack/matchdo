@@ -119,12 +119,19 @@
                             <label class="form-label small mb-1">分界處（選填）</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" placeholder="例：同色明線車縫" maxlength="64">
                         </div>
+                        <div class="col-12">
+                            <p class="form-text text-muted small mb-0">
+                                材質描述（送 FLUX，與 BFL 官網同一中文短句）：
+                                <strong id="mdc-prompt-preview" class="fw-normal text-dark">（填主色／配色區材質後顯示）</strong>
+                            </p>
+                        </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
                         <button type="button" class="btn btn-primary" id="mdc-generate-btn" disabled><i class="bi bi-stars me-1"></i>生成材質圖</button>
                         <span class="text-muted small" id="mdc-points-label"></span>
                     </div>
                     <div id="mdc-status" class="small mt-2 text-muted"></div>
+                    <div id="mdc-ai-prompt-used" class="small mt-1 text-muted d-none"></div>
                     <div id="mdc-result-wrap" class="mdc-preview-wrap mt-3 d-none">
                         <p class="small fw-semibold mb-1">生成結果</p>
                         <img id="mdc-result-img" alt="材質化結果" />
@@ -140,11 +147,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260804c"></script>
-    <script src="/js/material-dual-color-import.js?v=20260804c"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260805a"></script>
+    <script src="/js/material-dual-color-import.js?v=20260805a"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-bfl-official-zh-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-prompt-preview-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -163,6 +170,8 @@
         var mainMaterial = document.getElementById('mdc-main-material');
         var accentMaterial = document.getElementById('mdc-accent-material');
         var boundary = document.getElementById('mdc-boundary');
+        var promptPreview = document.getElementById('mdc-prompt-preview');
+        var aiPromptUsedEl = document.getElementById('mdc-ai-prompt-used');
         var generateBtn = document.getElementById('mdc-generate-btn');
         var pointsLabel = document.getElementById('mdc-points-label');
         var statusEl = document.getElementById('mdc-status');
@@ -171,6 +180,30 @@
         var downloadBtn = document.getElementById('mdc-download-btn');
         var addPendingBtn = document.getElementById('mdc-add-pending-btn');
         var backLink = document.getElementById('mdc-back-link');
+
+        /** 與 server buildMaterialDualColorFluxPrompt／BFL 官網同一模板（前端預覽用） */
+        function buildDualColorPromptPreview(main, accent, stitch) {
+            main = String(main || '').trim();
+            accent = String(accent || '').trim();
+            stitch = String(stitch || '').trim();
+            if (!main || !accent) return '';
+            var p = '依原圖上方色塊改為' + main + '材質，下方色塊改為' + accent + '材質';
+            if (stitch) p += '，分界處改為' + stitch;
+            p += '，解析度1024x1024，不需要文字';
+            return p;
+        }
+
+        function updatePromptPreview() {
+            var p = buildDualColorPromptPreview(mainMaterial.value, accentMaterial.value, boundary.value);
+            if (promptPreview) {
+                promptPreview.textContent = p || '（填主色／配色區材質後顯示）';
+            }
+        }
+
+        function updateGenerateEnabled() {
+            generateBtn.disabled = !(mainMaterial.value || '').trim() || !(accentMaterial.value || '').trim() || !swatchBlob;
+            updatePromptPreview();
+        }
 
         function materialsReturnHref() {
             if (returnTarget === 'design') return '/custom-product.html';
@@ -202,10 +235,6 @@
             var n = Compose.normalizeHex(hexInput.value);
             if (n) { hexInput.value = n; picker.value = n; return true; }
             return false;
-        }
-
-        function updateGenerateEnabled() {
-            generateBtn.disabled = !(mainMaterial.value || '').trim() || !(accentMaterial.value || '').trim() || !swatchBlob;
         }
 
         async function refreshSwatch() {
@@ -348,6 +377,15 @@
                 lastFluxResponse = d;
                 resultImg.src = d.preview_url || ('data:image/jpeg;base64,' + d.preview_base64);
                 resultWrap.classList.remove('d-none');
+                if (aiPromptUsedEl) {
+                    if (d.ai_prompt) {
+                        aiPromptUsedEl.textContent = '實際送出：' + d.ai_prompt;
+                        aiPromptUsedEl.classList.remove('d-none');
+                    } else {
+                        aiPromptUsedEl.textContent = '';
+                        aiPromptUsedEl.classList.add('d-none');
+                    }
+                }
                 if (d.preview_url) {
                     downloadBtn.href = d.preview_url;
                     downloadBtn.classList.remove('d-none');
