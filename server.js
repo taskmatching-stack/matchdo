@@ -3771,7 +3771,7 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
 /**
  * 材料雙色卡 Step2：整張 Step1 色卡（上 2/3、下 1/3）一次 img2img。
  * 對齊官網：中文短 prompt + 原圖 input_image + seed + safety_tolerance=2；
- * 不做英文翻譯、不加攝影參數、關閉 prompt_upsampling（預設 true 會改寫短句成多餘長描述）。
+ * 不做英文翻譯、不加攝影參數；disable_pup=true（FLUX.2 pro 預設會 upsampling 改寫短句）。
  */
 async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
@@ -10932,9 +10932,15 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     body.safety_tolerance = clampFluxSafetyTolerance(
         opts.safetyTolerance != null ? opts.safetyTolerance : FLUX_SAFETY_TOLERANCE_DEFAULT
     );
-    // 明確傳 false，避免 BFL 預設 prompt_upsampling 改寫短中文
-    if (opts.promptUpsampling === true) body.prompt_upsampling = true;
-    else if (opts.promptUpsampling === false) body.prompt_upsampling = false;
+    // FLUX.2 [pro]/[max]：預設會做 prompt upsampling；須設 disable_pup=true 才會「照原文」生圖
+    // （舊欄位 prompt_upsampling 對 flux-2-pro 無效，曾導致短中文被改寫成長描述）
+    if (opts.promptUpsampling === true) {
+        body.prompt_upsampling = true;
+        body.disable_pup = false;
+    } else if (opts.promptUpsampling === false) {
+        body.disable_pup = true;
+        body.prompt_upsampling = false;
+    }
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
     const createRes = await fetch(endpoint, {
@@ -11033,7 +11039,13 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
     const o = opts && typeof opts === 'object' ? opts : {};
-    if (o.promptUpsampling) body.prompt_upsampling = true;
+    if (o.promptUpsampling === true) {
+        body.prompt_upsampling = true;
+        body.disable_pup = false;
+    } else if (o.promptUpsampling === false) {
+        body.disable_pup = true;
+        body.prompt_upsampling = false;
+    }
     if (o.safetyTolerance != null && Number.isFinite(Number(o.safetyTolerance))) {
         body.safety_tolerance = Math.max(0, Math.min(6, Math.round(Number(o.safetyTolerance))));
     }

@@ -19,6 +19,7 @@
 | 參考圖 | Step1 色卡整張（`input_image`） |
 | Seed | `3647440197`（`VENDOR_MATERIAL_FLUX_SEED`） |
 | Safety | `2` |
+| Disable PUP | **`disable_pup: true`**（必設；否則短中文會被自動擴寫） |
 | 輸出 | 1024×1024 |
 
 **禁止的汙染（曾導致比例漂移／與官網不一致）：**
@@ -27,7 +28,7 @@
 - ❌ 在官網短句外加「嚴格版面／禁止 1/2／只轉換紋理」等長句
 - ❌ 附加攝影參數／系統附錄
 - ❌ 把雙色卡拆成兩次材料優化再硬合成（偏離官網管線；僅作實驗用，現行不採用）
-- ❌ 未關 `prompt_upsampling`（BFL 預設常為 true，會把短中文改寫成長描述，比例容易漂）
+- ❌ 未設 `disable_pup: true`（FLUX.2 [pro]/[max] **預設會 prompt upsampling**；舊欄位 `prompt_upsampling:false` 對 pro **無效**，短中文會被改寫成長描述）
 - ❌ 另傳「對照 echo 圖」給使用者（上方色卡預覽已足夠）
 
 ## 點數
