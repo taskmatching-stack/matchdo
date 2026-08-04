@@ -23436,19 +23436,59 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
     }
 });
 
-// POST /api/me/vendor-assets/material-dual-color-flux — 雙色卡 Step2 FLUX 材質化（成功後扣點）
+// GET /api/me/material-dual-color-pricing — 材料組合 Step2 扣點（登入即可；生成不限廠商）
+app.get('/api/me/material-dual-color-pricing', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        res.json({ points_dual_color_flux: await getPointsMaterialDualColorFlux() });
+    } catch (e) {
+        console.error('GET /api/me/material-dual-color-pricing:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-assets/material-dual-color-flux — 雙色卡 Step2 材質化（登入＋扣點；不限廠商）
 app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'), async (req, res) => {
     try {
-        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
-        if (!uploadUser) return;
-        const manufacturerId = await getMeManufacturerId(req, res);
-        if (!manufacturerId) return;
         const seedUser = await getRequestUserFromAuthHeader(req);
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
-        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const body = req.body || {};
+        const isAdmin = await isAdminUserId(seedUser.id);
+        let manufacturerId = null;
+        let storageFolder;
+
+        if (isAdmin) {
+            if (isOfficialPlatformLibraryRequest(req)) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', seedUser.id).maybeSingle();
+                if (profile?.role !== 'admin') {
+                    return res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+                }
+                manufacturerId = await getOrEnsureOfficialPlatformManufacturerId();
+                storageFolder = `vendor-assets-preview/${manufacturerId}`;
+            } else {
+                const { data: mfrRow } = await supabase.from('manufacturers').select('id').eq('user_id', seedUser.id).maybeSingle();
+                manufacturerId = mfrRow?.id || null;
+                if (manufacturerId) {
+                    if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+                    storageFolder = `vendor-assets-preview/${manufacturerId}`;
+                } else {
+                    storageFolder = `material-combo-preview/${seedUser.id}`;
+                }
+            }
+        } else {
+            const { data: mfrRow } = await supabase.from('manufacturers').select('id').eq('user_id', seedUser.id).maybeSingle();
+            manufacturerId = mfrRow?.id || null;
+            if (manufacturerId) {
+                if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+                storageFolder = `vendor-assets-preview/${manufacturerId}`;
+            } else {
+                storageFolder = `material-combo-preview/${seedUser.id}`;
+            }
+        }
+
         const file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳色卡圖片' });
-        const body = req.body || {};
         const mainMaterial = body.main_material || body.mainMaterial || '';
         const accentMaterial = body.accent_material || body.accentMaterial || '';
         const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
@@ -23459,10 +23499,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質' });
         }
         const pointsRequired = await getPointsMaterialDualColorFlux();
-        let ownerId = seedUser.id;
-        let isAdmin = false;
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
-        isAdmin = profile?.role === 'admin';
+        const ownerId = seedUser.id;
         if (!isAdmin && pointsRequired > 0) {
             const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
             if (!sufficient) {
@@ -23483,7 +23520,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
         }
         const previewName = `dual-color-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
         const { publicUrl } = await uploadToSupabaseStorage(
-            'custom-products', `vendor-assets-preview/${manufacturerId}`, { buffer: optimized, mimetype: 'image/jpeg', originalname: previewName }
+            'custom-products', storageFolder, { buffer: optimized, mimetype: 'image/jpeg', originalname: previewName }
         );
         let balanceAfter = null;
         let creditTransactionId = null;
@@ -23492,7 +23529,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
                 ownerId,
                 pointsRequired,
                 'material_dual_color_flux',
-                `材料組合 FLUX 材質生成（${pointsRequired} 點）`,
+                `材料組合材質生成（${pointsRequired} 點）`,
                 { manufacturer_id: manufacturerId, preview: true }
             );
             if (!consumed.ok) {
