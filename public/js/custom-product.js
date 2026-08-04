@@ -1468,6 +1468,12 @@ $(document).ready(function () {
                 e.preventDefault();
                 navigateRefSlotOfficialPick(slotKey);
             }));
+        $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
+            .text(tr('customProduct.refSlotPickDigitalAssets', '我的資產庫'))
+            .on('click', function (e) {
+                e.preventDefault();
+                openAssetPickerModalForRefSlot(slotKey);
+            }));
         if (slotKey === 'material') {
             $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="/client/material-dual-color.html?return=design"></a>')
                 .text(tr('nav.materialCombination', '材料組合')));
@@ -3003,6 +3009,54 @@ $(document).ready(function () {
                 }
             })
             .catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+    }
+
+    function importDigitalAssetToRefSlot(targetKey, pick) {
+        if (!pick || !pick.url || !getRefSlotDef(targetKey)) return;
+        var cap = vendorImportCapacity(targetKey);
+        if (cap.maxAdd <= 0) {
+            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            return;
+        }
+        var slotDef = getRefSlotDef(targetKey);
+        var title = (pick.title || '').trim() || tr('customProduct.digitalAssetFallback', '數位資產');
+        var baseMeta = {
+            asset_kind: slotDef ? slotDef.assetKind : 'other',
+            title: title,
+            image_url: pick.url,
+            from_digital_library: true,
+            source_type: pick.sourceType || 'digital_asset',
+            source_id: pick.sourceId || null
+        };
+        if (pick.material_combo && pick.material_combo.main) {
+            baseMeta.material_combo = pick.material_combo;
+        }
+        if (slotDef && slotDef.patternIntent) baseMeta.pattern_intent = slotDef.patternIntent;
+        fetchUrlAsDataUrl(pick.url).then(function (dataUrl) {
+            if (!dataUrl) {
+                alert(t('customProduct.loadFailed') || '載入圖片失敗');
+                return;
+            }
+            var importMeta = Object.assign({}, baseMeta);
+            if (!addRefImageToSlot(targetKey, dataUrl, importMeta)) {
+                alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+                return;
+            }
+            if (targetKey === 'material' && baseMeta.material_combo) {
+                refSlots.material.addon = formatMaterialComboAddon(baseMeta.material_combo);
+            }
+            refIntentActiveTab = targetKey;
+            renderIntentSlots();
+            showBootstrapTab(document.getElementById('tab-product-design'));
+        }).catch(function () {
+            alert(t('customProduct.loadFailed') || '載入圖片失敗');
+        });
+    }
+
+    function openAssetPickerModalForRefSlot(slotKey) {
+        if (!getRefSlotDef(slotKey)) return;
+        window.__refImportTargetSlot = slotKey;
+        openAssetPickerModal('refSlot');
     }
 
     var vendorAssetPickModalState = null;
@@ -5602,6 +5656,8 @@ $(document).ready(function () {
         var ownerDisplay = wrap.attr('data-owner-display') || '';
         var productId = wrap.attr('data-product-id') || '';
         var showOnHomepage = wrap.attr('data-show-on-homepage') === '1';
+        var comboRaw = wrap.attr('data-material-combo') || '';
+        $('#pastItemModal').data('import-url', url || '').data('material-combo', comboRaw);
         $('#pastItemModal').data('redesignCategoryKey', wrap.attr('data-category-key') || '').data('redesignSubcategoryKey', wrap.attr('data-subcategory-key') || '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
@@ -5645,6 +5701,26 @@ $(document).ready(function () {
             $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
         }
         showBootstrapModal(document.getElementById('pastItemModal'));
+    });
+
+    $(document).on('click', '#pastItemModalAddRef', function () {
+        var url = ($('#pastItemModal').data('import-url') || '').trim();
+        if (!url) return;
+        var comboRaw = ($('#pastItemModal').data('material-combo') || '').trim();
+        var combo = null;
+        if (comboRaw) {
+            try { combo = JSON.parse(comboRaw); } catch (e) { combo = null; }
+        }
+        var targetKey = refIntentActiveTab || 'prototype';
+        if (combo && combo.main && getRefSlotDef('material')) targetKey = 'material';
+        importDigitalAssetToRefSlot(targetKey, {
+            url: url,
+            title: ($('#pastItemModalPrompt').text() || '').trim(),
+            sourceType: combo ? 'material_combo' : 'digital_asset',
+            material_combo: combo
+        });
+        var modalEl = document.getElementById('pastItemModal');
+        if (modalEl && typeof hideBootstrapModal === 'function') hideBootstrapModal(modalEl);
     });
 
     $(document).on('click', '#pastItemModalDelete', function () {
@@ -6083,6 +6159,17 @@ $(document).ready(function () {
         window.assetPickerContext = context || 'sceneSim';
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         var pickerEl = document.getElementById('sceneSimAssetPickerModal');
+        var $title = $('#sceneSimAssetPickerLabel');
+        if ($title.length) {
+            if (context === 'refSlot' && window.__refImportTargetSlot) {
+                var slotDef = getRefSlotDef(window.__refImportTargetSlot);
+                var slotLabel = slotDef ? refIntentTabLabel(slotDef) : window.__refImportTargetSlot;
+                var baseTitle = tr('customProduct.selectFromDigitalAssets', '從數位資產選擇圖片');
+                $title.text(baseTitle + ' → ' + slotLabel);
+            } else {
+                $title.text(tr('customProduct.selectFromDigitalAssets', '從數位資產選擇圖片'));
+            }
+        }
         showBootstrapModal(pickerEl);
         var $empty = $('#sceneSimAssetEmpty');
         var $loading = $('#sceneSimAssetLoading');
@@ -6103,7 +6190,10 @@ $(document).ready(function () {
                 if (!u) return;
                 var st = (pick.sourceType || 'digital_asset');
                 var sid = pick.sourceId || null;
-                if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
+                if (window.assetPickerContext === 'refSlot') {
+                    var slotKey = window.__refImportTargetSlot;
+                    if (slotKey) importDigitalAssetToRefSlot(slotKey, pick);
+                } else if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
                 else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
                 else if (window.assetPickerContext === 'promoImage') {
                     if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, st, sid);
