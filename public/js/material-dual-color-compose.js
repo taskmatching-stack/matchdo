@@ -1,5 +1,5 @@
 /**
- * 材料雙色卡 Step1：1024×1024，上方 2/3 主色、下方 1/3 配色（零 FLUX）
+ * 材料雙色卡 Step1：1024×1024，上方 75% 主色、下方 25% 配色（零 FLUX）
  */
 (function (global) {
   'use strict';
@@ -18,7 +18,7 @@
     var main = normalizeHex(mainHex);
     var accent = normalizeHex(accentHex);
     if (!main || !accent) throw new Error('請填寫有效的主色與配色（#RRGGBB）');
-    var topH = Math.floor(CANVAS_SIZE * 2 / 3);
+    var topH = Math.floor(CANVAS_SIZE * 0.75);
     var bottomH = CANVAS_SIZE - topH;
     var canvas = document.createElement('canvas');
     canvas.width = CANVAS_SIZE;

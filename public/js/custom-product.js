@@ -1047,7 +1047,7 @@ $(document).ready(function () {
         }
         var combo = {
             version: 1,
-            layout: 'top_2_3_bottom_1_3',
+            layout: 'top_75_bottom_25',
             main: { hex: meta.mainHex || '', material: meta.mainMaterial || '' },
             accent: { hex: meta.accentHex || '', material: meta.accentMaterial || '' }
         };

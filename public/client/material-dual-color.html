@@ -91,21 +91,21 @@
                 <div class="card-body">
                     <div class="row g-3 align-items-end mb-3">
                         <div class="col-md-5">
-                            <label class="form-label small mb-1">主色（上方 2/3）</label>
+                            <label class="form-label small mb-1">主色（上方 75%）</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-main-color" value="#3B82C4" aria-label="主色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-main-hex" value="#3B82C4" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label small mb-1">配色（下方 1/3）</label>
+                            <label class="form-label small mb-1">配色（下方 25%）</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-accent-color" value="#F5F0E8" aria-label="配色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-accent-hex" value="#F5F0E8" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
                     </div>
-                    <p class="small text-muted mb-2">色卡固定為上方主色 2/3、下方配色 1/3。生成對齊 BFL 官網：中文短句＋整張色卡一次 img2img（不做英文翻譯）。</p>
+                    <p class="small text-muted mb-2">色卡固定為上方主色 75%、下方配色 25%。</p>
                     <div class="mdc-preview-wrap mb-0">
                         <canvas id="mdc-swatch-canvas" width="1024" height="1024" aria-label="雙色色卡預覽"></canvas>
                     </div>
@@ -118,7 +118,7 @@
                     <p class="small text-muted mb-3">印花只能上或下擇一。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
+                            <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 75%）</span></label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i>主色區印花</button>
@@ -131,7 +131,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">配色區材質 <span class="text-muted fw-normal">（下方 1/3）</span></label>
+                            <label class="form-label small mb-1">配色區材質 <span class="text-muted fw-normal">（下方 25%）</span></label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i>配色區印花</button>
@@ -192,11 +192,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/digital-asset-picker.js?v=7"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260805b"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260805c"></script>
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-no-prompt-echo-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-75-25-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;

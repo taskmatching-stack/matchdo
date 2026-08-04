@@ -4143,7 +4143,7 @@ function normalizeMaterialCombo(raw) {
     if (!mainHex || !accentHex || !mainMat || !accentMat) return null;
     const out = {
         version: 1,
-        layout: 'top_2_3_bottom_1_3',
+        layout: 'top_75_bottom_25',
         main: { hex: mainHex, material: mainMat },
         accent: { hex: accentHex, material: accentMat }
     };
