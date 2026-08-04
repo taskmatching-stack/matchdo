@@ -1148,7 +1148,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'no-model-names-copy-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'fix-collect-pending-p-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3047,7 +3047,7 @@
                     uploadLabels.push(ent.label);
                     uploadLinkGroups.push(lg);
                     var sel = selectable;
-                    if (item.materialCombo) sel = entIdx > 0;
+                    if (p.materialCombo) sel = entIdx > 0;
                     uploadDesignerSelectable.push(sel);
                     uploadDerived.push(ent.aiDerived || '');
                 });
