@@ -379,6 +379,11 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" type="button" data-kind="material_combo" id="tab-material-combo" role="tab">
+                        <i class="bi bi-layout-split me-1"></i>材料組合
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="promo" id="tab-promo" role="tab">
                         <i class="bi bi-megaphone me-1"></i>情境圖
                     </button>
@@ -1144,7 +1149,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-combination-always-visible-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-combo-tab-nav-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1873,9 +1878,61 @@
 
         function normalizeKind(k) {
             if (k === 'material') return 'material';
+            if (k === 'material_combo') return 'material_combo';
             if (k === 'part') return 'part';
             if (k === 'promo') return 'promo';
             return 'prototype';
+        }
+
+        function parseAssetSemantics(m) {
+            if (!m) return null;
+            var sem = m.image_semantics_json;
+            if (typeof sem === 'string') {
+                try { sem = JSON.parse(sem); } catch (e) { return null; }
+            }
+            return (sem && typeof sem === 'object') ? sem : null;
+        }
+
+        function hasMaterialCombo(m) {
+            var sem = parseAssetSemantics(m);
+            return !!(sem && sem.material_combo && sem.material_combo.main && sem.material_combo.main.hex);
+        }
+
+        function renderMaterialComboMetaHtml(m) {
+            var sem = parseAssetSemantics(m);
+            var combo = sem && sem.material_combo;
+            if (!combo || !combo.main) return '';
+            var main = combo.main;
+            var accent = combo.accent || {};
+            var lines = [];
+            lines.push('<div class="material-combo-meta small mb-2">');
+            lines.push('<div class="d-flex align-items-center gap-1 mb-1"><span class="rounded border" style="width:14px;height:14px;background:' + esc(main.hex || '#ccc') + '"></span><span>主色 <code class="small">' + esc(main.hex || '') + '</code> ' + esc(main.material || '') + '</span></div>');
+            if (accent.hex || accent.material) {
+                lines.push('<div class="d-flex align-items-center gap-1 mb-1"><span class="rounded border" style="width:14px;height:14px;background:' + esc(accent.hex || '#ccc') + '"></span><span>配色 <code class="small">' + esc(accent.hex || '') + '</code> ' + esc(accent.material || '') + '</span></div>');
+            }
+            if (combo.boundary) {
+                lines.push('<div class="text-muted">分界：' + esc(combo.boundary) + '</div>');
+            }
+            lines.push('</div>');
+            return lines.join('');
+        }
+
+        function buildMaterialComboPayload(meta) {
+            if (!meta || !meta.mainMaterial || !meta.accentMaterial) return null;
+            var payload = {
+                main: { hex: meta.mainHex || '', material: meta.mainMaterial },
+                accent: { hex: meta.accentHex || '', material: meta.accentMaterial }
+            };
+            if ((meta.boundary || '').trim()) payload.boundary = meta.boundary.trim();
+            return payload;
+        }
+
+        function collectMaterialComboFromPending(form) {
+            var pending = getPendingImages(form);
+            for (var i = 0; i < pending.length; i++) {
+                if (pending[i] && pending[i].materialCombo) return pending[i].materialCombo;
+            }
+            return null;
         }
 
         /** 材料不提供上傳前 AI 放大（僅原型／零件保留） */
@@ -2986,11 +3043,13 @@
                     : (p.designer_selectable !== false);
                 var entries = pendingUploadEntries(p);
                 var startIdx = uploadFiles.length;
-                entries.forEach(function (ent) {
+                entries.forEach(function (ent, entIdx) {
                     uploadFiles.push(ent.file);
                     uploadLabels.push(ent.label);
                     uploadLinkGroups.push(lg);
-                    uploadDesignerSelectable.push(selectable);
+                    var sel = selectable;
+                    if (item.materialCombo) sel = entIdx > 0;
+                    uploadDesignerSelectable.push(sel);
                     uploadDerived.push(ent.aiDerived || '');
                 });
                 if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
@@ -4779,19 +4838,20 @@
         async function applyDualColorPendingImport() {
             if (!window.MatchdoDualColorImport) return false;
             var meta = MatchdoDualColorImport.peekImportMeta();
-            if (!meta || meta.returnTarget === 'supplier') return false;
+            if (!meta || meta.returnTarget === 'supplier' || meta.returnTarget === 'design') return false;
             var blobs = await MatchdoDualColorImport.loadImportBlobs();
             if (!blobs.flux) {
                 await MatchdoDualColorImport.clearImport();
                 return false;
             }
-            switchKind('material');
+            switchKind('material_combo');
             openAddFormPanel('material');
             var form = document.querySelector('.add-form[data-kind="material"]');
             if (!form) {
                 await MatchdoDualColorImport.clearImport();
                 return false;
             }
+            var comboPayload = buildMaterialComboPayload(meta);
             var list = getPendingImages(form);
             var itemId = 'dc' + Date.now();
             var item = {
@@ -4801,9 +4861,10 @@
                 label: meta.label || meta.mainMaterial || '材料組合',
                 link_group: '',
                 designer_selectable: true,
-                uploadOriginal: false,
+                uploadOriginal: !!blobs.swatch,
                 uploadRedraw: true,
                 uploadUpscale: false,
+                materialCombo: comboPayload,
                 redrawPreviewUrl: meta.redrawPreviewStorageUrl || '',
                 redrawPreviewStorageUrl: meta.redrawPreviewStorageUrl || '',
                 redrawChargedPts: meta.redrawChargedPts || 0,
@@ -7339,7 +7400,16 @@
             var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
             var filterGrp = document.getElementById('filter-vendor-catalog') && document.getElementById('filter-vendor-catalog').value;
             return materialsAll.filter(function (m) {
-                if (normalizeKind(m.asset_kind) !== activeKind) return false;
+                var kind = normalizeKind(m.asset_kind);
+                if (activeKind === 'material_combo') {
+                    if (kind !== 'material') return false;
+                    if (!hasMaterialCombo(m)) return false;
+                } else if (activeKind === 'material') {
+                    if (kind !== 'material') return false;
+                    if (hasMaterialCombo(m)) return false;
+                } else if (kind !== activeKind) {
+                    return false;
+                }
                 if (filterCat && (m.category_key || '') !== filterCat) return false;
                 if (filterGrp) {
                     var ids = (m.catalog_group_ids || []).map(String);
@@ -7820,7 +7890,9 @@
                 var batchHtml = list.slice(start, end).map(function (m) {
                     var catName = catNames[m.category_key] || m.category_key || '—';
                     var kindBadge = m.asset_kind === 'material'
-                    ? '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> '
+                    ? (hasMaterialCombo(m)
+                        ? '<span class="badge bg-light text-primary border mb-2">材料組合</span> '
+                        : '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> ')
                     : (m.asset_kind === 'part'
                         ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
                         : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ');
@@ -7851,6 +7923,7 @@
                     taxonomyHtml = '<div class="mb-2">' + renderCapabilityBadgesHtml(m.capabilities, m.production_type_label, m.capability_custom_labels) + '</div>';
                 }
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
+                var comboMetaHtml = (m.asset_kind === 'material' && hasMaterialCombo(m)) ? renderMaterialComboMetaHtml(m) : '';
                 var protoMetaHtml = '';
                 if (m.asset_kind !== 'material') {
                     if (m.min_order_quantity != null && Number(m.min_order_quantity) >= 1) {
@@ -7894,7 +7967,7 @@
                     (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(trPreviewEnlargeTitle('可多張切換')) + '"' + urlsAttr + itemsAttr + '></div>' : '') +
                     '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' + coverLabelHtml +
-                    '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + taxonomyHtml + myCats + tagsHtml +
+                    '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + comboMetaHtml + protoMetaHtml + taxonomyHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
                 }).join('');
                 tempContainer.insertAdjacentHTML('beforeend', batchHtml);
@@ -7966,7 +8039,7 @@
 
         function addFormPanelIdForKind(kind) {
             var k = normalizeKind(kind || activeKind);
-            if (k === 'material') return 'add-form-panel-material';
+            if (k === 'material' || k === 'material_combo') return 'add-form-panel-material';
             if (k === 'part') return 'add-form-panel-part';
             return 'add-form-panel-prototype';
         }
@@ -8006,9 +8079,11 @@
             var labelEl = document.getElementById('btn-add-open-label');
             if (!labelEl) return;
             var key = activeKind === 'material' ? 'baseModels.addMaterialShort'
-                : (activeKind === 'part' ? 'baseModels.addPartShort' : 'baseModels.addPrototypeShort');
+                : (activeKind === 'material_combo' ? 'baseModels.addMaterialComboShort'
+                : (activeKind === 'part' ? 'baseModels.addPartShort' : 'baseModels.addPrototypeShort'));
             var fb = activeKind === 'material' ? '新增材料'
-                : (activeKind === 'part' ? '新增配件' : '新增原型');
+                : (activeKind === 'material_combo' ? '新增材料組合'
+                : (activeKind === 'part' ? '新增配件' : '新增原型'));
             labelEl.textContent = tr(key, fb);
         }
 
@@ -8036,6 +8111,7 @@
         function kindFromLocationHash() {
             var h = (window.location.hash || '').replace(/^#/, '').toLowerCase();
             if (h === 'tab-material' || h === 'material') return 'material';
+            if (h === 'tab-material-combo' || h === 'material_combo') return 'material_combo';
             if (h === 'tab-part' || h === 'part') return 'part';
             if (h === 'tab-promo' || h === 'promo') return 'promo';
             if (h === 'tab-prototype' || h === 'prototype') return 'prototype';
@@ -8045,7 +8121,7 @@
         function switchKind(kind) {
             activeKind = normalizeKind(kind);
             try {
-                if (activeKind === 'material') window.location.hash = 'tab-material';
+                if (activeKind === 'material' || activeKind === 'material_combo') window.location.hash = activeKind === 'material_combo' ? 'tab-material-combo' : 'tab-material';
                 else if (activeKind === 'part') window.location.hash = 'tab-part';
                 else if (activeKind === 'promo') window.location.hash = 'tab-promo';
                 else window.location.hash = 'tab-prototype';
@@ -8061,7 +8137,7 @@
             var btnAddOpen = document.getElementById('btn-add-open');
             var showProto = activeKind === 'prototype';
             var showPart = activeKind === 'part';
-            var showMat = activeKind === 'material';
+            var showMat = activeKind === 'material' || activeKind === 'material_combo';
             var showPromo = activeKind === 'promo';
             if (protoPanel) {
                 protoPanel.classList.toggle('d-none', !showProto);
@@ -8639,6 +8715,10 @@
             }
             if (kind === 'material') {
                 appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
+                var comboFromPending = collectMaterialComboFromPending(form);
+                if (comboFromPending) {
+                    fd.append('material_combo_json', JSON.stringify(comboFromPending));
+                }
                 if (optIdx.length && !getMaterialSurfaceTypeFromAddForm(form)) {
                     msgEl.textContent = validateMaterialSurfaceTypeForRedraw('');
                     return;

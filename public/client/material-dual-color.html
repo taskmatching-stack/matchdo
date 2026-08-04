@@ -34,7 +34,8 @@
                 return origFetch.call(this, input, init);
             };
         }
-        window.__MATCHDO_MATERIAL_COMBO_RETURN = p.get('return') === 'supplier' ? 'supplier' : 'manufacturer';
+        var ret = (p.get('return') || '').trim().toLowerCase();
+        window.__MATCHDO_MATERIAL_COMBO_RETURN = ret === 'supplier' ? 'supplier' : (ret === 'design' ? 'design' : 'manufacturer');
     })();
     </script>
     <script src="/js/auth-middleware.js"></script>
@@ -151,7 +152,7 @@
     <script src="/js/material-dual-color-import.js?v=20260804c"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combination-official-fix-20260804';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-design-return-20260804';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -178,10 +179,17 @@
         var backLink = document.getElementById('mdc-back-link');
 
         function materialsReturnHref() {
-            if (returnTarget === 'supplier') return '/client/supplier-catalog-manage.html#tab-material';
-            var base = '/client/manufacturer-materials.html#tab-material';
+            if (returnTarget === 'design') return '/custom-product.html';
+            if (returnTarget === 'supplier') return '/client/supplier-catalog-manage.html#tab-material-combo';
+            var base = '/client/manufacturer-materials.html#tab-material-combo';
             if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) return base.replace('.html#', '.html?official_platform=1#');
             return base;
+        }
+
+        if (addPendingBtn && returnTarget === 'design') {
+            addPendingBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>加入設計材料槽';
+        } else if (addPendingBtn && returnTarget !== 'supplier') {
+            addPendingBtn.innerHTML = '<i class="bi bi-inbox me-1"></i>加入材料組合待傳';
         }
 
         if (backLink) backLink.href = materialsReturnHref();
@@ -295,6 +303,8 @@
                     document.getElementById('no-mfr-alert').innerHTML = '您尚未綁定產業供應商。<a href="/client/industry-supplier-dashboard.html" class="alert-link">前往供應商控制台</a>';
                     return;
                 }
+            } else if (returnTarget === 'design') {
+                /* 訂製／設計入口：Step1 免費；Step2 需廠商或官方庫（見下方 FLUX 門檻） */
             } else {
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: authHeaders() });
                 if (!isOfficial && mfrRes.status === 404) {
@@ -318,7 +328,18 @@
 
             var capRes = await fetch('/api/me/capabilities', { headers: authHeaders() });
             var cap = await capRes.json().catch(function () { return {}; });
-            if (cap.can_upload_products_and_assets === false && !isOfficial) {
+            if (returnTarget === 'design' && !isOfficial) {
+                var mfrCheck = await fetch('/api/me/manufacturer', { headers: authHeaders() });
+                if (!mfrCheck.ok) {
+                    var blockEl = document.getElementById('upload-block-alert');
+                    if (blockEl) {
+                        blockEl.textContent = 'Step2 FLUX 需建立廠商資料；您仍可使用 Step1 色卡，並在生成後「加入設計材料槽」（若已有 FLUX 結果）。';
+                        blockEl.classList.remove('d-none');
+                    }
+                    generateBtn.disabled = true;
+                }
+            }
+            if (cap.can_upload_products_and_assets === false && !isOfficial && returnTarget !== 'design') {
                 var el = document.getElementById('upload-block-alert');
                 el.textContent = '免費帳號無法使用 FLUX 材質生成；請先訂閱付費方案。';
                 el.classList.remove('d-none');

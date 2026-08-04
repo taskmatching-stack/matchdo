@@ -4028,6 +4028,65 @@ function mergeMaterialSurfaceIntoSemantics(semanticsJson, surfaceType) {
     return Object.keys(base).length ? base : null;
 }
 
+function normalizeMaterialComboHex(raw) {
+    const s = String(raw || '').trim().toUpperCase();
+    if (/^#[0-9A-F]{6}$/.test(s)) return s;
+    if (/^[0-9A-F]{6}$/.test(s)) return '#' + s;
+    return '';
+}
+
+/** 材料組合結構（主色／配色 HEX+材料、分界選填） */
+function normalizeMaterialCombo(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const mainHex = normalizeMaterialComboHex(raw.main && raw.main.hex);
+    const accentHex = normalizeMaterialComboHex(raw.accent && raw.accent.hex);
+    const mainMat = String((raw.main && raw.main.material) || '').trim();
+    const accentMat = String((raw.accent && raw.accent.material) || '').trim();
+    if (!mainHex || !accentHex || !mainMat || !accentMat) return null;
+    const out = {
+        version: 1,
+        layout: 'top_2_3_bottom_1_3',
+        main: { hex: mainHex, material: mainMat },
+        accent: { hex: accentHex, material: accentMat }
+    };
+    const boundary = String(raw.boundary || '').trim();
+    if (boundary) out.boundary = boundary;
+    return out;
+}
+
+function parseMaterialComboFromBody(body) {
+    if (!body || body.material_combo_json == null || body.material_combo_json === '') return null;
+    try {
+        const raw = typeof body.material_combo_json === 'string'
+            ? JSON.parse(body.material_combo_json)
+            : body.material_combo_json;
+        return normalizeMaterialCombo(raw);
+    } catch (_) {
+        return null;
+    }
+}
+
+function mergeMaterialComboIntoSemantics(semanticsJson, combo) {
+    const base = (semanticsJson && typeof semanticsJson === 'object') ? { ...semanticsJson } : {};
+    if (combo) {
+        base.material_combo = combo;
+        if (combo.main && combo.main.material) {
+            const v = normalizeMaterialSurfaceType(combo.main.material);
+            if (v) base.material_surface_type = v;
+        }
+    }
+    return Object.keys(base).length ? base : null;
+}
+
+function vendorAssetHasMaterialCombo(row) {
+    if (!row) return false;
+    let sem = row.image_semantics_json;
+    if (typeof sem === 'string') {
+        try { sem = JSON.parse(sem); } catch (_) { return false; }
+    }
+    return !!(sem && sem.material_combo && sem.material_combo.main && sem.material_combo.main.hex);
+}
+
 function bufferFromGeminiInlineData(data) {
     if (!data) return null;
     if (Buffer.isBuffer(data)) return data.length ? data : null;
@@ -23991,6 +24050,10 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
         if (assetKind === 'material') {
             semanticsJson = mergeMaterialSurfaceIntoSemantics(semanticsJson, materialSurfaceCreate);
+            const materialComboCreate = parseMaterialComboFromBody(body);
+            if (materialComboCreate) {
+                semanticsJson = mergeMaterialComboIntoSemantics(semanticsJson, materialComboCreate);
+            }
         }
 
         const productNameForPrompt = resolveOptimizeProductNameForPrompt(body, title);
@@ -28003,6 +28066,10 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         }
         if (assetKind === 'material') {
             semanticsJson = mergeMaterialSurfaceIntoSemantics(semanticsJson, materialSurfaceCreate);
+            const materialComboCreate = parseMaterialComboFromBody(body);
+            if (materialComboCreate) {
+                semanticsJson = mergeMaterialComboIntoSemantics(semanticsJson, materialComboCreate);
+            }
         }
         if (!title) return res.status(400).json({ error: '請填寫產品名稱，或上傳可辨識的圖片以自動產生標題' });
         if (!description) return res.status(400).json({ error: '請填寫產品說明，或留空由 AI 產生（需可讀圖）' });

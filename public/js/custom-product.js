@@ -1005,6 +1005,61 @@ $(document).ready(function () {
         }
     }
 
+    function formatMaterialComboAddon(combo) {
+        if (!combo || !combo.main) return '';
+        var parts = [];
+        if (combo.main.hex || combo.main.material) {
+            parts.push('主色 ' + (combo.main.hex || '') + ' ' + (combo.main.material || ''));
+        }
+        if (combo.accent && (combo.accent.hex || combo.accent.material)) {
+            parts.push('配色 ' + (combo.accent.hex || '') + ' ' + (combo.accent.material || ''));
+        }
+        if (combo.boundary) parts.push('分界：' + combo.boundary);
+        return parts.join('；');
+    }
+
+    function parseMaterialComboFromItem(item) {
+        if (!item) return null;
+        var sem = item.image_semantics_json;
+        if (typeof sem === 'string') {
+            try { sem = JSON.parse(sem); } catch (e) { return null; }
+        }
+        return (sem && sem.material_combo && sem.material_combo.main) ? sem.material_combo : null;
+    }
+
+    async function applyDesignDualColorImport() {
+        if (!window.MatchdoDualColorImport) return false;
+        var meta = MatchdoDualColorImport.peekImportMeta();
+        if (!meta || meta.returnTarget !== 'design') return false;
+        var blobs = await MatchdoDualColorImport.loadImportBlobs();
+        if (!blobs.flux) {
+            await MatchdoDualColorImport.clearImport();
+            return false;
+        }
+        var combo = {
+            version: 1,
+            layout: 'top_2_3_bottom_1_3',
+            main: { hex: meta.mainHex || '', material: meta.mainMaterial || '' },
+            accent: { hex: meta.accentHex || '', material: meta.accentMaterial || '' }
+        };
+        if ((meta.boundary || '').trim()) combo.boundary = meta.boundary.trim();
+        var previewUrl = URL.createObjectURL(blobs.flux);
+        var added = addRefImageToSlot('material', previewUrl, {
+            asset_kind: 'material',
+            title: meta.label || '材料組合',
+            material_combo: combo
+        });
+        if (!added) {
+            await MatchdoDualColorImport.clearImport();
+            return false;
+        }
+        refSlots.material.addon = formatMaterialComboAddon(combo);
+        refIntentActiveTab = 'material';
+        await MatchdoDualColorImport.clearImport();
+        renderIntentSlots();
+        return true;
+    }
+
     function addRefImageToSlot(key, url, source) {
         if (!refSlots[key] || !url) return false;
         if (!canAddMoreRefImages(key, 1)) return false;
@@ -1164,6 +1219,9 @@ $(document).ready(function () {
                     var applyMode = normalizePatternApplyMode(item && item.pattern_apply_mode, item && item.pattern_remove_bg);
                     srcPayload.pattern_apply_mode = applyMode;
                     if (applyMode === 'remove_bg') srcPayload.pattern_remove_bg = true;
+                }
+                if (item.source && item.source.material_combo) {
+                    srcPayload.material_combo = item.source.material_combo;
                 }
                 items.push({
                     rank: rank,
@@ -1389,6 +1447,10 @@ $(document).ready(function () {
                 e.preventDefault();
                 navigateRefSlotOfficialPick(slotKey);
             }));
+        if (slotKey === 'material') {
+            $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="/client/material-dual-color.html?return=design"></a>')
+                .text(tr('nav.materialCombination', '材料組合')));
+        }
         if (items.length) {
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
                 .text(tr('customProduct.refSlotClearAll', '清空'))
@@ -2045,6 +2107,7 @@ $(document).ready(function () {
                 });
             }
         }
+        applyDesignDualColorImport().catch(function () {});
     }
 
     $(function () {
@@ -2837,7 +2900,12 @@ $(document).ready(function () {
             try { catalogNames = JSON.parse(cgnRaw.replace(/&quot;/g, '"')); } catch (_) { catalogNames = []; }
         }
         if (!Array.isArray(catalogNames)) catalogNames = [];
-        return {
+        var materialCombo = null;
+        var mcRaw = ($c.attr('data-material-combo') || '').trim();
+        if (mcRaw) {
+            try { materialCombo = JSON.parse(mcRaw.replace(/&quot;/g, '"')); } catch (_) { materialCombo = null; }
+        }
+        var metaOut = {
             vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
             manufacturer_id: $c.attr('data-manufacturer-id') || null,
             manufacturer_name: $c.attr('data-manufacturer-name') || '',
@@ -2850,6 +2918,8 @@ $(document).ready(function () {
             customization_levels: clLevels,
             min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
         };
+        if (materialCombo && materialCombo.main) metaOut.material_combo = materialCombo;
+        return metaOut;
     }
 
     function confirmMultiVendorImport($c, onConfirm) {
@@ -2891,6 +2961,9 @@ $(document).ready(function () {
                 }
                 if (targetKey === 'prototype' && baseMeta) {
                     syncCategoryFromPrototypeAsset(baseMeta.vendor_asset_id, baseMeta.category_key, baseMeta.subcategory_key);
+                }
+                if (targetKey === 'material' && baseMeta && baseMeta.material_combo) {
+                    refSlots.material.addon = formatMaterialComboAddon(baseMeta.material_combo);
                 }
                 refIntentActiveTab = targetKey;
                 if (targetKey === 'prototype') {
@@ -3101,6 +3174,13 @@ $(document).ready(function () {
         try { targetKey = window.__refImportTargetSlot; } catch (e) { targetKey = null; }
         try { window.__refImportTargetSlot = null; } catch (e2) {}
         if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
+        var comboAttr = ($c.attr('data-material-combo') || '').trim();
+        if (comboAttr) {
+            try {
+                var comboParsed = JSON.parse(comboAttr.replace(/&quot;/g, '"'));
+                if (comboParsed && comboParsed.main) targetKey = 'material';
+            } catch (comboErr) { /* ignore */ }
+        }
 
         var imageItems = allImageItems;
         if (targetKey === 'prototype') {
@@ -3788,6 +3868,8 @@ $(document).ready(function () {
             ? '<div class="small text-muted text-truncate">' + mfrName + '</div>'
             : ('<div class="d-flex align-items-center gap-1">' + mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none text-truncate" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a></div>');
+        var comboFromCard = parseMaterialComboFromItem(item);
+        var comboAttr = comboFromCard ? (' data-material-combo="' + escAttr(JSON.stringify(comboFromCard)) + '"') : '';
         return '<article class="bs-card h-100 d-flex flex-column"' +
             (official ? ' data-official="1"' : '') +
             ' data-vendor-asset-id="' + escAttr(item.id || '') + '"' +
@@ -3801,7 +3883,7 @@ $(document).ready(function () {
             ' data-category-key="' + escAttr(item.category_key || '') + '"' +
             ' data-subcategory-key="' + escAttr(item.subcategory_key || '') + '"' +
             ' data-customization-levels="' + escAttr(JSON.stringify(item.customization_levels || [])) + '"' +
-            ' data-capabilities="' + escAttr(JSON.stringify(item.capabilities || [])) + '">' +
+            ' data-capabilities="' + escAttr(JSON.stringify(item.capabilities || [])) + '"' + comboAttr + '>' +
             thumb +
             '<div class="bs-card-body p-2 flex-grow-1">' +
             kindBadge +
@@ -3819,7 +3901,8 @@ $(document).ready(function () {
         
         var assetId = String(item.id).trim();
         var kind = (item.asset_kind || 'prototype').trim().toLowerCase();
-        var targetKey = kind === 'material' ? 'material' : (kind === 'part' ? 'part' : 'prototype');
+        var comboFromItem = parseMaterialComboFromItem(item);
+        var targetKey = comboFromItem ? 'material' : (kind === 'material' ? 'material' : (kind === 'part' ? 'part' : 'prototype'));
         var title = (item.title || '').trim();
         var catKey = (item.category_key || '').trim();
         var subKey = (item.subcategory_key || '').trim();
@@ -3845,6 +3928,7 @@ $(document).ready(function () {
             capabilities: item.capabilities || [],
             min_order_quantity: item.min_order_quantity != null ? item.min_order_quantity : null
         };
+        if (comboFromItem) baseMeta.material_combo = comboFromItem;
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
             alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
