@@ -1478,6 +1478,10 @@ $(document).ready(function () {
             $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="/client/material-dual-color.html?return=design"></a>')
                 .text(tr('nav.materialCombination', '材料組合')));
         }
+        if (slotKey === 'pattern_print') {
+            $actions.append($('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="/client/print-asset.html"></a>')
+                .text(tr('nav.printAsset', '印花')));
+        }
         if (items.length) {
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
                 .text(tr('customProduct.refSlotClearAll', '清空'))
@@ -5144,8 +5148,12 @@ $(document).ready(function () {
             'data-owner-display': galleryOwnerDisplay || ''
         });
         if (comboJson) $cell.attr('data-material-combo', comboJson);
+        if (tab === 'print') $cell.attr('data-print-asset', '1');
         if (tab === 'material_combo' && item.sourceId) {
             $cell.attr('data-combo-id', item.sourceId);
+        }
+        if (tab === 'print' && item.sourceId) {
+            $cell.attr('data-print-id', item.sourceId);
         }
         var $img = $('<img>').attr({ src: url, alt: '', loading: 'lazy', decoding: 'async' });
         $img.on('error', function () { $(this).addClass('past-item-img-error'); });
@@ -5153,6 +5161,9 @@ $(document).ready(function () {
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(tip));
         if (tab === 'material_combo' && item.sourceId) {
             attachPastMaterialComboDeleteBtn($cell, item.sourceId);
+        }
+        if (tab === 'print' && item.sourceId) {
+            attachPastPrintDeleteBtn($cell, item.sourceId);
         }
         return $cell;
     }
@@ -5512,6 +5523,52 @@ $(document).ready(function () {
         $cell.append($del);
     }
 
+    function deletePrintAssetById(printId, cb) {
+        if (!printId) return;
+        if (!confirm('確定要刪除此印花？刪除後無法復原。')) return;
+        getAuthToken(function (token) {
+            if (!token) {
+                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                return;
+            }
+            fetch('/api/me/print-generations/' + encodeURIComponent(printId), {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(function (res) {
+                return res.text().then(function (text) {
+                    var data = {};
+                    try { data = (text && text.trim().startsWith('{')) ? JSON.parse(text) : {}; } catch (e) {}
+                    return { ok: res.ok, data: data };
+                });
+            }).then(function (r) {
+                if (r.ok && r.data && r.data.success) {
+                    if (typeof cb === 'function') cb(true);
+                } else {
+                    alert((r.data && r.data.error) || '刪除失敗');
+                    if (typeof cb === 'function') cb(false);
+                }
+            }).catch(function () {
+                alert('刪除失敗');
+                if (typeof cb === 'function') cb(false);
+            });
+        });
+    }
+
+    function attachPastPrintDeleteBtn($cell, printId) {
+        if (!printId || !$cell || !$cell.length) return;
+        var label = '刪除';
+        var $del = $('<button type="button" class="past-item-delete" aria-label="' + label + '" title="' + label + '">×</button>');
+        $del.on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deletePrintAssetById(printId, function (ok) {
+                if (!ok) return;
+                $cell.remove();
+            });
+        });
+        $cell.append($del);
+    }
+
     function refreshPastGeneratedGallery(optionalToken, options) {
         options = options || {};
         if (galleryActiveTab !== 'designs') {
@@ -5711,7 +5768,8 @@ $(document).ready(function () {
         var productId = wrap.attr('data-product-id') || '';
         var showOnHomepage = wrap.attr('data-show-on-homepage') === '1';
         var comboRaw = wrap.attr('data-material-combo') || '';
-        $('#pastItemModal').data('import-url', url || '').data('material-combo', comboRaw);
+        var isPrintAsset = wrap.attr('data-print-asset') === '1';
+        $('#pastItemModal').data('import-url', url || '').data('material-combo', comboRaw).data('print-asset', isPrintAsset ? '1' : '');
         $('#pastItemModal').data('redesignCategoryKey', wrap.attr('data-category-key') || '').data('redesignSubcategoryKey', wrap.attr('data-subcategory-key') || '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
@@ -5765,12 +5823,14 @@ $(document).ready(function () {
         if (comboRaw) {
             try { combo = JSON.parse(comboRaw); } catch (e) { combo = null; }
         }
+        var isPrint = $('#pastItemModal').data('print-asset') === '1';
         var targetKey = refIntentActiveTab || 'prototype';
         if (combo && combo.main && getRefSlotDef('material')) targetKey = 'material';
+        else if (isPrint && getRefSlotDef('pattern_print')) targetKey = 'pattern_print';
         importDigitalAssetToRefSlot(targetKey, {
             url: url,
             title: ($('#pastItemModalPrompt').text() || '').trim(),
-            sourceType: combo ? 'material_combo' : 'digital_asset',
+            sourceType: combo ? 'material_combo' : (isPrint ? 'print' : 'digital_asset'),
             material_combo: combo
         });
         var modalEl = document.getElementById('pastItemModal');
@@ -6239,6 +6299,11 @@ $(document).ready(function () {
             listEl: document.getElementById('sceneSimAssetList'),
             emptyEl: document.getElementById('sceneSimAssetEmpty'),
             loadingEl: document.getElementById('sceneSimAssetLoading'),
+            initialTab: (function () {
+                if (context === 'refSlot' && window.__refImportTargetSlot === 'pattern_print') return 'print';
+                if (context === 'refSlot' && window.__refImportTargetSlot === 'material') return 'material_combo';
+                return 'designs';
+            })(),
             onPick: function (pick) {
                 var u = pick && pick.url;
                 if (!u) return;

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>印花 Print Asset - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="robots" content="noindex, nofollow">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="/css/morandi-global.css?v=4" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .pa-preview-wrap { max-width: 420px; margin: 0 auto; }
+        .pa-preview-wrap img {
+            width: 100%; aspect-ratio: 1; object-fit: contain; display: block; border-radius: 12px;
+            border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
+        }
+        .pa-step-card { border-radius: 12px; border: 1px solid rgba(88, 100, 112, 0.14); }
+        .pa-same-cell {
+            border: 1px solid rgba(88, 100, 112, 0.14); border-radius: 12px; overflow: hidden; background: #fff;
+        }
+        .pa-same-cell .pa-cell-block { padding: 0.75rem; border-bottom: 1px solid rgba(88, 100, 112, 0.1); }
+        .pa-same-cell .pa-cell-block:last-child { border-bottom: 0; }
+        .pa-same-cell img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #EAEEF3; border-radius: 8px; }
+        .pa-drop {
+            border: 2px dashed rgba(88, 100, 112, 0.28); border-radius: 12px; padding: 2rem 1rem;
+            text-align: center; cursor: pointer; background: #F7F9FB;
+        }
+        .pa-drop:hover, .pa-drop.is-drag { border-color: #5B6B7C; background: #EEF2F6; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar py-3 border-bottom" style="background:#F0F3F7;border-color:rgba(88,100,112,0.14)!important;">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold">印花 <span class="text-muted fw-normal fs-6">Print Asset</span></h4>
+                </div>
+                <a href="/client/my-custom-products.html?tab=print" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回數位資產庫</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4" style="max-width: 920px;">
+        <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
+
+        <div id="main-content" class="d-none">
+            <div class="alert alert-light border small mb-4">
+                上傳印花圖稿後可直接<strong>免費</strong>存入數位資產庫；若需要 AI 重繪（對齊材料色卡重繪），成功後才扣點。重繪與原圖可同格勾選再儲存。
+            </div>
+
+            <div class="card pa-step-card shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">上傳印花圖</div>
+                <div class="card-body">
+                    <div class="pa-drop" id="pa-drop" role="button" tabindex="0">
+                        <i class="bi bi-cloud-upload" style="font-size:2rem;color:#8A96A3;"></i>
+                        <p class="mb-1 mt-2">點擊或拖曳圖片至此</p>
+                        <p class="small text-muted mb-0">JPG／PNG／WebP，建議方形圖稿</p>
+                        <input type="file" id="pa-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
+                    </div>
+                    <div class="pa-preview-wrap mt-3 d-none" id="pa-original-wrap">
+                        <p class="small fw-semibold mb-1">原圖</p>
+                        <img id="pa-original-img" alt="原圖預覽">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card pa-step-card shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">AI 重繪（選用）</div>
+                <div class="card-body">
+                    <label class="form-label small mb-1">印花類型 <span class="text-danger">*</span>（重繪時必填）</label>
+                    <input type="text" class="form-control form-control-sm mb-2" id="pa-print-type" maxlength="32" placeholder="例：碎花、幾何圖案、插畫印花">
+                    <p class="form-text text-muted small mb-2">提示詞預覽：<strong id="pa-prompt-preview" class="fw-normal">（填印花類型後顯示）</strong></p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <button type="button" class="btn btn-primary" id="pa-redraw-btn" disabled><i class="bi bi-stars me-1"></i>AI 重繪</button>
+                        <span class="text-muted small" id="pa-points-label"></span>
+                    </div>
+                    <div id="pa-status" class="small mt-2 text-muted"></div>
+                </div>
+            </div>
+
+            <div class="card pa-step-card shadow-sm mb-4 d-none" id="pa-save-card">
+                <div class="card-header bg-white fw-semibold">存入數位資產庫</div>
+                <div class="card-body">
+                    <div class="pa-same-cell mb-3" id="pa-same-cell">
+                        <div class="pa-cell-block">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold">上方＝原圖</span>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="pa-save-original" checked>
+                                    <label class="form-check-label small" for="pa-save-original">上傳原圖</label>
+                                </div>
+                            </div>
+                            <img id="pa-cell-original" alt="原圖">
+                        </div>
+                        <div class="pa-cell-block d-none" id="pa-cell-redraw-block">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold">下方＝重繪新圖</span>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="pa-save-redraw" checked>
+                                    <label class="form-check-label small" for="pa-save-redraw">上傳此張</label>
+                                </div>
+                            </div>
+                            <img id="pa-cell-redraw" alt="重繪結果">
+                        </div>
+                    </div>
+                    <p class="small text-muted mb-2">僅存原圖：<strong>不扣點</strong>。AI 重繪已在上方成功時扣過點，再存庫不另收費。</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-success" id="pa-save-btn"><i class="bi bi-box-seam me-1"></i>存入數位資產庫</button>
+                        <a href="/client/my-custom-products.html?tab=print" class="btn btn-outline-secondary">查看印花資產</a>
+                    </div>
+                    <div id="pa-save-status" class="small mt-2 text-muted"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+    (function () {
+        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-independent-20260805';
+        var token = null;
+        var pointsFlux = 5;
+        var originalFile = null;
+        var originalObjectUrl = null;
+        var redrawPreviewUrl = null;
+        var redrawBase64 = null;
+        var lastPrintType = '';
+
+        var dropEl = document.getElementById('pa-drop');
+        var fileInput = document.getElementById('pa-file');
+        var originalWrap = document.getElementById('pa-original-wrap');
+        var originalImg = document.getElementById('pa-original-img');
+        var printTypeEl = document.getElementById('pa-print-type');
+        var promptPreview = document.getElementById('pa-prompt-preview');
+        var redrawBtn = document.getElementById('pa-redraw-btn');
+        var pointsLabel = document.getElementById('pa-points-label');
+        var statusEl = document.getElementById('pa-status');
+        var saveCard = document.getElementById('pa-save-card');
+        var cellOriginal = document.getElementById('pa-cell-original');
+        var cellRedrawBlock = document.getElementById('pa-cell-redraw-block');
+        var cellRedraw = document.getElementById('pa-cell-redraw');
+        var saveOriginalCb = document.getElementById('pa-save-original');
+        var saveRedrawCb = document.getElementById('pa-save-redraw');
+        var saveBtn = document.getElementById('pa-save-btn');
+        var saveStatus = document.getElementById('pa-save-status');
+
+        function authHeaders() {
+            return { Authorization: 'Bearer ' + token };
+        }
+
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return token || null;
+            try {
+                var getter = AuthService.getSessionForApi || AuthService.getSession;
+                var s = await getter.call(AuthService);
+                var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                if (tok) { token = tok; return tok; }
+                token = null;
+                return null;
+            } catch (e) { return null; }
+        }
+
+        function updatePromptPreview() {
+            var t = (printTypeEl.value || '').trim();
+            if (!t) {
+                promptPreview.textContent = '（填印花類型後顯示）';
+                return;
+            }
+            promptPreview.textContent = '保持顏色並優化此' + t + '印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此' + t + '印花圖樣。';
+        }
+
+        function updateRedrawEnabled() {
+            redrawBtn.disabled = !originalFile || !(printTypeEl.value || '').trim();
+        }
+
+        function setOriginal(file) {
+            if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
+            originalFile = file;
+            redrawPreviewUrl = null;
+            redrawBase64 = null;
+            if (originalObjectUrl) URL.revokeObjectURL(originalObjectUrl);
+            originalObjectUrl = URL.createObjectURL(file);
+            originalImg.src = originalObjectUrl;
+            originalWrap.classList.remove('d-none');
+            cellOriginal.src = originalObjectUrl;
+            cellRedrawBlock.classList.add('d-none');
+            cellRedraw.removeAttribute('src');
+            saveRedrawCb.checked = false;
+            saveOriginalCb.checked = true;
+            saveCard.classList.remove('d-none');
+            statusEl.textContent = '';
+            statusEl.className = 'small mt-2 text-muted';
+            saveStatus.textContent = '';
+            updateRedrawEnabled();
+        }
+
+        dropEl.addEventListener('click', function () { fileInput.click(); });
+        dropEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files[0]) setOriginal(fileInput.files[0]);
+        });
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropEl.addEventListener(ev, function (e) {
+                e.preventDefault();
+                dropEl.classList.add('is-drag');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            dropEl.addEventListener(ev, function (e) {
+                e.preventDefault();
+                dropEl.classList.remove('is-drag');
+            });
+        });
+        dropEl.addEventListener('drop', function (e) {
+            var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) setOriginal(f);
+        });
+
+        printTypeEl.addEventListener('input', function () {
+            updatePromptPreview();
+            updateRedrawEnabled();
+        });
+
+        async function loadPricing() {
+            try {
+                var res = await fetch('/api/me/print-generations/pricing', { headers: authHeaders() });
+                var d = await res.json().catch(function () { return {}; });
+                if (res.ok && d.points_print_asset_flux != null) pointsFlux = d.points_print_asset_flux;
+            } catch (e) {}
+            pointsLabel.textContent = '重繪 ' + pointsFlux + ' 點／次（不重繪不扣點）';
+        }
+
+        redrawBtn.addEventListener('click', async function () {
+            if (!originalFile) return;
+            var printType = (printTypeEl.value || '').trim();
+            if (!printType) return;
+            var tok = await getToken();
+            if (!tok) {
+                statusEl.textContent = '登入已過期，請重新登入';
+                statusEl.className = 'small mt-2 text-danger';
+                return;
+            }
+            redrawBtn.disabled = true;
+            statusEl.textContent = 'AI 重繪中，請稍候…';
+            statusEl.className = 'small mt-2 text-muted';
+            try {
+                var fd = new FormData();
+                fd.append('image', originalFile, originalFile.name || 'print.jpg');
+                fd.append('print_type', printType);
+                var res = await fetch('/api/me/print-generations/redraw', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var d = await res.json().catch(function () { return {}; });
+                if (!res.ok) {
+                    statusEl.textContent = d.error || '重繪失敗';
+                    statusEl.className = 'small mt-2 text-danger';
+                    return;
+                }
+                lastPrintType = printType;
+                redrawPreviewUrl = d.preview_url || null;
+                redrawBase64 = d.preview_base64 || null;
+                var src = redrawPreviewUrl || (redrawBase64 ? ('data:image/jpeg;base64,' + redrawBase64) : '');
+                if (src) {
+                    cellRedraw.src = src;
+                    cellRedrawBlock.classList.remove('d-none');
+                    saveRedrawCb.checked = true;
+                    // 與材料待傳一致：勾選新圖時預設不併傳原圖
+                    saveOriginalCb.checked = false;
+                    saveCard.classList.remove('d-none');
+                }
+                var pts = d.points_deducted != null ? d.points_deducted : 0;
+                var bal = d.balance_after != null ? '，剩餘 ' + d.balance_after + ' 點' : '';
+                statusEl.textContent = '重繪完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '') + '。請勾選要存入資產庫的圖後按儲存。';
+                statusEl.className = 'small mt-2 text-success';
+            } catch (e) {
+                statusEl.textContent = '連線失敗，請稍後重試';
+                statusEl.className = 'small mt-2 text-danger';
+            } finally {
+                updateRedrawEnabled();
+            }
+        });
+
+        // 互斥：勾選「上傳此張」時預設不併傳原圖（對齊材料待傳）
+        saveRedrawCb.addEventListener('change', function () {
+            if (saveRedrawCb.checked) saveOriginalCb.checked = false;
+        });
+        saveOriginalCb.addEventListener('change', function () {
+            if (saveOriginalCb.checked && saveRedrawCb.checked) {
+                // 允許同時勾選，但不強制
+            }
+        });
+
+        async function saveOne(kind, imageUrlOrFile) {
+            var tok = await getToken();
+            if (!tok) throw new Error('未登入');
+            var fd = new FormData();
+            fd.append('source_kind', kind);
+            fd.append('print_type', lastPrintType || (printTypeEl.value || '').trim());
+            fd.append('title', (lastPrintType || (printTypeEl.value || '').trim() || '印花') + (kind === 'redraw' ? '' : ''));
+            if (typeof imageUrlOrFile === 'string') {
+                fd.append('image_url', imageUrlOrFile);
+            } else {
+                fd.append('image', imageUrlOrFile, imageUrlOrFile.name || (kind + '.jpg'));
+            }
+            var res = await fetch('/api/me/print-generations', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + tok },
+                body: fd
+            });
+            var d = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error(d.error || '儲存失敗');
+            return d;
+        }
+
+        saveBtn.addEventListener('click', async function () {
+            if (!originalFile) return;
+            var wantOrig = saveOriginalCb.checked;
+            var wantRedraw = saveRedrawCb.checked && !!(redrawPreviewUrl || redrawBase64);
+            if (!wantOrig && !wantRedraw) {
+                saveStatus.textContent = '請至少勾選「上傳原圖」或「上傳此張」';
+                saveStatus.className = 'small mt-2 text-warning';
+                return;
+            }
+            saveBtn.disabled = true;
+            saveStatus.textContent = '儲存中…';
+            saveStatus.className = 'small mt-2 text-muted';
+            try {
+                var n = 0;
+                if (wantOrig) {
+                    await saveOne('original', originalFile);
+                    n += 1;
+                }
+                if (wantRedraw) {
+                    if (redrawPreviewUrl) await saveOne('redraw', redrawPreviewUrl);
+                    else {
+                        var blob = await (await fetch('data:image/jpeg;base64,' + redrawBase64)).blob();
+                        await saveOne('redraw', new File([blob], 'print-redraw.jpg', { type: 'image/jpeg' }));
+                    }
+                    n += 1;
+                }
+                saveStatus.textContent = '已存入數位資產庫（' + n + ' 張），不另扣點。';
+                saveStatus.className = 'small mt-2 text-success';
+            } catch (err) {
+                saveStatus.textContent = err.message || '儲存失敗';
+                saveStatus.className = 'small mt-2 text-danger';
+            } finally {
+                saveBtn.disabled = false;
+            }
+        });
+
+        AuthService.getCurrentUser().then(async function (user) {
+            if (!user || !(await getToken())) {
+                document.getElementById('auth-alert').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('main-content').classList.remove('d-none');
+            await loadPricing();
+            updatePromptPreview();
+        }).catch(function () {
+            document.getElementById('auth-alert').classList.remove('d-none');
+        });
+    })();
+    </script>
+</body>
+</html>

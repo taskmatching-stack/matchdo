@@ -3783,6 +3783,34 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     return { buffer: buf, prompt };
 }
 
+/** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
+function normalizePrintAssetType(raw) {
+    return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
+}
+
+function buildPrintAssetFluxOptimizePrompt(printType) {
+    const t = normalizePrintAssetType(printType);
+    if (!t) throw new Error('請填印花類型（例：碎花、幾何圖案）');
+    return `保持顏色並優化此${t}印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}印花圖樣。`;
+}
+
+async function optimizePrintAssetWithFlux(fileBuffer, printType) {
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
+    const prompt = buildPrintAssetFluxOptimizePrompt(printType);
+    const fluxOpts = {
+        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
+        width: 1024,
+        height: 1024,
+        skipPromptTranslation: true,
+        safetyTolerance: 2
+    };
+    const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+    if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    return { buffer: buf, prompt };
+}
+
 /** 攝影參數提示詞：追加於各 FLUX prompt 最後（見 docs/add-photography-prompt-sets.sql） */
 function appendPhotographyParams(prompt, photoLine) {
     const p = String(prompt || '').trim();
@@ -7665,7 +7693,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_print_asset_flux', 'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -7696,6 +7724,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
             points_material_dual_color_flux: parseInt(obj.points_material_dual_color_flux, 10) || 5,
+            points_print_asset_flux: parseInt(obj.points_print_asset_flux, 10) || 5,
             points_promo_image_standard: parseInt(obj.points_promo_image_standard, 10) || parseInt(obj.points_promo_image_base, 10) || 20,
             points_promo_image_subscriber: parseInt(obj.points_promo_image_subscriber, 10) || 15,
             points_promo_camera_standard: parseInt(obj.points_promo_camera_standard, 10) || 20,
@@ -7738,6 +7767,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
         if (body.points_design_to_physical_vendor !== undefined) await upsert('points_design_to_physical_vendor', body.points_design_to_physical_vendor);
         if (body.points_material_dual_color_flux !== undefined) await upsert('points_material_dual_color_flux', body.points_material_dual_color_flux);
+        if (body.points_print_asset_flux !== undefined) await upsert('points_print_asset_flux', body.points_print_asset_flux);
         if (body.points_promo_image_standard !== undefined) await upsert('points_promo_image_standard', body.points_promo_image_standard);
         if (body.points_promo_image_subscriber !== undefined) await upsert('points_promo_image_subscriber', body.points_promo_image_subscriber);
         if (body.points_promo_camera_standard !== undefined) await upsert('points_promo_camera_standard', body.points_promo_camera_standard);
@@ -13514,6 +13544,13 @@ async function getPointsVendorAssetDescription() {
 /** 材料雙色卡 Step2 FLUX 材質生成（預設 5 點；Step1 色卡 canvas 不扣點） */
 async function getPointsMaterialDualColorFlux() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_material_dual_color_flux');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 5);
+}
+
+/** 印花資產 AI 重繪（預設 5 點；僅存原圖不扣點） */
+async function getPointsPrintAssetFlux() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_print_asset_flux');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 5);
 }
@@ -23683,6 +23720,270 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/material-dual-color-flux:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function insertUserPrintGeneration(userId, imageUrl, meta, title, creditTransactionId) {
+    if (!userId || !imageUrl) return { ok: false, reason: 'invalid' };
+    try {
+        const { error } = await supabase.from('user_print_generations').insert({
+            user_id: userId,
+            image_url: imageUrl,
+            title: (title || '').trim().slice(0, 120) || null,
+            print_meta_json: (meta && typeof meta === 'object') ? meta : {},
+            credit_transaction_id: creditTransactionId || null
+        });
+        if (error) {
+            if (isSupabaseMissingTableError(error) || error.code === '42P01') {
+                return { ok: false, reason: 'table_missing' };
+            }
+            console.warn('insertUserPrintGeneration:', error.message);
+            return { ok: false, reason: error.message || 'insert_failed' };
+        }
+        return { ok: true };
+    } catch (e) {
+        console.warn('insertUserPrintGeneration:', e.message || e);
+        return { ok: false, reason: (e && e.message) || 'insert_failed' };
+    }
+}
+
+function printAssetStorageFolder(userId) {
+    return `print-asset-preview/${userId}`;
+}
+
+// GET /api/me/print-generations/pricing — 印花 AI 重繪扣點（僅重繪；存原圖免費）
+app.get('/api/me/print-generations/pricing', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        res.json({ points_print_asset_flux: await getPointsPrintAssetFlux() });
+    } catch (e) {
+        console.error('GET /api/me/print-generations/pricing:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/print-generations — 我的數位資產 · 印花 TAB
+app.get('/api/me/print-generations', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
+        const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
+        const rangeEnd = offsetN + limitN;
+        const { data, error } = await supabase
+            .from('user_print_generations')
+            .select('id, image_url, title, print_meta_json, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .range(offsetN, rangeEnd);
+        if (error) {
+            if (isSupabaseMissingTableError(error) || error.code === '42P01') {
+                return res.json({
+                    success: true,
+                    items: [],
+                    count: 0,
+                    offset: offsetN,
+                    hasMore: false,
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-print-generations.sql'
+                });
+            }
+            console.error('GET /api/me/print-generations:', error);
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        const rawList = data || [];
+        const hasMore = rawList.length > limitN;
+        const items = (hasMore ? rawList.slice(0, limitN) : rawList).map(function (row) {
+            return {
+                id: row.id,
+                image_url: row.image_url,
+                title: row.title || null,
+                print_meta: row.print_meta_json || null,
+                created_at: row.created_at
+            };
+        });
+        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore });
+    } catch (e) {
+        console.error('GET /api/me/print-generations:', e);
+        res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** DELETE /api/me/print-generations/:id */
+app.delete('/api/me/print-generations/:id', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+
+        const { data: row, error: findErr } = await supabase
+            .from('user_print_generations')
+            .select('id, user_id')
+            .eq('id', id)
+            .maybeSingle();
+        if (findErr) {
+            if (isSupabaseMissingTableError(findErr) || findErr.code === '42P01') {
+                return res.status(503).json({
+                    error: '印花資料表尚未建立',
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-print-generations.sql'
+                });
+            }
+            return res.status(500).json({ error: findErr.message });
+        }
+        if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到印花紀錄' });
+
+        const { error } = await supabase
+            .from('user_print_generations')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true, message: '已刪除印花' });
+    } catch (e) {
+        console.error('DELETE /api/me/print-generations/:id:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
+/** POST /api/me/print-generations — 存入數位資產庫（不扣點；可存原圖或已重繪圖） */
+app.post('/api/me/print-generations', upload.single('image'), async (req, res) => {
+    try {
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        const body = req.body || {};
+        const title = (body.title || '').trim().slice(0, 120);
+        const printType = normalizePrintAssetType(body.print_type || body.printType || '');
+        const sourceKind = String(body.source_kind || body.sourceKind || 'original').trim().toLowerCase() === 'redraw'
+            ? 'redraw'
+            : 'original';
+        let publicUrl = String(body.image_url || body.imageUrl || '').trim();
+        if (!publicUrl) {
+            const file = await vendorAssetFileFromMulter(req.file);
+            if (!file) return res.status(400).json({ error: '請上傳圖片或提供 image_url' });
+            const name = `print-${sourceKind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+            const uploaded = await uploadToSupabaseStorage(
+                'custom-products',
+                printAssetStorageFolder(seedUser.id),
+                { buffer: file.buffer, mimetype: file.mimetype || 'image/jpeg', originalname: name }
+            );
+            publicUrl = uploaded.publicUrl;
+        }
+        if (!/^https?:\/\//i.test(publicUrl) && !publicUrl.startsWith('data:')) {
+            return res.status(400).json({ error: '無效的圖片網址' });
+        }
+        const meta = {
+            version: 1,
+            source_kind: sourceKind,
+            print_type: printType || null
+        };
+        const saved = await insertUserPrintGeneration(
+            seedUser.id,
+            publicUrl,
+            meta,
+            title || printType || (sourceKind === 'redraw' ? '印花（重繪）' : '印花'),
+            null
+        );
+        if (!saved.ok) {
+            if (saved.reason === 'table_missing') {
+                return res.status(503).json({
+                    error: '印花資料表尚未建立',
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-print-generations.sql'
+                });
+            }
+            return res.status(500).json({ error: saved.reason || '寫入失敗' });
+        }
+        res.json({
+            success: true,
+            image_url: publicUrl,
+            points_deducted: 0,
+            library_saved: true
+        });
+    } catch (e) {
+        console.error('POST /api/me/print-generations:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+/** POST /api/me/print-generations/redraw — AI 重繪（成功後扣點；不自動寫入資產庫） */
+app.post('/api/me/print-generations/redraw', upload.single('image'), async (req, res) => {
+    try {
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        const body = req.body || {};
+        const isAdmin = await isAdminUserId(seedUser.id);
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳印花圖片' });
+        const printType = normalizePrintAssetType(body.print_type || body.printType || '');
+        let aiPromptUsed;
+        try {
+            aiPromptUsed = buildPrintAssetFluxOptimizePrompt(printType);
+        } catch (promptErr) {
+            return res.status(400).json({ error: promptErr.message || '請填印花類型' });
+        }
+        const pointsRequired = await getPointsPrintAssetFlux();
+        const ownerId = seedUser.id;
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        let optimized;
+        try {
+            const result = await optimizePrintAssetWithFlux(file.buffer, printType);
+            optimized = result.buffer;
+            aiPromptUsed = result.prompt;
+        } catch (optErr) {
+            console.error('print-generations/redraw optimize:', optErr);
+            const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
+            return res.status(mapped.status).json(mapped.body);
+        }
+        const previewName = `print-redraw-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products',
+            printAssetStorageFolder(ownerId),
+            { buffer: optimized, mimetype: 'image/jpeg', originalname: previewName }
+        );
+        let balanceAfter = null;
+        let creditTransactionId = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'print_asset_flux',
+                `印花 AI 重繪（${pointsRequired} 點）`,
+                { preview: true, print_type: printType }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
+        }
+        res.json({
+            preview_url: publicUrl,
+            preview_base64: optimized.toString('base64'),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            credit_transaction_id: creditTransactionId,
+            ai_prompt: aiPromptUsed,
+            print_type: printType
+        });
+    } catch (e) {
+        console.error('POST /api/me/print-generations/redraw:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

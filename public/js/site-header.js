@@ -386,7 +386,7 @@ function loadSiteHeader(sessionFromEvent, options) {
 
 function isCustomProductSection() {
     const p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
-    return p.startsWith('/custom') || p.includes('custom-product') || p.includes('my-custom-products') || p.includes('manufacturer-') || p.includes('material-dual-color');
+    return p.startsWith('/custom') || p.includes('custom-product') || p.includes('my-custom-products') || p.includes('manufacturer-') || p.includes('material-dual-color') || p.includes('print-asset');
 }
 function isRemakeSection() {
     const p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
@@ -492,6 +492,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                         <div class="dropdown-menu nav-hover-menu">
                             <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '產品設計') + `</a>
                             <a href="/client/material-dual-color.html?return=design" class="dropdown-item"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
+                            <a href="/client/print-asset.html" class="dropdown-item"><i class="bi bi-postage"></i>` + (t('nav.printAsset') || '印花') + `</a>
                             <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
                             <a href="/custom-product.html?tab=promo-image" class="dropdown-item"><i class="bi bi-megaphone"></i>` + (t('nav.marketingVisuals') || '行銷影像') + `</a>
                             <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
@@ -523,6 +524,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <a href="/credits.html" class="dropdown-item"><i class="bi bi-currency-exchange me-2"></i>` + t('nav.myCredits') + `</a>
                                 <a href="/client/ai-edit.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.aiEditArea') + `</a>
                                 <a href="/client/material-dual-color.html?return=design" class="dropdown-item"><i class="bi bi-layout-split me-2"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
+                                <a href="/client/print-asset.html" class="dropdown-item"><i class="bi bi-postage me-2"></i>` + (t('nav.printAsset') || '印花') + `</a>
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header py-1"><i class="bi bi-shop me-2"></i>` + t('nav.manufacturerSection') + `</h6>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.vendorDashboard') + `</a>

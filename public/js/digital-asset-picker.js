@@ -33,12 +33,9 @@
   function fetchTabItems(tab) {
     return authHeaders().then(function (headers) {
       if (!headers.Authorization) return { ok: false, error: 'login' };
-      // 印花：佔位 TAB，尚未接資料來源
-      if (tab === 'print') {
-        return { ok: true, data: { items: [], placeholder: true } };
-      }
-      var url;
-      if (tab === 'promo') url = '/api/promo-image/generations?limit=48&offset=0';
+      // 印花：接 user_print_generations；表未建時 API 回空
+      if (tab === 'print') url = '/api/me/print-generations?limit=48&offset=0';
+      else if (tab === 'promo') url = '/api/promo-image/generations?limit=48&offset=0';
       else if (tab === 'favorites') url = '/api/me/favorites';
       else if (tab === 'material_combo') url = '/api/me/material-combo-generations?limit=48&offset=0';
       else url = '/api/custom-products?gallery=1&limit=48&offset=0';
@@ -50,7 +47,24 @@
 
   function normalizeItems(tab, data) {
     var items = [];
-    if (tab === 'print') return items;
+    if (tab === 'print') {
+      (data.items || []).forEach(function (row) {
+        var url = (row.image_url || '').trim();
+        if (!url) return;
+        var meta = row.print_meta || null;
+        var title = (row.title || '').trim();
+        if (!title && meta && meta.print_type) title = String(meta.print_type);
+        items.push({
+          url: url,
+          title: (title || '印花').substring(0, 48),
+          sourceType: 'print',
+          sourceId: row.id || null,
+          badge: '印花',
+          print_meta: meta
+        });
+      });
+      return items;
+    }
     if (tab === 'promo') {
       (data.items || []).forEach(function (row) {
         var url = (row.image_url || '').trim();
@@ -182,7 +196,7 @@
 
   function emptyMessage(tab) {
     if (tab === 'material_combo') return '尚無材料組合，請至「材料組合」頁生成後會自動出現於此。';
-    if (tab === 'print') return '印花資產庫即將開放，敬請期待。';
+    if (tab === 'print') return '尚無印花，請至「印花」頁上傳（可選 AI 重繪）後存入。';
     if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
     if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
     return '尚無設計圖，請先在產品設計中生成並儲存。';
@@ -227,6 +241,8 @@
           if (opts.emptyEl) {
             if (tab === 'material_combo' && payload.table_missing) {
               opts.emptyEl.textContent = '材料組合資料表尚未建立。請在 Supabase 執行 docs/add-user-material-combo-generations.sql 後再生成；建表前的生成不會出現在此。';
+            } else if (tab === 'print' && payload.table_missing) {
+              opts.emptyEl.textContent = '印花資料表尚未建立。請在 Supabase 執行 docs/add-user-print-generations.sql 後再上傳。';
             } else {
               opts.emptyEl.textContent = emptyMessage(tab);
             }
