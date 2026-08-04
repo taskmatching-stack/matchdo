@@ -3752,11 +3752,18 @@ function normalizeDualColorMaterialField(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 64);
 }
 
+/** 印花用法：pattern＝印花圖樣（色跟 HEX）；color＝印花色（色跟印花圖）。預設 pattern。 */
+function normalizeDualColorPrintKind(raw) {
+    const k = String(raw || '').trim().toLowerCase();
+    if (k === 'color' || k === '印花色') return 'color';
+    return 'pattern';
+}
+
 /**
  * 雙色卡短中文（保持簡單）：
- * - 有傳上方印花圖 →「上方印花{材質}材質」
- * - 有傳下方印花圖 →「下方印花{材質}材質」
- * - 印花最多一張（上下擇一）
+ * - 印花圖樣 →「上方／下方印花圖樣{材質}材質」（結構跟圖、色跟色卡）
+ * - 印花色 →「上方／下方印花色{材質}材質」（色跟印花圖）
+ * - 印花最多一張（上下擇一）；用法由使用者選擇，不自動判斷
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
@@ -3770,8 +3777,10 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
 
-    const mainPhrase = hasMainPat ? (`上方印花${main || ''}材質`) : (`${main}材質`);
-    const accentPhrase = hasAccentPat ? (`下方印花${accent || ''}材質`) : (`${accent}材質`);
+    const printKind = normalizeDualColorPrintKind(opts.printKind);
+    const printWord = printKind === 'color' ? '印花色' : '印花圖樣';
+    const mainPhrase = hasMainPat ? (`上方${printWord}${main || ''}材質`) : (`${main}材質`);
+    const accentPhrase = hasAccentPat ? (`下方${printWord}${accent || ''}材質`) : (`${accent}材質`);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
     let prompt = `依原圖上方色塊改為${mainPhrase}，下方色塊改為${accentPhrase}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
@@ -3800,7 +3809,7 @@ function dualColorPatternRefToImageParam(ref) {
 /**
  * 單次 img2img：圖1＝色卡，圖2＝印花（有傳才附）。送圖一律走 resolveImageToBase64（全站同一套）。
  */
-async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs) {
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
     if (refs.main && refs.accent) {
@@ -3810,7 +3819,8 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     const hasAccentPat = !!refs.accent;
     const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
         hasMainPattern: hasMainPat,
-        hasAccentPattern: hasAccentPat
+        hasAccentPattern: hasAccentPat,
+        printKind: (hasMainPat || hasAccentPat) ? printKind : 'pattern'
     });
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
@@ -23744,11 +23754,15 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         if (patternRefs.main && patternRefs.accent) {
             return res.status(400).json({ error: '印花圖樣只能用於主色區或配色區其中一區，不可同時兩張' });
         }
+        const printKind = (patternRefs.main || patternRefs.accent)
+            ? normalizeDualColorPrintKind(body.print_kind || body.printKind)
+            : 'pattern';
         let aiPromptUsed;
         try {
             aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary, {
                 hasMainPattern: !!(patternRefs.main),
-                hasAccentPattern: !!(patternRefs.accent)
+                hasAccentPattern: !!(patternRefs.accent),
+                printKind
             });
         } catch (promptErr) {
             return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質或選擇印花圖樣' });
@@ -23766,7 +23780,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         let dualRefCount = null;
         try {
             const result = await optimizeMaterialDualColorWithFlux(
-                swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs
+                swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs, printKind
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;

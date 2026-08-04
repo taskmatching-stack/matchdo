@@ -117,20 +117,19 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">印花只能上或下擇一。有傳圖就寫「上方印花＋材質」或「下方印花＋材質」；單次生成，不硬拼。</p>
+                    <p class="small text-muted mb-3">印花只能上或下擇一。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i>主色區印花</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i>上傳主色區圖樣</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
                                 <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-main-clear-print">清除</button>
                             </div>
                             <input type="file" id="mdc-main-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-main-pattern-wrap">
-                                <img id="mdc-main-pattern-img" alt="主色區圖樣">
-                                <p class="small text-muted mb-0 mt-1">主色區圖樣</p>
+                                <img id="mdc-main-pattern-img" alt="主色區印花">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -138,13 +137,18 @@
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i>配色區印花</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i>上傳配色區圖樣</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
                                 <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-accent-clear-print">清除</button>
                             </div>
                             <input type="file" id="mdc-accent-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-accent-pattern-wrap">
-                                <img id="mdc-accent-pattern-img" alt="配色區圖樣">
-                                <p class="small text-muted mb-0 mt-1">配色區圖樣</p>
+                                <img id="mdc-accent-pattern-img" alt="配色區印花">
+                            </div>
+                        </div>
+                        <div class="col-12 d-none" id="mdc-print-kind-wrap">
+                            <div class="d-flex flex-wrap gap-3 small">
+                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="pattern" checked> 印花圖樣</label>
+                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="color"> 印花色</label>
                             </div>
                         </div>
                         <div class="col-12">
@@ -201,7 +205,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-resolveImageToBase64-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-kind-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -229,6 +233,7 @@
         var boundary = document.getElementById('mdc-boundary');
         var promptPreview = document.getElementById('mdc-prompt-preview');
         var aiPromptUsedEl = document.getElementById('mdc-ai-prompt-used');
+        var printKindWrap = document.getElementById('mdc-print-kind-wrap');
         var generateBtn = document.getElementById('mdc-generate-btn');
         var pointsLabel = document.getElementById('mdc-points-label');
         var statusEl = document.getElementById('mdc-status');
@@ -243,7 +248,21 @@
             return !!(p && (p.file || (p.url && String(p.url).trim())));
         }
 
-        /** 與 server／BFL 官網成功案例同一模板 */
+        function getPrintKind() {
+            var el = document.querySelector('input[name="mdc-print-kind"]:checked');
+            return (el && el.value === 'color') ? 'color' : 'pattern';
+        }
+
+        function syncPrintKindVisibility() {
+            if (!printKindWrap) return;
+            if (zoneHasPattern('main') || zoneHasPattern('accent')) {
+                printKindWrap.classList.remove('d-none');
+            } else {
+                printKindWrap.classList.add('d-none');
+            }
+        }
+
+        /** 與 server 同一模板：印花圖樣／印花色 */
         function buildDualColorPromptPreview(main, accent, stitch) {
             main = String(main || '').trim();
             accent = String(accent || '').trim();
@@ -252,8 +271,9 @@
             var hasAccentPat = zoneHasPattern('accent');
             if (!hasMainPat && !main) return '';
             if (!hasAccentPat && !accent) return '';
+            var printWord = getPrintKind() === 'color' ? '印花色' : '印花圖樣';
             function phrase(material, hasPat, side) {
-                if (hasPat) return (side === 'main' ? '上方印花' : '下方印花') + (material || '') + '材質';
+                if (hasPat) return (side === 'main' ? '上方' : '下方') + printWord + (material || '') + '材質';
                 return material + '材質';
             }
             var p = '依原圖上方色塊改為' + phrase(main, hasMainPat, 'main') + '，下方色塊改為' + phrase(accent, hasAccentPat, 'accent');
@@ -263,6 +283,7 @@
         }
 
         function updatePromptPreview() {
+            syncPrintKindVisibility();
             var p = buildDualColorPromptPreview(mainMaterial.value, accentMaterial.value, boundary.value);
             if (promptPreview) {
                 promptPreview.textContent = p || '（填主色／配色區材質或選圖樣後顯示）';
@@ -556,6 +577,9 @@
                 } else if (zonePatterns.accent.url) {
                     fd.append('accent_pattern_url', zonePatterns.accent.url);
                 }
+                if (zoneHasPattern('main') || zoneHasPattern('accent')) {
+                    fd.append('print_kind', getPrintKind());
+                }
                 var res = await fetch('/api/me/vendor-assets/material-dual-color-flux', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -620,6 +644,9 @@
 
         [mainMaterial, accentMaterial, boundary].forEach(function (el) {
             el.addEventListener('input', function () { updateGenerateEnabled(); });
+        });
+        document.querySelectorAll('input[name="mdc-print-kind"]').forEach(function (el) {
+            el.addEventListener('change', function () { updatePromptPreview(); });
         });
 
         bindColorSync(mainColor, mainHex);
