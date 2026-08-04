@@ -3753,8 +3753,9 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 雙色卡：展示用／無印花時整張一次送的短中文（主／配分區語意）。
- * 有印花時實際改走分區生成＋硬拼（見 optimizeMaterialDualColorWithFlux），避免印花蓋滿全圖。
+ * 對齊 BFL 官網成功案例（雙色卡 ± 印花）：
+ * 依原圖上方色塊改為印花尼龍布材質，下方色塊改為皮革材質，解析度1024x1024，請維持原圖色塊比例
+ * 無印花時結尾用「不需要文字」（先前無印花官網句）。
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
@@ -3765,37 +3766,23 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
 
-    function zoneDesc(zoneLabel, material, hasPat, imgN) {
-        if (hasPat && material) {
-            return `${zoneLabel}改為圖${imgN}印花圖樣的${material}材質`;
-        }
-        if (hasPat) {
-            return `${zoneLabel}改為圖${imgN}印花圖樣`;
-        }
-        return `${zoneLabel}改為${material}材質`;
+    function zoneMaterialPhrase(material, hasPat) {
+        if (hasPat && material) return `印花${material}材質`;
+        if (hasPat) return '印花材質';
+        return `${material}材質`;
     }
 
-    let imgN = 2;
-    const mainPart = zoneDesc('上方主色區', main, hasMainPat, hasMainPat ? imgN++ : 0);
-    const accentPart = zoneDesc('下方配色區', accent, hasAccentPat, hasAccentPat ? imgN : 0);
+    const mainPhrase = zoneMaterialPhrase(main, hasMainPat);
+    const accentPhrase = zoneMaterialPhrase(accent, hasAccentPat);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖${mainPart}，${accentPart}`;
+    let prompt = `依原圖上方色塊改為${mainPhrase}，下方色塊改為${accentPhrase}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
-    prompt += '，解析度1024x1024，不需要文字';
+    if (hasMainPat || hasAccentPat) {
+        prompt += '，解析度1024x1024，請維持原圖色塊比例';
+    } else {
+        prompt += '，解析度1024x1024，不需要文字';
+    }
     return prompt;
-}
-
-/** 單區 FLUX 短中文（分區生成用；該區圖樣一律當圖2） */
-function buildMaterialDualColorZoneFluxPrompt(material, hasPattern) {
-    const mat = normalizeDualColorMaterialField(material);
-    if (hasPattern && mat) {
-        return `整張改為圖2印花圖樣的${mat}材質，解析度1024x1024，不需要文字`;
-    }
-    if (hasPattern) {
-        return '整張改為圖2印花圖樣，解析度1024x1024，不需要文字';
-    }
-    if (!mat) throw new Error('請填材質或選擇印花圖樣');
-    return `整張改為${mat}材質，解析度1024x1024，不需要文字`;
 }
 
 function dualColorPatternRefToFluxInput(ref) {
@@ -3824,9 +3811,9 @@ function dualColorBufferToDataUrl(buf) {
 }
 
 /**
- * 材料雙色卡 Step2：
- * - 無印花：整張色卡一次 img2img（已驗證可保住 2/3·1/3）
- * - 有任一區印花：上下區各自 FLUX 再硬拼鎖定比例（禁止整張附印花參考，否則印花會蓋滿全圖）
+ * 材料雙色卡 Step2 — 對齊官網 playground：
+ * 圖1＝色卡，圖2／圖3＝主／配印花（有選才附）；單次 img2img。
+ * 有印花：prompt_upsampling=true（與官網成功一致）；無印花：disable_pup（保住比例）。
  */
 async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
@@ -3834,7 +3821,7 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     const mainPat = dualColorPatternRefToFluxInput(refs.main);
     const accentPat = dualColorPatternRefToFluxInput(refs.accent);
     const hasAnyPat = !!(mainPat || accentPat);
-    const displayPrompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
+    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
         hasMainPattern: !!mainPat,
         hasAccentPattern: !!accentPat
     });
@@ -3844,63 +3831,15 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         height: 1024,
         skipPromptTranslation: true,
         safetyTolerance: 2,
-        promptUpsampling: false
+        // 官網有印花成功案例為 prompt_upsampling=true；無印花則關 PUP 保住 2/3·1/3
+        promptUpsampling: hasAnyPat
     };
-
-    // 無印花：維持官網單次色卡路徑
-    if (!hasAnyPat) {
-        const dataUrl = dualColorBufferToDataUrl(fileBuffer);
-        const buf = await generateImageWithFlux2Pro(displayPrompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
-        if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-        return { buffer: buf, prompt: displayPrompt };
-    }
-
-    const sharp = require('sharp');
-    const SIZE = 1024;
-    const topH = Math.floor(SIZE * 2 / 3);
-    const bottomH = SIZE - topH;
-    const swatchPng = await sharp(fileBuffer, { failOn: 'none' })
-        .rotate()
-        .resize(SIZE, SIZE, { fit: 'fill' })
-        .png()
-        .toBuffer();
-    const topStrip = await sharp(swatchPng).extract({ left: 0, top: 0, width: SIZE, height: topH }).png().toBuffer();
-    const bottomStrip = await sharp(swatchPng).extract({ left: 0, top: topH, width: SIZE, height: bottomH }).png().toBuffer();
-    // 拉成 1024² 送 FLUX，產出後再壓回各區高度硬拼
-    const topSquare = await sharp(topStrip).resize(SIZE, SIZE, { fit: 'fill' }).png().toBuffer();
-    const bottomSquare = await sharp(bottomStrip).resize(SIZE, SIZE, { fit: 'fill' }).png().toBuffer();
-
-    const topPrompt = buildMaterialDualColorZoneFluxPrompt(mainMaterial, !!mainPat);
-    const bottomPrompt = buildMaterialDualColorZoneFluxPrompt(accentMaterial, !!accentPat);
-    const topImages = [dualColorBufferToDataUrl(topSquare)];
-    if (mainPat) topImages.push(mainPat);
-    const bottomImages = [dualColorBufferToDataUrl(bottomSquare)];
-    if (accentPat) bottomImages.push(accentPat);
-
-    const [topOut, bottomOut] = await Promise.all([
-        generateImageWithFlux2Pro(topPrompt, topImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts),
-        generateImageWithFlux2Pro(bottomPrompt, bottomImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts)
-    ]);
-    if (!topOut || !topOut.length || !bottomOut || !bottomOut.length) {
-        throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-    }
-
-    const topFinal = await sharp(topOut, { failOn: 'none' }).resize(SIZE, topH, { fit: 'fill' }).jpeg({ quality: 92 }).toBuffer();
-    const bottomFinal = await sharp(bottomOut, { failOn: 'none' }).resize(SIZE, bottomH, { fit: 'fill' }).jpeg({ quality: 92 }).toBuffer();
-    const combined = await sharp({
-        create: { width: SIZE, height: SIZE, channels: 3, background: { r: 255, g: 255, b: 255 } }
-    })
-        .composite([
-            { input: topFinal, top: 0, left: 0 },
-            { input: bottomFinal, top: topH, left: 0 }
-        ])
-        .jpeg({ quality: 92 })
-        .toBuffer();
-
-    return {
-        buffer: combined,
-        prompt: displayPrompt + '（分區生成後硬拼 2/3·1/3）'
-    };
+    const images = [dualColorBufferToDataUrl(fileBuffer)];
+    if (mainPat) images.push(mainPat);
+    if (accentPat) images.push(accentPat);
+    const buf = await generateImageWithFlux2Pro(prompt, images, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+    if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    return { buffer: buf, prompt };
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */

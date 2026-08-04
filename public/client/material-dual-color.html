@@ -117,7 +117,7 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">每區各自指定材質；可再為該區加印花＝「印花的該材質」。有選印花時改為<strong>上下分區各自生成再硬拼</strong>（避免印花蓋滿全圖）；無印花仍一次整張色卡。</p>
+                    <p class="small text-muted mb-3">對齊 BFL 官網：色卡＋印花一次送出。有印花時寫「印花尼龍布材質」並開 prompt upsampling；無印花關 PUP。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
@@ -201,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-zone-hard-stitch-print-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-match-bfl-official-print-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -243,7 +243,7 @@
             return !!(p && (p.file || (p.url && String(p.url).trim())));
         }
 
-        /** 與 server buildMaterialDualColorFluxPrompt 同一模板（前端預覽用） */
+        /** 與 server／BFL 官網成功案例同一模板 */
         function buildDualColorPromptPreview(main, accent, stitch) {
             main = String(main || '').trim();
             accent = String(accent || '').trim();
@@ -252,21 +252,15 @@
             var hasAccentPat = zoneHasPattern('accent');
             if (!hasMainPat && !main) return '';
             if (!hasAccentPat && !accent) return '';
-            function zoneDesc(label, material, hasPat, imgN) {
-                if (hasPat && material) {
-                    return label + '改為圖' + imgN + '印花圖樣的' + material + '材質';
-                }
-                if (hasPat) {
-                    return label + '改為圖' + imgN + '印花圖樣';
-                }
-                return label + '改為' + material + '材質';
+            function phrase(material, hasPat) {
+                if (hasPat && material) return '印花' + material + '材質';
+                if (hasPat) return '印花材質';
+                return material + '材質';
             }
-            var imgN = 2;
-            var mainPart = zoneDesc('上方主色區', main, hasMainPat, hasMainPat ? imgN++ : 0);
-            var accentPart = zoneDesc('下方配色區', accent, hasAccentPat, hasAccentPat ? imgN : 0);
-            var p = '依原圖' + mainPart + '，' + accentPart;
+            var p = '依原圖上方色塊改為' + phrase(main, hasMainPat) + '，下方色塊改為' + phrase(accent, hasAccentPat);
             if (stitch) p += '，分界處改為' + stitch;
-            p += '，解析度1024x1024，不需要文字';
+            if (hasMainPat || hasAccentPat) p += '，解析度1024x1024，請維持原圖色塊比例';
+            else p += '，解析度1024x1024，不需要文字';
             return p;
         }
 
