@@ -49,10 +49,13 @@
         .mdc-step-card { border-radius: 12px; border: 1px solid rgba(88, 100, 112, 0.14); }
         .mdc-color-row input[type="color"] { width: 3rem; height: 2.25rem; padding: 0.15rem; cursor: pointer; }
         .mdc-pattern-preview {
-            margin-top: 0.5rem; width: 88px; height: 88px; border-radius: 8px; overflow: hidden;
-            border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
+            margin-top: 0.5rem; max-width: 120px;
         }
-        .mdc-pattern-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .mdc-pattern-preview img {
+            width: 88px; height: 88px; border-radius: 8px; overflow: hidden;
+            border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
+            object-fit: cover; display: block;
+        }
         #mdcPrintPickerModal.modal.show { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
         #mdcPrintPickerModal.modal.show .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
     </style>
@@ -114,29 +117,35 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">每區可填材質名稱，或從數位資產庫「印花」導入／自行上傳圖樣（有圖樣時該區以圖樣為準）。</p>
+                    <p class="small text-muted mb-3">每區各自指定：填材質名稱，及／或為<strong>該區</strong>導入／上傳印花。有圖樣時提示詞會寫明「上方主色區／下方配色區」並保留材質名。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（或印花圖樣）</span></label>
+                            <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i>從印花資產庫</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i>上傳圖樣</button>
-                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-main-clear-print">清除圖樣</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i>主色區印花</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i>上傳主色區圖樣</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-main-clear-print">清除</button>
                             </div>
                             <input type="file" id="mdc-main-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
-                            <div class="mdc-pattern-preview d-none" id="mdc-main-pattern-wrap"><img id="mdc-main-pattern-img" alt="主色區圖樣"></div>
+                            <div class="mdc-pattern-preview d-none" id="mdc-main-pattern-wrap">
+                                <img id="mdc-main-pattern-img" alt="主色區圖樣">
+                                <p class="small text-muted mb-0 mt-1">主色區圖樣</p>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">配色區材質 <span class="text-muted fw-normal">（或印花圖樣）</span></label>
+                            <label class="form-label small mb-1">配色區材質 <span class="text-muted fw-normal">（下方 1/3）</span></label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i>從印花資產庫</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i>上傳圖樣</button>
-                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-accent-clear-print">清除圖樣</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i>配色區印花</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i>上傳配色區圖樣</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-accent-clear-print">清除</button>
                             </div>
                             <input type="file" id="mdc-accent-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
-                            <div class="mdc-pattern-preview d-none" id="mdc-accent-pattern-wrap"><img id="mdc-accent-pattern-img" alt="配色區圖樣"></div>
+                            <div class="mdc-pattern-preview d-none" id="mdc-accent-pattern-wrap">
+                                <img id="mdc-accent-pattern-img" alt="配色區圖樣">
+                                <p class="small text-muted mb-0 mt-1">配色區圖樣</p>
+                            </div>
                         </div>
                         <div class="col-12">
                             <label class="form-label small mb-1">分界處（選填）</label>
@@ -192,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-pattern-zones-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-zoned-print-prompt-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -243,10 +252,17 @@
             var hasAccentPat = zoneHasPattern('accent');
             if (!hasMainPat && !main) return '';
             if (!hasAccentPat && !accent) return '';
+            function zoneDesc(label, material, hasPat, imgN) {
+                if (hasPat) {
+                    var mat = material ? ('（' + material + '）') : '';
+                    return label + mat + '改為圖' + imgN + '印花圖樣';
+                }
+                return label + '改為' + material + '材質';
+            }
             var imgN = 2;
-            var mainDesc = hasMainPat ? ('圖' + (imgN++) + '印花圖樣') : (main + '材質');
-            var accentDesc = hasAccentPat ? ('圖' + imgN + '印花圖樣') : (accent + '材質');
-            var p = '依原圖上方色塊改為' + mainDesc + '，下方色塊改為' + accentDesc;
+            var mainPart = zoneDesc('上方主色區', main, hasMainPat, hasMainPat ? imgN++ : 0);
+            var accentPart = zoneDesc('下方配色區', accent, hasAccentPat, hasAccentPat ? imgN : 0);
+            var p = '依原圖' + mainPart + '，' + accentPart;
             if (stitch) p += '，分界處改為' + stitch;
             p += '，解析度1024x1024，不需要文字';
             return p;

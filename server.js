@@ -3753,8 +3753,8 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 與 BFL 官網成功案例同一短中文模板。
- * 區有印花圖樣時改寫為「圖N印花圖樣」（圖1＝色卡；圖2／圖3＝主／配區圖樣）。
+ * 雙色卡 FLUX 短中文：必須標明上方主色區／下方配色區；有印花時保留該區材質名（若有填）。
+ * 圖1＝色卡；圖2／圖3＝主／配區印花（有選才佔號）。
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
@@ -3764,11 +3764,20 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     const accent = normalizeDualColorMaterialField(accentMaterial);
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
+
+    function zoneDesc(zoneLabel, material, hasPat, imgN) {
+        if (hasPat) {
+            const mat = material ? `（${material}）` : '';
+            return `${zoneLabel}${mat}改為圖${imgN}印花圖樣`;
+        }
+        return `${zoneLabel}改為${material}材質`;
+    }
+
     let imgN = 2;
-    const mainDesc = hasMainPat ? (`圖${imgN++}印花圖樣`) : (`${main}材質`);
-    const accentDesc = hasAccentPat ? (`圖${imgN}印花圖樣`) : (`${accent}材質`);
+    const mainPart = zoneDesc('上方主色區', main, hasMainPat, hasMainPat ? imgN++ : 0);
+    const accentPart = zoneDesc('下方配色區', accent, hasAccentPat, hasAccentPat ? imgN : 0);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${mainDesc}，下方色塊改為${accentDesc}`;
+    let prompt = `依原圖${mainPart}，${accentPart}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     prompt += '，解析度1024x1024，不需要文字';
     return prompt;
