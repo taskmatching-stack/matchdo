@@ -3782,7 +3782,7 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     const mainPhrase = hasMainPat ? (`上方${printWord}${main || ''}材質`) : (`${main}材質`);
     const accentPhrase = hasAccentPat ? (`下方${printWord}${accent || ''}材質`) : (`${accent}材質`);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${mainPhrase}，下方色塊改為${accentPhrase}`;
+    let prompt = `依原圖上方色塊75%改為${mainPhrase}，下方色塊25%改為${accentPhrase}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     // 結尾只留官網正向短句；勿加「不需要／禁止／不要改成各半」等反向詞（FLUX 不擅長）
     prompt += '，解析度1024x1024，請維持原圖色塊比例';
