@@ -3753,9 +3753,8 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 雙色卡 FLUX 短中文：標明上方主色區／下方配色區。
- * 有印花＋材質＝該區為「圖N印花圖樣的{材質}材質」（印花布料語意，非把材質換成圖樣）。
- * 圖1＝色卡；圖2／圖3＝主／配區印花（有選才佔號）。
+ * 雙色卡：展示用／無印花時整張一次送的短中文（主／配分區語意）。
+ * 有印花時實際改走分區生成＋硬拼（見 optimizeMaterialDualColorWithFlux），避免印花蓋滿全圖。
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
@@ -3786,6 +3785,19 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     return prompt;
 }
 
+/** 單區 FLUX 短中文（分區生成用；該區圖樣一律當圖2） */
+function buildMaterialDualColorZoneFluxPrompt(material, hasPattern) {
+    const mat = normalizeDualColorMaterialField(material);
+    if (hasPattern && mat) {
+        return `整張改為圖2印花圖樣的${mat}材質，解析度1024x1024，不需要文字`;
+    }
+    if (hasPattern) {
+        return '整張改為圖2印花圖樣，解析度1024x1024，不需要文字';
+    }
+    if (!mat) throw new Error('請填材質或選擇印花圖樣');
+    return `整張改為${mat}材質，解析度1024x1024，不需要文字`;
+}
+
 function dualColorPatternRefToFluxInput(ref) {
     if (!ref) return null;
     if (typeof ref === 'string') {
@@ -3803,22 +3815,29 @@ function dualColorPatternRefToFluxInput(ref) {
     return null;
 }
 
+function dualColorBufferToDataUrl(buf) {
+    if (!buf || !buf.length) return null;
+    let mime = 'image/png';
+    if (buf[0] === 0xff && buf[1] === 0xd8) mime = 'image/jpeg';
+    else if (buf[0] === 0x52 && buf[1] === 0x49) mime = 'image/webp';
+    return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
 /**
- * 材料雙色卡 Step2：整張 Step1 色卡（上 2/3、下 1/3）一次 img2img；可附主／配區印花圖樣為 input_image_2／3。
- * 對齊官網：中文短 prompt + seed + safety_tolerance=2 + disable_pup；不做英文翻譯、不加攝影參數。
+ * 材料雙色卡 Step2：
+ * - 無印花：整張色卡一次 img2img（已驗證可保住 2/3·1/3）
+ * - 有任一區印花：上下區各自 FLUX 再硬拼鎖定比例（禁止整張附印花參考，否則印花會蓋滿全圖）
  */
 async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
     const mainPat = dualColorPatternRefToFluxInput(refs.main);
     const accentPat = dualColorPatternRefToFluxInput(refs.accent);
-    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
+    const hasAnyPat = !!(mainPat || accentPat);
+    const displayPrompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
         hasMainPattern: !!mainPat,
         hasAccentPattern: !!accentPat
     });
-    let mime = 'image/png';
-    if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) mime = 'image/jpeg';
-    else if (fileBuffer[0] === 0x52 && fileBuffer[1] === 0x49) mime = 'image/webp';
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
         width: 1024,
@@ -3827,12 +3846,61 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         safetyTolerance: 2,
         promptUpsampling: false
     };
-    const images = [`data:${mime};base64,${fileBuffer.toString('base64')}`];
-    if (mainPat) images.push(mainPat);
-    if (accentPat) images.push(accentPat);
-    const buf = await generateImageWithFlux2Pro(prompt, images, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
-    if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-    return { buffer: buf, prompt };
+
+    // 無印花：維持官網單次色卡路徑
+    if (!hasAnyPat) {
+        const dataUrl = dualColorBufferToDataUrl(fileBuffer);
+        const buf = await generateImageWithFlux2Pro(displayPrompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+        if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
+        return { buffer: buf, prompt: displayPrompt };
+    }
+
+    const sharp = require('sharp');
+    const SIZE = 1024;
+    const topH = Math.floor(SIZE * 2 / 3);
+    const bottomH = SIZE - topH;
+    const swatchPng = await sharp(fileBuffer, { failOn: 'none' })
+        .rotate()
+        .resize(SIZE, SIZE, { fit: 'fill' })
+        .png()
+        .toBuffer();
+    const topStrip = await sharp(swatchPng).extract({ left: 0, top: 0, width: SIZE, height: topH }).png().toBuffer();
+    const bottomStrip = await sharp(swatchPng).extract({ left: 0, top: topH, width: SIZE, height: bottomH }).png().toBuffer();
+    // 拉成 1024² 送 FLUX，產出後再壓回各區高度硬拼
+    const topSquare = await sharp(topStrip).resize(SIZE, SIZE, { fit: 'fill' }).png().toBuffer();
+    const bottomSquare = await sharp(bottomStrip).resize(SIZE, SIZE, { fit: 'fill' }).png().toBuffer();
+
+    const topPrompt = buildMaterialDualColorZoneFluxPrompt(mainMaterial, !!mainPat);
+    const bottomPrompt = buildMaterialDualColorZoneFluxPrompt(accentMaterial, !!accentPat);
+    const topImages = [dualColorBufferToDataUrl(topSquare)];
+    if (mainPat) topImages.push(mainPat);
+    const bottomImages = [dualColorBufferToDataUrl(bottomSquare)];
+    if (accentPat) bottomImages.push(accentPat);
+
+    const [topOut, bottomOut] = await Promise.all([
+        generateImageWithFlux2Pro(topPrompt, topImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts),
+        generateImageWithFlux2Pro(bottomPrompt, bottomImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts)
+    ]);
+    if (!topOut || !topOut.length || !bottomOut || !bottomOut.length) {
+        throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    }
+
+    const topFinal = await sharp(topOut, { failOn: 'none' }).resize(SIZE, topH, { fit: 'fill' }).jpeg({ quality: 92 }).toBuffer();
+    const bottomFinal = await sharp(bottomOut, { failOn: 'none' }).resize(SIZE, bottomH, { fit: 'fill' }).jpeg({ quality: 92 }).toBuffer();
+    const combined = await sharp({
+        create: { width: SIZE, height: SIZE, channels: 3, background: { r: 255, g: 255, b: 255 } }
+    })
+        .composite([
+            { input: topFinal, top: 0, left: 0 },
+            { input: bottomFinal, top: topH, left: 0 }
+        ])
+        .jpeg({ quality: 92 })
+        .toBuffer();
+
+    return {
+        buffer: combined,
+        prompt: displayPrompt + '（分區生成後硬拼 2/3·1/3）'
+    };
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
