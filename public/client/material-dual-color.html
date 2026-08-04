@@ -201,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-print-one-zone-only-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-keep-ratio-always-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -259,8 +259,7 @@
             }
             var p = '依原圖上方色塊改為' + phrase(main, hasMainPat) + '，下方色塊改為' + phrase(accent, hasAccentPat);
             if (stitch) p += '，分界處改為' + stitch;
-            if (hasMainPat || hasAccentPat) p += '，解析度1024x1024，請維持原圖色塊比例';
-            else p += '，解析度1024x1024，不需要文字';
+            p += '，解析度1024x1024，請維持原圖色塊比例';
             return p;
         }
 
