@@ -23448,6 +23448,67 @@ app.get('/api/me/material-dual-color-pricing', async (req, res) => {
     }
 });
 
+async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title, creditTransactionId) {
+    if (!userId || !imageUrl || !combo) return;
+    try {
+        const { error } = await supabase.from('user_material_combo_generations').insert({
+            user_id: userId,
+            image_url: imageUrl,
+            title: (title || '').trim().slice(0, 120) || null,
+            material_combo_json: combo,
+            credit_transaction_id: creditTransactionId || null
+        });
+        if (error && error.code !== '42P01') {
+            console.warn('insertUserMaterialComboGeneration:', error.message);
+        }
+    } catch (e) {
+        console.warn('insertUserMaterialComboGeneration:', e.message || e);
+    }
+}
+
+// GET /api/me/material-combo-generations — 我的數位資產 · 材料組合 TAB
+app.get('/api/me/material-combo-generations', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
+        const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
+        const rangeEnd = offsetN + limitN;
+        const { data, error } = await supabase
+            .from('user_material_combo_generations')
+            .select('id, image_url, title, material_combo_json, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .range(offsetN, rangeEnd);
+        if (error) {
+            if (error.code === '42P01') {
+                return res.json({ success: true, items: [], count: 0, offset: offsetN, hasMore: false, table_missing: true });
+            }
+            console.error('GET /api/me/material-combo-generations:', error);
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        const rawList = data || [];
+        const hasMore = rawList.length > limitN;
+        const items = (hasMore ? rawList.slice(0, limitN) : rawList).map(function (row) {
+            return {
+                id: row.id,
+                image_url: row.image_url,
+                title: row.title || null,
+                material_combo: row.material_combo_json || null,
+                created_at: row.created_at
+            };
+        });
+        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore });
+    } catch (e) {
+        console.error('GET /api/me/material-combo-generations:', e);
+        res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
 // POST /api/me/vendor-assets/material-dual-color-flux — 雙色卡 Step2 材質化（登入＋扣點；不限廠商）
 app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'), async (req, res) => {
     try {
@@ -23537,6 +23598,15 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             }
             balanceAfter = consumed.balance_after;
             creditTransactionId = consumed.transaction_id || null;
+        }
+        const comboForLibrary = normalizeMaterialCombo({
+            main: { hex: body.main_hex || body.mainHex, material: mainMaterial },
+            accent: { hex: body.accent_hex || body.accentHex, material: accentMaterial },
+            boundary: boundary
+        });
+        if (comboForLibrary && publicUrl) {
+            const comboTitle = (mainMaterial && accentMaterial) ? `${mainMaterial}／${accentMaterial}` : '材料組合';
+            await insertUserMaterialComboGeneration(ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId);
         }
         res.json({
             preview_url: publicUrl,

@@ -329,6 +329,8 @@
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
                 if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
+                fd.append('main_hex', mainHex.value || '');
+                fd.append('accent_hex', accentHex.value || '');
                 var res = await fetch('/api/me/vendor-assets/material-dual-color-flux', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },

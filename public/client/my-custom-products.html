@@ -49,6 +49,32 @@
             height: auto;
             object-fit: contain;
         }
+        .combo-asset-thumb-wrap {
+            width: 100%;
+            height: 200px;
+            background: #EAEEF3;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .combo-asset-thumb-wrap img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        .material-combo-meta .combo-swatch {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,.12);
+            vertical-align: -0.15em;
+            margin-right: 0.25rem;
+        }
         .empty-state {
             padding: 4rem 2rem;
             text-align: center;
@@ -159,6 +185,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" id="tab-combo" data-bs-toggle="tab" href="#pane-combo">
+                    <i class="bi bi-layout-split me-1"></i>材料組合
+                    <span class="badge bg-secondary ms-1" id="badgeCombo">…</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" id="tab-promo" data-bs-toggle="tab" href="#pane-promo">
                     <i class="bi bi-megaphone me-1"></i>情境圖
                     <span class="badge bg-secondary ms-1" id="badgePromo">…</span>
@@ -199,7 +231,30 @@
                 </div>
             </div>
 
-            <!-- ── Tab 2：情境圖 ── -->
+            <!-- ── Tab 2：材料組合 ── -->
+            <div class="tab-pane fade" id="pane-combo">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small">雙色材料組合生成紀錄；可於產品設計頁右側資產庫選用。</p>
+                    <a href="/client/material-dual-color.html?return=design" class="btn btn-primary btn-sm">
+                        <i class="bi bi-layout-split me-1"></i>生成材料組合
+                    </a>
+                </div>
+                <div id="comboLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">載入材料組合…</p>
+                </div>
+                <div id="comboList" class="row g-4" style="display:none;"></div>
+                <div id="comboEmpty" class="empty-state" style="display:none;">
+                    <i class="bi bi-layout-split" style="font-size:4rem;color:#D8DEE6;"></i>
+                    <h4 class="mt-3">尚無材料組合</h4>
+                    <p>於「材料組合」頁生成成功後會自動出現於此；亦可在產品設計頁右側資產庫切換「材料組合」分頁選用。</p>
+                    <a href="/client/material-dual-color.html?return=design" class="btn btn-primary mt-3">
+                        <i class="bi bi-layout-split me-1"></i>去生成材料組合
+                    </a>
+                </div>
+            </div>
+
+            <!-- ── Tab 3：情境圖 ── -->
             <div class="tab-pane fade" id="pane-promo">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <p class="text-muted mb-0 small">產品情境圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
@@ -222,7 +277,7 @@
                 </div>
             </div>
 
-            <!-- ── Tab 3：我的最愛 ── -->
+            <!-- ── Tab 4：我的最愛 ── -->
             <div class="tab-pane fade" id="pane-favs">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <p class="text-muted mb-0 small">從媒體牆收藏的廠商作品，可直接聯絡廠商發案</p>
@@ -330,6 +385,7 @@
 
         let promoLoaded = false;
         let favsLoaded = false;
+        let comboLoaded = false;
         const PRODUCTS_PAGE_SIZE = 24;
         let productsOffset = 0;
         let productsHasMore = false;
@@ -368,6 +424,12 @@
             productsScrollObserver.observe(sentinel);
         }
 
+        function ensureComboTabLoaded() {
+            if (comboLoaded) return;
+            comboLoaded = true;
+            loadMaterialCombos();
+        }
+
         function ensurePromoTabLoaded() {
             if (promoLoaded) return;
             promoLoaded = true;
@@ -390,15 +452,24 @@
 
             loadProducts(false);
             loadDesignsBadgeCount();
+            loadComboBadgeCount();
 
+            var tabCombo = document.getElementById('tab-combo');
             var tabPromo = document.getElementById('tab-promo');
             var tabFavs = document.getElementById('tab-favs');
+            if (tabCombo) tabCombo.addEventListener('shown.bs.tab', ensureComboTabLoaded);
             if (tabPromo) tabPromo.addEventListener('shown.bs.tab', ensurePromoTabLoaded);
             if (tabFavs) tabFavs.addEventListener('shown.bs.tab', ensureFavsTabLoaded);
 
-            // ?tab=promo 直接開情境圖
+            // ?tab= 直接開指定分頁
             var tabParam = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
-            if (tabParam === 'promo') {
+            if (tabParam === 'material_combo' || tabParam === 'material-combo' || tabParam === 'combo') {
+                if (tabCombo && typeof bootstrap !== 'undefined') {
+                    bootstrap.Tab.getOrCreateInstance(tabCombo).show();
+                } else {
+                    ensureComboTabLoaded();
+                }
+            } else if (tabParam === 'promo') {
                 if (tabPromo && typeof bootstrap !== 'undefined') {
                     bootstrap.Tab.getOrCreateInstance(tabPromo).show();
                 } else {
@@ -412,6 +483,110 @@
                 }
             }
         });
+
+        function loadComboBadgeCount() {
+            if (!authToken) return;
+            fetch('/api/me/material-combo-generations?limit=1&offset=0', {
+                headers: { Authorization: 'Bearer ' + authToken }
+            }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+                const badgeEl = document.getElementById('badgeCombo');
+                if (!badgeEl || !d) return;
+                if (d.table_missing) {
+                    badgeEl.textContent = '0';
+                    return;
+                }
+                const n = (d.items || []).length;
+                badgeEl.textContent = d.hasMore ? (n + '+') : String(n);
+            }).catch(function () {});
+        }
+
+        function formatComboMetaHtml(combo) {
+            if (!combo || !combo.main) return '';
+            var lines = [];
+            ['main', 'accent'].forEach(function (role) {
+                var part = combo[role];
+                if (!part) return;
+                var hex = (part.hex || '').trim();
+                var mat = (part.material || '').trim();
+                var swatch = hex ? ('<span class="combo-swatch" style="background:' + escapeHtml(hex) + '"></span>') : '';
+                var label = [mat, hex].filter(Boolean).join(' ');
+                if (label) lines.push(swatch + escapeHtml(label));
+            });
+            if (combo.boundary) {
+                lines.push('<span class="text-muted">分界：' + escapeHtml(String(combo.boundary)) + '</span>');
+            }
+            return lines.length ? ('<div class="material-combo-meta small mb-2">' + lines.join('<br>') + '</div>') : '';
+        }
+
+        async function loadMaterialCombos() {
+            const loading = document.getElementById('comboLoading');
+            const list = document.getElementById('comboList');
+            const empty = document.getElementById('comboEmpty');
+            const badge = document.getElementById('badgeCombo');
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const response = await fetch('/api/me/material-combo-generations?limit=48', {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '載入失敗');
+                const items = data.items || [];
+                if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
+                if (loading) loading.style.display = 'none';
+                if (!items.length) {
+                    if (empty) empty.style.display = 'block';
+                    return;
+                }
+                if (list) {
+                    list.style.display = 'flex';
+                    list.innerHTML = '';
+                    items.forEach(function (item) {
+                        list.appendChild(createComboCard(item));
+                    });
+                }
+            } catch (error) {
+                console.error('載入材料組合失敗:', error);
+                if (loading) loading.style.display = 'none';
+                if (empty) {
+                    empty.style.display = 'block';
+                    const p = empty.querySelector('p');
+                    if (p) p.textContent = '載入失敗：' + error.message;
+                }
+            }
+        }
+
+        function createComboCard(item) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            const combo = item.material_combo || null;
+            var title = (item.title || '').trim();
+            if (!title && combo && combo.main && combo.accent) {
+                title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
+            }
+            if (!title) title = '材料組合';
+            const metaHtml = formatComboMetaHtml(combo);
+            col.innerHTML = `
+                <div class="card product-card h-100" data-combo-id="${escapeHtml(String(item.id || ''))}">
+                    <div class="combo-asset-thumb-wrap card-img-top border-0">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                    </div>
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
+                        ${metaHtml}
+                        <div class="text-muted small mb-2">
+                            <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
+                        </div>
+                        <div class="d-grid gap-2 mt-auto">
+                            <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>用於產品設計</a>
+                            <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return col;
+        }
 
         async function loadPromoCapabilities() {
             try {
@@ -974,6 +1149,8 @@
             document.body.appendChild(alertDiv);
             setTimeout(() => alertDiv.remove(), 5000);
         }
+
+        window.__MATCHDO_MY_ASSETS_BUILD = 'material-combo-tab-library-20260804';
     </script>
     <div id="site-footer"></div>
     <script src="/js/site-footer.js"></script>

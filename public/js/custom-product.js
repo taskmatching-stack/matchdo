@@ -1052,12 +1052,24 @@ $(document).ready(function () {
             accent: { hex: meta.accentHex || '', material: meta.accentMaterial || '' }
         };
         if ((meta.boundary || '').trim()) combo.boundary = meta.boundary.trim();
-        var previewUrl = URL.createObjectURL(blobs.flux);
-        var added = addRefImageToSlot('material', previewUrl, {
+        var dataUrl = await new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function () { resolve(reader.result); };
+            reader.onerror = function () { reject(new Error('read failed')); };
+            reader.readAsDataURL(blobs.flux);
+        }).catch(function () { return null; });
+        if (!dataUrl || typeof dataUrl !== 'string') {
+            await MatchdoDualColorImport.clearImport();
+            return false;
+        }
+        var sourceMeta = {
             asset_kind: 'material',
             title: meta.label || '材料組合',
             material_combo: combo
-        });
+        };
+        var storageUrl = (meta.redrawPreviewStorageUrl || '').trim();
+        if (storageUrl) sourceMeta.image_url = storageUrl;
+        var added = addRefImageToSlot('material', dataUrl, sourceMeta);
         if (!added) {
             await MatchdoDualColorImport.clearImport();
             return false;
@@ -5055,9 +5067,10 @@ $(document).ready(function () {
             setGallerySentinelState('hidden');
             var wrap = $('#pastGeneratedGallery');
             var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-            grid.removeClass('is-promo-tab is-favorites-tab');
+            grid.removeClass('is-promo-tab is-favorites-tab is-material-combo-tab');
             if (tab === 'promo') grid.addClass('is-promo-tab');
             else if (tab === 'favorites') grid.addClass('is-favorites-tab');
+            else if (tab === 'material_combo') grid.addClass('is-material-combo-tab');
             grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + (t('home.loading') || '載入中…') + '</p>');
             refreshPastGeneratedGallery(undefined, { force: true });
         });
@@ -5067,13 +5080,15 @@ $(document).ready(function () {
         var url = normalizeGalleryImageUrl(item.url);
         if (!url) return null;
         var promptText = String(item.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        var tip = promptText || (tab === 'promo' ? '情境圖' : '我的最愛');
+        var tip = promptText || (tab === 'promo' ? '情境圖' : (tab === 'material_combo' ? '材料組合' : '我的最愛'));
+        var comboJson = item.material_combo ? JSON.stringify(item.material_combo) : '';
         var $cell = $('<div class="past-item-wrap"></div>').attr({
             'data-image-url': url,
             'data-prompt': promptText,
             'data-seed': '',
             'data-owner-display': galleryOwnerDisplay || ''
         });
+        if (comboJson) $cell.attr('data-material-combo', comboJson);
         var $img = $('<img>').attr({ src: url, alt: '', loading: 'lazy', decoding: 'async' });
         $img.on('error', function () { $(this).addClass('past-item-img-error'); });
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
@@ -5093,9 +5108,10 @@ $(document).ready(function () {
         function renderAltItems(items) {
             if (myGen !== galleryPaging.fetchGen) return;
             var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-            grid.empty().removeClass('is-promo-tab is-favorites-tab');
+            grid.empty().removeClass('is-promo-tab is-favorites-tab is-material-combo-tab');
             if (tab === 'promo') grid.addClass('is-promo-tab');
             else if (tab === 'favorites') grid.addClass('is-favorites-tab');
+            else if (tab === 'material_combo') grid.addClass('is-material-combo-tab');
             updatePastGalleryTabsActive(tab);
             if (!items.length) {
                 var emptyMsg = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.emptyMessage)

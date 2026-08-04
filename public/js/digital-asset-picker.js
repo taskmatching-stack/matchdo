@@ -1,11 +1,12 @@
 /**
- * 數位資產選擇器（設計圖／情境圖／我的最愛）— custom-product、promo-camera 共用
+ * 數位資產選擇器（設計圖／材料組合／情境圖／我的最愛）— custom-product、promo-camera 共用
  */
 (function (global) {
   'use strict';
 
   var TABS = [
     { key: 'designs', label: '設計圖' },
+    { key: 'material_combo', label: '材料組合' },
     { key: 'promo', label: '情境圖' },
     { key: 'favorites', label: '我的最愛' }
   ];
@@ -33,6 +34,7 @@
       var url;
       if (tab === 'promo') url = '/api/promo-image/generations?limit=48&offset=0';
       else if (tab === 'favorites') url = '/api/me/favorites';
+      else if (tab === 'material_combo') url = '/api/me/material-combo-generations?limit=48&offset=0';
       else url = '/api/custom-products?gallery=1&limit=48&offset=0';
       return fetch(url, { headers: headers, cache: 'no-store' }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, data: data }; });
@@ -68,6 +70,26 @@
           sourceType: 'digital_asset',
           sourceId: null,
           badge: '最愛'
+        });
+      });
+      return items;
+    }
+    if (tab === 'material_combo') {
+      (data.items || []).forEach(function (row) {
+        var url = (row.image_url || '').trim();
+        if (!url) return;
+        var combo = row.material_combo || null;
+        var title = (row.title || '').trim();
+        if (!title && combo && combo.main && combo.accent) {
+          title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
+        }
+        items.push({
+          url: url,
+          title: (title || '材料組合').substring(0, 48),
+          sourceType: 'material_combo',
+          sourceId: row.id || null,
+          badge: '材料組合',
+          material_combo: combo
         });
       });
       return items;
@@ -139,16 +161,20 @@
           openBrowseLightbox(listEl, items, isNaN(idx) ? 0 : idx);
           return;
         }
+        var idx = parseInt(card.getAttribute('data-index'), 10);
+        var item = items[isNaN(idx) ? 0 : idx] || {};
         onPick({
           url: card.getAttribute('data-url'),
           sourceType: card.getAttribute('data-source-type') || 'digital_asset',
-          sourceId: card.getAttribute('data-source-id') || null
+          sourceId: card.getAttribute('data-source-id') || null,
+          material_combo: item.material_combo || null
         });
       });
     });
   }
 
   function emptyMessage(tab) {
+    if (tab === 'material_combo') return '尚無材料組合，請至「材料組合」頁生成後會自動出現於此。';
     if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
     if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
     return '尚無設計圖，請先在產品設計中生成並儲存。';

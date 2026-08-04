@@ -1402,9 +1402,11 @@
         #custom-product .cp-tab-group-tabs .nav-link.active { color: #7A8FA3; background: transparent; border-bottom-color: #7A8FA3; }
         #custom-product .past-gallery-tabs { margin-bottom: 0.5rem; }
         #custom-product .past-gallery-inner.is-promo-tab .past-item,
-        #custom-product .past-gallery-inner.is-favorites-tab .past-item { aspect-ratio: auto; height: 120px; background: #EAEEF3; }
+        #custom-product .past-gallery-inner.is-favorites-tab .past-item,
+        #custom-product .past-gallery-inner.is-material-combo-tab .past-item { aspect-ratio: auto; height: 120px; background: #EAEEF3; }
         #custom-product .past-gallery-inner.is-promo-tab .past-item img,
-        #custom-product .past-gallery-inner.is-favorites-tab .past-item img { width: 100%; height: 100%; object-fit: contain; }
+        #custom-product .past-gallery-inner.is-favorites-tab .past-item img,
+        #custom-product .past-gallery-inner.is-material-combo-tab .past-item img { width: 100%; height: 100%; object-fit: contain; }
         /* 實境模擬 */
         #custom-product .scene-sim-panel { min-height: 360px; }
         #custom-product .scene-sim-prompt-input { max-height: 2.5rem; }
@@ -1986,10 +1988,10 @@
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260730e" defer></script>
-    <script src="/js/digital-asset-picker.js?v=2" defer></script>
+    <script src="/js/digital-asset-picker.js?v=3" defer></script>
     <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
-    <script src="js/custom-product.js?v=145" defer></script>
+    <script src="js/custom-product.js?v=147" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
