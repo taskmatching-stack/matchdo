@@ -33,6 +33,7 @@
   function fetchTabItems(tab) {
     return authHeaders().then(function (headers) {
       if (!headers.Authorization) return { ok: false, error: 'login' };
+      var url;
       // 印花：接 user_print_generations；表未建時 API 回空
       if (tab === 'print') url = '/api/me/print-generations?limit=48&offset=0';
       else if (tab === 'promo') url = '/api/promo-image/generations?limit=48&offset=0';
