@@ -3849,7 +3849,188 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
 
     const buf = await generateImageWithFlux2Pro(prompt, fluxImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-    return { buffer: buf, prompt, reference_count: fluxImages.length };
+    return { buffer: buf, prompt, reference_count: fluxImages.length, engine: 'flux', model: 'flux-2-pro' };
+}
+
+/** 材料組合 Gemini 生圖軟上限（記憶體；重啟歸零）。預設對齊 Tier1 保守值。 */
+const DUAL_COLOR_GEMINI_USAGE_TS = [];
+function getDualColorGeminiImageLimits() {
+    return {
+        minIntervalMs: Math.max(0, parseInt(process.env.GEMINI_IMAGE_MIN_INTERVAL_MS, 10) || 8000),
+        maxPerMin: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_MIN, 10) || 6),
+        maxPer10Min: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_10MIN, 10) || 80),
+        maxPerDay: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_DAY, 10) || 200)
+    };
+}
+function pruneDualColorGeminiUsage(now) {
+    const dayMs = 24 * 60 * 60 * 1000;
+    while (DUAL_COLOR_GEMINI_USAGE_TS.length && (now - DUAL_COLOR_GEMINI_USAGE_TS[0]) > dayMs) {
+        DUAL_COLOR_GEMINI_USAGE_TS.shift();
+    }
+}
+function checkDualColorGeminiQuota() {
+    const now = Date.now();
+    pruneDualColorGeminiUsage(now);
+    const lim = getDualColorGeminiImageLimits();
+    const last = DUAL_COLOR_GEMINI_USAGE_TS.length
+        ? DUAL_COLOR_GEMINI_USAGE_TS[DUAL_COLOR_GEMINI_USAGE_TS.length - 1]
+        : 0;
+    if (last && lim.minIntervalMs > 0 && (now - last) < lim.minIntervalMs) {
+        return {
+            ok: false,
+            reason: 'min_interval',
+            retry_after_sec: Math.ceil((lim.minIntervalMs - (now - last)) / 1000)
+        };
+    }
+    const in1m = DUAL_COLOR_GEMINI_USAGE_TS.filter((t) => (now - t) < 60000).length;
+    if (in1m >= lim.maxPerMin) {
+        const oldest = DUAL_COLOR_GEMINI_USAGE_TS.filter((t) => (now - t) < 60000)[0] || now;
+        return { ok: false, reason: 'per_min', retry_after_sec: Math.max(1, Math.ceil((60000 - (now - oldest)) / 1000)) };
+    }
+    const in10m = DUAL_COLOR_GEMINI_USAGE_TS.filter((t) => (now - t) < 600000).length;
+    if (in10m >= lim.maxPer10Min) {
+        const oldest = DUAL_COLOR_GEMINI_USAGE_TS.filter((t) => (now - t) < 600000)[0] || now;
+        return { ok: false, reason: 'per_10min', retry_after_sec: Math.max(1, Math.ceil((600000 - (now - oldest)) / 1000)) };
+    }
+    if (DUAL_COLOR_GEMINI_USAGE_TS.length >= lim.maxPerDay) {
+        return { ok: false, reason: 'per_day', retry_after_sec: 3600 };
+    }
+    return { ok: true };
+}
+function recordDualColorGeminiAttempt() {
+    DUAL_COLOR_GEMINI_USAGE_TS.push(Date.now());
+}
+function isGeminiImageRateLimitError(err) {
+    if (!err) return false;
+    const status = err.status || err.statusCode || err.code;
+    if (status === 429 || status === 'RESOURCE_EXHAUSTED' || String(status) === '429') return true;
+    const msg = String(err.message || err || '');
+    return /429|RESOURCE_EXHAUSTED|rate.?limit|quota|exceeded|resource exhausted/i.test(msg);
+}
+
+function dualColorGeminiModelForRefs(hasPrint) {
+    return hasPrint ? 'gemini-3.1-flash-image' : 'gemini-3.1-flash-lite-image';
+}
+
+/**
+ * 材料組合 Gemini img2img：無印花→Lite；有印花→Flash。只回圖。
+ * 參考圖：inlineData base64（等同 type/mime_type/data）。
+ */
+async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
+    if (!process.env.GEMINI_API_KEY) throw new Error('未設定 GEMINI_API_KEY');
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
+    if (refs.main && refs.accent) {
+        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+    }
+    const hasMainPat = !!refs.main;
+    const hasAccentPat = !!refs.accent;
+    const hasPrint = !!(hasMainPat || hasAccentPat);
+    const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
+        hasMainPattern: hasMainPat,
+        hasAccentPattern: hasAccentPat,
+        printKind: hasPrint ? printKind : 'pattern'
+    });
+    const model = dualColorGeminiModelForRefs(hasPrint);
+
+    let swatchMime = 'image/png';
+    if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) swatchMime = 'image/jpeg';
+    else if (fileBuffer[0] === 0x52 && fileBuffer[1] === 0x49) swatchMime = 'image/webp';
+    const swatchB64 = await resolveImageToBase64(`data:${swatchMime};base64,${fileBuffer.toString('base64')}`);
+    if (!swatchB64) throw new Error('色卡圖片無效');
+
+    const parts = [
+        { text: prompt },
+        { inlineData: { mimeType: swatchMime, data: swatchB64 } }
+    ];
+    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || null);
+    if (printParam) {
+        const printB64 = await resolveImageToBase64(printParam);
+        if (!printB64) throw new Error('印花圖樣讀取失敗，請改上傳圖檔或重選資產');
+        let printMime = 'image/png';
+        if (typeof printParam === 'string' && printParam.startsWith('data:image/')) {
+            const m = printParam.match(/^data:(image\/[^;]+);/i);
+            if (m) printMime = m[1].toLowerCase();
+        }
+        parts.push({ inlineData: { mimeType: printMime, data: printB64 } });
+    }
+
+    const result = await runInGeminiQueue(() => genAI.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: { responseModalities: ['Image'] }
+    }));
+    const extracted = extractGeminiResponseImageBuffer(result);
+    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
+        throw new Error('Gemini 未回傳材料組合圖，請稍後重試');
+    }
+    const sharp = require('sharp');
+    const buf = await sharp(extracted.buffer, { failOn: 'none' })
+        .rotate()
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+    return {
+        buffer: buf,
+        prompt,
+        reference_count: parts.filter((p) => p.inlineData).length,
+        engine: 'gemini',
+        model
+    };
+}
+
+/**
+ * 優先 Gemini（Lite／Flash）→ 本站軟上限或 API 429 則 FLUX；額度恢復後自動切回 Gemini。
+ * MATERIAL_DUAL_COLOR_ENGINE=flux 強制 FLUX；=gemini 強制 Gemini（不 fallback）。
+ */
+async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
+    const pref = String(process.env.MATERIAL_DUAL_COLOR_ENGINE || 'auto').trim().toLowerCase();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasKey = !!process.env.GEMINI_API_KEY;
+
+    if (!forceFlux && hasKey) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                return await optimizeMaterialDualColorWithGemini(
+                    fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+                );
+            } catch (gemErr) {
+                if (forceGemini) throw gemErr;
+                if (isGeminiImageRateLimitError(gemErr)) {
+                    console.warn('material-dual-color Gemini rate-limited → FLUX:', gemErr.message || gemErr);
+                    const fluxResult = await optimizeMaterialDualColorWithFlux(
+                        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+                    );
+                    return Object.assign({}, fluxResult, {
+                        fallback: true,
+                        fallback_reason: 'gemini_api_429'
+                    });
+                }
+                throw gemErr;
+            }
+        }
+        if (forceGemini) {
+            const err = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            err.status = 429;
+            err.retry_after_sec = quota.retry_after_sec;
+            err.quota_reason = quota.reason;
+            throw err;
+        }
+        console.warn('material-dual-color Gemini soft-quota → FLUX:', quota.reason);
+        const fluxResult = await optimizeMaterialDualColorWithFlux(
+            fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+        );
+        return Object.assign({}, fluxResult, {
+            fallback: true,
+            fallback_reason: 'gemini_soft_quota_' + (quota.reason || 'limit')
+        });
+    }
+
+    return optimizeMaterialDualColorWithFlux(
+        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+    );
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
@@ -23779,15 +23960,30 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
 
         let optimized;
         let dualRefCount = null;
+        let dualEngine = null;
+        let dualModel = null;
+        let dualFallback = false;
+        let dualFallbackReason = null;
         try {
-            const result = await optimizeMaterialDualColorWithFlux(
+            const result = await optimizeMaterialDualColor(
                 swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs, printKind
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
             dualRefCount = result.reference_count || null;
+            dualEngine = result.engine || null;
+            dualModel = result.model || null;
+            dualFallback = !!result.fallback;
+            dualFallbackReason = result.fallback_reason || null;
         } catch (optErr) {
             console.error('material-dual-color-flux optimize:', optErr);
+            if (optErr && optErr.status === 429) {
+                return res.status(429).json({
+                    error: optErr.message || 'Gemini 生圖次數已達上限，請稍後再試',
+                    retry_after_sec: optErr.retry_after_sec || null,
+                    quota_reason: optErr.quota_reason || null
+                });
+            }
             const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
             return res.status(mapped.status).json(mapped.body);
         }
@@ -23834,6 +24030,10 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             credit_transaction_id: creditTransactionId,
             ai_prompt: aiPromptUsed,
             reference_count: dualRefCount,
+            engine: dualEngine,
+            model: dualModel,
+            fallback: dualFallback,
+            fallback_reason: dualFallbackReason,
             library_saved: librarySaved,
             library_save_error: librarySaveError
         });
