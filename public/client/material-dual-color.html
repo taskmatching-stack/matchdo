@@ -117,7 +117,7 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">印花圖樣<strong>只能上或下擇一</strong>（不可兩區都傳）。有傳圖＝該區材質前加「印花」二字，對齊官網。</p>
+                    <p class="small text-muted mb-3">印花只能上或下擇一。有傳圖就寫「上方印花＋材質」或「下方印花＋材質」；單次生成，不硬拼。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1">主色區材質 <span class="text-muted fw-normal">（上方 2/3）</span></label>
@@ -201,7 +201,7 @@
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-keep-ratio-append-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-resolveImageToBase64-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -252,12 +252,11 @@
             var hasAccentPat = zoneHasPattern('accent');
             if (!hasMainPat && !main) return '';
             if (!hasAccentPat && !accent) return '';
-            function phrase(material, hasPat) {
-                if (hasPat && material) return '印花' + material + '材質';
-                if (hasPat) return '印花材質';
+            function phrase(material, hasPat, side) {
+                if (hasPat) return (side === 'main' ? '上方印花' : '下方印花') + (material || '') + '材質';
                 return material + '材質';
             }
-            var p = '依原圖上方色塊改為' + phrase(main, hasMainPat) + '，下方色塊改為' + phrase(accent, hasAccentPat);
+            var p = '依原圖上方色塊改為' + phrase(main, hasMainPat, 'main') + '，下方色塊改為' + phrase(accent, hasAccentPat, 'accent');
             if (stitch) p += '，分界處改為' + stitch;
             p += '，解析度1024x1024，不需要文字，請維持原圖色塊比例';
             return p;

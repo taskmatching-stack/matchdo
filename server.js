@@ -3753,8 +3753,10 @@ function normalizeDualColorMaterialField(raw) {
 }
 
 /**
- * 對齊 BFL 官網：有印花＝只在「上方或下方」其中一區的材質前加「印花」二字；印花參考圖最多一張。
- * 例：依原圖上方色塊改為印花尼龍布材質，下方色塊改為皮革材質，解析度1024x1024，請維持原圖色塊比例
+ * 雙色卡短中文（保持簡單）：
+ * - 有傳上方印花圖 →「上方印花{材質}材質」
+ * - 有傳下方印花圖 →「下方印花{材質}材質」
+ * - 印花最多一張（上下擇一）
  */
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
@@ -3768,20 +3770,17 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
 
-    function phrase(material, hasPat) {
-        if (hasPat && material) return `印花${material}材質`;
-        if (hasPat) return '印花材質';
-        return `${material}材質`;
-    }
-
+    const mainPhrase = hasMainPat ? (`上方印花${main || ''}材質`) : (`${main}材質`);
+    const accentPhrase = hasAccentPat ? (`下方印花${accent || ''}材質`) : (`${accent}材質`);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊改為${phrase(main, hasMainPat)}，下方色塊改為${phrase(accent, hasAccentPat)}`;
+    let prompt = `依原圖上方色塊改為${mainPhrase}，下方色塊改為${accentPhrase}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
     prompt += '，解析度1024x1024，不需要文字，請維持原圖色塊比例';
     return prompt;
 }
 
-function dualColorPatternRefToFluxInput(ref) {
+/** 雙色卡印花參考 → 與全站相同的字串（http URL 或 data URL），再交 resolveImageToBase64 */
+function dualColorPatternRefToImageParam(ref) {
     if (!ref) return null;
     if (typeof ref === 'string') {
         const s = ref.trim();
@@ -3798,28 +3797,20 @@ function dualColorPatternRefToFluxInput(ref) {
     return null;
 }
 
-function dualColorBufferToDataUrl(buf) {
-    if (!buf || !buf.length) return null;
-    let mime = 'image/png';
-    if (buf[0] === 0xff && buf[1] === 0xd8) mime = 'image/jpeg';
-    else if (buf[0] === 0x52 && buf[1] === 0x49) mime = 'image/webp';
-    return `data:${mime};base64,${buf.toString('base64')}`;
-}
-
 /**
- * 材料雙色卡 Step2 — 對齊官網 playground：
- * 圖1＝色卡，圖2／圖3＝主／配印花（有選才附）；單次 img2img。
- * 有印花：prompt_upsampling=true（與官網成功一致）；無印花：disable_pup（保住比例）。
+ * 單次 img2img：圖1＝色卡，圖2＝印花（有傳才附）。送圖一律走 resolveImageToBase64（全站同一套）。
  */
 async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
-    const mainPat = dualColorPatternRefToFluxInput(refs.main);
-    const accentPat = dualColorPatternRefToFluxInput(refs.accent);
-    const hasAnyPat = !!(mainPat || accentPat);
+    if (refs.main && refs.accent) {
+        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+    }
+    const hasMainPat = !!refs.main;
+    const hasAccentPat = !!refs.accent;
     const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
-        hasMainPattern: !!mainPat,
-        hasAccentPattern: !!accentPat
+        hasMainPattern: hasMainPat,
+        hasAccentPattern: hasAccentPat
     });
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
@@ -3827,19 +3818,27 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         height: 1024,
         skipPromptTranslation: true,
         safetyTolerance: 2,
-        // 官網有印花成功案例為 prompt_upsampling=true；無印花則關 PUP 保住 2/3·1/3
-        promptUpsampling: hasAnyPat
+        promptUpsampling: !!(hasMainPat || hasAccentPat)
     };
-    const images = [dualColorBufferToDataUrl(fileBuffer)];
-    // 印花最多一張：主或配擇一
-    if (mainPat && accentPat) {
-        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+
+    let swatchMime = 'image/png';
+    if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) swatchMime = 'image/jpeg';
+    else if (fileBuffer[0] === 0x52 && fileBuffer[1] === 0x49) swatchMime = 'image/webp';
+    const swatchParam = `data:${swatchMime};base64,${fileBuffer.toString('base64')}`;
+    const swatchB64 = await resolveImageToBase64(swatchParam);
+    if (!swatchB64) throw new Error('色卡圖片無效');
+
+    const fluxImages = [swatchB64];
+    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || null);
+    if (printParam) {
+        const printB64 = await resolveImageToBase64(printParam);
+        if (!printB64) throw new Error('印花圖樣讀取失敗，請改上傳圖檔或重選資產');
+        fluxImages.push(printB64);
     }
-    if (mainPat) images.push(mainPat);
-    else if (accentPat) images.push(accentPat);
-    const buf = await generateImageWithFlux2Pro(prompt, images, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+
+    const buf = await generateImageWithFlux2Pro(prompt, fluxImages, VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-    return { buffer: buf, prompt };
+    return { buffer: buf, prompt, reference_count: fluxImages.length };
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
@@ -23764,12 +23763,14 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         }
 
         let optimized;
+        let dualRefCount = null;
         try {
             const result = await optimizeMaterialDualColorWithFlux(
                 swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
+            dualRefCount = result.reference_count || null;
         } catch (optErr) {
             console.error('material-dual-color-flux optimize:', optErr);
             const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
@@ -23817,6 +23818,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId,
             ai_prompt: aiPromptUsed,
+            reference_count: dualRefCount,
             library_saved: librarySaved,
             library_save_error: librarySaveError
         });
