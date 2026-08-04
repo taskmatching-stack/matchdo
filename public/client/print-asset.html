@@ -14,23 +14,23 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <style>
-        .pa-preview-wrap { max-width: 420px; margin: 0 auto; }
-        .pa-preview-wrap img {
-            width: 100%; aspect-ratio: 1; object-fit: contain; display: block; border-radius: 12px;
-            border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
-        }
         .pa-step-card { border-radius: 12px; border: 1px solid rgba(88, 100, 112, 0.14); }
         .pa-same-cell {
             border: 1px solid rgba(88, 100, 112, 0.14); border-radius: 12px; overflow: hidden; background: #fff;
+            max-width: 280px;
         }
-        .pa-same-cell .pa-cell-block { padding: 0.75rem; border-bottom: 1px solid rgba(88, 100, 112, 0.1); }
+        .pa-same-cell .pa-cell-block { padding: 0.6rem; border-bottom: 1px solid rgba(88, 100, 112, 0.1); }
         .pa-same-cell .pa-cell-block:last-child { border-bottom: 0; }
-        .pa-same-cell img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #EAEEF3; border-radius: 8px; }
+        .pa-same-cell img {
+            width: 100%; max-height: 200px; aspect-ratio: 1; object-fit: contain;
+            background: #EAEEF3; border-radius: 8px; display: block;
+        }
         .pa-drop {
-            border: 2px dashed rgba(88, 100, 112, 0.28); border-radius: 12px; padding: 2rem 1rem;
+            border: 2px dashed rgba(88, 100, 112, 0.28); border-radius: 12px; padding: 1.25rem 1rem;
             text-align: center; cursor: pointer; background: #F7F9FB;
         }
         .pa-drop:hover, .pa-drop.is-drag { border-color: #5B6B7C; background: #EEF2F6; }
+        .pa-drop.has-file { padding: 0.75rem 1rem; }
     </style>
 </head>
 <body>
@@ -51,41 +51,32 @@
         <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
 
         <div id="main-content" class="d-none">
-            <div class="alert alert-light border small mb-4">
-                <strong>不會一上傳就存庫。</strong>選好圖後，頁面下方才會出現「存入數位資產庫」按鈕；只存原圖<strong>免費</strong>。AI 重繪為選用，成功後才扣點，再勾選原圖／新圖後按存入。
+            <div class="alert alert-light border small mb-3">
+                選圖後下方出現存庫區（圖只顯示一次）。只存原圖<strong>免費</strong>；AI 重繪選用，成功後才扣點。
+            </div>
+            <div id="pa-table-hint" class="alert alert-warning border small mb-3 d-none">
+                印花資料表尚未建立：請在 Supabase SQL Editor 執行 <code>docs/add-user-print-generations.sql</code> 後再存庫。
             </div>
 
-            <div class="card pa-step-card shadow-sm mb-4">
+            <div class="card pa-step-card shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold">上傳印花圖</div>
                 <div class="card-body">
                     <div class="pa-drop" id="pa-drop" role="button" tabindex="0">
-                        <i class="bi bi-cloud-upload" style="font-size:2rem;color:#8A96A3;"></i>
-                        <p class="mb-1 mt-2">點擊或拖曳圖片至此</p>
-                        <p class="small text-muted mb-0">JPG／PNG／WebP，建議方形圖稿</p>
+                        <div id="pa-drop-empty">
+                            <i class="bi bi-cloud-upload" style="font-size:1.75rem;color:#8A96A3;"></i>
+                            <p class="mb-1 mt-2">點擊或拖曳圖片至此</p>
+                            <p class="small text-muted mb-0">JPG／PNG／WebP，建議方形圖稿</p>
+                        </div>
+                        <div id="pa-drop-selected" class="d-none">
+                            <p class="mb-0 small"><i class="bi bi-check2-circle text-success me-1"></i>已選：<span id="pa-file-name"></span></p>
+                            <p class="small text-muted mb-0 mt-1">點此可更換圖片</p>
+                        </div>
                         <input type="file" id="pa-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                     </div>
-                    <div class="pa-preview-wrap mt-3 d-none" id="pa-original-wrap">
-                        <p class="small fw-semibold mb-1">原圖</p>
-                        <img id="pa-original-img" alt="原圖預覽">
-                    </div>
                 </div>
             </div>
 
-            <div class="card pa-step-card shadow-sm mb-4">
-                <div class="card-header bg-white fw-semibold">AI 重繪（選用）</div>
-                <div class="card-body">
-                    <label class="form-label small mb-1">印花類型 <span class="text-danger">*</span>（重繪時必填）</label>
-                    <input type="text" class="form-control form-control-sm mb-2" id="pa-print-type" maxlength="32" placeholder="例：碎花、幾何圖案、插畫印花">
-                    <p class="form-text text-muted small mb-2">提示詞預覽：<strong id="pa-prompt-preview" class="fw-normal">（填印花類型後顯示）</strong></p>
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <button type="button" class="btn btn-primary" id="pa-redraw-btn" disabled><i class="bi bi-stars me-1"></i>AI 重繪</button>
-                        <span class="text-muted small" id="pa-points-label"></span>
-                    </div>
-                    <div id="pa-status" class="small mt-2 text-muted"></div>
-                </div>
-            </div>
-
-            <div class="card pa-step-card shadow-sm mb-4 d-none" id="pa-save-card">
+            <div class="card pa-step-card shadow-sm mb-3 d-none" id="pa-save-card">
                 <div class="card-header bg-white fw-semibold">存入數位資產庫</div>
                 <div class="card-body">
                     <div class="pa-same-cell mb-3" id="pa-same-cell">
@@ -110,12 +101,26 @@
                             <img id="pa-cell-redraw" alt="重繪結果">
                         </div>
                     </div>
-                    <p class="small text-muted mb-2">僅存原圖：<strong>不扣點</strong>。AI 重繪已在上方成功時扣過點，再存庫不另收費。</p>
+                    <p class="small text-muted mb-2">僅存原圖：<strong>不扣點</strong>。AI 重繪已成功時扣過點，再存庫不另收費。</p>
                     <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-success" id="pa-save-btn"><i class="bi bi-box-seam me-1"></i>存入數位資產庫</button>
                         <a href="/client/my-custom-products.html?tab=print" class="btn btn-outline-secondary">查看印花資產</a>
                     </div>
                     <div id="pa-save-status" class="small mt-2 text-muted"></div>
+                </div>
+            </div>
+
+            <div class="card pa-step-card shadow-sm mb-3">
+                <div class="card-header bg-white fw-semibold">AI 重繪（選用）</div>
+                <div class="card-body">
+                    <label class="form-label small mb-1">印花類型 <span class="text-danger">*</span>（重繪時必填）</label>
+                    <input type="text" class="form-control form-control-sm mb-2" id="pa-print-type" maxlength="32" placeholder="例：碎花、幾何圖案、插畫印花">
+                    <p class="form-text text-muted small mb-2">提示詞預覽：<strong id="pa-prompt-preview" class="fw-normal">（填印花類型後顯示）</strong></p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <button type="button" class="btn btn-primary" id="pa-redraw-btn" disabled><i class="bi bi-stars me-1"></i>AI 重繪</button>
+                        <span class="text-muted small" id="pa-points-label"></span>
+                    </div>
+                    <div id="pa-status" class="small mt-2 text-muted"></div>
                 </div>
             </div>
         </div>
@@ -127,7 +132,7 @@
     <script src="/js/site-footer.js"></script>
     <script>
     (function () {
-        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-save-hint-20260805';
+        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-no-dup-preview-20260805';
         var token = null;
         var pointsFlux = 5;
         var originalFile = null;
@@ -137,9 +142,10 @@
         var lastPrintType = '';
 
         var dropEl = document.getElementById('pa-drop');
+        var dropEmpty = document.getElementById('pa-drop-empty');
+        var dropSelected = document.getElementById('pa-drop-selected');
+        var fileNameEl = document.getElementById('pa-file-name');
         var fileInput = document.getElementById('pa-file');
-        var originalWrap = document.getElementById('pa-original-wrap');
-        var originalImg = document.getElementById('pa-original-img');
         var printTypeEl = document.getElementById('pa-print-type');
         var promptPreview = document.getElementById('pa-prompt-preview');
         var redrawBtn = document.getElementById('pa-redraw-btn');
@@ -153,6 +159,7 @@
         var saveRedrawCb = document.getElementById('pa-save-redraw');
         var saveBtn = document.getElementById('pa-save-btn');
         var saveStatus = document.getElementById('pa-save-status');
+        var tableHint = document.getElementById('pa-table-hint');
 
         function authHeaders() {
             return { Authorization: 'Bearer ' + token };
@@ -190,8 +197,11 @@
             redrawBase64 = null;
             if (originalObjectUrl) URL.revokeObjectURL(originalObjectUrl);
             originalObjectUrl = URL.createObjectURL(file);
-            originalImg.src = originalObjectUrl;
-            originalWrap.classList.remove('d-none');
+            // 圖只顯示在存庫區一次，上傳區只留檔名
+            fileNameEl.textContent = file.name || '已選圖片';
+            dropEmpty.classList.add('d-none');
+            dropSelected.classList.remove('d-none');
+            dropEl.classList.add('has-file');
             cellOriginal.src = originalObjectUrl;
             cellRedrawBlock.classList.add('d-none');
             cellRedraw.removeAttribute('src');
@@ -221,11 +231,10 @@
             dropEl.addEventListener(ev, function (e) {
                 e.preventDefault();
                 dropEl.classList.remove('is-drag');
+                if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    setOriginal(e.dataTransfer.files[0]);
+                }
             });
-        });
-        dropEl.addEventListener('drop', function (e) {
-            var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-            if (f) setOriginal(f);
         });
 
         printTypeEl.addEventListener('input', function () {
@@ -235,17 +244,32 @@
 
         async function loadPricing() {
             try {
+                var tok = await getToken();
+                if (!tok) return;
                 var res = await fetch('/api/me/print-generations/pricing', { headers: authHeaders() });
                 var d = await res.json().catch(function () { return {}; });
                 if (res.ok && d.points_print_asset_flux != null) pointsFlux = d.points_print_asset_flux;
-            } catch (e) {}
+            } catch (_) {}
             pointsLabel.textContent = '重繪 ' + pointsFlux + ' 點／次（不重繪不扣點）';
+        }
+
+        async function checkTable() {
+            try {
+                var tok = await getToken();
+                if (!tok) return;
+                var res = await fetch('/api/me/print-generations?limit=1&offset=0', { headers: authHeaders(), cache: 'no-store' });
+                var d = await res.json().catch(function () { return {}; });
+                if (d.table_missing || (res.status === 503 && d.table_missing !== false && /尚未建立|table/i.test(d.error || ''))) {
+                    tableHint.classList.remove('d-none');
+                }
+            } catch (_) {}
         }
 
         redrawBtn.addEventListener('click', async function () {
             if (!originalFile) return;
             var printType = (printTypeEl.value || '').trim();
             if (!printType) return;
+            lastPrintType = printType;
             var tok = await getToken();
             if (!tok) {
                 statusEl.textContent = '登入已過期，請重新登入';
@@ -257,7 +281,7 @@
             statusEl.className = 'small mt-2 text-muted';
             try {
                 var fd = new FormData();
-                fd.append('image', originalFile, originalFile.name || 'print.jpg');
+                fd.append('image', originalFile, originalFile.name || 'print-original.jpg');
                 fd.append('print_type', printType);
                 var res = await fetch('/api/me/print-generations/redraw', {
                     method: 'POST',
@@ -270,15 +294,12 @@
                     statusEl.className = 'small mt-2 text-danger';
                     return;
                 }
-                lastPrintType = printType;
                 redrawPreviewUrl = d.preview_url || null;
                 redrawBase64 = d.preview_base64 || null;
-                var src = redrawPreviewUrl || (redrawBase64 ? ('data:image/jpeg;base64,' + redrawBase64) : '');
-                if (src) {
-                    cellRedraw.src = src;
+                if (redrawPreviewUrl || redrawBase64) {
+                    cellRedraw.src = redrawPreviewUrl || ('data:image/jpeg;base64,' + redrawBase64);
                     cellRedrawBlock.classList.remove('d-none');
                     saveRedrawCb.checked = true;
-                    // 與材料待傳一致：勾選新圖時預設不併傳原圖
                     saveOriginalCb.checked = false;
                     saveCard.classList.remove('d-none');
                 }
@@ -294,14 +315,8 @@
             }
         });
 
-        // 互斥：勾選「上傳此張」時預設不併傳原圖（對齊材料待傳）
         saveRedrawCb.addEventListener('change', function () {
             if (saveRedrawCb.checked) saveOriginalCb.checked = false;
-        });
-        saveOriginalCb.addEventListener('change', function () {
-            if (saveOriginalCb.checked && saveRedrawCb.checked) {
-                // 允許同時勾選，但不強制
-            }
         });
 
         async function saveOne(kind, imageUrlOrFile) {
@@ -310,7 +325,7 @@
             var fd = new FormData();
             fd.append('source_kind', kind);
             fd.append('print_type', lastPrintType || (printTypeEl.value || '').trim());
-            fd.append('title', (lastPrintType || (printTypeEl.value || '').trim() || '印花') + (kind === 'redraw' ? '' : ''));
+            fd.append('title', (lastPrintType || (printTypeEl.value || '').trim() || '印花'));
             if (typeof imageUrlOrFile === 'string') {
                 fd.append('image_url', imageUrlOrFile);
             } else {
@@ -322,7 +337,13 @@
                 body: fd
             });
             var d = await res.json().catch(function () { return {}; });
-            if (!res.ok) throw new Error(d.error || '儲存失敗');
+            if (!res.ok) {
+                if (d.table_missing || res.status === 503) {
+                    tableHint.classList.remove('d-none');
+                    throw new Error('印花資料表尚未建立：請在 Supabase 執行 docs/add-user-print-generations.sql');
+                }
+                throw new Error(d.error || '儲存失敗');
+            }
             return d;
         }
 
@@ -369,6 +390,7 @@
             }
             document.getElementById('main-content').classList.remove('d-none');
             await loadPricing();
+            await checkTable();
             updatePromptPreview();
         }).catch(function () {
             document.getElementById('auth-alert').classList.remove('d-none');
