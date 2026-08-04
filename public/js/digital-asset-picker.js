@@ -213,10 +213,15 @@
           }
           return;
         }
-        var items = normalizeItems(tab, res.data || {});
+        var payload = res.data || {};
+        var items = normalizeItems(tab, payload);
         if (!items.length) {
           if (opts.emptyEl) {
-            opts.emptyEl.textContent = emptyMessage(tab);
+            if (tab === 'material_combo' && payload.table_missing) {
+              opts.emptyEl.textContent = '材料組合資料表尚未建立。請在 Supabase 執行 docs/add-user-material-combo-generations.sql 後再生成；建表前的生成不會出現在此。';
+            } else {
+              opts.emptyEl.textContent = emptyMessage(tab);
+            }
             opts.emptyEl.classList.remove('d-none');
           }
           return;

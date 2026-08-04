@@ -23449,7 +23449,7 @@ app.get('/api/me/material-dual-color-pricing', async (req, res) => {
 });
 
 async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title, creditTransactionId) {
-    if (!userId || !imageUrl || !combo) return;
+    if (!userId || !imageUrl || !combo) return { ok: false, reason: 'invalid' };
     try {
         const { error } = await supabase.from('user_material_combo_generations').insert({
             user_id: userId,
@@ -23458,11 +23458,17 @@ async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title,
             material_combo_json: combo,
             credit_transaction_id: creditTransactionId || null
         });
-        if (error && error.code !== '42P01') {
+        if (error) {
+            if (isSupabaseMissingTableError(error) || error.code === '42P01') {
+                return { ok: false, reason: 'table_missing' };
+            }
             console.warn('insertUserMaterialComboGeneration:', error.message);
+            return { ok: false, reason: error.message || 'insert_failed' };
         }
+        return { ok: true };
     } catch (e) {
         console.warn('insertUserMaterialComboGeneration:', e.message || e);
+        return { ok: false, reason: (e && e.message) || 'insert_failed' };
     }
 }
 
@@ -23485,8 +23491,16 @@ app.get('/api/me/material-combo-generations', async (req, res) => {
             .order('created_at', { ascending: false })
             .range(offsetN, rangeEnd);
         if (error) {
-            if (error.code === '42P01') {
-                return res.json({ success: true, items: [], count: 0, offset: offsetN, hasMore: false, table_missing: true });
+            if (isSupabaseMissingTableError(error) || error.code === '42P01') {
+                return res.json({
+                    success: true,
+                    items: [],
+                    count: 0,
+                    offset: offsetN,
+                    hasMore: false,
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-material-combo-generations.sql'
+                });
             }
             console.error('GET /api/me/material-combo-generations:', error);
             return res.status(500).json({ error: error.message || '載入失敗' });
@@ -23604,9 +23618,15 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             accent: { hex: body.accent_hex || body.accentHex, material: accentMaterial },
             boundary: boundary
         });
+        let librarySaved = false;
+        let librarySaveError = null;
         if (comboForLibrary && publicUrl) {
             const comboTitle = (mainMaterial && accentMaterial) ? `${mainMaterial}／${accentMaterial}` : '材料組合';
-            await insertUserMaterialComboGeneration(ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId);
+            const saved = await insertUserMaterialComboGeneration(ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId);
+            librarySaved = !!(saved && saved.ok);
+            if (!librarySaved) librarySaveError = (saved && saved.reason) || 'insert_failed';
+        } else if (publicUrl && !comboForLibrary) {
+            librarySaveError = 'combo_invalid';
         }
         res.json({
             preview_url: publicUrl,
@@ -23614,7 +23634,9 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId,
-            ai_prompt: aiPromptUsed
+            ai_prompt: aiPromptUsed,
+            library_saved: librarySaved,
+            library_save_error: librarySaveError
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/material-dual-color-flux:', e);

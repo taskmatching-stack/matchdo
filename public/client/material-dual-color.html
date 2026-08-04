@@ -143,7 +143,7 @@
     <script src="/js/material-dual-color-import.js?v=20260804c"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-gen-no-mfr-gate-20260804';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-library-save-status-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -356,8 +356,18 @@
                 }
                 var pts = d.points_deducted != null ? d.points_deducted : 0;
                 var bal = d.balance_after != null ? '，剩餘 ' + d.balance_after + ' 點' : '';
-                statusEl.textContent = '生成完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '');
-                statusEl.className = 'small mt-2 text-success';
+                var baseMsg = '生成完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '');
+                if (d.library_saved === false) {
+                    if (d.library_save_error === 'table_missing') {
+                        statusEl.textContent = baseMsg + '。尚未寫入數位資產庫：請先在 Supabase 執行 add-user-material-combo-generations.sql，再建表後重新生成。';
+                    } else {
+                        statusEl.textContent = baseMsg + '。尚未寫入數位資產庫（' + (d.library_save_error || '未知原因') + '）。';
+                    }
+                    statusEl.className = 'small mt-2 text-warning';
+                } else {
+                    statusEl.textContent = baseMsg + (d.library_saved ? '，已加入數位資產庫「材料組合」' : '');
+                    statusEl.className = 'small mt-2 text-success';
+                }
                 if (addPendingBtn) {
                     var canPending = returnTarget === 'design'
                         || returnTarget === 'supplier'

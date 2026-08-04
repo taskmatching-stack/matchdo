@@ -536,7 +536,13 @@
                 if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
                 if (loading) loading.style.display = 'none';
                 if (!items.length) {
-                    if (empty) empty.style.display = 'block';
+                    if (empty) {
+                        empty.style.display = 'block';
+                        const p = empty.querySelector('p');
+                        if (p && data.table_missing) {
+                            p.textContent = '資料表尚未建立：請在 Supabase 執行 docs/add-user-material-combo-generations.sql；建表前的生成不會出現在此，請建表後重新生成。';
+                        }
+                    }
                     return;
                 }
                 if (list) {
@@ -1150,7 +1156,7 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'material-combo-tab-library-20260804';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'material-combo-table-missing-hint-20260805';
     </script>
     <div id="site-footer"></div>
     <script src="/js/site-footer.js"></script>
