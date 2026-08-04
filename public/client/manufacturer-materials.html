@@ -306,6 +306,7 @@
                     <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
+                    <a href="/client/material-dual-color.html" class="btn btn-sm btn-outline-primary d-none" id="btn-material-combination" title="Material Combination"><i class="bi bi-layout-split me-1"></i>材料組合</a>
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary product-link-tree-entry"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary vendor-only-not-official"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
                     <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i>返回後台</a>
@@ -665,11 +666,6 @@
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
                 <div class="alert alert-success border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuideMaterial"><strong>材料/顏色</strong>給<strong>主產品</strong>用（整件衣服的布料、皮革色卡、織紋滿版圖）。<strong>不要</strong>把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。</div>
-                <div class="alert alert-light border small py-2 mb-3" role="note">
-                    <i class="bi bi-layout-split me-1"></i>
-                    需要<strong>主色＋配色</strong>雙色材質色卡？請用
-                    <a href="/client/material-dual-color.html" class="alert-link">雙色卡材質生成</a>（Step1 免費拼色卡，Step2 FLUX 依色卡取色；成功後扣點）。
-                </div>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel d-none">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i><span data-i18n="baseModels.addMaterialTitle">新增材料/顏色</span></span>
@@ -1122,7 +1118,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-dual-color-pending-20260804';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-combination-entry-20260804';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -4757,7 +4753,7 @@
         async function applyDualColorPendingImport() {
             if (!window.MatchdoDualColorImport) return false;
             var meta = MatchdoDualColorImport.peekImportMeta();
-            if (!meta) return false;
+            if (!meta || meta.returnTarget === 'supplier') return false;
             var blobs = await MatchdoDualColorImport.loadImportBlobs();
             if (!blobs.flux) {
                 await MatchdoDualColorImport.clearImport();
@@ -4776,7 +4772,7 @@
                 id: itemId,
                 file: blobs.swatch || null,
                 optimize: true,
-                label: meta.label || meta.mainMaterial || '雙色卡',
+                label: meta.label || meta.mainMaterial || '材料組合',
                 link_group: '',
                 designer_selectable: true,
                 uploadOriginal: false,
@@ -4806,7 +4802,7 @@
             schedulePendingDraftSave(form);
             startTokenRefreshTimer();
             await MatchdoDualColorImport.clearImport();
-            showToast('已加入材料待傳清單（上方色卡／下方 FLUX 材質；預設只上傳新圖）', 'success');
+            showToast('已加入材料待傳清單（材料組合：上方色卡／下方 FLUX 材質；預設只上傳新圖）', 'success');
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return true;
         }
@@ -7949,6 +7945,20 @@
             return 'add-form-panel-prototype';
         }
 
+        function materialCombinationHref() {
+            var base = '/client/material-dual-color.html';
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) return base + '?official_platform=1';
+            return base;
+        }
+
+        function syncMaterialCombinationEntry() {
+            var btn = document.getElementById('btn-material-combination');
+            if (!btn) return;
+            var show = activeKind === 'material';
+            btn.classList.toggle('d-none', !show);
+            if (show) btn.href = materialCombinationHref();
+        }
+
         function openAddFormPanel(kind) {
             var k = normalizeKind(kind || activeKind);
             if (k === 'promo') return;
@@ -8059,6 +8069,7 @@
                 } else if (typeof renderPromoAssetList === 'function') {
                     renderPromoAssetList();
                 }
+                syncMaterialCombinationEntry();
                 return;
             }
             syncCatalogGroupsFlatFromActiveKind();
@@ -8073,6 +8084,7 @@
             var activeForm = document.querySelector('.add-form[data-kind="' + activeKind + '"]');
             if (activeForm) restorePendingDraft(activeForm);
             updateAddOpenButtonLabel();
+            syncMaterialCombinationEntry();
         }
 
         document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {

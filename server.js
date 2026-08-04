@@ -23433,7 +23433,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.single('image'
                 ownerId,
                 pointsRequired,
                 'material_dual_color_flux',
-                `材料雙色卡 FLUX 材質生成（${pointsRequired} 點）`,
+                `材料組合 FLUX 材質生成（${pointsRequired} 點）`,
                 { manufacturer_id: manufacturerId, preview: true }
             );
             if (!consumed.ok) {
@@ -27540,6 +27540,7 @@ app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, re
             points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
+            points_dual_color_flux: await getPointsMaterialDualColorFlux(),
             optimize_includes_tags: true
         });
     } catch (e) {

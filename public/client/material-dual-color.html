@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>雙色卡材質生成 - MatchDO 合做</title>
+    <title>材料組合 Material Combination - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="noindex, nofollow">
     <link href="../img/favicon.ico" rel="icon">
@@ -12,34 +12,43 @@
     <link href="/css/morandi-global.css?v=4" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
+    <script>
+    (function () {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('official_platform') === '1' || p.get('official_platform') === 'true') {
+            window.__MATCHDO_OFFICIAL_PLATFORM_LIB = true;
+            var origFetch = window.fetch;
+            window.fetch = function (input, init) {
+                init = init || {};
+                var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+                if (/\/api\/me\//.test(url) || /\/api\/admin\//.test(url)) {
+                    var headers = new Headers(init.headers || (typeof input !== 'string' && input && input.headers ? input.headers : undefined));
+                    if (!headers.has('X-Official-Platform-Library')) headers.set('X-Official-Platform-Library', '1');
+                    if (typeof input === 'string') {
+                        init = Object.assign({}, init, { headers: headers });
+                    } else {
+                        input = new Request(input, Object.assign({}, init, { headers: headers }));
+                        init = undefined;
+                    }
+                }
+                return origFetch.call(this, input, init);
+            };
+        }
+        window.__MATCHDO_MATERIAL_COMBO_RETURN = p.get('return') === 'supplier' ? 'supplier' : 'manufacturer';
+    })();
+    </script>
     <script src="/js/auth-middleware.js"></script>
     <style>
-        .mdc-preview-wrap {
-            max-width: 420px;
-            margin: 0 auto;
-        }
-        .mdc-preview-wrap canvas,
-        .mdc-preview-wrap img {
-            width: 100%;
-            aspect-ratio: 1;
-            display: block;
-            border-radius: 12px;
-            border: 1px solid rgba(88, 100, 112, 0.18);
-            background: #EAEEF3;
+        .mdc-preview-wrap { max-width: 420px; margin: 0 auto; }
+        .mdc-preview-wrap canvas, .mdc-preview-wrap img {
+            width: 100%; aspect-ratio: 1; display: block; border-radius: 12px;
+            border: 1px solid rgba(88, 100, 112, 0.18); background: #EAEEF3;
         }
         .mdc-step-card { border-radius: 12px; border: 1px solid rgba(88, 100, 112, 0.14); }
-        .mdc-color-row input[type="color"] {
-            width: 3rem;
-            height: 2.25rem;
-            padding: 0.15rem;
-            cursor: pointer;
-        }
+        .mdc-color-row input[type="color"] { width: 3rem; height: 2.25rem; padding: 0.15rem; cursor: pointer; }
         .mdc-prompt-preview {
-            font-size: 0.8rem;
-            background: #F5F7FA;
-            border-radius: 8px;
-            padding: 0.65rem 0.75rem;
-            word-break: break-word;
+            font-size: 0.8rem; background: #F5F7FA; border-radius: 8px;
+            padding: 0.65rem 0.75rem; word-break: break-word;
         }
     </style>
 </head>
@@ -50,10 +59,10 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">雙色卡材質生成</h4>
+                    <h4 class="mb-0 fw-bold">材料組合 <span class="text-muted fw-normal fs-6">Material Combination</span></h4>
                     <small class="text-muted">Step1 拼雙色色卡（免費）→ Step2 FLUX 材質化（依色卡取色，成功後扣點）</small>
                 </div>
-                <a href="/client/manufacturer-materials.html#tab-material" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回材料/顏色</a>
+                <a href="#" class="btn btn-sm btn-outline-secondary" id="mdc-back-link"><i class="bi bi-arrow-left me-1"></i>返回材料/顏色</a>
             </div>
         </div>
     </div>
@@ -61,6 +70,14 @@
     <div class="container py-4" style="max-width: 920px;">
         <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台</a></div>
+        <div id="admin-official-hint" class="alert alert-info d-none">
+            <i class="bi bi-info-circle me-2"></i>管理員編輯<strong>官方版型</strong>請從
+            <a href="/client/manufacturer-materials.html?official_platform=1&manage=1" class="alert-link">官方版型庫</a>
+            進入「材料/顏色」→「材料組合」（需帶 <code>official_platform=1</code>，勿用個人廠商入口）。
+        </div>
+        <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
+            <i class="bi bi-collection me-2"></i><strong>官方版型庫（管理員）</strong> — 材料組合結果寫入 MATCHDO 官方版型材料庫。
+        </div>
         <div id="upload-block-alert" class="alert alert-warning d-none"></div>
 
         <div id="main-content" class="d-none">
@@ -119,7 +136,7 @@
                         <p class="small fw-semibold mb-1">生成結果</p>
                         <img id="mdc-result-img" alt="FLUX 材質化結果" />
                         <div class="d-flex flex-wrap gap-2 mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-secondary d-none" id="mdc-download-btn" download="material-dual-color.jpg"><i class="bi bi-download me-1"></i>下載 JPG</a>
+                            <a href="#" class="btn btn-sm btn-outline-secondary d-none" id="mdc-download-btn" download="material-combination.jpg"><i class="bi bi-download me-1"></i>下載 JPG</a>
                             <button type="button" class="btn btn-sm btn-success d-none" id="mdc-add-pending-btn"><i class="bi bi-inbox me-1"></i>加入材料待傳清單</button>
                         </div>
                     </div>
@@ -130,16 +147,17 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260804b"></script>
-    <script src="/js/material-dual-color-import.js?v=20260804b"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260804c"></script>
+    <script src="/js/material-dual-color-import.js?v=20260804c"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-dual-color-20260804b';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combination-official-fix-20260804';
         var Compose = window.MatchdoMaterialDualColorCompose;
+        var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
         var pointsFlux = 5;
         var swatchBlob = null;
-        var resultObjectUrl = null;
+        var lastFluxResponse = null;
 
         var mainColor = document.getElementById('mdc-main-color');
         var mainHex = document.getElementById('mdc-main-hex');
@@ -157,7 +175,16 @@
         var resultImg = document.getElementById('mdc-result-img');
         var downloadBtn = document.getElementById('mdc-download-btn');
         var addPendingBtn = document.getElementById('mdc-add-pending-btn');
-        var lastFluxResponse = null;
+        var backLink = document.getElementById('mdc-back-link');
+
+        function materialsReturnHref() {
+            if (returnTarget === 'supplier') return '/client/supplier-catalog-manage.html#tab-material';
+            var base = '/client/manufacturer-materials.html#tab-material';
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) return base.replace('.html#', '.html?official_platform=1#');
+            return base;
+        }
+
+        if (backLink) backLink.href = materialsReturnHref();
 
         function authHeaders() {
             var h = { Accept: 'application/json' };
@@ -171,11 +198,7 @@
 
         function syncPickerFromHex(picker, hexInput) {
             var n = Compose.normalizeHex(hexInput.value);
-            if (n) {
-                hexInput.value = n;
-                picker.value = n;
-                return true;
-            }
+            if (n) { hexInput.value = n; picker.value = n; return true; }
             return false;
         }
 
@@ -194,8 +217,7 @@
         }
 
         function updateGenerateEnabled() {
-            var ok = !!(mainMaterial.value || '').trim() && !!(accentMaterial.value || '').trim() && !!swatchBlob;
-            generateBtn.disabled = !ok;
+            generateBtn.disabled = !(mainMaterial.value || '').trim() || !(accentMaterial.value || '').trim() || !swatchBlob;
         }
 
         async function refreshSwatch() {
@@ -214,21 +236,17 @@
         }
 
         function bindColorSync(picker, hexInput) {
-            picker.addEventListener('input', function () {
-                syncHexFromPicker(picker, hexInput);
-                refreshSwatch();
-            });
-            hexInput.addEventListener('change', function () {
-                if (syncPickerFromHex(picker, hexInput)) refreshSwatch();
-            });
-            hexInput.addEventListener('blur', function () {
-                if (syncPickerFromHex(picker, hexInput)) refreshSwatch();
-            });
+            picker.addEventListener('input', function () { syncHexFromPicker(picker, hexInput); refreshSwatch(); });
+            hexInput.addEventListener('change', function () { if (syncPickerFromHex(picker, hexInput)) refreshSwatch(); });
+            hexInput.addEventListener('blur', function () { if (syncPickerFromHex(picker, hexInput)) refreshSwatch(); });
         }
 
         async function loadPricing() {
             try {
-                var res = await fetch('/api/me/vendor-assets/upload-pricing', { headers: authHeaders() });
+                var url = returnTarget === 'supplier'
+                    ? '/api/me/industry-supplier/catalog-items/upload-pricing'
+                    : '/api/me/vendor-assets/upload-pricing';
+                var res = await fetch(url, { headers: authHeaders() });
                 var d = await res.json();
                 if (res.ok && d.points_dual_color_flux != null) pointsFlux = d.points_dual_color_flux;
             } catch (e) {}
@@ -246,28 +264,61 @@
                 if (tok) { token = tok; return tok; }
                 token = null;
                 return null;
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
         async function initAuth() {
             var user = await AuthService.getCurrentUser();
-            if (!user) {
-                document.getElementById('auth-alert').classList.remove('d-none');
-                return;
+            if (!user) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            if (!(await getToken())) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+
+            var isOfficial = !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB;
+
+            if (isOfficial) {
+                var adminGate = await fetch('/api/admin/can-access', { headers: authHeaders(), cache: 'no-store' });
+                if (!adminGate.ok) {
+                    document.getElementById('auth-alert').classList.remove('d-none');
+                    document.getElementById('auth-alert').innerHTML = '請以<strong>管理員</strong>帳號登入後再使用官方版型材料組合。請先 <a href="/index.html" class="alert-link">登入</a>。';
+                    return;
+                }
+                var offBanner = document.getElementById('official-platform-banner');
+                if (offBanner) offBanner.classList.remove('d-none');
+                var titleH4 = document.querySelector('.page-title-bar h4');
+                if (titleH4) titleH4.innerHTML = '材料組合 <span class="text-muted fw-normal fs-6">Material Combination</span> <span class="badge bg-secondary ms-1">官方版型庫</span>';
             }
-            if (!(await getToken())) {
-                document.getElementById('auth-alert').classList.remove('d-none');
-                return;
+
+            if (returnTarget === 'supplier') {
+                var supCap = await fetch('/api/me/capabilities', { headers: authHeaders() });
+                var supCapData = await supCap.json().catch(function () { return {}; });
+                if (!supCap.ok || !supCapData.industry_supplier_id) {
+                    document.getElementById('no-mfr-alert').classList.remove('d-none');
+                    document.getElementById('no-mfr-alert').innerHTML = '您尚未綁定產業供應商。<a href="/client/industry-supplier-dashboard.html" class="alert-link">前往供應商控制台</a>';
+                    return;
+                }
+            } else {
+                var mfrRes = await fetch('/api/me/manufacturer', { headers: authHeaders() });
+                if (!isOfficial && mfrRes.status === 404) {
+                    try {
+                        var adminAccess = await fetch('/api/admin/can-access', { headers: authHeaders(), cache: 'no-store' });
+                        if (adminAccess.ok) {
+                            document.getElementById('admin-official-hint').classList.remove('d-none');
+                            return;
+                        }
+                    } catch (_) {}
+                    document.getElementById('no-mfr-alert').classList.remove('d-none');
+                    return;
+                }
+                if (!mfrRes.ok) {
+                    var mfrErr = await mfrRes.json().catch(function () { return {}; });
+                    document.getElementById('auth-alert').classList.remove('d-none');
+                    document.getElementById('auth-alert').textContent = mfrErr.error || '無法載入廠商資料';
+                    return;
+                }
             }
+
             var capRes = await fetch('/api/me/capabilities', { headers: authHeaders() });
             var cap = await capRes.json().catch(function () { return {}; });
-            if (!capRes.ok || !cap.manufacturer_id) {
-                document.getElementById('no-mfr-alert').classList.remove('d-none');
-                return;
-            }
-            if (cap.can_upload_products_and_assets === false) {
+            if (cap.can_upload_products_and_assets === false && !isOfficial) {
                 var el = document.getElementById('upload-block-alert');
                 el.textContent = '免費帳號無法使用 FLUX 材質生成；請先訂閱付費方案。';
                 el.classList.remove('d-none');
@@ -296,7 +347,7 @@
             statusEl.className = 'small mt-2 text-muted';
             try {
                 var fd = new FormData();
-                fd.append('image', swatchBlob, 'dual-color-swatch.jpg');
+                fd.append('image', swatchBlob, 'material-combination-swatch.jpg');
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
                 if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
@@ -314,18 +365,13 @@
                     return;
                 }
                 lastFluxResponse = d;
-                if (resultObjectUrl) URL.revokeObjectURL(resultObjectUrl);
-                var src = d.preview_url;
-                if (d.preview_base64) {
-                    src = 'data:image/jpeg;base64,' + d.preview_base64;
-                }
-                resultImg.src = src;
+                resultImg.src = d.preview_url || ('data:image/jpeg;base64,' + d.preview_base64);
                 resultWrap.classList.remove('d-none');
                 if (d.preview_url) {
                     downloadBtn.href = d.preview_url;
                     downloadBtn.classList.remove('d-none');
-                } else if (src.indexOf('data:') === 0) {
-                    downloadBtn.href = src;
+                } else if (d.preview_base64) {
+                    downloadBtn.href = 'data:image/jpeg;base64,' + d.preview_base64;
                     downloadBtn.classList.remove('d-none');
                 }
                 var pts = d.points_deducted != null ? d.points_deducted : 0;
@@ -342,10 +388,7 @@
         });
 
         [mainMaterial, accentMaterial, boundary].forEach(function (el) {
-            el.addEventListener('input', function () {
-                buildClientPromptPreview();
-                updateGenerateEnabled();
-            });
+            el.addEventListener('input', function () { buildClientPromptPreview(); updateGenerateEnabled(); });
         });
 
         bindColorSync(mainColor, mainHex);
@@ -360,20 +403,21 @@
                 try {
                     var main = (mainMaterial.value || '').trim();
                     var accent = (accentMaterial.value || '').trim();
-                    var fluxFile = await MatchdoDualColorImport.fluxFileFromApiResponse(lastFluxResponse, 'dual-color-flux.jpg');
-                    var swatchFile = swatchBlob ? new File([swatchBlob], 'dual-color-swatch.jpg', { type: 'image/jpeg' }) : null;
+                    var fluxFile = await MatchdoDualColorImport.fluxFileFromApiResponse(lastFluxResponse, 'material-combination-flux.jpg');
+                    var swatchFile = swatchBlob ? new File([swatchBlob], 'material-combination-swatch.jpg', { type: 'image/jpeg' }) : null;
                     await MatchdoDualColorImport.saveImport({
+                        returnTarget: returnTarget,
                         mainMaterial: main,
                         accentMaterial: accent,
                         boundary: (boundary.value || '').trim(),
                         mainHex: mainHex.value,
                         accentHex: accentHex.value,
-                        label: (main && accent) ? (main + '／' + accent) : '雙色卡',
+                        label: (main && accent) ? (main + '／' + accent) : '材料組合',
                         redrawChargedPts: lastFluxResponse.points_deducted || 0,
                         previewCreditTxId: lastFluxResponse.credit_transaction_id || null,
                         redrawPreviewStorageUrl: lastFluxResponse.preview_url || ''
                     }, swatchFile, fluxFile);
-                    window.location.href = '/client/manufacturer-materials.html#tab-material';
+                    window.location.href = materialsReturnHref();
                 } catch (e) {
                     statusEl.textContent = e.message || '加入待傳失敗';
                     statusEl.className = 'small mt-2 text-danger';
