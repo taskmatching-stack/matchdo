@@ -47,16 +47,20 @@ API：`generateContent` + `inlineData` + `responseModalities: ['Image']`（只�
 
 ---
 
-## 4. 軟上限 env（Tier1 建議）
+## 4. 軟上限 env（僅材料組合生圖）
 
-| env | 預設 |
-|-----|------|
-| `GEMINI_IMAGE_MIN_INTERVAL_MS` | `8000` |
-| `GEMINI_IMAGE_MAX_PER_MIN` | `6` |
-| `GEMINI_IMAGE_MAX_PER_10MIN` | `80` |
-| `GEMINI_IMAGE_MAX_PER_DAY` | `200` |
+**範圍：** 只計／只擋 `optimizeMaterialDualColorWithGemini`。  
+**不影響：** 標籤、翻譯、語意、材料單色 AI optimize、其他 `runInGeminiQueue` 呼叫。  
+生圖另走 `runInDualColorGeminiImageQueue`，與一般 Gemini 佇列隔離。
 
-（記憶體計數，程序重啟歸零。僅材料組合 Gemini 生圖。）
+| env（建議） | 舊名（仍相容） | 預設 |
+|-------------|----------------|------|
+| `MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS` | `GEMINI_IMAGE_MIN_INTERVAL_MS` | `8000` |
+| `MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN` | `GEMINI_IMAGE_MAX_PER_MIN` | `6` |
+| `MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN` | `GEMINI_IMAGE_MAX_PER_10MIN` | `80` |
+| `MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY` | `GEMINI_IMAGE_MAX_PER_DAY` | `200` |
+
+（記憶體計數，程序重啟歸零。）
 
 ---
 
@@ -90,7 +94,7 @@ Pro 的「RPM~300」參考表**不要**套到 Flash／Lite。
 2. 有印花 → Flash model  
 3. 連續猛點觸發軟上限 → `engine=flux`、`fallback=true`  
 4. 等待間隔後再生成 → 自動回 Gemini  
-5. build：`material-combo-gemini-prefer-flux-fallback-20260805`
+5. build：`material-combo-gemini-image-quota-isolated-20260805`
 
 ---
 

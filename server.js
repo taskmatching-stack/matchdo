@@ -151,11 +151,18 @@ function stripInternalCustomProductInsertColumns(payload) {
     designerRegionFromIp.DESIGNER_REGION_DB_KEYS.forEach((k) => { delete p[k]; });
     return p;
 }
-// Gemini API 排隊：多人同時用時依序送出
+// Gemini API 排隊：多人同時用時依序送出（標籤／翻譯／讀圖等文字／多模態分析）
 let _geminiQueueTail = Promise.resolve();
 function runInGeminiQueue(fn) {
     const p = _geminiQueueTail.then(() => fn());
     _geminiQueueTail = p.catch(() => {});
+    return p;
+}
+/** 僅材料組合「生圖」專用佇列：與 runInGeminiQueue 隔離，避免生圖卡住標籤／翻譯 */
+let _dualColorGeminiImageQueueTail = Promise.resolve();
+function runInDualColorGeminiImageQueue(fn) {
+    const p = _dualColorGeminiImageQueueTail.then(() => fn());
+    _dualColorGeminiImageQueueTail = p.catch(() => {});
     return p;
 }
 // 將 prompt 翻譯成英文（可關閉：.env 設 ENABLE_PROMPT_TRANSLATION=false 則不翻譯，直接送原文）
@@ -3852,14 +3859,29 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     return { buffer: buf, prompt, reference_count: fluxImages.length, engine: 'flux', model: 'flux-2-pro' };
 }
 
-/** 材料組合 Gemini 生圖軟上限（記憶體；重啟歸零）。預設對齊 Tier1 保守值。 */
+/**
+ * 材料組合 Gemini「生圖」軟上限（僅 dual-color 路徑；不影響標籤／翻譯／材料單色 optimize）。
+ * 記憶體計數，重啟歸零。env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
+ */
 const DUAL_COLOR_GEMINI_USAGE_TS = [];
+function envIntPrefer(...keysAndDefault) {
+    const def = keysAndDefault[keysAndDefault.length - 1];
+    const keys = keysAndDefault.slice(0, -1);
+    for (let i = 0; i < keys.length; i++) {
+        const raw = process.env[keys[i]];
+        if (raw != null && String(raw).trim() !== '') {
+            const n = parseInt(raw, 10);
+            if (Number.isFinite(n)) return n;
+        }
+    }
+    return def;
+}
 function getDualColorGeminiImageLimits() {
     return {
-        minIntervalMs: Math.max(0, parseInt(process.env.GEMINI_IMAGE_MIN_INTERVAL_MS, 10) || 8000),
-        maxPerMin: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_MIN, 10) || 6),
-        maxPer10Min: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_10MIN, 10) || 80),
-        maxPerDay: Math.max(1, parseInt(process.env.GEMINI_IMAGE_MAX_PER_DAY, 10) || 200)
+        minIntervalMs: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS', 'GEMINI_IMAGE_MIN_INTERVAL_MS', 8000)),
+        maxPerMin: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN', 'GEMINI_IMAGE_MAX_PER_MIN', 6)),
+        maxPer10Min: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN', 'GEMINI_IMAGE_MAX_PER_10MIN', 80)),
+        maxPerDay: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY', 'GEMINI_IMAGE_MAX_PER_DAY', 200))
     };
 }
 function pruneDualColorGeminiUsage(now) {
@@ -3955,7 +3977,7 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
         parts.push({ inlineData: { mimeType: printMime, data: printB64 } });
     }
 
-    const result = await runInGeminiQueue(() => genAI.models.generateContent({
+    const result = await runInDualColorGeminiImageQueue(() => genAI.models.generateContent({
         model,
         contents: [{ role: 'user', parts }],
         config: { responseModalities: ['Image'] }
