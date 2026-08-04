@@ -10,6 +10,19 @@
   var FLUX_IDB_KEY = 'material:dual-color-import:flux';
   var dbPromise = null;
 
+  function uiLangEn() {
+    var lang = (document.documentElement && document.documentElement.lang) || '';
+    if (lang.toLowerCase().indexOf('en') === 0) return true;
+    if (global.i18n && typeof global.i18n.getLang === 'function') {
+      return global.i18n.getLang() === 'en';
+    }
+    return false;
+  }
+
+  function uiMsg(zh, en) {
+    return uiLangEn() ? en : zh;
+  }
+
   function openDb() {
     if (!global.indexedDB) return Promise.resolve(null);
     if (dbPromise) return dbPromise;
@@ -88,7 +101,7 @@
   }
 
   async function saveImport(meta, swatchFile, fluxFile) {
-    if (!fluxFile) throw new Error('缺少材質生成結果');
+    if (!fluxFile) throw new Error(uiMsg('缺少材質生成結果', 'Missing material generation result'));
     await idbPut(FLUX_IDB_KEY, fluxFile);
     if (swatchFile) await idbPut(SWATCH_IDB_KEY, swatchFile);
     else await idbDeletePrefix('material:dual-color-import:swatch');
@@ -118,11 +131,11 @@
     }
     if (data && data.preview_url) {
       var res = await fetch(data.preview_url, { mode: 'cors' });
-      if (!res.ok) throw new Error('無法讀取材質生成結果');
+      if (!res.ok) throw new Error(uiMsg('無法讀取材質生成結果', 'Could not read material generation result'));
       var blob = await res.blob();
       return new File([blob], filename || 'dual-color-flux.jpg', { type: blob.type || 'image/jpeg' });
     }
-    throw new Error('無法讀取材質生成結果');
+    throw new Error(uiMsg('無法讀取材質生成結果', 'Could not read material generation result'));
   }
 
   global.MatchdoDualColorImport = {

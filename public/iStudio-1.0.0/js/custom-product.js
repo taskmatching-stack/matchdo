@@ -155,7 +155,10 @@ $(document).ready(function () {
 
             if (result.success) {
                 generatedImageData = result.imageData;
-                var engine = result.usedFlux ? '參考圖生圖' : '文字生圖';
+                var isEn = (document.documentElement.lang || '').toLowerCase().indexOf('en') === 0;
+                var engine = result.usedFlux
+                    ? (isEn ? 'Reference image' : '參考圖生圖')
+                    : (isEn ? 'Text only' : '文字生圖');
                 $('#generatedImagePreview').html(
                     '<div class="card">' +
                     '<img src="' + result.imageData + '" class="card-img-top" alt="AI 生成產品圖">' +

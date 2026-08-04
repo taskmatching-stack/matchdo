@@ -179,24 +179,33 @@ $(document).ready(function () {
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    /** 管理員／測試員：API 回傳 debugFlux 時顯示實際送 BFL 的 prompt（須先通過 staff 身分檢查） */
+    function staffDebugLangEn() {
+        if (window.i18n && typeof window.i18n.getLang === 'function') {
+            return window.i18n.getLang() === 'en';
+        }
+        var lang = (document.documentElement && document.documentElement.lang) || '';
+        return lang.toLowerCase().indexOf('en') === 0;
+    }
+
+    /** 管理員／測試員：API 回傳 debugFlux 時顯示實際送出的 prompt（須先通過 staff 身分檢查） */
     function buildFluxStaffDebugPreviewHtml(debugFlux) {
         if (!debugFlux || typeof debugFlux !== 'object') return '';
         if (!window.__matchdoFluxStaffDebug) return '';
         var sent = (debugFlux.promptSentToBfl || '').trim();
         var composed = (debugFlux.promptComposed || '').trim();
         if (!sent && !composed) return '';
+        var en = staffDebugLangEn();
         var body = '';
         if (sent) {
-            body += '<p class="mb-1 text-muted small">送出（英譯後）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + (en ? 'Sent (translated)' : '送出（英譯後）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
         }
         if (composed && composed !== sent) {
-            body += '<p class="mb-1 text-muted small">組裝原文（英譯前）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + (en ? 'Composed (before translation)' : '組裝原文（英譯前）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
         }
         if (debugFlux.referenceMap && debugFlux.referenceMap.length) {
-            body += '<p class="mb-1 text-muted small">參考圖對照</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + (en ? 'Reference map' : '參考圖對照') + '</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
         }
-        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">管理員：生圖提示詞</summary><div class="mt-2">' + body + '</div></details>';
+        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">' + (en ? 'Admin: generation prompt' : '管理員：生圖提示詞') + '</summary><div class="mt-2">' + body + '</div></details>';
     }
 
     function showBootstrapTab(tabEl) {

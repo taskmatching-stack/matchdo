@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260803a';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-no-model-names-20260804';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -520,7 +520,10 @@
     var opts = St.get().options;
     if (!el || !opts || !Promo.formatPromoCameraPricingHint) return;
     var suffix = apiLang() === 'en' ? '.' : '。';
-    el.innerHTML = t('promoCamera.introPrefix', '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬輸出畫質。') +
+    var introFallback = apiLang() === 'en'
+      ? 'Upload or pick <strong>one</strong> product reference, then tune camera parameters for output quality.'
+      : '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬輸出畫質。';
+    el.innerHTML = t('promoCamera.introPrefix', introFallback) +
       Promo.formatPromoCameraPricingHint(opts) + suffix;
   }
 
