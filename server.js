@@ -3777,7 +3777,7 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
     let prompt = `依原圖上方色塊改為${phrase(main, hasMainPat)}，下方色塊改為${phrase(accent, hasAccentPat)}`;
     if (stitch) prompt += `，分界處改為${stitch}`;
-    prompt += '，解析度1024x1024，請維持原圖色塊比例';
+    prompt += '，解析度1024x1024，不需要文字，請維持原圖色塊比例';
     return prompt;
 }
 
