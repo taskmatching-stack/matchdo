@@ -21,9 +21,9 @@
 |------|------|
 | **`/client/*` noindex** | **blocklist**（`server.js` → `CLIENT_NOINDEX_EXACT`），**非**整包 `/client/` |
 | **可 index 工具／說明** | `ai-edit`、`ai-upscale`、`supplier-portal`、`industry-supplier-catalog`（`?supplier_id=`）、`industry-supplier-dashboard`、`vendor-prototype-insights`、`/promo-camera`、`/product-tree.html` |
-| **設計頁 tab** | ~~`?tab=` 進 sitemap~~ → **已移除**（2026-08-06）；設計頁只保留工具本體 `/custom-product.html`；目錄用 `/official-templates/` 等獨立 path |
+| **設計頁 tab** | ~~`?tab=` 進 sitemap~~ → **已移除**（2026-08-06）；選單「官方版型／廠商版型」→ `/official-templates/`、`/vendor-styles/`（Phase C 進行中；設計頁 tab 暫留工作流） |
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
-| **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
+| **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、`demands`（接案工具，見 PLAN-manufacturer-open-custom-drafts）、已廢頁（my-projects…）、`/embed/*` |
 | **版型庫分類 landing** | `sitemap-categories.xml`：官方 → `/official-templates/?category_key=`；廠商 → `/vendor-styles/?category_key=`（**不再**指向設計頁 `?tab=`） |
 | **官方版型短網址** | `/official-templates/` → **真列表 SSR**（2026-08-06）；`?official_platform=1`（無 `manage=1`）301 至 `/official-templates/`（**不再**進設計頁 tab） |
 | **embed 設計頁 iframe** | `/promo-camera?embed=design` → **`noindex, follow`**（2026-08-01）；獨立 `/promo-camera` 仍 index |

@@ -77,10 +77,11 @@
 |------|----------|-----------|
 | **A 可索引內容** | `/inspiration/{type}/{id}` | SSR + `sitemap-inspiration` |
 | **B 公開工具** | `/custom-product.html`（**僅生圖／設計稿工具**）、`/vendors.html`、`/promo-camera`、`/client/ai-edit.html` | `index, follow` + `sitemap-pages`；**禁止**再把目錄／列表做成設計頁 `?tab=` 充 SEO（見 `docs/SEO-AUDIT-PLAN-2026-08-06.md`，基準 `8281e3a`） |
-| **C′ 公開目錄（規劃）** | `/official-templates/` **真列表**（勿 301 進設計頁）；廠商版型公開列表 path 待 Phase B | 獨立 URL + sitemap；單件仍鏈 `/inspiration/` |
+| **C′ 公開目錄** | `/official-templates/`、`/vendor-styles/` **真列表 SSR**（勿再 301／塞進設計頁 tab） | 獨立 URL + sitemap；單件仍鏈 `/inspiration/` |
 | **C 半套 CSR 詳情** | `/client/custom-product-detail.html?id=` | **noindex**；canonical → A |
 | **D 個人後台** | `/client/manufacturer-dashboard.html`、`my-custom-products.html`、`messages.html` 等 | **noindex**（blocklist）；**不進 sitemap** |
-| **D′ 已廢功能** | `/client/my-projects.html`、`demands.html` 等 | **noindex**；檔案保留以免舊連結 404 |
+| **D′ 初期／備用** | `/client/my-projects.html` 等 | **noindex**；檔案保留以免舊連結 404 |
+| **D 製造商接案** | `/client/demands.html`（搜尋開放訂製稿；見 `docs/PLAN-manufacturer-open-custom-drafts.md`） | **noindex**；**不進 sitemap**；非公開 SEO 目錄 |
 | **E 廠商公開首頁** | **`/vendor-profile.html?id=`** | **`index, follow`**；動態 OG + 預填可見正文 + `sitemap-vendors` |
 
 **`/client/*` noindex 實作（2026-07-30 起）**：`server.js` 的 `CLIENT_NOINDEX_EXACT` **blocklist** + HTML meta；**禁止**再寫「整包 `/client/*` noindex」。需要點數 ≠ 隱私，工具／說明頁可 index。

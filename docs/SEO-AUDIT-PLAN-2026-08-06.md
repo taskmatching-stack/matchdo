@@ -157,7 +157,7 @@
 | 首頁首屏 SSR | ✅ | 網格內 SSR 卡片（標題／說明／Tags＋inspiration href）；lightbox UX 不變；`/?category_key=` 強化 title／canonical |
 | 首頁 lightbox 獨立落地連結 | ✅ | 卡片／分享／「查看作品頁」→ `/inspiration/*`；Ctrl 開新分頁 |
 | Phase B 廠商版型列表 | ✅ 實作 | `/vendor-styles/` SSR；sitemap 分類 landing；`/browse-styles.html` 301；設計頁 tab 未改 UI |
-| Phase C 設計頁瘦身 | ⏳ | sitemap 已清掉設計頁 `?tab=`（前置） |
+| Phase C 設計頁瘦身 | ⏳ 進行中 | sitemap 已清 `?tab=`；**選單**「官方版型／廠商版型」→ `/official-templates/`、`/vendor-styles/`（設計頁 tab 暫留工作流，未大拆 UI） |
 
 ---
 
