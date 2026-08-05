@@ -21,7 +21,7 @@
 |------|------|
 | **`/client/*` noindex** | **blocklist**（`server.js` → `CLIENT_NOINDEX_EXACT`），**非**整包 `/client/` |
 | **可 index 工具／說明** | `ai-edit`、`ai-upscale`、`supplier-portal`、`industry-supplier-catalog`（`?supplier_id=`）、`industry-supplier-dashboard`、`vendor-prototype-insights`、`/promo-camera`、`/product-tree.html` |
-| **設計頁 tab** | `/custom-product.html` 及 `?tab=scene-sim|promo-image|pattern-extract|design-to-physical|vendor-styles` → sitemap-pages（**不含** `tab=promo-camera`，另有 `/promo-camera`） |
+| **設計頁 tab** | ~~`?tab=` 進 sitemap~~ → **已移除**（2026-08-06）；設計頁只保留工具本體 `/custom-product.html`；目錄用 `/official-templates/` 等獨立 path |
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
 | **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
 | **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |

@@ -5798,13 +5798,48 @@ app.get('/index.html', (req, res) => {
     res.redirect(301, '/' + q);
 });
 app.get('/', async (req, res) => {
-    // 首頁：版面不變；於 </body> 前注入 visually-hidden inspiration 連結供爬蟲（不放在 #media-wall-section 前）
+    // 首頁：版面／lightbox 不變；SSR 首屏卡片（標題／說明／Tags＋inspiration 連結）供爬蟲；JS 載入後仍重繪網格
     try {
         let html = fs.readFileSync(indexPath, 'utf8');
+        const origin = (req.get('x-forwarded-proto') && req.get('host'))
+            ? (req.get('x-forwarded-proto') + '://' + req.get('host'))
+            : null;
+        const base = String(origin || BASE_URL || 'https://matchdo.cc').replace(/\/$/, '');
+        const categoryKey = String((req.query && req.query.category_key) || '').trim();
+        const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const homeSsr = require('./lib/home-media-wall-ssr');
+        const items = await homeSsr.fetchHomeMediaWallSsrItems({
+            supabase,
+            categoryKey,
+            subcategoryKey,
+            limit: 24,
+            log: function (label, msg) { console.warn('home-ssr', label, msg); }
+        });
+        const gridHtml = homeSsr.buildHomeMediaWallSsrGridHtml(items, base, proxyPublicImageUrl);
+        const itemListJson = homeSsr.buildHomeMediaWallItemListJsonLd(items, base);
         const crawlNav = await buildHomeInspirationCrawlNavHtml();
-        if (crawlNav && html.indexOf('</body>') >= 0) {
-            html = html.replace('</body>', crawlNav + '\n</body>');
+        let metaTitle = '';
+        let metaDescription = '';
+        let canonicalUrl = base + '/';
+        if (categoryKey || subcategoryKey) {
+            const catMeta = await homeSsr.resolveHomeCategoryMeta(supabase, categoryKey);
+            if (catMeta) {
+                metaTitle = catMeta.title;
+                metaDescription = catMeta.description;
+            }
+            const params = new URLSearchParams();
+            if (categoryKey) params.set('category_key', categoryKey);
+            if (subcategoryKey) params.set('subcategory_key', subcategoryKey);
+            canonicalUrl = base + '/?' + params.toString();
         }
+        html = homeSsr.applyHomeSsrToHtml(html, {
+            gridHtml: gridHtml,
+            itemListJson: itemListJson,
+            crawlNavHtml: crawlNav,
+            metaTitle: metaTitle || undefined,
+            metaDescription: metaDescription || undefined,
+            canonicalUrl: (categoryKey || subcategoryKey) ? canonicalUrl : undefined
+        });
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=60');
         return res.send(html);

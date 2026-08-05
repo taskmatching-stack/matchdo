@@ -31,13 +31,8 @@ function registerSitemapRoutes(app, deps) {
         { path: '/design-direction/',       priority: '0.9', changefreq: 'weekly' },
         { path: '/subscription-plans.html', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
-        { path: '/custom-product.html?tab=scene-sim',     priority: '0.8', changefreq: 'monthly' },
-        { path: '/custom-product.html?tab=promo-image',  priority: '0.8', changefreq: 'monthly' },
-        { path: '/custom-product.html?tab=design-to-physical', priority: '0.8', changefreq: 'monthly' },
-        { path: '/custom-product.html?tab=vendor-styles', priority: '0.8', changefreq: 'monthly' },
-        // 官方版型：真列表 /official-templates/（勿再用設計頁 ?browse=official 當 SEO 落地）
+        // 設計頁 ?tab= 不再進 sitemap（假多頁）；工具請用獨立 URL（/promo-camera、/official-templates/ 等）
         { path: '/official-templates/',           priority: '0.8', changefreq: 'weekly' },
-        { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
         { path: '/promo-camera-app',        priority: '0.72', changefreq: 'monthly' },
         { path: '/client/ai-edit.html',     priority: '0.75', changefreq: 'monthly' },
@@ -120,7 +115,7 @@ function registerSitemapRoutes(app, deps) {
                     if (r && r.key) {
                         const loc = base + '/?category_key=' + encodeURIComponent(r.key);
                         urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.85</priority></url>');
-                        pushVendorStylesUrl(r.key, '', false);
+                        // 官方目錄 → /official-templates/；廠商版型設計頁 tab 不再進 sitemap（待獨立列表）
                         pushVendorStylesUrl(r.key, '', true);
                     }
                 });
@@ -134,7 +129,6 @@ function registerSitemapRoutes(app, deps) {
             if (!subErr && Array.isArray(subRows)) {
                 subRows.forEach(s => {
                     if (s && s.category_key && s.key) {
-                        pushVendorStylesUrl(s.category_key, s.key, false);
                         pushVendorStylesUrl(s.category_key, s.key, true);
                     }
                 });
