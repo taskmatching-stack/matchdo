@@ -104,7 +104,7 @@ $(document).ready(function () {
         if (designShowOnHomepageCanControl) {
             $cb.prop('disabled', false);
             if (!$cb.data('userTouched')) $cb.prop('checked', true);
-            $hint.text(t('customProduct.paidUserShowHint') || '付費會員可取消勾選；未勾選的設計圖不會出現在首頁媒體牆');
+            $hint.text(t('customProduct.paidUserShowHint') || '付費會員可取消勾選；未勾選的設計稿不會出現在首頁媒體牆');
         } else {
             $cb.prop('checked', true).prop('disabled', true);
             $hint.text(t('customProduct.freeUserShowHint') || '免費用戶預設展示在首頁，無法取消');

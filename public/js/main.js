@@ -244,7 +244,7 @@
         const userDesc = $('#userDescription').val().trim();
         
         if (!files.length && !userDesc) {
-            $('#aiResult').html('<div class="alert alert-warning">請至少上傳一張設計圖或填寫需求描述。</div>');
+            $('#aiResult').html('<div class="alert alert-warning">請至少上傳一張設計稿或填寫需求描述。</div>');
             return;
         }
         
@@ -399,10 +399,10 @@
                         </a>
                     </div>`;
                 }
-                // 上傳的設計圖預覽與網址（後端回傳 uploaded_files）
+                // 上傳的設計稿預覽與網址（後端回傳 uploaded_files）
                 let uploadedFilesHtml = '';
                 if (res.uploaded_files && res.uploaded_files.length > 0) {
-                    uploadedFilesHtml = '<div class="card mb-3"><div class="card-header py-2"><small class="text-muted"><i class="fas fa-images me-1"></i>已上傳的設計圖（可複製網址）</small></div><div class="card-body py-2"><div class="row g-2">' +
+                    uploadedFilesHtml = '<div class="card mb-3"><div class="card-header py-2"><small class="text-muted"><i class="fas fa-images me-1"></i>已上傳的設計稿（可複製網址）</small></div><div class="card-body py-2"><div class="row g-2">' +
                         res.uploaded_files.map(function (f, i) {
                             var url = (f.url || f).toString();
                             var name = (f.filename || '圖片' + (i + 1)).toString();

@@ -655,7 +655,7 @@
             throw new Error(data.error || '試做暫停，請聯絡廠商');
           }
           if (code === 'invalid_product' || code === 'missing_product') {
-            throw new Error(data.error || '請先在「產品試做」生成設計圖');
+            throw new Error(data.error || '請先在「產品試做」生成設計稿');
           }
           throw new Error(embedErrorMessage(data, '合成失敗'));
         }

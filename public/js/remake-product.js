@@ -739,7 +739,7 @@ $(document).ready(function () {
         var ownerDisplay = wrap.attr('data-owner-display') || '';
         var productId = wrap.attr('data-product-id') || '';
         var showOnHomepage = wrap.attr('data-show-on-homepage') === '1';
-        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : '設計圖');
+        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : '設計稿');
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) {
             inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';

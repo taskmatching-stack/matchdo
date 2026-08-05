@@ -7,13 +7,13 @@
     <title>MATCHDO - 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品,AI設計,廠商媒合,合做,訂製,MATCHDO">
-    <meta name="description" content="MATCHDO 合做 — AI 輔助客製產品設計，上傳設計圖或文字描述，自動媒合優質廠商，一站式從設計到生產。">
+    <meta name="description" content="MATCHDO 合做 — AI 輔助客製產品設計，上傳設計稿或文字描述，自動媒合優質廠商，一站式從設計到生產。">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MATCHDO 合做">
     <meta property="og:title" content="MATCHDO 合做 - AI 客製產品設計 × 廠商媒合平台">
-    <meta property="og:description" content="AI 輔助設計 × 廠商媒合 × 客製生產，上傳設計圖或文字描述，讓您的創意快速落地。">
+    <meta property="og:description" content="AI 輔助設計 × 廠商媒合 × 客製生產，上傳設計稿或文字描述，讓您的創意快速落地。">
     <meta property="og:image" content="https://matchdo.cc/img/og-home.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -27,7 +27,7 @@
     <meta name="twitter:description" content="AI 輔助設計 × 廠商媒合 × 客製生產，讓您的創意快速落地。">
     <meta name="twitter:image" content="https://matchdo.cc/img/og-home.jpg">
 
-    <!-- Canonical：有篩選參數時指向目前網址，利於收錄設計圖/對照圖/系列圖等 landing -->
+    <!-- Canonical：有篩選參數時指向目前網址，利於收錄設計稿/對照圖/系列圖等 landing -->
     <link rel="canonical" href="https://matchdo.cc/" id="mw-canonical">
     <script>(function(){var s=typeof location!=='undefined'&&location.search||'';if(s&&/(^|&)(layout_type|category_key|subcategory_key|q)=/.test(s)){var l=document.getElementById('mw-canonical');if(l)l.href=location.origin+location.pathname.replace(/\/?$/,'/')+location.search;}})();</script>
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/">
@@ -126,7 +126,7 @@
                 #media-wall-section .d-flex.flex-wrap { margin-bottom: 0.5rem; }
                 /* 網格填滿可用寬度，左右對稱、Chrome/Edge 一致；不設 max-width 讓寬螢幕也塞滿 */
                 #media-wall-grid-wrap { width: 100%; max-width: 100%; margin-left: 0; margin-right: 0; box-sizing: border-box; }
-                /* 欄寬固定 260px（勿 1fr 拉寬），列同高 → 單格 1:1；設計圖 contain 不裁切 */
+                /* 欄寬固定 260px（勿 1fr 拉寬），列同高 → 單格 1:1；設計稿 contain 不裁切 */
                 #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, 260px); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
                 #media-wall-grid .media-wall-item { min-height: 0; }
                 #media-wall-grid .media-wall-1x2 { grid-column: span 1; grid-row: span 2; min-height: 0; }
@@ -198,7 +198,7 @@
                 .comparison-slider-wrap .slider-overlay input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; pointer-events: auto; }
                 .comparison-slider-wrap .slider-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #7A8FA3; left: 50%; margin-left: -1px; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.25); }
                 .comparison-slider-wrap .slider-handle { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; background: #fff; border: 2px solid #7A8FA3; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 12px; color: #7A8FA3; }
-                /* 對照卡說明「左＝設計圖、右＝作品圖」：左右置中、與愛心按鈕同高（top 對齊） */
+                /* 對照卡說明「左＝設計稿、右＝作品圖」：左右置中、與愛心按鈕同高（top 對齊） */
                 .comparison-slider-wrap .slider-hint { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff; font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none; }
                 #media-wall-grid .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
                 #media-wall-grid .media-wall-1x2 .card { min-height: 0; }
@@ -661,7 +661,7 @@
                     var div = document.createElement('div');
                     div.innerHTML = item.title || '';
                     var rawTitle = div.textContent;
-                    // 根本原因：有 manufacturer_id 的項目絕不能預設為 user_design，否則會當成設計圖顯示
+                    // 根本原因：有 manufacturer_id 的項目絕不能預設為 user_design，否則會當成設計稿顯示
                     var defaultType = item.manufacturer_id ? (item.image_url_before ? 'comparison' : 'series') : 'user_design';
                     var p = {
                         id: f.id,
@@ -1088,7 +1088,7 @@
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
-                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(imageSrcForShare(compAfter)) + '" alt="' + escAttr('作品圖：' + titleRaw) + '" loading="lazy"><img class="slider-fg" src="' + escAttr(imageSrcForShare(compBefore)) + '" alt="' + escAttr('設計圖：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(imageSrcForShare(compAfter)) + '" alt="' + escAttr('作品圖：' + titleRaw) + '" loading="lazy"><img class="slider-fg" src="' + escAttr(imageSrcForShare(compBefore)) + '" alt="' + escAttr('設計稿：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計稿、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
                     } else if (p.type === 'series' || p.type === 'collection') {
                         var urls = (p.series_image_urls && Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls
                             : (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : ((p.cover_image_url && p.cover_image_url.trim()) ? [p.cover_image_url.trim()] : (p.image_url ? [p.image_url] : [])));
@@ -1871,7 +1871,7 @@
                     var after = item.image_url || placeholdAfter;
                     var before = item.image_url_before || placeholdBefore;
                     bodyEl.dataset.designImageUrl = before;
-                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + imageSrcForShare(after).replace(/"/g, '&quot;') + '" alt="作品圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + imageSrcForShare(before).replace(/"/g, '&quot;') + '" alt="設計圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#7A8FA3;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #7A8FA3;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#7A8FA3">⇄</div><span class="slider-hint" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
+                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + imageSrcForShare(after).replace(/"/g, '&quot;') + '" alt="作品圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + imageSrcForShare(before).replace(/"/g, '&quot;') + '" alt="設計稿" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#7A8FA3;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #7A8FA3;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#7A8FA3">⇄</div><span class="slider-hint" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">左＝設計稿、右＝作品圖</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
                     var compWrap = bodyEl.querySelector('.comparison-slider-wrap');
                     var range = compWrap && compWrap.querySelector('input[type="range"]');
                     if (range && compWrap) {

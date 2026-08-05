@@ -782,11 +782,11 @@
                         content =
                             '<div class="comparison-slider-wrap">' +
                             '<img class="slider-bg" src="' + escHtml(afterUrl) + '" alt="' + escHtml('作品圖：' + titleRaw) + '" loading="lazy">' +
-                            '<img class="slider-fg" src="' + escHtml(beforeUrl) + '" alt="' + escHtml('設計圖：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy">' +
+                            '<img class="slider-fg" src="' + escHtml(beforeUrl) + '" alt="' + escHtml('設計稿：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy">' +
                             '<div class="slider-overlay">' +
                             '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
                             '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
-                            '<span class="slider-hint">左＝設計圖、右＝作品圖</span>' +
+                            '<span class="slider-hint">左＝設計稿、右＝作品圖</span>' +
                             '<input type="range" min="0" max="100" value="50">' +
                             '</div></div>';
                     } else if (seriesUrls.length >= 4) {
@@ -930,11 +930,11 @@
                 bodyEl.innerHTML =
                     '<div class="comparison-slider-wrap">' +
                     '<img class="slider-bg" src="' + escHtml(after) + '" alt="作品圖">' +
-                    '<img class="slider-fg" src="' + escHtml(before) + '" alt="設計圖" style="clip-path:inset(0 50% 0 0)">' +
+                    '<img class="slider-fg" src="' + escHtml(before) + '" alt="設計稿" style="clip-path:inset(0 50% 0 0)">' +
                     '<div class="slider-overlay">' +
                     '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
                     '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
-                    '<span class="slider-hint">左＝設計圖、右＝作品圖</span>' +
+                    '<span class="slider-hint">左＝設計稿、右＝作品圖</span>' +
                     '<input type="range" min="0" max="100" value="50">' +
                     '</div></div>';
                 wirePortfolioLightboxSlider(bodyEl.querySelector('.comparison-slider-wrap'));
