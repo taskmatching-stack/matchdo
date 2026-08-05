@@ -24,10 +24,19 @@
             padding: 0.12rem 0.35rem;
             font-weight: 500;
         }
+        .product-image-wrap {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #EAEEF3;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         .product-image {
             width: 100%;
-            height: 108px;
-            object-fit: cover;
+            height: 100%;
+            object-fit: contain;
             border-radius: 0;
             background: #EAEEF3;
         }
@@ -179,27 +188,27 @@
             font-size: 0.8rem;
             min-width: 9rem;
         }
-        /* 情境圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計稿 .product-image */
+        /* 情境圖：唯一允許裁切（cover）；其餘資產一律 1:1 contain */
         .promo-asset-thumb-wrap {
             width: 100%;
-            height: 200px;
+            aspect-ratio: 4 / 3;
+            height: auto;
             background: #EAEEF3;
             border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
             overflow: hidden;
         }
         .promo-asset-thumb-wrap img {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
-            object-fit: contain;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
+        /* 材料組合／印花：1:1 不裁切 */
         .combo-asset-thumb-wrap {
             width: 100%;
-            height: 200px;
+            aspect-ratio: 1 / 1;
+            height: auto;
             background: #EAEEF3;
             border-radius: 8px;
             display: flex;
@@ -208,11 +217,10 @@
             overflow: hidden;
         }
         .combo-asset-thumb-wrap img {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
+            display: block;
         }
         .material-combo-meta .combo-swatch {
             display: inline-block;
@@ -446,7 +454,7 @@
             <!-- ── Tab 3：情境圖 ── -->
             <div class="tab-pane fade" id="pane-promo">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">產品情境圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
+                    <p class="text-muted mb-0 small">產品情境圖生成紀錄；此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
                         <i class="bi bi-megaphone me-1"></i>生成情境圖
                     </a>
@@ -886,7 +894,7 @@
 
         function createComboCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-md-6 col-lg-4';
+            col.className = 'col-6 col-md-4 col-xl-3';
             const combo = item.material_combo || null;
             var title = (item.title || '').trim();
             if (!title && combo && combo.main && combo.accent) {
@@ -1040,7 +1048,7 @@
 
         function createPrintCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-md-6 col-lg-4';
+            col.className = 'col-6 col-md-4 col-xl-3';
             const meta = item.print_meta || null;
             var title = (item.title || '').trim();
             if (!title && meta && meta.print_type) title = String(meta.print_type);
@@ -1192,11 +1200,31 @@
             }
         }
 
+        function formatPromoAspectRatio(item) {
+            const ar = (item && item.aspect_ratio != null) ? String(item.aspect_ratio).trim() : '';
+            if (ar) return ar;
+            const w = item && item.width != null ? Number(item.width) : 0;
+            const h = item && item.height != null ? Number(item.height) : 0;
+            if (w > 0 && h > 0) return w + ':' + h;
+            return '';
+        }
+
         function createPromoCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-md-6 col-lg-4';
-            const ratio = item.aspect_ratio || (item.width && item.height ? (item.width + ':' + item.height) : '');
-            const title = ratio ? ('情境圖 ' + ratio) : '情境圖';
+            col.className = 'col-6 col-md-4 col-xl-3';
+            const ratio = formatPromoAspectRatio(item);
+            const title = '情境圖';
+            const descFull = String(item.description || '').trim();
+            const descHtml = descFull
+                ? ('<p class="design-desc-text" data-role="promo-desc">' + escapeHtml(descFull) + '</p>')
+                : '<p class="design-desc-text text-muted" data-role="promo-desc">尚無描述</p>';
+            const ratioBadge = ratio
+                ? ('<span class="badge bg-light text-dark border mb-1">比例 ' + escapeHtml(ratio) + '</span>')
+                : '<span class="badge bg-light text-muted border mb-1">比例未標</span>';
+            const sizeLine = [
+                item.width && item.height ? (item.width + '×' + item.height) : '',
+                item.megapixels ? (item.megapixels + ' MP') : ''
+            ].filter(Boolean).join(' · ');
             const showOn = item.show_on_homepage === true;
             const canControl = promoCanControlHomepage;
             const showChecked = canControl ? showOn : true;
@@ -1210,11 +1238,15 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title + (ratio ? ' ' + ratio : ''))}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
-                        <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
-                        <p class="text-muted small mb-2">${item.width && item.height ? (item.width + '×' + item.height) : ''}${item.megapixels ? ' · ' + item.megapixels + ' MP' : ''}</p>
+                        <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                            <h6 class="card-title mb-0">${escapeHtml(title)}</h6>
+                            ${ratioBadge}
+                        </div>
+                        ${sizeLine ? ('<p class="text-muted small mb-1">' + escapeHtml(sizeLine) + '</p>') : ''}
+                        <div data-role="promo-desc-wrap">${descHtml}</div>
                         <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>
@@ -1224,6 +1256,7 @@
                         </div>
                         <p class="text-muted small mb-2 promo-show-homepage-hint">${escapeHtml(showHint)}</p>
                         <div class="d-grid gap-2 mt-auto">
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-gen-desc" data-id="${escapeHtml(String(item.id || ''))}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
@@ -1237,6 +1270,12 @@
             if (showInput && !showDisabled) {
                 showInput.addEventListener('change', function () {
                     patchPromoShowOnHomepage(item.id, showInput.checked, hintEl, showInput);
+                });
+            }
+            const descBtn = col.querySelector('.btn-promo-gen-desc');
+            if (descBtn && item.id) {
+                descBtn.addEventListener('click', function () {
+                    runPromoGenDescription(item.id, col, descBtn);
                 });
             }
             const dlBtn = col.querySelector('.btn-promo-download');
@@ -1256,6 +1295,39 @@
                 });
             }
             return col;
+        }
+
+        async function runPromoGenDescription(promoId, colEl, btnEl) {
+            if (!promoId || !btnEl) return;
+            const prevHtml = btnEl.innerHTML;
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>描述產生中…';
+            try {
+                const session = await AuthService.getSession();
+                const token = session && session.access_token;
+                if (!token) throw new Error('請先登入');
+                const response = await fetch('/api/promo-image/generations/' + encodeURIComponent(promoId) + '/generate-description', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok) throw new Error((data && data.error) || '操作失敗');
+                const desc = String((data && data.description) || '').trim();
+                const wrap = colEl && colEl.querySelector('[data-role="promo-desc"]');
+                if (wrap) {
+                    wrap.className = 'design-desc-text';
+                    wrap.textContent = desc || '尚無描述';
+                    if (!desc) wrap.classList.add('text-muted');
+                }
+                const pts = data.points_deducted != null ? data.points_deducted : 0;
+                showAlert('情境圖描述已更新' + (pts ? '（扣 ' + pts + ' 點）' : ''), 'success');
+            } catch (err) {
+                showAlert('產生描述失敗：' + (err.message || err), 'danger');
+            } finally {
+                btnEl.disabled = false;
+                btnEl.innerHTML = prevHtml;
+            }
         }
 
         async function deletePromoImage(id, colEl) {
@@ -1393,7 +1465,7 @@
 
         function createProductCard(product, eagerImage) {
             const col = document.createElement('div');
-            col.className = 'col-sm-6 col-xl-3 col-lg-4';
+            col.className = 'col-6 col-md-4 col-xl-3';
             col.dataset.productId = product.id;
 
             const statusInfo = getStatusInfo(product.status);
@@ -1435,7 +1507,9 @@
 
             col.innerHTML = `
                 <div class="card product-card h-100">
-                    <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                    <div class="product-image-wrap">
+                        <img src="${imageUrl}" class="product-image" alt="${escapeHtml(product.title)}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
+                    </div>
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center gap-1 mb-1">
                             <h5 class="card-title mb-0" data-role="title">${escapeHtml(product.title)}</h5>
@@ -1459,8 +1533,8 @@
 
                         <div class="design-actions mt-auto">
                             <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">詳情</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}">描述</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}">標籤</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">更多</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -1841,9 +1915,11 @@
                         const contactBtnHtml = mfrUserId
                             ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</a>`
                             : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
-                        return `<div class="col-md-6 col-lg-4">
+                        return `<div class="col-6 col-md-4 col-xl-3">
                             <div class="card product-card h-100">
-                                ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
+                                ${img
+                                    ? `<div class="product-image-wrap"><img src="${img}" class="product-image" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
+                                    : '<div class="product-image-wrap d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
                                 <div class="card-body d-flex flex-column">
                                     <div class="d-flex align-items-start justify-content-between mb-1">
                                         <h6 class="card-title mb-0 flex-grow-1">${escapeHtml(title)}</h6>

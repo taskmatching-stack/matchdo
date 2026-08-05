@@ -4985,8 +4985,12 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
             }
         }
         const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
-        const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics)
-            || (imgResult.semantics && imgResult.semantics.intent_summary) || null;
+        const description = (imgResult.semantics && imgResult.semantics.product_description_zh
+            ? String(imgResult.semantics.product_description_zh).trim()
+            : '')
+            || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics)
+            || (imgResult.semantics && imgResult.semantics.intent_summary)
+            || null;
         const updates = {
             ai_tags: mergedTags,
             image_semantics_json: imgResult.semantics,
@@ -12962,10 +12966,14 @@ async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd) {
         .neq('result_image_url', '')
         .order('created_at', { ascending: false })
         .range(offsetN, rangeEnd);
-    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage';
+    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description';
+    const selectNoDesc = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage';
     const selectNoShow = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id';
     const selectLegacy = 'id, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id';
     let res = await baseQuery(selectFull);
+    if (res.error && isSupabaseMissingColumnError(res.error, 'description')) {
+        res = await baseQuery(selectNoDesc);
+    }
     if (res.error && isSupabaseMissingColumnError(res.error, 'show_on_homepage')) {
         res = await baseQuery(selectNoShow);
     }
@@ -13651,6 +13659,7 @@ app.get('/api/promo-image/generations', async (req, res) => {
                 theme_key: row.scene_template_key || null,
                 scene_key: row.scene_key || null,
                 user_prompt: row.user_prompt || null,
+                description: row.description || null,
                 points_charged: row.points_charged,
                 created_at: row.created_at,
                 source_type: row.source_type || null,
@@ -13662,6 +13671,114 @@ app.get('/api/promo-image/generations', async (req, res) => {
     } catch (e) {
         console.error('GET /api/promo-image/generations:', e);
         res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** POST 情境圖：讀圖產生描述（對齊設計稿 generate-description；寫入 product_promo_generations.description） */
+app.post('/api/promo-image/generations/:id/generate-description', express.json(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+
+        let promoRow = null;
+        const { data: row, error: findErr } = await supabase
+            .from('product_promo_generations')
+            .select('id, user_id, result_image_url, user_prompt, final_prompt, scene_template_key, scene_key, source_type, source_id, description')
+            .eq('id', id)
+            .maybeSingle();
+        if (findErr) {
+            if (isSupabaseMissingColumnError(findErr, 'description') || isSupabaseMissingColumnError(findErr, 'final_prompt')) {
+                const fb = await supabase
+                    .from('product_promo_generations')
+                    .select('id, user_id, result_image_url, user_prompt, scene_template_key, scene_key, source_type, source_id')
+                    .eq('id', id)
+                    .maybeSingle();
+                if (fb.error) return res.status(500).json({ error: fb.error.message });
+                promoRow = fb.data;
+            } else {
+                return res.status(500).json({ error: findErr.message });
+            }
+        } else {
+            promoRow = row;
+        }
+        if (!promoRow || promoRow.user_id !== user.id) return res.status(404).json({ error: '找不到情境圖紀錄' });
+        const imageUrl = (promoRow.result_image_url || '').trim();
+        if (!imageUrl) return res.status(400).json({ error: '此情境圖尚無成圖，無法產生描述' });
+
+        const isAdmin = await isAdminUserId(user.id);
+        const pointsRequired = await getPointsVendorAssetDescription();
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
+            if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+        }
+
+        let productTitle = null;
+        let categoryKey = null;
+        if (promoRow.source_type === 'custom_product' && promoRow.source_id) {
+            try {
+                const { data: src } = await supabase
+                    .from('custom_products')
+                    .select('title, category')
+                    .eq('id', promoRow.source_id)
+                    .maybeSingle();
+                if (src) {
+                    productTitle = src.title || null;
+                    categoryKey = src.category || null;
+                }
+            } catch (_) {}
+        }
+
+        const enriched = await enrichPromoGenerationSemantics(promoRow.id, user.id, {
+            imageUrl: imageUrl,
+            userPrompt: promoRow.user_prompt || null,
+            finalPrompt: promoRow.final_prompt || null,
+            themeKey: promoRow.scene_template_key || null,
+            sceneKey: promoRow.scene_key || null,
+            sourceType: promoRow.source_type || null,
+            sourceId: promoRow.source_id || null,
+            productTitle: productTitle,
+            categoryKey: categoryKey
+        });
+        if (!enriched || !(enriched.description || '').trim()) {
+            return res.status(503).json({
+                error: 'AI 描述產生失敗，請稍後重試（若尚未建語意欄位，請執行 docs/add-promo-generations-semantics.sql）'
+            });
+        }
+
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                user.id,
+                pointsRequired,
+                'promo_generate_description',
+                '情境圖 AI 描述',
+                { promo_generation_id: promoRow.id }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+            }
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+
+        res.json({
+            success: true,
+            id: promoRow.id,
+            description: enriched.description,
+            ai_tags: enriched.ai_tags || [],
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/promo-image/generations/:id/generate-description:', e);
+        res.status(503).json({ error: e.message || 'AI 描述產生失敗，請稍後重試' });
     }
 });
 
