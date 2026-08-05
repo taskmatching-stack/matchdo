@@ -570,7 +570,8 @@ function resolveUserDesignMediaWallTitlePair(p) {
             en: enDesc ? truncateMediaWallTitle(enDesc) : ''
         };
     }
-    return { zh: dbZh || '未命名', en: dbEn || '' };
+    // 舊泛用標題「產品設計圖」一律顯示為「產品設計稿」
+    return { zh: '產品設計稿', en: 'Product design draft' };
 }
 
 function resolveUserDesignMediaWallTitle(p, lang) {
@@ -4727,13 +4728,20 @@ async function recordVisualSemanticsEvent(row) {
     }
 }
 
-/** 設計頁生成圖（custom_products.ai_generated_image_url）→ ai_tags／語意欄位；失敗不拋出 */
+/** 設計頁生成圖（custom_products）→ ai_tags／語意；讀圖方式與情境圖 enrichPromoGenerationSemantics 相同 */
 async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
-    const imageUrl = (ctx.imageUrl || '').trim();
-    if (!productId || !imageUrl || !process.env.GEMINI_API_KEY) return null;
+    if (!productId || !process.env.GEMINI_API_KEY) return null;
     try {
         const deps = getVisualSemanticsDeps();
-        const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        let imagePart;
+        if (ctx.imageBuffer) {
+            imagePart = visualSemantics.bufferToImagePart(ctx.imageBuffer, ctx.mimeType || 'image/jpeg');
+        } else {
+            const imageUrl = (ctx.imageUrl || '').trim();
+            if (!imageUrl) return null;
+            imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        }
+        const imageUrl = (ctx.imageUrl || '').trim();
         const imgResult = await visualSemantics.analyzeGeneratedImageSemantics(deps, imagePart, {
             generation_prompt: ctx.generationPrompt || null,
             title: ctx.title || null,
@@ -4809,7 +4817,7 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         await recordVisualSemanticsEvent({
             source_type: 'custom_product',
             source_id: productId,
-            image_url: imageUrl,
+            image_url: imageUrl || null,
             text_input: genPrompt || null,
             semantics_kind: 'generated_image',
             ai_tags: imgResult.tags,
@@ -4834,12 +4842,49 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
                 category_key: ctx.categoryKey || null
             });
         }
-        console.log('custom_products 語意標籤完成 id=%s tags=%d title=%s title_en=%s', productId, mergedTags.length, updates.title || currentTitle || '(unchanged)', updates.title_en || currentTitleEn || '(unchanged)');
+        console.log('custom_products 語意標籤完成 id=%s tags=%d', productId, mergedTags.length);
         return { ai_tags: mergedTags, title: updates.title || null, title_en: updates.title_en || null };
     } catch (e) {
         console.error('enrichCustomProductSemantics:', e.message);
         return null;
     }
+}
+
+/** 與 schedulePromoGenerationSemanticsEnrich 相同：setImmediate 排隊生圖後打標 */
+function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
+    if (!productId || !process.env.GEMINI_API_KEY) return;
+    setImmediate(function () {
+        enrichCustomProductSemantics(productId, ownerId, ctx || {}).catch(function () {});
+    });
+}
+
+/** 與 scheduleMissingPromoSemanticsBackfill 對齊：媒體牆載入時補跑缺標設計圖 */
+function scheduleMissingCustomProductSemanticsBackfill(rows) {
+    if (!process.env.GEMINI_API_KEY || !rows || !rows.length) return;
+    const pending = rows.filter(function (row) {
+        if (!row || !row.id || !row.ai_generated_image_url) return false;
+        if (row.semantics_generated_at) return false;
+        const hasTags = Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
+        return !hasTags;
+    }).slice(0, 4);
+    pending.forEach(function (row) {
+        scheduleCustomProductSemanticsEnrich(row.id, row.owner_id, {
+            imageUrl: row.ai_generated_image_url,
+            generationPrompt: row.generation_prompt || null,
+            title: row.title || null,
+            categoryKey: row.category || null
+        });
+    });
+}
+
+/** 舊泛用標題「產品設計圖」→「產品設計稿」（僅改文案，不碰打標） */
+function scheduleLegacyCustomProductTitleRewrite(rows) {
+    if (!rows || !rows.length) return;
+    rows.forEach(function (row) {
+        if (!row || !row.id) return;
+        if (String(row.title || '').trim() !== '產品設計圖') return;
+        supabase.from('custom_products').update({ title: '產品設計稿' }).eq('id', row.id).then(function () {}).catch(function () {});
+    });
 }
 
 /** 情境圖成圖 → ai_tags／描述；失敗不拋出（背景執行） */
@@ -13776,31 +13821,18 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             ? await resolveDesignShowOnHomepageFromRequest(currentUser.id, req.body)
             : true;
 
-        // ── 先回傳生成成功，不與扣點／寫入綁在一起 ──
-        res.json({
-            success: true,
-            imageUrl,
-            imageData: `data:${mime};base64,${imageData}`,
-            output_format: outputFormat,
-            resolution: '1024x1024',
-            aspectRatio: '1:1',
-            usedFlux,
-            seedUsed: seedNum,
-            mode: hasRefs ? 'image-to-image' : 'text-to-image',
-            show_on_homepage: showOnHomepageForInsert,
-            ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
-        });
-
-        // ── 扣點與寫入 custom_products 在回傳之後執行，失敗只 log 不影響前端 ──
+        // ── 生圖已完成：先寫入 custom_products，再回傳；打標在「有圖之後」用成品 buffer 排隊執行 ──
+        let insertedProductId = null;
         if (currentUser) {
-            (async () => {
-                try {
-                    if (!isAdmin && pointsToDeduct > 0) {
-                        const newBalance = currentBalance - pointsToDeduct;
-                        const { error: updErr } = await supabase.from('user_credits')
-                            .update({ balance: newBalance, updated_at: new Date().toISOString() })
-                            .eq('user_id', currentUser.id);
-                        if (updErr) { console.warn('扣點更新 user_credits 失敗:', updErr.message); return; }
+            try {
+                if (!isAdmin && pointsToDeduct > 0) {
+                    const newBalance = currentBalance - pointsToDeduct;
+                    const { error: updErr } = await supabase.from('user_credits')
+                        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+                        .eq('user_id', currentUser.id);
+                    if (updErr) {
+                        console.warn('扣點更新 user_credits 失敗（仍繼續寫入作品）:', updErr.message);
+                    } else {
                         const { error: creditErr } = await supabase.from('credit_transactions').insert({
                             user_id: currentUser.id,
                             type: 'consumed',
@@ -13818,67 +13850,83 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
                         else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
                     }
-                    const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
-                    const titleFallbackEn = autoUiLocale && String(autoUiLocale).toLowerCase().indexOf('en') === 0;
-                    const title = (prompt && String(prompt).trim())
-                        ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '')
-                        : (titleFallbackEn ? 'Product design draft' : '產品設計稿');
-                    const description = (prompt && String(prompt).trim()) || (titleFallbackEn ? '(No description)' : '（無描述）');
-                    const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
-                    const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
-                    const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
-                    const showOnHomepage = showOnHomepageForInsert;
-                    const autoLineage = hasRefs && fluxReferenceSources.length
-                        ? await customProductLineage.computeCustomProductLineage(
-                            supabase, currentUser.id, fluxReferenceSources
-                        )
-                        : null;
-                    const autoInsertPayload = {
-                        owner_id: currentUser.id,
-                        title, description,
-                        category: mainCategoryKey,
-                        subcategory_key: subCategoryKey,
-                        reference_image_url: (fluxReferenceImages && fluxReferenceImages.length) ? fluxReferenceImages[0] : null,
-                        ai_generated_image_url: imageUrl,
-                        analysis_json: null,
-                        status: 'draft',
-                        generation_prompt: generationPromptVal,
-                        generation_seed: seedNum,
-                        show_on_homepage: showOnHomepage
-                    };
-                    if (autoLineage) {
-                        autoInsertPayload.generator_manufacturer_id = autoLineage.generator_manufacturer_id;
-                        autoInsertPayload.has_self_vendor_reference = autoLineage.has_self_vendor_reference;
-                        autoInsertPayload.is_vendor_self_serve = autoLineage.is_vendor_self_serve;
-                        autoInsertPayload.data_lineage_json = autoLineage.data_lineage_json;
-                        if (autoLineage.reference_sources) autoInsertPayload.reference_sources = autoLineage.reference_sources;
-                    }
-                    mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
-                    let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
-                    if (insertRes.error && insertRes.error.code === '42703') {
-                        insertRes = await supabase.from('custom_products')
-                            .insert(stripInternalCustomProductInsertColumns(autoInsertPayload))
-                            .select('id').single();
-                    }
-                    const insertedProduct = insertRes.data;
-                    const insertErr = insertRes.error;
-                    if (insertErr) console.error('寫入 custom_products 失敗:', insertErr.message);
-                    else {
-                        console.log('已寫入 custom_products owner_id=%s', currentUser.id);
-                        if (insertedProduct && insertedProduct.id && imageUrl) {
-                            enrichCustomProductSemantics(insertedProduct.id, currentUser.id, {
-                                imageUrl,
-                                generationPrompt: generationPromptVal,
-                                title,
-                                categoryKey: mainCategoryKey
-                            }).catch(() => {});
-                        }
-                    }
-                } catch (e) {
-                    console.error('扣點或寫入 custom_products 異常:', e.message);
                 }
-            })();
+                const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
+                const titleFallbackEn = autoUiLocale && String(autoUiLocale).toLowerCase().indexOf('en') === 0;
+                const title = (prompt && String(prompt).trim())
+                    ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '')
+                    : (titleFallbackEn ? 'Product design draft' : '產品設計稿');
+                const description = (prompt && String(prompt).trim()) || (titleFallbackEn ? '(No description)' : '（無描述）');
+                const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
+                const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
+                const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
+                const showOnHomepage = showOnHomepageForInsert;
+                const autoLineage = hasRefs && fluxReferenceSources.length
+                    ? await customProductLineage.computeCustomProductLineage(
+                        supabase, currentUser.id, fluxReferenceSources
+                    )
+                    : null;
+                const autoInsertPayload = {
+                    owner_id: currentUser.id,
+                    title, description,
+                    category: mainCategoryKey,
+                    subcategory_key: subCategoryKey,
+                    reference_image_url: (fluxReferenceImages && fluxReferenceImages.length) ? fluxReferenceImages[0] : null,
+                    ai_generated_image_url: imageUrl,
+                    analysis_json: null,
+                    status: 'draft',
+                    generation_prompt: generationPromptVal,
+                    generation_seed: seedNum,
+                    show_on_homepage: showOnHomepage
+                };
+                if (autoLineage) {
+                    autoInsertPayload.generator_manufacturer_id = autoLineage.generator_manufacturer_id;
+                    autoInsertPayload.has_self_vendor_reference = autoLineage.has_self_vendor_reference;
+                    autoInsertPayload.is_vendor_self_serve = autoLineage.is_vendor_self_serve;
+                    autoInsertPayload.data_lineage_json = autoLineage.data_lineage_json;
+                    if (autoLineage.reference_sources) autoInsertPayload.reference_sources = autoLineage.reference_sources;
+                }
+                mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
+                let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
+                if (insertRes.error && insertRes.error.code === '42703') {
+                    insertRes = await supabase.from('custom_products')
+                        .insert(stripInternalCustomProductInsertColumns(autoInsertPayload))
+                        .select('id').single();
+                }
+                if (insertRes.error) {
+                    console.error('寫入 custom_products 失敗:', insertRes.error.message);
+                } else if (insertRes.data && insertRes.data.id) {
+                    insertedProductId = insertRes.data.id;
+                    console.log('已寫入 custom_products id=%s owner_id=%s', insertedProductId, currentUser.id);
+                    // 與情境圖相同：寫入後、回傳前 schedule；帶成品 imageBuffer
+                    scheduleCustomProductSemanticsEnrich(insertedProductId, currentUser.id, {
+                        imageBuffer: buffer,
+                        imageUrl: imageUrl,
+                        mimeType: mime,
+                        generationPrompt: generationPromptVal,
+                        title,
+                        categoryKey: mainCategoryKey
+                    });
+                }
+            } catch (e) {
+                console.error('扣點或寫入 custom_products 異常:', e.message);
+            }
         }
+
+        res.json({
+            success: true,
+            imageUrl,
+            imageData: `data:${mime};base64,${imageData}`,
+            output_format: outputFormat,
+            resolution: '1024x1024',
+            aspectRatio: '1:1',
+            usedFlux,
+            seedUsed: seedNum,
+            mode: hasRefs ? 'image-to-image' : 'text-to-image',
+            show_on_homepage: showOnHomepageForInsert,
+            product_id: insertedProductId,
+            ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
+        });
     } catch (error) {
         console.error('生成圖片錯誤:', error);
         res.status(500).json({
@@ -17054,12 +17102,12 @@ app.post('/api/custom-products', async (req, res) => {
         }
 
         if (!error && data && data.id && genImageUrl) {
-            enrichCustomProductSemantics(data.id, user.id, {
+            scheduleCustomProductSemanticsEnrich(data.id, user.id, {
                 imageUrl: genImageUrl,
                 generationPrompt: promptVal,
                 title,
                 categoryKey: mainCategoryVal
-            }).catch(() => {});
+            });
         }
 
         if (error) {
@@ -17503,6 +17551,8 @@ app.get('/api/media-wall', async (req, res) => {
             userRows.forEach(p => {
                 out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });
+            scheduleMissingCustomProductSemanticsBackfill(userRows);
+            scheduleLegacyCustomProductTitleRewrite(userRows);
         }
         if (compRows && compRows.length) {
             // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
@@ -23148,12 +23198,12 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
             }
             if (!cpRes.error && cpRes.data && cpRes.data.id) {
                 customProductId = cpRes.data.id;
-                enrichCustomProductSemantics(customProductId, ctx.vendorUserId, {
+                scheduleCustomProductSemanticsEnrich(customProductId, ctx.vendorUserId, {
                     imageUrl: imageUrl,
                     generationPrompt: composed.fullPrompt || userPrompt,
                     title: embedTitle,
                     categoryKey: proto.category_key || null
-                }).catch(function () {});
+                });
             } else if (cpRes.error) {
                 console.warn('embed custom_products insert:', cpRes.error.message);
             }
