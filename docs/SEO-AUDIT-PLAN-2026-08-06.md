@@ -152,10 +152,11 @@
 |-------|------|--------|
 | 基準 8281e3a 記錄 | ✅ | `8281e3a` |
 | 規則 seo-no-stuff-design-page | ✅ | `763d473` |
-| Phase A 官方真列表 | ✅ 實作 | （本輪）`/official-templates/` SSR；sitemap 改指此 path；設計頁未改 UI |
+| Phase A 官方真列表 | ✅ 實作 | `/official-templates/` SSR；sitemap 改指此 path；設計頁未改 UI |
 | 首頁 crawl 連結 | ✅ | `/` HTML 尾端 visually-hidden `/inspiration/*` |
 | 首頁首屏 SSR | ✅ | 網格內 SSR 卡片（標題／說明／Tags＋inspiration href）；lightbox UX 不變；`/?category_key=` 強化 title／canonical |
-| Phase B 廠商版型列表 | ⏳ | |
+| 首頁 lightbox 獨立落地連結 | ✅ | 卡片／分享／「查看作品頁」→ `/inspiration/*`；Ctrl 開新分頁 |
+| Phase B 廠商版型列表 | ✅ 實作 | `/vendor-styles/` SSR；sitemap 分類 landing；`/browse-styles.html` 301；設計頁 tab 未改 UI |
 | Phase C 設計頁瘦身 | ⏳ | sitemap 已清掉設計頁 `?tab=`（前置） |
 
 ---

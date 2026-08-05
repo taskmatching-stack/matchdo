@@ -33,6 +33,7 @@ function registerSitemapRoutes(app, deps) {
         { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
         // 設計頁 ?tab= 不再進 sitemap（假多頁）；工具請用獨立 URL（/promo-camera、/official-templates/ 等）
         { path: '/official-templates/',           priority: '0.8', changefreq: 'weekly' },
+        { path: '/vendor-styles/',                priority: '0.8', changefreq: 'weekly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
         { path: '/promo-camera-app',        priority: '0.72', changefreq: 'monthly' },
         { path: '/client/ai-edit.html',     priority: '0.75', changefreq: 'monthly' },
@@ -86,27 +87,18 @@ function registerSitemapRoutes(app, deps) {
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
     });
-    // 動態：首頁分類 + 版型庫 tab 分類 landing（/?category_key= 與 custom-product?tab=vendor-styles&…）
+    // 動態：首頁分類 + 官方／廠商版型獨立列表分類 landing（勿再指向設計頁 ?tab=）
     app.get('/sitemap-categories.xml', async (req, res) => {
         const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = [];
-        function pushVendorStylesUrl(catKey, subKey, official) {
-            if (official) {
-                const params = new URLSearchParams();
-                if (catKey) params.set('category_key', catKey);
-                if (subKey) params.set('subcategory_key', subKey);
-                const q = params.toString();
-                const loc = base + '/official-templates/' + (q ? ('?' + q) : '');
-                urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.75</priority></url>');
-                return;
-            }
+        function pushCatalogUrl(prefix, catKey, subKey, priority) {
             const params = new URLSearchParams();
-            params.set('tab', 'vendor-styles');
-            params.set('category_key', catKey);
+            if (catKey) params.set('category_key', catKey);
             if (subKey) params.set('subcategory_key', subKey);
-            const loc = base + '/custom-product.html?' + params.toString();
-            urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.72</priority></url>');
+            const q = params.toString();
+            const loc = base + prefix + (q ? ('?' + q) : '');
+            urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>' + (priority || '0.75') + '</priority></url>');
         }
         try {
             const { data: rows, error } = await supabase.from('custom_product_categories').select('key, sort_order').eq('is_active', true).order('sort_order', { ascending: true });
@@ -115,8 +107,8 @@ function registerSitemapRoutes(app, deps) {
                     if (r && r.key) {
                         const loc = base + '/?category_key=' + encodeURIComponent(r.key);
                         urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.85</priority></url>');
-                        // 官方目錄 → /official-templates/；廠商版型設計頁 tab 不再進 sitemap（待獨立列表）
-                        pushVendorStylesUrl(r.key, '', true);
+                        pushCatalogUrl('/official-templates/', r.key, '', '0.75');
+                        pushCatalogUrl('/vendor-styles/', r.key, '', '0.74');
                     }
                 });
             }
@@ -129,7 +121,8 @@ function registerSitemapRoutes(app, deps) {
             if (!subErr && Array.isArray(subRows)) {
                 subRows.forEach(s => {
                     if (s && s.category_key && s.key) {
-                        pushVendorStylesUrl(s.category_key, s.key, true);
+                        pushCatalogUrl('/official-templates/', s.category_key, s.key, '0.72');
+                        pushCatalogUrl('/vendor-styles/', s.category_key, s.key, '0.71');
                     }
                 });
             }

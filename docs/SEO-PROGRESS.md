@@ -24,7 +24,7 @@
 | **設計頁 tab** | ~~`?tab=` 進 sitemap~~ → **已移除**（2026-08-06）；設計頁只保留工具本體 `/custom-product.html`；目錄用 `/official-templates/` 等獨立 path |
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
 | **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
-| **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |
+| **版型庫分類 landing** | `sitemap-categories.xml`：官方 → `/official-templates/?category_key=`；廠商 → `/vendor-styles/?category_key=`（**不再**指向設計頁 `?tab=`） |
 | **官方版型短網址** | `/official-templates/` → **真列表 SSR**（2026-08-06）；`?official_platform=1`（無 `manage=1`）301 至 `/official-templates/`（**不再**進設計頁 tab） |
 | **embed 設計頁 iframe** | `/promo-camera?embed=design` → **`noindex, follow`**（2026-08-01）；獨立 `/promo-camera` 仍 index |
 | **站內攝影模擬入口** | 全站選單 → `/promo-camera`；設計頁 tab 仍 `?tab=promo-camera` + iframe |

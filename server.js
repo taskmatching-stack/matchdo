@@ -5968,6 +5968,47 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
         if (!res.headersSent) res.status(500).send('暫時無法載入官方版型列表');
     }
 });
+app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
+    try {
+        const origin = (req.get('x-forwarded-proto') && req.get('host'))
+            ? (req.get('x-forwarded-proto') + '://' + req.get('host'))
+            : null;
+        const base = origin || BASE_URL || 'https://matchdo.cc';
+        const categoryKey = String((req.query && req.query.category_key) || '').trim();
+        const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const catalog = await listVendorPublicCatalogForPage({
+            category_key: categoryKey,
+            subcategory_key: subcategoryKey,
+            limit: 72,
+            offset: 0
+        });
+        const { buildVendorStylesHtml } = require('./lib/vendor-styles-page');
+        const html = buildVendorStylesHtml({
+            base: String(base).replace(/\/$/, ''),
+            items: catalog.items || [],
+            categories: catalog.categories || [],
+            categoryKey,
+            subcategoryKey,
+            total: catalog.total != null ? catalog.total : (catalog.items || []).length,
+            proxyImage: proxyPublicImageUrl
+        });
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=120');
+        res.send(html);
+    } catch (e) {
+        console.error('GET /vendor-styles 異常:', e);
+        if (!res.headersSent) res.status(500).send('暫時無法載入廠商版型列表');
+    }
+});
+app.get('/browse-styles.html', (req, res) => {
+    const params = new URLSearchParams();
+    const ck = String((req.query && req.query.category_key) || '').trim();
+    const sk = String((req.query && req.query.subcategory_key) || '').trim();
+    if (ck) params.set('category_key', ck);
+    if (sk) params.set('subcategory_key', sk);
+    const q = params.toString();
+    return res.redirect(301, '/vendor-styles/' + (q ? ('?' + q) : ''));
+});
 // 攝影模擬：正式短網址 /promo-camera（舊 /client/promo-camera.html 301 保留 query）
 const promoCameraHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera.html');
 function servePromoCameraPage(req, res) {
@@ -6693,6 +6734,91 @@ async function listOfficialPublicCatalogForPage(opts) {
             image_url: r.image_url,
             asset_kind: kind,
             official: true
+        };
+    });
+    return { items, total, categories };
+}
+
+/** 廠商版型公開列表頁（/vendor-styles/）：公開 prototype，排除官方平台廠商 */
+async function listVendorPublicCatalogForPage(opts) {
+    opts = opts || {};
+    const categoryKey = String(opts.category_key || '').trim();
+    const subcategoryKey = String(opts.subcategory_key || '').trim();
+    const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
+    const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+    let categories = [];
+    try {
+        const { data: catRows } = await supabase
+            .from('custom_product_categories')
+            .select('key, name, sort_order')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
+            key: c.key,
+            name: c.name || c.key
+        }));
+    } catch (_) { categories = []; }
+    const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
+    async function runQ(cols) {
+        let q = supabase
+            .from('vendor_assets')
+            .select(cols)
+            .eq('is_public', true)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (cols.includes('asset_kind')) q = q.eq('asset_kind', 'prototype');
+        if (categoryKey) q = q.eq('category_key', categoryKey);
+        if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+        return q;
+    }
+    let { data: rows, error } = await runQ(selectCols);
+    if (error && error.code === '42703') {
+        ({ data: rows, error } = await runQ('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, is_public'));
+    }
+    if (error) {
+        if (error.code === '42P01') return { items: [], total: 0, categories };
+        console.error('listVendorPublicCatalogForPage:', error.message || error);
+        return { items: [], total: 0, categories };
+    }
+    let list = rows || [];
+    if (list.length && list.some((r) => r.asset_kind != null && String(r.asset_kind).trim() !== '')) {
+        list = list.filter((r) => {
+            try {
+                return typeof effectiveVendorAssetKind === 'function'
+                    ? effectiveVendorAssetKind(r) === 'prototype'
+                    : String(r.asset_kind || '').toLowerCase() === 'prototype';
+            } catch (_) {
+                return String(r.asset_kind || '').toLowerCase() === 'prototype';
+            }
+        });
+    }
+    if (officialIds.size) {
+        list = list.filter((r) => !officialIds.has(String(r.manufacturer_id || '')));
+    }
+    const mfrIds = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))];
+    const mfrMap = await buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview: false });
+    list = list.filter((r) => {
+        const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
+        if (!mfr) return false;
+        return vendorAssetVisibleToPublicAudience(mfr, r);
+    });
+    const total = list.length;
+    list = list.slice(offset, offset + limit);
+    const items = list.map((r) => {
+        const kind = typeof normalizeVendorAssetKind === 'function'
+            ? normalizeVendorAssetKind(r.asset_kind)
+            : 'prototype';
+        return {
+            id: r.id,
+            manufacturer_id: r.manufacturer_id || null,
+            manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id) || '廠商',
+            category_key: r.category_key,
+            subcategory_key: r.subcategory_key,
+            title: r.title || '',
+            description: r.description || '',
+            image_url: r.image_url,
+            asset_kind: kind || 'prototype'
         };
     });
     return { items, total, categories };

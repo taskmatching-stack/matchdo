@@ -36,6 +36,8 @@
 |------|------|------|-----|
 | `/client/manufacturer-materials.html` | `official_platform=1` 且非 `manage=1` | `/official-templates/`（保留 category／subcategory query） | 301 |
 | `/official-templates`、`/official-templates/` | — | **真列表 SSR**（不再 301 進設計頁） | 200 |
+| `/vendor-styles`、`/vendor-styles/` | — | **真列表 SSR**（廠商公開 prototype；不含官方平台池） | 200 |
+| `/browse-styles.html` | — | `/vendor-styles/`（保留 category／subcategory query） | 301 |
 
 ---
 

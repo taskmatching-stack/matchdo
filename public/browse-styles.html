@@ -3,16 +3,17 @@
 <head>
     <meta charset="utf-8">
     <title>廠商版型 - MATCHDO 合做</title>
-    <meta http-equiv="refresh" content="0;url=/custom-product.html?tab=vendor-styles">
+    <meta http-equiv="refresh" content="0;url=/vendor-styles/">
     <script>
         (function () {
             var p = new URLSearchParams(window.location.search);
-            p.set('tab', 'vendor-styles');
-            window.location.replace('/custom-product.html?' + p.toString());
+            p.delete('tab');
+            var q = p.toString();
+            window.location.replace('/vendor-styles/' + (q ? ('?' + q) : ''));
         })();
     </script>
 </head>
 <body>
-    <p><a href="/custom-product.html?tab=vendor-styles">前往產品設計 · 廠商版型</a></p>
+    <p><a href="/vendor-styles/">前往廠商版型列表</a></p>
 </body>
 </html>
