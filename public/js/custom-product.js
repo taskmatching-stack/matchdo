@@ -304,7 +304,7 @@ $(document).ready(function () {
         { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', tabKey: 'customProduct.refSlotMaterialTab', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', tabFb: '材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
         { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', tabKey: 'customProduct.refSlotPartTab', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', tabFb: '配件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
         { key: 'pattern_print', assetKind: 'other', patternIntent: 'print', titleKey: 'customProduct.refSlotPatternPrintTitle', tabKey: 'customProduct.refSlotPatternPrintTab', hintKey: 'customProduct.refSlotPatternPrintHint', addonPhKey: 'customProduct.refSlotPatternPrintAddonPh', titleFb: '原圖印刷', tabFb: '原圖印刷', hintFb: '圖稿原樣轉印；每張可選原圖／去背／提取重點。位置請寫在上方提示詞', addonPhFb: '位置補充（選填）' },
-        { key: 'pattern_style', assetKind: 'other', patternIntent: 'style', titleKey: 'customProduct.refSlotPatternStyleTitle', tabKey: 'customProduct.refSlotPatternStyleTab', hintKey: 'customProduct.refSlotPatternStyleHint', addonPhKey: 'customProduct.refSlotPatternStyleAddonPh', titleFb: '風格參考', tabFb: '風格參考', hintFb: '參考風格設計表面；提示詞可指定方向，或不填讓 AI 設計', addonPhFb: '風格補充（選填）' }
+        { key: 'pattern_style', assetKind: 'other', patternIntent: 'style', titleKey: 'customProduct.refSlotPatternStyleTitle', tabKey: 'customProduct.refSlotPatternStyleTab', hintKey: 'customProduct.refSlotPatternStyleHint', addonPhKey: 'customProduct.refSlotPatternStyleAddonPh', titleFb: '風格參考', tabFb: '風格參考', hintFb: '參考風格設計表面；提示詞可指定方向，或不填由系統設計', addonPhFb: '風格補充（選填）' }
     ];
 
     function isPatternSlotKey(key) {
@@ -1140,7 +1140,7 @@ $(document).ready(function () {
                 var modeHint = patternApplyModeLabel(applyMode);
                 parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + printHint + '；' + modeHint));
             } else if (row.slotKey === 'pattern_style') {
-                var styleHint = tr('customProduct.refPatternStyleHint', '參考風格設計主產品表面；提示詞可指定方向，或不填讓 AI 設計');
+                var styleHint = tr('customProduct.refPatternStyleHint', '參考風格設計主產品表面；提示詞可指定方向，或不填由系統設計');
                 parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + styleHint));
             } else {
                 parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : ''));
@@ -4540,7 +4540,7 @@ $(document).ready(function () {
 
         const btn = $(this);
         const originalText = btn.html();
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>AI 生成中...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>生成中...');
         // 手機版畫布：顯示 loading 脈衝
         $('#generatedImagePreviewWrap').addClass('is-loading');
 

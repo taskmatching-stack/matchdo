@@ -263,7 +263,7 @@
             console.warn('取得登入 token 失敗', err);
         }
         
-        $('#aiResult').html('<div class="text-center">AI 分析中，請稍候...</div>');
+        $('#aiResult').html('<div class="text-center">分析中，請稍候...</div>');
         $.ajax({
             url: '/api/ai-detect',
             type: 'POST',

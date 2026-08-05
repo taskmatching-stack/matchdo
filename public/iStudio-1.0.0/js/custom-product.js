@@ -119,7 +119,7 @@ $(document).ready(function () {
 
         const btn = $(this);
         const originalText = btn.html();
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>AI 生成中...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>生成中...');
 
         var referenceImages = [];
         var refInput = $('#referenceImages')[0];
@@ -253,7 +253,7 @@ $(document).ready(function () {
 
         // 顯示載入狀態
         const submitBtn = $(this).find('button[type="submit"]');
-        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>AI 分析中...');
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>分析中...');
 
         try {
             const response = await fetch('/api/analyze-custom-product', {
