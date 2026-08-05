@@ -2784,8 +2784,21 @@ $(document).ready(function () {
                 }
                 var angleLbl = (s.gallery_label || s.image_label || '').trim();
                 var tip = (angleLbl ? angleLbl + ' · ' : (title ? title + ' · ' : '')) + mfrName + ' · ' + kind;
+                var cardHref = '';
+                var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
+                if (vid) {
+                    var ak = String(s.asset_kind || 'prototype').trim().toLowerCase();
+                    if (ak === 'other') {
+                        cardHref = profileUrl && profileUrl !== '#' ? profileUrl : '';
+                    } else {
+                        var inspKind = (ak === 'material' || ak === 'part') ? ak : 'prototype';
+                        cardHref = '/inspiration/' + inspKind + '/' + encodeURIComponent(vid);
+                    }
+                }
+                if (!cardHref || cardHref === '#') cardHref = profileUrl && profileUrl !== '#' ? profileUrl : imgUrl;
+                cardHref = String(cardHref).replace(/"/g, '&quot;');
                 var capText = angleLbl || title || kind;
-                html += '<a href="' + profileUrl + '" target="_blank" rel="noopener" class="text-decoration-none text-center past-ref-asset-link" title="' + tip.replace(/"/g, '&quot;') + '">';
+                html += '<a href="' + cardHref + '" target="_blank" rel="noopener" class="text-decoration-none text-center past-ref-asset-link" title="' + tip.replace(/"/g, '&quot;') + '">';
                 html += '<img src="' + imgUrl + '" alt="" style="width:52px;height:52px;object-fit:contain;background:#1e293b;border-radius:6px;border:1px solid rgba(255,255,255,.35);">';
                 html += '<span class="d-block small text-white mt-0 text-truncate" style="max-width:72px;font-size:.65rem;">' + capText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
                 html += '</a>';

@@ -328,6 +328,17 @@
                 #media-wall-lightbox .modal-footer { padding: 0.6rem 1rem; background: #fff; border-top: 1px solid rgba(122,143,163,.2); }
                 #media-wall-lightbox-vendor-ref img { width: 28px; height: 28px; object-fit: contain; background: #fff; border: 1px solid rgba(122,143,163,.15); }
                 #media-wall-lightbox-vendor-ref a { color: #7A8FA3; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                #media-wall-lightbox-ref-cards-row .mw-lb-ref-cards { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem; }
+                #media-wall-lightbox-ref-cards-row .mw-lb-ref-card {
+                    width: 52px; text-align: center; text-decoration: none; color: #fff; font-size: 0.62rem;
+                }
+                #media-wall-lightbox-ref-cards-row .mw-lb-ref-card img {
+                    width: 52px; height: 52px; object-fit: contain; background: rgba(255,255,255,.12);
+                    border: 1px solid rgba(255,255,255,.35); border-radius: 6px; display: block;
+                }
+                #media-wall-lightbox-ref-cards-row .mw-lb-ref-card span {
+                    display: block; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52px;
+                }
                 /* lightbox 固定覆蓋整個視窗，不參與背後版面排版 */
                 #media-wall-lightbox { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
                 #media-wall-lightbox .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
@@ -363,6 +374,10 @@
                                     <summary><i class="bi bi-tags" aria-hidden="true"></i><span data-i18n="home.tags">標籤</span> (<span id="media-wall-lightbox-display-tags-n">0</span>)</summary>
                                     <div id="media-wall-lightbox-display-tags" class="mw-lb-tags-inner"></div>
                                 </details>
+                            </div>
+                            <div class="detail-row d-none" id="media-wall-lightbox-ref-cards-row">
+                                <span class="detail-label">引用版型</span>
+                                <div id="media-wall-lightbox-ref-cards" class="mw-lb-ref-cards"></div>
                             </div>
                         </div>
                         <div id="media-wall-lightbox-detail-portfolio" class="d-none" style="position:absolute;left:0;right:0;bottom:0;padding:0.4rem 0.6rem 0.5rem;background:linear-gradient(transparent, rgba(45,64,89,.95));color:#fff;text-align:left;font-size:0.7rem;">
@@ -731,6 +746,7 @@
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
+                syncLightboxReferenceCards(item);
                 syncLightboxInspirationPageBtn(item);
                 syncLightboxContactBtn(item);
                 var imgUrl = item.image_url || item.cover_image_url || '';
@@ -1002,6 +1018,34 @@
                 wrap.classList.remove('d-none');
                 wrap.classList.add('d-flex');
             }
+            function syncLightboxReferenceCards(item) {
+                var row = document.getElementById('media-wall-lightbox-ref-cards-row');
+                var box = document.getElementById('media-wall-lightbox-ref-cards');
+                if (!row || !box) return;
+                var cards = (item && item.type === 'user_design' && Array.isArray(item.reference_cards))
+                    ? item.reference_cards.filter(Boolean)
+                    : [];
+                if (!cards.length) {
+                    box.innerHTML = '';
+                    row.classList.add('d-none');
+                    return;
+                }
+                box.innerHTML = cards.map(function (c) {
+                    var href = (c.inspiration_url || c.manufacturer_profile_url || '').trim();
+                    if (!href) return '';
+                    var img = imageSrcForShare(c.image_url || '');
+                    var label = esc(c.title || c.manufacturer_name || '引用版型');
+                    var tip = escAttr((c.title || '') + (c.manufacturer_name ? (' · ' + c.manufacturer_name) : '') || '引用版型');
+                    return '<a class="mw-lb-ref-card" href="' + escAttr(href) + '" target="_blank" rel="noopener" title="' + tip + '">' +
+                        (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '') +
+                        '<span>' + label + '</span></a>';
+                }).filter(Boolean).join('');
+                if (!box.innerHTML) {
+                    row.classList.add('d-none');
+                    return;
+                }
+                row.classList.remove('d-none');
+            }
             function configureLightboxFindVendorLink(item, linkEl) {
                 if (!linkEl || !item) return;
                 linkEl.onclick = null;
@@ -1162,6 +1206,7 @@
                         dataItem.ref_manufacturer_name = p.ref_manufacturer_name || null;
                         dataItem.ref_manufacturer_logo_url = p.ref_manufacturer_logo_url || null;
                         dataItem.has_vendor_reference = p.has_vendor_reference === true;
+                        dataItem.reference_cards = Array.isArray(p.reference_cards) ? p.reference_cards : null;
                         dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
                     if (p.type === 'promo_scene') {
@@ -1879,6 +1924,7 @@
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
+                syncLightboxReferenceCards(item);
                 syncLightboxInspirationPageBtn(item);
                 syncLightboxContactBtn(item);
                 var rBtn = document.getElementById('media-wall-lightbox-redesign');

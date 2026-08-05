@@ -491,6 +491,43 @@ function hasVendorAssetReferenceInSources(refSourcesRaw) {
     return parseReferenceSourcesList(refSourcesRaw).some((s) => s && s.vendor_asset_id);
 }
 
+/** 媒體牆／靈感頁用：精簡引用卡（可連回 /inspiration/{kind}/{id}） */
+function inspirationKindFromReferenceAssetKind(assetKind) {
+    const k = String(assetKind || 'prototype').trim().toLowerCase();
+    if (k === 'material' || k === 'part') return k;
+    if (k === 'other') return '';
+    return 'prototype';
+}
+
+function slimReferenceCardsFromSources(refSourcesRaw) {
+    const list = parseReferenceSourcesList(refSourcesRaw);
+    const out = [];
+    const seen = {};
+    list.forEach(function (s) {
+        if (!s || !s.vendor_asset_id) return;
+        const vid = String(s.vendor_asset_id).trim();
+        if (!vid || seen[vid]) return;
+        seen[vid] = true;
+        const kind = inspirationKindFromReferenceAssetKind(s.asset_kind);
+        const card = {
+            vendor_asset_id: vid,
+            asset_kind: String(s.asset_kind || 'prototype').trim().toLowerCase() || 'prototype',
+            image_url: (s.image_url || '').trim() || null,
+            title: String(s.gallery_label || s.image_label || s.title || '').trim() || null,
+            manufacturer_id: s.manufacturer_id || null,
+            manufacturer_name: (s.manufacturer_name || '').trim() || null,
+            manufacturer_profile_url: s.manufacturer_id
+                ? ('/vendor-profile.html?id=' + encodeURIComponent(s.manufacturer_id))
+                : ((s.manufacturer_profile_url && String(s.manufacturer_profile_url).trim() !== '#')
+                    ? String(s.manufacturer_profile_url).trim()
+                    : null),
+            inspiration_url: kind ? ('/inspiration/' + kind + '/' + encodeURIComponent(vid)) : null
+        };
+        out.push(card);
+    });
+    return out;
+}
+
 function stripMediaWallHeavyFields(item) {
     if (!item || typeof item !== 'object') return item;
     delete item.image_semantics_json;
@@ -646,6 +683,7 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
         link = '/vendor-profile.html?id=' + encodeURIComponent(refMfrId);
     }
     const titlePair = resolveUserDesignMediaWallTitlePair(p);
+    const referenceCards = slimReferenceCardsFromSources(refSources);
     return stripMediaWallHeavyFields(attachDisplayTags({
         id,
         type: 'user_design',
@@ -660,6 +698,7 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
         ref_manufacturer_logo_url: null,
         ref_prototype_asset_id: refProtoId || null,
         has_vendor_reference: hasVendorAssetReferenceInSources(refSources),
+        reference_cards: referenceCards.length ? referenceCards : null,
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
         owner_display: ownerDisplayMap[p.owner_id] || null,
         category_key: p.category || null,
@@ -1065,6 +1104,23 @@ function buildInspirationUgcDetailHtml(item, base, type, id, options) {
         const srcUrl = base + '/inspiration/user_design/' + encodeURIComponent(item.source_product_id);
         sourceLinkHtml = '<p class="inspiration-source-link"><a href="' + escapeHtmlAttr(srcUrl) + '">查看原設計</a></p>';
     }
+    let refCardsHtml = '';
+    const refCards = Array.isArray(item.reference_cards) ? item.reference_cards.filter(Boolean) : [];
+    if (type === 'user_design' && refCards.length) {
+        const thumbs = refCards.map(function (c) {
+            const href = (c.inspiration_url || c.manufacturer_profile_url || '').trim();
+            if (!href) return '';
+            const img = proxyPublicImageUrl(c.image_url || '', base);
+            const label = escapeHtmlText(c.title || c.manufacturer_name || '引用版型');
+            const tip = escapeHtmlAttr((c.title || '') + (c.manufacturer_name ? (' · ' + c.manufacturer_name) : '') || '引用版型');
+            return '<a class="inspiration-ref-card" href="' + escapeHtmlAttr(href) + '" title="' + tip + '">' +
+                (img ? '<img src="' + escapeHtmlAttr(img) + '" alt="">' : '') +
+                '<span>' + label + '</span></a>';
+        }).filter(Boolean).join('');
+        if (thumbs) {
+            refCardsHtml = '<div class="inspiration-refs"><div class="inspiration-refs-label">引用版型／素材</div><div class="inspiration-refs-list">' + thumbs + '</div></div>';
+        }
+    }
     const jsonLdDesc = (fullBody || descRaw).slice(0, 2000);
     const openLightbox = !!options.openLightbox;
     return `<!DOCTYPE html>
@@ -1109,6 +1165,12 @@ ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')
 .inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
 .inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
 .inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#7A8FA3;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
+.inspiration-refs{margin:1rem 0}
+.inspiration-refs-label{font-size:.875rem;font-weight:600;color:#7A8FA3;margin:0 0 .4rem}
+.inspiration-refs-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.inspiration-ref-card{width:72px;text-align:center;text-decoration:none;color:#333;font-size:.65rem}
+.inspiration-ref-card img{width:72px;height:72px;object-fit:contain;background:#f5f7fa;border:1px solid rgba(88,100,112,.16);border-radius:6px;display:block}
+.inspiration-ref-card span{display:block;margin-top:.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -1119,6 +1181,7 @@ ${imgUrl ? `<img class="inspiration-img" src="${imgUrl.replace(/"/g, '&quot;')}"
 ${bodySection}
 ${seedHtml}
 ${sourceLinkHtml}
+${refCardsHtml}
 ${buildInspirationTagsBlockHtml(displayTags)}
 <p class="inspiration-url-hint"><small>永久連結：</small> <a href="${pageUrl.replace(/"/g, '&quot;')}">${pageUrl.replace(/</g, '&lt;')}</a></p>
 <p><a class="inspiration-open-btn" href="${lightboxUrl.replace(/"/g, '&quot;')}">在首頁靈感牆中開啟</a></p>
@@ -18561,11 +18624,11 @@ app.get('/api/custom-products/:id', async (req, res) => {
         const ownerEmail = user.email || '';
         res.json({
             success: true,
-            product: {
+            product: customProductLineage.stripInternalCustomProductFields({
                 ...data,
                 owner_email: ownerEmail,
                 owner_display: ownerDisplay
-            }
+            })
         });
     } catch (e) {
         console.error('GET /api/custom-products/:id 異常:', e);

@@ -108,6 +108,16 @@
         }
     }
 
+    function buildInspirationPathFromReferenceSource(s) {
+        if (!s) return '';
+        var vid = String(s.vendor_asset_id || s.id || '').trim();
+        if (!vid) return '';
+        var k = String(s.asset_kind || 'prototype').trim().toLowerCase();
+        if (k === 'other') return '';
+        var kind = (k === 'material' || k === 'part') ? k : 'prototype';
+        return '/inspiration/' + kind + '/' + encodeURIComponent(vid);
+    }
+
     root.VendorAssetShareUrls = {
         buildShareDesignPath: buildShareDesignPath,
         buildShareGuidePath: buildShareGuidePath,
@@ -115,6 +125,7 @@
         buildShareGuideUrl: buildShareGuideUrl,
         buildShareMaterialUrl: buildShareMaterialUrl,
         buildInspirationPath: buildInspirationPath,
+        buildInspirationPathFromReferenceSource: buildInspirationPathFromReferenceSource,
         prototypeLinkCount: prototypeLinkCount,
         shouldShowGuideLink: shouldShowGuideLink,
         copyTextToClipboard: copyTextToClipboard

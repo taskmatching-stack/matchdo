@@ -60,6 +60,48 @@
             padding-left: 1rem;
             margin-bottom: 1.5rem;
         }
+        .detail-tags-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .detail-tags-wrap .badge {
+            font-weight: 500;
+            background: #f0f4f8;
+            color: #3a5169;
+            border: 1px solid rgba(88,100,112,.14);
+        }
+        .detail-ref-mfr { margin-bottom: 0.75rem; }
+        .detail-ref-mfr:last-child { margin-bottom: 0; }
+        .detail-ref-thumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+        .detail-ref-thumb {
+            width: 72px;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .detail-ref-thumb img {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            background: #fff;
+            border: 1px solid rgba(88,100,112,.16);
+            border-radius: 6px;
+            display: block;
+        }
+        .detail-ref-thumb span {
+            display: block;
+            font-size: 0.68rem;
+            color: #7A8FA3;
+            margin-top: 0.2rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #productDescription:empty::before,
+        #productDescription.is-empty {
+            color: #8A96A3;
+        }
     </style>
 </head>
 <body>
@@ -120,7 +162,22 @@
                         <h2 id="productTitle"></h2>
                         <span id="productStatus" class="badge"></span>
                     </div>
-                    <p id="productDescription" class="text-muted mb-4"></p>
+                    <div class="mb-3">
+                        <div class="small text-muted fw-semibold mb-1"><i class="bi bi-card-text me-1"></i>產品描述</div>
+                        <p id="productDescription" class="text-muted mb-0"></p>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="small text-muted fw-semibold mb-1"><i class="bi bi-tags me-1"></i>標籤</div>
+                        <div id="productTags"></div>
+                    </div>
+
+                    <div class="card mb-3 d-none" id="productRefsCard">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-3 text-muted"><i class="bi bi-link-45deg me-1"></i>引用圖與廠商</h6>
+                            <div id="productRefs"></div>
+                        </div>
+                    </div>
                     
                     <div class="card mb-4">
                         <div class="card-body">
@@ -131,9 +188,21 @@
                                     <p id="productCategory" class="mb-0 fw-bold"></p>
                                 </div>
                                 <div class="col-6 mb-2">
+                                    <small class="text-muted">子分類</small>
+                                    <p id="productSubcategory" class="mb-0"></p>
+                                </div>
+                                <div class="col-6 mb-2">
                                     <small class="text-muted">建立日期</small>
                                     <p id="productDate" class="mb-0"></p>
                                 </div>
+                                <div class="col-6 mb-2">
+                                    <small class="text-muted">製造狀態</small>
+                                    <p id="productMfgStatus" class="mb-0"></p>
+                                </div>
+                            </div>
+                            <div class="mt-2 d-none" id="productPromptWrap">
+                                <small class="text-muted">生圖提示詞</small>
+                                <p id="productPrompt" class="mb-0 small" style="white-space:pre-wrap;word-break:break-word;max-height:8rem;overflow:auto;"></p>
                             </div>
                         </div>
                     </div>
@@ -286,6 +355,107 @@
             }
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        function renderProductTags(product) {
+            const el = document.getElementById('productTags');
+            if (!el) return;
+            const tags = Array.isArray(product.ai_tags)
+                ? product.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean)
+                : [];
+            if (!tags.length) {
+                el.innerHTML = '<span class="text-muted small">尚無標籤</span>';
+                return;
+            }
+            el.innerHTML = '<div class="detail-tags-wrap">' + tags.map(function (t) {
+                return '<span class="badge">' + escapeHtml(t) + '</span>';
+            }).join('') + '</div>';
+        }
+
+        function designRefInspirationUrl(s) {
+            if (!s) return '';
+            const vid = String(s.vendor_asset_id || '').trim();
+            if (!vid) return '';
+            let kind = String(s.asset_kind || 'prototype').trim().toLowerCase();
+            if (kind === 'other') return designRefProfileUrl(s);
+            if (kind !== 'material' && kind !== 'part') kind = 'prototype';
+            return '/inspiration/' + kind + '/' + encodeURIComponent(vid);
+        }
+
+        function designRefProfileUrl(s) {
+            if (!s) return '';
+            const profile = String(s.manufacturer_profile_url || '').trim();
+            if (profile && profile !== '#') return profile;
+            if (s.manufacturer_id) return '/vendor-profile.html?id=' + encodeURIComponent(s.manufacturer_id);
+            return '';
+        }
+
+        function renderProductRefs(product) {
+            const card = document.getElementById('productRefsCard');
+            const el = document.getElementById('productRefs');
+            if (!card || !el) return;
+            let list = Array.isArray(product.reference_sources) ? product.reference_sources.filter(Boolean) : [];
+            if (!list.length && product.reference_image_url && String(product.reference_image_url).indexOf('data:') !== 0) {
+                list = [{ image_url: product.reference_image_url, title: '引用圖', manufacturer_name: '' }];
+            }
+            if (!list.length) {
+                el.innerHTML = '';
+                card.classList.add('d-none');
+                return;
+            }
+            const byMfr = {};
+            list.forEach(function (s) {
+                if (!s) return;
+                const mid = s.manufacturer_id
+                    ? String(s.manufacturer_id)
+                    : ('name:' + (String(s.manufacturer_name || '').trim() || 'upload'));
+                if (!byMfr[mid]) byMfr[mid] = { info: s, assets: [] };
+                const imgKey = String(s.image_url || '').trim();
+                const dup = imgKey && byMfr[mid].assets.some(function (a) {
+                    return String(a.image_url || '').trim() === imgKey;
+                });
+                if (!dup) byMfr[mid].assets.push(s);
+            });
+            let html = '';
+            Object.keys(byMfr).forEach(function (mid) {
+                const g = byMfr[mid];
+                const profileUrl = designRefProfileUrl(g.info);
+                const rawName = String(g.info.manufacturer_name || '').trim();
+                const mfrName = rawName || (g.info.manufacturer_id ? '廠商' : '本機上傳');
+                const nameHtml = profileUrl
+                    ? ('<a href="' + escapeHtml(profileUrl) + '" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">' + escapeHtml(mfrName) + '</a>')
+                    : ('<span class="fw-semibold">' + escapeHtml(mfrName) + '</span>');
+                let thumbs = '';
+                g.assets.forEach(function (s) {
+                    const imgUrl = toAbsoluteUrl(String(s.image_url || '').trim());
+                    if (!imgUrl) return;
+                    const kind = s.asset_kind === 'material' ? '材料'
+                        : s.asset_kind === 'part' ? '配件'
+                        : s.asset_kind === 'other' ? '印刷／風格'
+                        : '數位原型';
+                    const title = String(s.gallery_label || s.image_label || s.title || kind).trim();
+                    // 縮圖導回該引用素材的公開卡片頁
+                    const cardUrl = designRefInspirationUrl(s) || profileUrl || imgUrl;
+                    thumbs += '<a class="detail-ref-thumb" href="' + escapeHtml(cardUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title + '（開啟引用卡片）') + '">' +
+                        '<img src="' + escapeHtml(imgUrl) + '" alt="" loading="lazy" onerror="this.style.opacity=.3">' +
+                        '<span>' + escapeHtml(title) + '</span></a>';
+                });
+                if (!thumbs) return;
+                html += '<div class="detail-ref-mfr">' + nameHtml + '<div class="detail-ref-thumbs">' + thumbs + '</div></div>';
+            });
+            if (!html) {
+                el.innerHTML = '';
+                card.classList.add('d-none');
+                return;
+            }
+            el.innerHTML = html;
+            card.classList.remove('d-none');
+        }
+
         function renderProductDetail(product) {
             // 主圖：優先 image_urls[0]，其次 ai_generated / reference，並轉為絕對網址
             let imageUrl = '';
@@ -321,10 +491,43 @@
             }
 
             // 基本資訊
-            document.getElementById('productTitle').textContent = product.title;
-            document.getElementById('productDescription').textContent = product.description;
+            document.getElementById('productTitle').textContent = product.title || '';
+            const descEl = document.getElementById('productDescription');
+            const desc = String(product.description || '').trim();
+            if (desc) {
+                descEl.textContent = desc;
+                descEl.classList.remove('is-empty');
+            } else {
+                descEl.textContent = '尚無產品描述';
+                descEl.classList.add('is-empty');
+            }
             document.getElementById('productCategory').textContent = product.category || '未分類';
+            const subEl = document.getElementById('productSubcategory');
+            if (subEl) subEl.textContent = product.subcategory_key || '—';
             document.getElementById('productDate').textContent = formatDate(product.created_at);
+            const mfgEl = document.getElementById('productMfgStatus');
+            if (mfgEl) {
+                const mfg = product.manufacturing_status || '';
+                const open = !!product.open_for_manufacturing;
+                if (mfg === 'completed') mfgEl.textContent = '已完成訂製';
+                else if (open && mfg === 'open') mfgEl.textContent = '開放搜尋中';
+                else mfgEl.textContent = '未開放搜尋';
+            }
+            const promptWrap = document.getElementById('productPromptWrap');
+            const promptEl = document.getElementById('productPrompt');
+            const prompt = String(product.generation_prompt || '').trim();
+            if (promptWrap && promptEl) {
+                if (prompt) {
+                    promptEl.textContent = prompt;
+                    promptWrap.classList.remove('d-none');
+                } else {
+                    promptEl.textContent = '';
+                    promptWrap.classList.add('d-none');
+                }
+            }
+
+            renderProductTags(product);
+            renderProductRefs(product);
 
             // 狀態標籤
             const statusInfo = getStatusInfo(product.status);
@@ -387,20 +590,30 @@
             const inspPath = getInspirationUrl(product);
             if (inspPath) {
                 html += `
-                    <a href="${inspPath}" class="btn btn-outline-secondary btn-lg" target="_blank" rel="noopener noreferrer">
+                    <a href="${inspPath}" class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">
                         <i class="bi bi-box-arrow-up-right me-2"></i>公開作品頁（可分享）
                     </a>
                 `;
             }
 
+            const catQ = (product.category || product.category_key)
+                ? '?category_key=' + encodeURIComponent(product.category || product.category_key) +
+                  (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '')
+                : '';
+            html += `
+                <a href="/client/find-makers.html${catQ}" class="btn btn-outline-primary">
+                    <i class="bi bi-shop me-2"></i>找製作方
+                </a>
+            `;
+
             if (product.status === 'draft') {
-                html = `
+                html += `
                     <button class="btn btn-primary btn-lg" onclick="startMatching()">
                         <i class="bi bi-search me-2"></i>開始媒合廠商
                     </button>
                 `;
             } else if (product.status === 'analyzing') {
-                html = `
+                html += `
                     <button class="btn btn-secondary btn-lg" disabled>
                         <span class="spinner-border spinner-border-sm me-2"></span>
                         媒合中...
