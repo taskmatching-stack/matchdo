@@ -151,10 +151,11 @@
 | Phase | 狀態 | Commit |
 |-------|------|--------|
 | 基準 8281e3a 記錄 | ✅ | `8281e3a` |
-| 規則 seo-no-stuff-design-page | ✅（本輪文件） | （隨本檔 commit） |
-| Phase A 官方真列表 | ⏳ | |
+| 規則 seo-no-stuff-design-page | ✅ | `763d473` |
+| Phase A 官方真列表 | ✅ 實作 | （本輪）`/official-templates/` SSR；sitemap 改指此 path；設計頁未改 UI |
+| 首頁 crawl 連結 | ✅ | `/` HTML 尾端 visually-hidden `/inspiration/*` 連結（版面不變） |
 | Phase B 廠商版型列表 | ⏳ | |
-| Phase C 設計頁瘦身／sitemap | ⏳ | |
+| Phase C 設計頁瘦身／sitemap | ⏳ | 廠商版型 tab URL 仍暫留 sitemap（待 B） |
 
 ---
 

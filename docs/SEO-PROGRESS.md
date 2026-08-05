@@ -25,7 +25,7 @@
 | **廠商公開首頁** | **`/vendor-profile.html?id=`** → **index** + `sitemap-vendors`（**≠** `/client/manufacturer-dashboard.html` 後台） |
 | **仍 noindex** | 個人後台（控制台、我的資產、訊息…）、已廢頁（my-projects、demands…）、`/embed/*` |
 | **版型庫分類 landing** | `sitemap-categories.xml` 動態產出 `custom-product.html?tab=vendor-styles&category_key=…`（含 `browse=official`） |
-| **官方版型短網址** | `/official-templates/` → 301 至設計頁官方 tab；`?official_platform=1`（無 `manage=1`）同上 |
+| **官方版型短網址** | `/official-templates/` → **真列表 SSR**（2026-08-06）；`?official_platform=1`（無 `manage=1`）301 至 `/official-templates/`（**不再**進設計頁 tab） |
 | **embed 設計頁 iframe** | `/promo-camera?embed=design` → **`noindex, follow`**（2026-08-01）；獨立 `/promo-camera` 仍 index |
 | **站內攝影模擬入口** | 全站選單 → `/promo-camera`；設計頁 tab 仍 `?tab=promo-camera` + iframe |
 | **首頁 UX（必守）** | **禁止**在 `#media-wall-section` 前加可見／visually-hidden 文案區塊；SEO 只靠 `<head>` meta／JSON-LD、`/inspiration/*` SSR、sitemap。**勿再犯** 2026-07-30 `#home-seo-intro` 事件 |

@@ -5726,18 +5726,97 @@ app.use((req, res, next) => {
 });
 // 首頁：僅 / 送 iStudio 內容；/index.html 301 到 /（與 canonical 一致，避免 GSC「替代頁面」重複網址）
 const indexPath = path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html');
+
+/** 首頁 HTML 尾端隱藏連結：讓爬蟲在不執行完整媒體牆 JS 時仍能發現 /inspiration/*（不改可見版面） */
+async function buildHomeInspirationCrawlNavHtml() {
+    const links = [];
+    try {
+        const { data: userRows } = await supabase
+            .from('custom_products')
+            .select('id, title')
+            .not('ai_generated_image_url', 'is', null)
+            .or('show_on_homepage.eq.true,show_on_homepage.is.null')
+            .order('created_at', { ascending: false })
+            .limit(40);
+        (userRows || []).forEach((r) => {
+            if (!r || !r.id) return;
+            links.push({
+                href: '/inspiration/user_design/' + encodeURIComponent(r.id),
+                text: r.title || ('設計 ' + r.id)
+            });
+        });
+        const { data: portRows } = await supabase
+            .from('manufacturer_portfolio')
+            .select('id, title, image_url_before')
+            .eq('show_on_media_wall', true)
+            .order('created_at', { ascending: false })
+            .limit(30);
+        (portRows || []).forEach((r) => {
+            if (!r || !r.id) return;
+            const type = r.image_url_before ? 'comparison' : 'series';
+            links.push({
+                href: '/inspiration/' + type + '/' + encodeURIComponent(r.id),
+                text: r.title || ('作品 ' + r.id)
+            });
+        });
+        const { data: assetRows } = await supabase
+            .from('vendor_assets')
+            .select('id, title, asset_kind')
+            .eq('is_public', true)
+            .in('asset_kind', ['prototype', 'part', 'material'])
+            .order('created_at', { ascending: false })
+            .limit(40);
+        (assetRows || []).forEach((r) => {
+            if (!r || !r.id) return;
+            const kind = normalizeVendorAssetKind(r.asset_kind);
+            links.push({
+                href: '/inspiration/' + kind + '/' + encodeURIComponent(r.id),
+                text: r.title || ('版型 ' + r.id)
+            });
+        });
+    } catch (e) {
+        console.warn('buildHomeInspirationCrawlNavHtml:', e && e.message);
+        return '';
+    }
+    if (!links.length) return '';
+    const seen = new Set();
+    const uniq = [];
+    for (const L of links) {
+        if (!L.href || seen.has(L.href)) continue;
+        seen.add(L.href);
+        uniq.push(L);
+        if (uniq.length >= 80) break;
+    }
+    const inner = uniq.map((L) =>
+        '<a href="' + escapeHtmlAttr(L.href) + '">' + escapeHtmlText(L.text).slice(0, 80) + '</a>'
+    ).join(' ');
+    return '<nav id="mw-inspiration-crawl-links" class="visually-hidden" aria-hidden="true">' + inner + '</nav>';
+}
+
 app.get('/index.html', (req, res) => {
     const q = (req.url && req.url.indexOf('?') >= 0) ? req.url.slice(req.url.indexOf('?')) : '';
     res.redirect(301, '/' + q);
 });
-app.get('/', (req, res) => {
-    res.sendFile(indexPath, (err) => {
-        if (err) {
-            console.error('首頁 sendFile 失敗:', err.message, 'path:', indexPath);
-            res.status(err.status || 500).send(err.status === 404 ? 'File not found' : 'Server error');
+app.get('/', async (req, res) => {
+    // 首頁：版面不變；於 </body> 前注入 visually-hidden inspiration 連結供爬蟲（不放在 #media-wall-section 前）
+    try {
+        let html = fs.readFileSync(indexPath, 'utf8');
+        const crawlNav = await buildHomeInspirationCrawlNavHtml();
+        if (crawlNav && html.indexOf('</body>') >= 0) {
+            html = html.replace('</body>', crawlNav + '\n</body>');
         }
-        // 成功時 sendFile 已送完，不需再 res.send
-    });
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=60');
+        return res.send(html);
+    } catch (e) {
+        console.error('首頁 SSR 注入失敗，改 sendFile:', e && e.message);
+        return res.sendFile(indexPath, (err) => {
+            if (err) {
+                console.error('首頁 sendFile 失敗:', err.message, 'path:', indexPath);
+                res.status(err.status || 500).send(err.status === 404 ? 'File not found' : 'Server error');
+            }
+        });
+    }
 });
 // 【不准修改】首頁網址 /iStudio-1.0.0/ 必須導向 / ；使用者已多次被改壞，勿刪勿改此段
 app.get(['/iStudio-1.0.0', '/iStudio-1.0.0/', '/iStudio-1.0.0/index.html'], (req, res) => {
@@ -5811,19 +5890,48 @@ app.get('/client/manufacturer-materials.html', (req, res, next) => {
     const op = String((req.query && req.query.official_platform) || '').trim().toLowerCase();
     const manage = String((req.query && req.query.manage) || '').trim().toLowerCase();
     if ((op === '1' || op === 'true') && manage !== '1' && manage !== 'true') {
+        // 訪客／SEO：導向獨立官方版型列表（不再 301 進設計頁 tab）
         const params = new URLSearchParams();
-        params.set('tab', 'vendor-styles');
-        params.set('browse', 'official');
         const ck = String((req.query && req.query.category_key) || '').trim();
         const sk = String((req.query && req.query.subcategory_key) || '').trim();
         if (ck) params.set('category_key', ck);
         if (sk) params.set('subcategory_key', sk);
-        return res.redirect(301, '/custom-product.html?' + params.toString());
+        const q = params.toString();
+        return res.redirect(301, '/official-templates/' + (q ? ('?' + q) : ''));
     }
     next();
 });
-app.get(['/official-templates', '/official-templates/'], (req, res) => {
-    redirectWithQuery301(req, res, '/custom-product.html?tab=vendor-styles&browse=official');
+app.get(['/official-templates', '/official-templates/'], async (req, res) => {
+    try {
+        const origin = (req.get('x-forwarded-proto') && req.get('host'))
+            ? (req.get('x-forwarded-proto') + '://' + req.get('host'))
+            : null;
+        const base = origin || BASE_URL || 'https://matchdo.cc';
+        const categoryKey = String((req.query && req.query.category_key) || '').trim();
+        const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const catalog = await listOfficialPublicCatalogForPage({
+            category_key: categoryKey,
+            subcategory_key: subcategoryKey,
+            limit: 72,
+            offset: 0
+        });
+        const { buildOfficialTemplatesHtml } = require('./lib/official-templates-page');
+        const html = buildOfficialTemplatesHtml({
+            base: String(base).replace(/\/$/, ''),
+            items: catalog.items || [],
+            categories: catalog.categories || [],
+            categoryKey,
+            subcategoryKey,
+            total: catalog.total != null ? catalog.total : (catalog.items || []).length,
+            proxyImage: proxyPublicImageUrl
+        });
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=120');
+        res.send(html);
+    } catch (e) {
+        console.error('GET /official-templates 異常:', e);
+        if (!res.headersSent) res.status(500).send('暫時無法載入官方版型列表');
+    }
 });
 // 攝影模擬：正式短網址 /promo-camera（舊 /client/promo-camera.html 301 保留 query）
 const promoCameraHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera.html');
@@ -6488,6 +6596,71 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
         return item;
     });
     return { items, total, name: OFFICIAL_ASSET_DISPLAY_NAME };
+}
+
+/** 官方版型公開列表頁（/official-templates/）用：可不帶 category_key */
+async function listOfficialPublicCatalogForPage(opts) {
+    opts = opts || {};
+    const categoryKey = String(opts.category_key || '').trim();
+    const subcategoryKey = String(opts.subcategory_key || '').trim();
+    const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
+    const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+    const mfrIds = await listOfficialPlatformManufacturerIds();
+    let categories = [];
+    try {
+        const { data: catRows } = await supabase
+            .from('custom_product_categories')
+            .select('key, name, sort_order')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
+            key: c.key,
+            name: c.name || c.key
+        }));
+    } catch (_) { categories = []; }
+    if (!mfrIds.length) return { items: [], total: 0, categories };
+    const selectCols = 'id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
+    let q = supabase
+        .from('vendor_assets')
+        .select(selectCols)
+        .in('manufacturer_id', mfrIds)
+        .eq('is_public', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+    if (categoryKey) q = q.eq('category_key', categoryKey);
+    if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+    let { data: rows, error } = await q;
+    if (error && error.code === '42703') {
+        let fq = supabase
+            .from('vendor_assets')
+            .select('id, category_key, subcategory_key, title, description, image_url, asset_kind, is_public')
+            .in('manufacturer_id', mfrIds)
+            .eq('is_public', true);
+        if (categoryKey) fq = fq.eq('category_key', categoryKey);
+        ({ data: rows, error } = await fq);
+    }
+    if (error) {
+        if (error.code === '42P01') return { items: [], total: 0, categories };
+        console.error('listOfficialPublicCatalogForPage:', error.message || error);
+        return { items: [], total: 0, categories };
+    }
+    let list = rows || [];
+    const total = list.length;
+    list = list.slice(offset, offset + limit);
+    const items = list.map((r) => {
+        const kind = normalizeVendorAssetKind(r.asset_kind);
+        return {
+            id: r.id,
+            category_key: r.category_key,
+            subcategory_key: r.subcategory_key,
+            title: r.title || '',
+            description: r.description || '',
+            image_url: r.image_url,
+            asset_kind: kind,
+            official: true
+        };
+    });
+    return { items, total, categories };
 }
 
 /** 非種子一律可寫；種子看 seed_vendor_self_service_enabled（false = 鎖 /api/me/* 寫入）。 */

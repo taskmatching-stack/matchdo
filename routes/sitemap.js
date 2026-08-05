@@ -35,8 +35,8 @@ function registerSitemapRoutes(app, deps) {
         { path: '/custom-product.html?tab=promo-image',  priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=design-to-physical', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html?tab=vendor-styles', priority: '0.8', changefreq: 'monthly' },
-        { path: '/custom-product.html?tab=vendor-styles&browse=official', priority: '0.78', changefreq: 'monthly' },
-        { path: '/official-templates/',           priority: '0.78', changefreq: 'monthly' },
+        // 官方版型：真列表 /official-templates/（勿再用設計頁 ?browse=official 當 SEO 落地）
+        { path: '/official-templates/',           priority: '0.8', changefreq: 'weekly' },
         { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },
         { path: '/promo-camera-app',        priority: '0.72', changefreq: 'monthly' },
@@ -97,11 +97,19 @@ function registerSitemapRoutes(app, deps) {
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = [];
         function pushVendorStylesUrl(catKey, subKey, official) {
+            if (official) {
+                const params = new URLSearchParams();
+                if (catKey) params.set('category_key', catKey);
+                if (subKey) params.set('subcategory_key', subKey);
+                const q = params.toString();
+                const loc = base + '/official-templates/' + (q ? ('?' + q) : '');
+                urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.75</priority></url>');
+                return;
+            }
             const params = new URLSearchParams();
             params.set('tab', 'vendor-styles');
             params.set('category_key', catKey);
             if (subKey) params.set('subcategory_key', subKey);
-            if (official) params.set('browse', 'official');
             const loc = base + '/custom-product.html?' + params.toString();
             urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.72</priority></url>');
         }

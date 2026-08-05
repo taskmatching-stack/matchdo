@@ -26,7 +26,7 @@ alwaysApply: true
 |------|------|
 | 為 SEO 在設計頁**新增** `?tab=`／`browse=` 變體當「新頁」 | 假多頁；Google／AI 仍讀同一殼 |
 | 把**列表／目錄／主題落地**做成設計頁分頁 | 設計頁是工具，不是網站目錄 |
-| 讓 `/official-templates/` **301 進設計頁**當最終解 | 短網址必須是**真列表頁**（或 SSR），不是 redirect 殼 |
+| 讓 `/official-templates/` **301 進設計頁**當最終解 | 短網址必須是**真列表頁**（SSR） |
 | 用 sitemap 堆 `custom-product.html?tab=…` 充頁數 | dirty／重複；應用獨立 URL 取代 |
 | 未讀 `docs/SEO-AUDIT-PLAN-2026-08-06.md` 就改設計頁 SEO | 會再搞第六次 |
 

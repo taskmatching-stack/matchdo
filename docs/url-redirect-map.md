@@ -34,8 +34,8 @@
 
 | 來源 | 條件 | 目標 | 碼 |
 |------|------|------|-----|
-| `/client/manufacturer-materials.html` | `official_platform=1` 且非 `manage=1` | `/custom-product.html?tab=vendor-styles&browse=official`（保留 category） | 301 |
-| `/official-templates`、`/official-templates/` | — | `/custom-product.html?tab=vendor-styles&browse=official` | 301 |
+| `/client/manufacturer-materials.html` | `official_platform=1` 且非 `manage=1` | `/official-templates/`（保留 category／subcategory query） | 301 |
+| `/official-templates`、`/official-templates/` | — | **真列表 SSR**（不再 301 進設計頁） | 200 |
 
 ---
 
