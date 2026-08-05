@@ -63,6 +63,64 @@
             color: #3a5169;
             border: 1px solid rgba(88,100,112,.14);
         }
+        .design-refs-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #7A8FA3;
+            margin-bottom: 0.35rem;
+        }
+        .design-refs-block {
+            background: #f5f7fa;
+            border: 1px solid rgba(88,100,112,.1);
+            border-radius: 8px;
+            padding: 0.5rem 0.6rem;
+        }
+        .design-ref-mfr {
+            margin-bottom: 0.5rem;
+        }
+        .design-ref-mfr:last-child {
+            margin-bottom: 0;
+        }
+        .design-ref-mfr-name {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #3a5169;
+            text-decoration: none;
+        }
+        .design-ref-mfr-name:hover {
+            text-decoration: underline;
+        }
+        .design-ref-thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+        }
+        .design-ref-thumb {
+            width: 52px;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .design-ref-thumb img {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            background: #fff;
+            border: 1px solid rgba(88,100,112,.16);
+            border-radius: 6px;
+            display: block;
+        }
+        .design-ref-thumb span {
+            display: block;
+            font-size: 0.65rem;
+            color: #7A8FA3;
+            max-width: 52px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 0.15rem;
+        }
         /* 情境圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計稿 .product-image */
         .promo-asset-thumb-wrap {
             width: 100%;
@@ -1308,6 +1366,7 @@
             const descHtml = descFull
                 ? ('<p class="design-desc-text" data-role="desc">' + escapeHtml(descFull) + '</p>')
                 : '<p class="design-desc-empty mb-0" data-role="desc-empty">尚無產品描述</p>';
+            const refsHtml = buildDesignRefsHtml(product, toAbs);
 
             col.innerHTML = `
                 <div class="card product-card h-100">
@@ -1326,6 +1385,7 @@
                             <div class="design-tags-label"><i class="bi bi-tags me-1"></i>標籤${tags.length ? '（' + tags.length + '）' : ''}</div>
                             ${tagsHtml}
                         </div>
+                        ${refsHtml}
                         <div class="text-muted small mb-3">
                             <i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}
                         </div>
@@ -1392,6 +1452,85 @@
             }
 
             return col;
+        }
+
+        function designRefAssetKindLabel(s) {
+            if (!s) return '參考圖';
+            if (s.asset_kind === 'material') return '材料';
+            if (s.asset_kind === 'part') return '配件／零件';
+            if (s.asset_kind === 'other') {
+                const intent = String(s.pattern_intent || '').trim().toLowerCase();
+                return intent === 'style' ? '風格參考' : '原圖印刷';
+            }
+            if (s.asset_kind === 'prototype' || s.vendor_asset_id) return '數位原型';
+            return '參考圖';
+        }
+
+        function designRefProfileUrl(s) {
+            if (!s) return '';
+            const profile = String(s.manufacturer_profile_url || '').trim();
+            if (profile && profile !== '#') return profile;
+            if (s.manufacturer_id) return '/vendor-profile.html?id=' + encodeURIComponent(s.manufacturer_id);
+            return '';
+        }
+
+        function normalizeDesignRefSources(product) {
+            const list = Array.isArray(product && product.reference_sources) ? product.reference_sources.filter(Boolean) : [];
+            if (list.length) return list;
+            const fallbackUrl = String((product && product.reference_image_url) || '').trim();
+            if (!fallbackUrl || fallbackUrl.indexOf('data:') === 0) return [];
+            // 舊資料可能只有 reference_image_url、沒有 reference_sources
+            return [{ image_url: fallbackUrl, title: '引用圖', manufacturer_name: '' }];
+        }
+
+        function buildDesignRefsHtml(product, toAbs) {
+            const list = normalizeDesignRefSources(product);
+            if (!list.length) return '';
+            const byMfr = {};
+            list.forEach(function (s) {
+                if (!s) return;
+                const mid = s.manufacturer_id
+                    ? String(s.manufacturer_id)
+                    : ('name:' + (String(s.manufacturer_name || '').trim() || 'upload'));
+                if (!byMfr[mid]) byMfr[mid] = { info: s, assets: [] };
+                const imgKey = String(s.image_url || '').trim();
+                const dup = imgKey && byMfr[mid].assets.some(function (a) {
+                    return String(a.image_url || '').trim() === imgKey;
+                });
+                if (!dup) byMfr[mid].assets.push(s);
+            });
+            let body = '';
+            let thumbCount = 0;
+            Object.keys(byMfr).forEach(function (mid) {
+                const g = byMfr[mid];
+                const profileUrl = designRefProfileUrl(g.info);
+                const rawName = String(g.info.manufacturer_name || '').trim();
+                const mfrName = rawName || (g.info.manufacturer_id ? '廠商' : '本機上傳');
+                const nameHtml = profileUrl
+                    ? ('<a class="design-ref-mfr-name" href="' + escapeHtml(profileUrl) + '" target="_blank" rel="noopener"><i class="bi bi-shop me-1"></i>' + escapeHtml(mfrName) + '</a>')
+                    : ('<span class="design-ref-mfr-name"><i class="bi bi-image me-1"></i>' + escapeHtml(mfrName) + '</span>');
+                let thumbs = '';
+                g.assets.forEach(function (s) {
+                    const imgUrl = toAbs(String(s.image_url || '').trim());
+                    if (!imgUrl) return;
+                    thumbCount += 1;
+                    const kind = designRefAssetKindLabel(s);
+                    const title = String(s.gallery_label || s.image_label || s.title || kind).trim();
+                    const href = profileUrl || imgUrl;
+                    thumbs +=
+                        '<a class="design-ref-thumb" href="' + escapeHtml(href) + '" target="_blank" rel="noopener" title="' + escapeHtml(title + (rawName ? ' · ' + rawName : '') + ' · ' + kind) + '">' +
+                        '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(title) + '" loading="lazy" decoding="async" onerror="this.style.opacity=.3">' +
+                        '<span>' + escapeHtml(title) + '</span></a>';
+                });
+                if (!thumbs) return;
+                body += '<div class="design-ref-mfr">' + nameHtml + '<div class="design-ref-thumbs">' + thumbs + '</div></div>';
+            });
+            if (!body || !thumbCount) return '';
+            return (
+                '<div class="mb-2 design-refs-section">' +
+                '<div class="design-refs-label"><i class="bi bi-link-45deg me-1"></i>引用圖（' + thumbCount + '）</div>' +
+                '<div class="design-refs-block">' + body + '</div></div>'
+            );
         }
 
         function applyDesignCardSemantics(colEl, product) {

@@ -17229,7 +17229,7 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags';
+            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -17237,7 +17237,7 @@ app.get('/api/custom-products', async (req, res) => {
                 .order('created_at', { ascending: false })
                 .range(offsetN, rangeEnd);
             if (error && error.code === '42703') {
-                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key';
+                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags';
                 ({ data, error } = await supabase
                     .from('custom_products')
                     .select(fallbackSelect)
