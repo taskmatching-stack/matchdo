@@ -253,7 +253,12 @@ function bindSiteHeaderAuthListeners(initialSession) {
         document.addEventListener('DOMContentLoaded', function () {
             bindSiteHeaderAuthListeners(initialSession);
         });
+        return;
     }
+    // auth-config 晚於 site-header 時：DOM 已就緒仍要再試綁定，否則會永遠顯示登出
+    setTimeout(function () {
+        if (!_siteHeaderAuthListenersBound) bindSiteHeaderAuthListeners(initialSession);
+    }, 50);
 }
 
 function bootSiteHeader() {

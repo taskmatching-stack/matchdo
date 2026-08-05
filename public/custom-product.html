@@ -97,7 +97,10 @@
 
 <body>
     <div id="site-header"></div>
-    <script src="/js/site-header.js?v=20260806-design-tabs2"></script>
+    <!-- 須先於 site-header：獨立路徑（/pattern-extract/ 等）若晚載 auth，會一直顯示登出 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/site-header.js?v=20260806-auth-first"></script>
 
     <!-- 放大 modal：Bootstrap 於頁尾 defer 載入 -->
     <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
@@ -1970,9 +1973,7 @@
 
     <!-- JavaScript：導覽升級與頁面邏輯（defer，不擋首屏選單） -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js" defer></script>
-    <!-- Bootstrap 已於 head #bs-bundle-js，勿在此再載一次 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="/config/auth-config.js" defer></script>
+    <!-- Bootstrap 已於 head #bs-bundle-js；supabase／auth-config 已於 #site-header 前同步載入，勿再 defer 重複載入 -->
     <script src="/js/auth-middleware.js" defer></script>
     <script src="/js/i18n.js" defer></script>
     <script src="/lib/wow/wow.min.js" defer></script>
