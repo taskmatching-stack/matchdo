@@ -20,142 +20,164 @@
             box-shadow: 0 4px 14px rgba(122, 143, 163, 0.12);
         }
         .status-badge {
-            font-size: 0.72rem;
-            padding: 0.2rem 0.45rem;
+            font-size: 0.65rem;
+            padding: 0.12rem 0.35rem;
             font-weight: 500;
         }
         .product-image {
             width: 100%;
-            height: 148px;
+            height: 108px;
             object-fit: cover;
             border-radius: 0;
             background: #EAEEF3;
         }
         .product-card .card-body {
-            padding: 0.65rem 0.75rem 0.75rem;
+            padding: 0.45rem 0.55rem 0.55rem;
         }
         .product-card .card-title {
-            font-size: 0.95rem;
-            line-height: 1.3;
-            max-width: 70%;
+            font-size: 0.86rem;
+            line-height: 1.25;
+            max-width: 72%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .design-desc-text {
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             color: #5C6670;
             display: -webkit-box;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: 1;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            margin: 0 0 0.35rem;
-            line-height: 1.35;
+            margin: 0 0 0.2rem;
+            line-height: 1.3;
         }
-        .design-desc-empty,
-        .design-tags-empty {
-            font-size: 0.72rem;
-            color: #8A96A3;
+        .design-tags-meta {
+            font-size: 0.68rem;
+            color: #7A8FA3;
             margin: 0 0 0.25rem;
         }
         .design-tags-wrap {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.2rem;
-            margin-bottom: 0.35rem;
-            max-height: 2.4rem;
+            display: inline-flex;
+            flex-wrap: nowrap;
+            gap: 0.15rem;
+            max-width: 100%;
             overflow: hidden;
+            vertical-align: middle;
         }
         .design-tags-wrap .badge {
             font-weight: 500;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             background: #f0f4f8;
             color: #3a5169;
             border: 1px solid rgba(88,100,112,.14);
+            max-width: 4.5rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .design-refs-section {
-            margin-bottom: 0.35rem;
-        }
-        .design-refs-label {
-            font-size: 0.68rem;
-            font-weight: 600;
-            color: #7A8FA3;
-            margin-bottom: 0.2rem;
-        }
-        .design-refs-block {
-            background: #f5f7fa;
-            border: 1px solid rgba(88,100,112,.1);
-            border-radius: 6px;
-            padding: 0.35rem 0.4rem;
-        }
-        .design-ref-mfr {
             margin-bottom: 0.25rem;
         }
-        .design-ref-mfr:last-child {
-            margin-bottom: 0;
+        .design-refs-inline {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .design-refs-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #7A8FA3;
+            margin: 0;
+            white-space: nowrap;
+        }
+        .design-refs-block {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            display: contents;
+        }
+        .design-ref-mfr {
+            display: contents;
         }
         .design-ref-mfr-name {
-            font-size: 0.68rem;
+            font-size: 0.65rem;
             font-weight: 600;
             color: #3a5169;
             text-decoration: none;
-        }
-        .design-ref-mfr-name:hover {
-            text-decoration: underline;
+            max-width: 6rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .design-ref-thumbs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-            margin-top: 0.2rem;
+            display: inline-flex;
+            flex-wrap: nowrap;
+            gap: 0.2rem;
+            margin: 0;
         }
         .design-ref-thumb {
-            width: 36px;
+            width: 28px;
             text-align: center;
             text-decoration: none;
             color: inherit;
         }
         .design-ref-thumb img {
-            width: 36px;
-            height: 36px;
+            width: 28px;
+            height: 28px;
             object-fit: contain;
             background: #fff;
             border: 1px solid rgba(88,100,112,.16);
-            border-radius: 4px;
+            border-radius: 3px;
             display: block;
         }
         .design-ref-thumb span {
             display: none;
         }
         .design-card-meta {
-            font-size: 0.72rem;
+            font-size: 0.65rem;
             color: #8A96A3;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
         }
         .design-mfg-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 0.5rem;
-            padding: 0.25rem 0.45rem;
-            border: 1px solid rgba(88,100,112,.1);
-            border-radius: 6px;
-            background: #f8fafc;
-            margin-bottom: 0.45rem;
+            gap: 0.35rem;
+            padding: 0.1rem 0;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            margin-bottom: 0.3rem;
         }
         .design-mfg-row .small {
-            font-size: 0.72rem;
+            font-size: 0.65rem;
+        }
+        .design-mfg-row .form-check-input {
+            width: 2rem;
+            height: 1.05rem;
+            margin-top: 0;
         }
         .design-actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
+            flex-wrap: nowrap;
+            gap: 0.25rem;
+            align-items: center;
         }
         .design-actions .btn {
-            flex: 1 1 auto;
-            min-width: calc(50% - 0.15rem);
-            font-size: 0.72rem;
-            padding: 0.28rem 0.4rem;
+            flex: 1 1 0;
+            min-width: 0;
+            font-size: 0.68rem;
+            padding: 0.22rem 0.25rem;
+            white-space: nowrap;
         }
-        .design-actions .btn-detail {
-            flex: 1 1 100%;
+        .design-actions .dropdown-toggle::after {
+            margin-left: 0.2rem;
+        }
+        .design-actions .dropdown-menu {
+            font-size: 0.8rem;
+            min-width: 9rem;
         }
         /* 情境圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計稿 .product-image */
         .promo-asset-thumb-wrap {
@@ -1394,66 +1416,60 @@
 
             const tags = Array.isArray(product.ai_tags) ? product.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean) : [];
             const descFull = String(product.description || '').trim();
-            const tagsShow = tags.slice(0, 4);
-            const tagsMore = tags.length > 4 ? (tags.length - 4) : 0;
-            const tagsHtml = tagsShow.length
-                ? ('<div class="design-tags-wrap" data-role="tags">' + tagsShow.map(function (t) {
-                    return '<span class="badge">' + escapeHtml(t) + '</span>';
-                }).join('') + (tagsMore ? '<span class="badge">+' + tagsMore + '</span>' : '') + '</div>')
-                : '<p class="design-tags-empty mb-0" data-role="tags-empty">尚無標籤</p>';
+            const tagsShow = tags.slice(0, 2);
+            const tagsMore = tags.length > 2 ? (tags.length - 2) : 0;
+            const tagsHtml = tags.length
+                ? ('<div class="design-tags-meta" data-role="tags-wrap"><span class="me-1">標籤 ' + tags.length + '</span>' +
+                    '<span class="design-tags-wrap" data-role="tags">' + tagsShow.map(function (t) {
+                        return '<span class="badge">' + escapeHtml(t) + '</span>';
+                    }).join('') + (tagsMore ? '<span class="badge">+' + tagsMore + '</span>' : '') + '</span></div>')
+                : '<div class="design-tags-meta" data-role="tags-wrap">尚無標籤</div>';
             const descHtml = descFull
                 ? ('<p class="design-desc-text" data-role="desc">' + escapeHtml(descFull) + '</p>')
-                : '<p class="design-desc-empty mb-0" data-role="desc-empty">尚無描述</p>';
+                : '';
             const refsHtml = buildDesignRefsHtml(product, toAbs);
+            const makersHref = '/client/find-makers.html' + ((product.category || product.category_key)
+                ? '?category_key=' + encodeURIComponent(product.category || product.category_key) +
+                  (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '')
+                : '');
 
             col.innerHTML = `
                 <div class="card product-card h-100">
                     <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
                     <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                        <div class="d-flex justify-content-between align-items-center gap-1 mb-1">
                             <h5 class="card-title mb-0" data-role="title">${escapeHtml(product.title)}</h5>
                             <span class="badge ${statusInfo.class} status-badge flex-shrink-0">${statusInfo.text}</span>
                         </div>
                         ${mfgBadge ? `<div class="mb-1">${mfgBadge}</div>` : ''}
                         <div data-role="desc-wrap">${descHtml}</div>
-                        <div data-role="tags-wrap">${tagsHtml}</div>
+                        ${tagsHtml}
                         ${refsHtml}
-                        <div class="design-card-meta">
-                            <i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}
-                        </div>
-
-                        ${!isCompleted ? `
-                        <div class="design-mfg-row">
-                            <span class="small fw-semibold text-secondary">開放廠商搜尋</span>
-                            <div class="form-check form-switch mb-0">
+                        <div class="design-card-meta d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}</span>
+                            ${!isCompleted ? `
+                            <label class="design-mfg-row mb-0" for="mfg-toggle-${product.id}">
+                                <span class="small text-secondary">開放搜尋</span>
                                 <input class="form-check-input mfg-toggle" type="checkbox" role="switch"
                                     id="mfg-toggle-${product.id}" data-id="${product.id}"
                                     ${isOpen ? 'checked' : ''}>
-                            </div>
+                            </label>
+                            ` : ''}
                         </div>
-                        ` : ''}
 
                         <div class="design-actions mt-auto">
-                            <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">
-                                <i class="bi bi-eye me-1"></i>詳情
-                            </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}">
-                                <i class="bi bi-card-text me-1"></i>描述 1點
-                            </button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}">
-                                <i class="bi bi-tags me-1"></i>標籤 1點
-                            </button>
-                            <a href="/client/find-makers.html${(product.category || product.category_key) ? '?category_key=' + encodeURIComponent(product.category || product.category_key) + (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '') : ''}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-shop me-1"></i>找製作方
-                            </a>
-                            ${!isCompleted ? `
-                            <button class="btn btn-outline-success btn-sm btn-mark-done" data-id="${product.id}">
-                                <i class="bi bi-check-circle me-1"></i>完成
-                            </button>
-                            ` : ''}
-                            <button class="btn btn-outline-danger btn-sm btn-delete-design" data-id="${product.id}">
-                                <i class="bi bi-trash me-1"></i>刪除
-                            </button>
+                            <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">詳情</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}">描述</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}">標籤</button>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">更多</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="${makersHref}"><i class="bi bi-shop me-1"></i>找製作方</a></li>
+                                    ${!isCompleted ? `<li><button type="button" class="dropdown-item btn-mark-done" data-id="${product.id}"><i class="bi bi-check-circle me-1"></i>標記完成</button></li>` : ''}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button type="button" class="dropdown-item text-danger btn-delete-design" data-id="${product.id}"><i class="bi bi-trash me-1"></i>刪除</button></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1571,9 +1587,10 @@
             });
             if (!body || !thumbCount) return '';
             return (
-                '<div class="design-refs-section">' +
-                '<div class="design-refs-label"><i class="bi bi-link-45deg me-1"></i>引用 ' + thumbCount + '</div>' +
-                '<div class="design-refs-block">' + body + '</div></div>'
+                '<div class="design-refs-section design-refs-inline">' +
+                '<span class="design-refs-label">引用 ' + thumbCount + '</span>' +
+                body +
+                '</div>'
             );
         }
 
@@ -1588,7 +1605,7 @@
                     descWrap.innerHTML = '<p class="design-desc-text" data-role="desc"></p>';
                     descWrap.querySelector('[data-role="desc"]').textContent = desc;
                 } else {
-                    descWrap.innerHTML = '<p class="design-desc-empty mb-0" data-role="desc-empty">尚無描述</p>';
+                    descWrap.innerHTML = '';
                 }
             }
             const tagsWrap = colEl.querySelector('[data-role="tags-wrap"]');
@@ -1597,27 +1614,24 @@
                     ? product.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean)
                     : [];
                 if (!tags.length) {
-                    tagsWrap.innerHTML = '<p class="design-tags-empty mb-0" data-role="tags-empty">尚無標籤</p>';
+                    tagsWrap.textContent = '尚無標籤';
+                    tagsWrap.className = 'design-tags-meta';
                 } else {
-                    const show = tags.slice(0, 4);
-                    const more = tags.length > 4 ? tags.length - 4 : 0;
-                    const wrap = document.createElement('div');
-                    wrap.className = 'design-tags-wrap';
-                    wrap.setAttribute('data-role', 'tags');
+                    const show = tags.slice(0, 2);
+                    const more = tags.length > 2 ? tags.length - 2 : 0;
+                    tagsWrap.className = 'design-tags-meta';
+                    tagsWrap.setAttribute('data-role', 'tags-wrap');
+                    let html = '<span class="me-1">標籤 ' + tags.length + '</span><span class="design-tags-wrap" data-role="tags">';
                     show.forEach(function (t) {
-                        const b = document.createElement('span');
-                        b.className = 'badge';
-                        b.textContent = t;
-                        wrap.appendChild(b);
+                        html += '<span class="badge"></span>';
                     });
-                    if (more) {
-                        const b = document.createElement('span');
-                        b.className = 'badge';
-                        b.textContent = '+' + more;
-                        wrap.appendChild(b);
-                    }
-                    tagsWrap.innerHTML = '';
-                    tagsWrap.appendChild(wrap);
+                    if (more) html += '<span class="badge">+' + more + '</span>';
+                    html += '</span>';
+                    tagsWrap.innerHTML = html;
+                    const badges = tagsWrap.querySelectorAll('.design-tags-wrap .badge');
+                    show.forEach(function (t, i) {
+                        if (badges[i]) badges[i].textContent = t;
+                    });
                 }
             }
         }
