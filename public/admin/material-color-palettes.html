@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>材料組合配色範例 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .swatch { display:inline-block; width:2.5rem; height:1.5rem; border-radius:4px; border:1px solid rgba(0,0,0,.15); vertical-align:middle; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">材料組合 · 配色範例</h4>
+        <p class="text-muted small mb-3">
+          維護<strong>類型字典</strong>與<strong>官方雙色配色表</strong>。前台材料組合「配色範例 → 官方」以類型分 Tab、表格綜覽一鍵套用。
+          請先執行 <code>docs/add-material-color-palettes.sql</code>（或後台資料庫維護）。第三色欄位已預留，前台暫不開放。
+        </p>
+        <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
+
+        <div class="card mb-4">
+          <div class="card-header fw-semibold">類型字典</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end mb-3">
+              <div class="col-md-4"><label class="form-label small mb-0">名稱</label><input id="typeName" class="form-control form-control-sm" placeholder="例：皮革、布料"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">排序</label><input id="typeSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="btnAddType">新增類型</button></div>
+              <div class="col-md-4 text-md-end">
+                <div class="form-check d-inline-block mb-0">
+                  <input class="form-check-input" type="checkbox" id="showInactiveTypes">
+                  <label class="form-check-label small" for="showInactiveTypes">顯示已停用</label>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered mb-0 align-middle">
+                <thead class="table-light"><tr><th>名稱</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                <tbody id="typeBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-header fw-semibold">新增官方配色</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small mb-0">類型</label>
+                <select id="palType" class="form-select form-select-sm"></select>
+              </div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱</label><input id="palName" class="form-control form-control-sm" placeholder="例：海軍藍＋米白"></div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">主色</label>
+                <div class="d-flex gap-1">
+                  <input type="color" id="palPrimaryPicker" value="#3B82C4" style="width:2.5rem;height:2rem;padding:0;">
+                  <input id="palPrimary" class="form-control form-control-sm" value="#3B82C4" maxlength="7">
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">配色</label>
+                <div class="d-flex gap-1">
+                  <input type="color" id="palAccentPicker" value="#F5F0E8" style="width:2.5rem;height:2rem;padding:0;">
+                  <input id="palAccent" class="form-control form-control-sm" value="#F5F0E8" maxlength="7">
+                </div>
+              </div>
+              <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="palSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="btnAddPal">新增配色</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-semibold">官方配色列表</span>
+            <div class="d-flex align-items-center gap-3">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="showInactivePals">
+                <label class="form-check-label small" for="showInactivePals">顯示已停用</label>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnReload">重新載入</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>類型</th>
+                  <th>名稱</th>
+                  <th>主色</th>
+                  <th>配色</th>
+                  <th>排序</th>
+                  <th>狀態</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="palBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal fade" id="editPalModal" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">編輯官方配色</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <input type="hidden" id="editPalId">
+                <div class="mb-2"><label class="form-label">類型</label><select id="editPalType" class="form-select"></select></div>
+                <div class="mb-2"><label class="form-label">名稱</label><input id="editPalName" class="form-control"></div>
+                <div class="mb-2">
+                  <label class="form-label">主色</label>
+                  <div class="d-flex gap-2">
+                    <input type="color" id="editPalPrimaryPicker" style="width:2.5rem;height:2.25rem;padding:0;">
+                    <input id="editPalPrimary" class="form-control" maxlength="7">
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">配色</label>
+                  <div class="d-flex gap-2">
+                    <input type="color" id="editPalAccentPicker" style="width:2.5rem;height:2.25rem;padding:0;">
+                    <input id="editPalAccent" class="form-control" maxlength="7">
+                  </div>
+                </div>
+                <div class="mb-2"><label class="form-label">排序</label><input id="editPalSort" type="number" class="form-control"></div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="editPalActive">
+                  <label class="form-check-label" for="editPalActive">啟用</label>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnSavePal">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var TYPE_API = '/api/admin/material-color-palette-types';
+  var PAL_API = '/api/admin/material-color-palettes';
+  var types = [];
+  var pals = [];
+  var editModal = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function showStatus(msg, ok) {
+    var w = document.getElementById('statusWrap');
+    var m = document.getElementById('statusMsg');
+    w.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
+    w.classList.add(ok === true ? 'alert-success' : (ok === 'warn' ? 'alert-warning' : 'alert-danger'));
+    m.textContent = msg;
+  }
+  async function authHeaders() {
+    if (!window.AuthService) return {};
+    try {
+      var session = await AuthService.getSession();
+      var t = session && session.access_token;
+      return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
+    } catch (e) { return {}; }
+  }
+  function normHex(v) {
+    var s = String(v || '').trim().toUpperCase();
+    if (/^#[0-9A-F]{6}$/.test(s)) return s;
+    if (/^[0-9A-F]{6}$/.test(s)) return '#' + s;
+    return null;
+  }
+  function bindHex(picker, input) {
+    picker.addEventListener('input', function () { input.value = picker.value.toUpperCase(); });
+    input.addEventListener('change', function () {
+      var n = normHex(input.value);
+      if (n) { input.value = n; picker.value = n; }
+    });
+  }
+  function fillTypeSelect(sel, selectedId) {
+    sel.innerHTML = '';
+    var active = types.filter(function (t) { return t.is_active !== false; });
+    if (!active.length) {
+      sel.innerHTML = '<option value="">（請先新增類型）</option>';
+      return;
+    }
+    active.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      if (selectedId && selectedId === t.id) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  function swatchCell(hex) {
+    var h = esc(hex || '');
+    return '<span class="swatch me-1" style="background:' + h + '"></span><code class="small">' + h + '</code>';
+  }
+
+  async function loadTypes() {
+    var qs = document.getElementById('showInactiveTypes').checked ? '?show_inactive=1' : '';
+    var r = await fetch(TYPE_API + qs, { headers: await authHeaders() });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      showStatus(j.error || ('載入類型失敗 ' + r.status), false);
+      types = [];
+    } else {
+      types = j.items || [];
+    }
+    renderTypes();
+    fillTypeSelect(document.getElementById('palType'));
+    fillTypeSelect(document.getElementById('editPalType'));
+  }
+  function renderTypes() {
+    var body = document.getElementById('typeBody');
+    if (!types.length) {
+      body.innerHTML = '<tr><td colspan="4" class="text-muted small">尚無類型</td></tr>';
+      return;
+    }
+    body.innerHTML = types.map(function (t) {
+      return '<tr data-id="' + esc(t.id) + '">' +
+        '<td><input class="form-control form-control-sm type-name" value="' + esc(t.name) + '"></td>' +
+        '<td style="width:5rem"><input type="number" class="form-control form-control-sm type-sort" value="' + esc(t.sort_order) + '"></td>' +
+        '<td>' + (t.is_active === false ? '<span class="badge bg-secondary">停用</span>' : '<span class="badge bg-success">啟用</span>') + '</td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-save-type">儲存</button>' +
+          (t.is_active === false
+            ? '<button type="button" class="btn btn-sm btn-outline-success me-1 btn-activate-type">啟用</button>'
+            : '<button type="button" class="btn btn-sm btn-outline-warning me-1 btn-deactivate-type">停用</button>') +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-del-type">刪</button>' +
+        '</td></tr>';
+    }).join('');
+  }
+
+  async function loadPals() {
+    var qs = document.getElementById('showInactivePals').checked ? '?show_inactive=1' : '';
+    var r = await fetch(PAL_API + qs, { headers: await authHeaders() });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      showStatus(j.error || ('載入配色失敗 ' + r.status), false);
+      pals = [];
+      if (j.types) types = j.types;
+    } else {
+      pals = j.items || [];
+      if (Array.isArray(j.types) && j.types.length) types = j.types;
+    }
+    renderPals();
+    fillTypeSelect(document.getElementById('palType'));
+    fillTypeSelect(document.getElementById('editPalType'));
+  }
+  function renderPals() {
+    var body = document.getElementById('palBody');
+    if (!pals.length) {
+      body.innerHTML = '<tr><td colspan="7" class="text-muted small">尚無官方配色</td></tr>';
+      return;
+    }
+    body.innerHTML = pals.map(function (p) {
+      return '<tr>' +
+        '<td>' + esc(p.type_name || '—') + '</td>' +
+        '<td>' + esc(p.name) + '</td>' +
+        '<td>' + swatchCell(p.primary_hex) + '</td>' +
+        '<td>' + swatchCell(p.accent_hex) + '</td>' +
+        '<td>' + esc(p.sort_order) + '</td>' +
+        '<td>' + (p.is_active === false ? '<span class="badge bg-secondary">停用</span>' : '<span class="badge bg-success">啟用</span>') + '</td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit-pal" data-id="' + esc(p.id) + '">編輯</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-del-pal" data-id="' + esc(p.id) + '">刪</button>' +
+        '</td></tr>';
+    }).join('');
+  }
+
+  async function reloadAll() {
+    await loadTypes();
+    await loadPals();
+  }
+
+  document.getElementById('btnAddType').addEventListener('click', async function () {
+    var name = document.getElementById('typeName').value.trim();
+    var sort = parseInt(document.getElementById('typeSort').value, 10) || 0;
+    if (!name) return showStatus('請填類型名稱', false);
+    var r = await fetch(TYPE_API, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ name: name, sort_order: sort }) });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) return showStatus(j.error || '新增失敗', false);
+    document.getElementById('typeName').value = '';
+    showStatus('類型已新增', true);
+    await reloadAll();
+  });
+
+  document.getElementById('typeBody').addEventListener('click', async function (e) {
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    var id = tr.getAttribute('data-id');
+    if (e.target.classList.contains('btn-save-type')) {
+      var name = tr.querySelector('.type-name').value.trim();
+      var sort = parseInt(tr.querySelector('.type-sort').value, 10) || 0;
+      var r = await fetch(TYPE_API + '/' + encodeURIComponent(id), { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ name: name, sort_order: sort }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) return showStatus(j.error || '儲存失敗', false);
+      showStatus('類型已更新', true);
+      await reloadAll();
+    } else if (e.target.classList.contains('btn-deactivate-type') || e.target.classList.contains('btn-activate-type')) {
+      var active = e.target.classList.contains('btn-activate-type');
+      var r2 = await fetch(TYPE_API + '/' + encodeURIComponent(id), { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ is_active: active }) });
+      var j2 = await r2.json().catch(function () { return {}; });
+      if (!r2.ok) return showStatus(j2.error || '更新失敗', false);
+      await reloadAll();
+    } else if (e.target.classList.contains('btn-del-type')) {
+      if (!confirm('確定刪除此類型？若仍有配色列會失敗。')) return;
+      var r3 = await fetch(TYPE_API + '/' + encodeURIComponent(id), { method: 'DELETE', headers: await authHeaders() });
+      var j3 = await r3.json().catch(function () { return {}; });
+      if (!r3.ok) return showStatus(j3.error || '刪除失敗', false);
+      showStatus('類型已刪除', true);
+      await reloadAll();
+    }
+  });
+
+  document.getElementById('btnAddPal').addEventListener('click', async function () {
+    var typeId = document.getElementById('palType').value;
+    var name = document.getElementById('palName').value.trim();
+    var primary = normHex(document.getElementById('palPrimary').value);
+    var accent = normHex(document.getElementById('palAccent').value);
+    var sort = parseInt(document.getElementById('palSort').value, 10) || 0;
+    if (!typeId) return showStatus('請先建立並選擇類型', false);
+    if (!name || !primary || !accent) return showStatus('請填名稱與有效色號', false);
+    var r = await fetch(PAL_API, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ type_id: typeId, name: name, primary_hex: primary, accent_hex: accent, sort_order: sort })
+    });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) return showStatus(j.error || '新增失敗', false);
+    document.getElementById('palName').value = '';
+    showStatus('配色已新增', true);
+    await loadPals();
+  });
+
+  document.getElementById('palBody').addEventListener('click', async function (e) {
+    var id = e.target.getAttribute('data-id');
+    if (!id) return;
+    if (e.target.classList.contains('btn-del-pal')) {
+      if (!confirm('確定刪除此官方配色？')) return;
+      var r = await fetch(PAL_API + '/' + encodeURIComponent(id), { method: 'DELETE', headers: await authHeaders() });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) return showStatus(j.error || '刪除失敗', false);
+      showStatus('已刪除', true);
+      await loadPals();
+      return;
+    }
+    if (e.target.classList.contains('btn-edit-pal')) {
+      var p = pals.find(function (x) { return x.id === id; });
+      if (!p) return;
+      document.getElementById('editPalId').value = p.id;
+      fillTypeSelect(document.getElementById('editPalType'), p.type_id);
+      document.getElementById('editPalName').value = p.name || '';
+      document.getElementById('editPalPrimary').value = p.primary_hex || '';
+      document.getElementById('editPalPrimaryPicker').value = normHex(p.primary_hex) || '#000000';
+      document.getElementById('editPalAccent').value = p.accent_hex || '';
+      document.getElementById('editPalAccentPicker').value = normHex(p.accent_hex) || '#000000';
+      document.getElementById('editPalSort').value = p.sort_order != null ? p.sort_order : 0;
+      document.getElementById('editPalActive').checked = p.is_active !== false;
+      editModal.show();
+    }
+  });
+
+  document.getElementById('btnSavePal').addEventListener('click', async function () {
+    var id = document.getElementById('editPalId').value;
+    var payload = {
+      type_id: document.getElementById('editPalType').value,
+      name: document.getElementById('editPalName').value.trim(),
+      primary_hex: normHex(document.getElementById('editPalPrimary').value),
+      accent_hex: normHex(document.getElementById('editPalAccent').value),
+      sort_order: parseInt(document.getElementById('editPalSort').value, 10) || 0,
+      is_active: document.getElementById('editPalActive').checked
+    };
+    if (!payload.name || !payload.primary_hex || !payload.accent_hex) return showStatus('請填完整欄位', false);
+    var r = await fetch(PAL_API + '/' + encodeURIComponent(id), { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify(payload) });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) return showStatus(j.error || '儲存失敗', false);
+    editModal.hide();
+    showStatus('已儲存', true);
+    await loadPals();
+  });
+
+  document.getElementById('btnReload').addEventListener('click', reloadAll);
+  document.getElementById('showInactiveTypes').addEventListener('change', loadTypes);
+  document.getElementById('showInactivePals').addEventListener('change', loadPals);
+
+  bindHex(document.getElementById('palPrimaryPicker'), document.getElementById('palPrimary'));
+  bindHex(document.getElementById('palAccentPicker'), document.getElementById('palAccent'));
+  bindHex(document.getElementById('editPalPrimaryPicker'), document.getElementById('editPalPrimary'));
+  bindHex(document.getElementById('editPalAccentPicker'), document.getElementById('editPalAccent'));
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    editModal = new bootstrap.Modal(document.getElementById('editPalModal'));
+    if (window.AdminCommon && AdminCommon.init) await AdminCommon.init();
+    await reloadAll();
+  });
+})();
+  </script>
+</body>
+</html>

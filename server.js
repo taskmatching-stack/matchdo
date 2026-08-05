@@ -25065,6 +25065,469 @@ app.get('/api/me/material-dual-color-pricing', async (req, res) => {
     }
 });
 
+function normalizeMaterialPaletteHex(raw) {
+    const s = String(raw == null ? '' : raw).trim().toUpperCase();
+    if (/^#[0-9A-F]{6}$/.test(s)) return s;
+    if (/^[0-9A-F]{6}$/.test(s)) return '#' + s;
+    return null;
+}
+
+function mapMaterialColorPaletteRow(row, typeNameById) {
+    if (!row) return null;
+    const typeId = row.type_id || null;
+    return {
+        id: row.id,
+        owner_scope: row.owner_scope,
+        type_id: typeId,
+        type_name: typeId && typeNameById ? (typeNameById[typeId] || null) : null,
+        type_text: row.type_text ? String(row.type_text).trim() : null,
+        name: row.name,
+        color_count: row.color_count || 2,
+        primary_hex: row.primary_hex,
+        accent_hex: row.accent_hex,
+        tertiary_hex: row.tertiary_hex || null,
+        sort_order: row.sort_order != null ? row.sort_order : 0,
+        is_active: row.is_active !== false,
+        created_at: row.created_at || null,
+        updated_at: row.updated_at || null
+    };
+}
+
+async function loadMaterialPaletteTypeNameMap(includeInactive) {
+    let q = supabase.from('material_color_palette_types').select('id, name, sort_order, is_active');
+    if (!includeInactive) q = q.eq('is_active', true);
+    const { data, error } = await q.order('sort_order', { ascending: true });
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(function (t) { if (t && t.id) map[t.id] = t.name; });
+    return { rows: data || [], map };
+}
+
+/** GET 官方配色範例（啟用中；登入即可） */
+app.get('/api/material-color-palettes/platform', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { rows: types, map } = await loadMaterialPaletteTypeNameMap(false);
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, sort_order, is_active, created_at, updated_at')
+            .eq('owner_scope', 'platform')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', types: [], items: [] });
+            }
+            console.error('GET platform palettes:', error);
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        res.json({
+            types: (types || []).map(function (t) {
+                return { id: t.id, name: t.name, sort_order: t.sort_order };
+            }),
+            items: (data || []).map(function (r) { return mapMaterialColorPaletteRow(r, map); })
+        });
+    } catch (e) {
+        console.error('GET /api/material-color-palettes/platform:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.get('/api/me/material-color-palettes', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, sort_order, is_active, created_at, updated_at')
+            .eq('owner_scope', 'user')
+            .eq('owner_user_id', user.id)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', items: [] });
+            }
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        res.json({ items: (data || []).map(function (r) { return mapMaterialColorPaletteRow(r, null); }) });
+    } catch (e) {
+        console.error('GET /api/me/material-color-palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.post('/api/me/material-color-palettes', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const name = String(body.name || '').trim().slice(0, 80);
+        const primary = normalizeMaterialPaletteHex(body.primary_hex);
+        const accent = normalizeMaterialPaletteHex(body.accent_hex);
+        const tertiary = body.tertiary_hex != null && String(body.tertiary_hex).trim()
+            ? normalizeMaterialPaletteHex(body.tertiary_hex)
+            : null;
+        const typeText = String(body.type_text || '').trim().slice(0, 64) || null;
+        if (!name) return res.status(400).json({ error: '請填名稱' });
+        if (!primary || !accent) return res.status(400).json({ error: '主色／配色須為 #RRGGBB' });
+        if (body.tertiary_hex != null && String(body.tertiary_hex).trim() && !tertiary) {
+            return res.status(400).json({ error: '第三色須為 #RRGGBB' });
+        }
+        const insert = {
+            owner_scope: 'user',
+            owner_user_id: user.id,
+            type_id: null,
+            type_text: typeText,
+            name: name,
+            color_count: tertiary ? 3 : 2,
+            primary_hex: primary,
+            accent_hex: accent,
+            tertiary_hex: tertiary,
+            sort_order: parseInt(body.sort_order, 10) || 0,
+            is_active: true,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('material_color_palettes').insert(insert).select('*').single();
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            return res.status(500).json({ error: error.message || '儲存失敗' });
+        }
+        res.json({ success: true, item: mapMaterialColorPaletteRow(data, null) });
+    } catch (e) {
+        console.error('POST /api/me/material-color-palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name != null) {
+            const name = String(body.name || '').trim().slice(0, 80);
+            if (!name) return res.status(400).json({ error: '名稱不可空白' });
+            updates.name = name;
+        }
+        if (body.type_text !== undefined) {
+            updates.type_text = String(body.type_text || '').trim().slice(0, 64) || null;
+        }
+        if (body.primary_hex != null) {
+            const primary = normalizeMaterialPaletteHex(body.primary_hex);
+            if (!primary) return res.status(400).json({ error: '主色須為 #RRGGBB' });
+            updates.primary_hex = primary;
+        }
+        if (body.accent_hex != null) {
+            const accent = normalizeMaterialPaletteHex(body.accent_hex);
+            if (!accent) return res.status(400).json({ error: '配色須為 #RRGGBB' });
+            updates.accent_hex = accent;
+        }
+        if (body.tertiary_hex !== undefined) {
+            if (body.tertiary_hex == null || !String(body.tertiary_hex).trim()) {
+                updates.tertiary_hex = null;
+                updates.color_count = 2;
+            } else {
+                const tertiary = normalizeMaterialPaletteHex(body.tertiary_hex);
+                if (!tertiary) return res.status(400).json({ error: '第三色須為 #RRGGBB' });
+                updates.tertiary_hex = tertiary;
+                updates.color_count = 3;
+            }
+        }
+        if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .update(updates)
+            .eq('id', id)
+            .eq('owner_scope', 'user')
+            .eq('owner_user_id', user.id)
+            .select('*')
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message || '更新失敗' });
+        if (!data) return res.status(404).json({ error: '找不到配色' });
+        res.json({ success: true, item: mapMaterialColorPaletteRow(data, null) });
+    } catch (e) {
+        console.error('PATCH /api/me/material-color-palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.delete('/api/me/material-color-palettes/:id', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .delete()
+            .eq('id', id)
+            .eq('owner_scope', 'user')
+            .eq('owner_user_id', user.id)
+            .select('id')
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message || '刪除失敗' });
+        if (!data) return res.status(404).json({ error: '找不到配色' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/me/material-color-palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.get('/api/admin/material-color-palette-types', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const showInactive = String(req.query.show_inactive || '') === '1' || String(req.query.show_inactive || '') === 'true';
+        let q = supabase.from('material_color_palette_types').select('*').order('sort_order', { ascending: true });
+        if (!showInactive) q = q.eq('is_active', true);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', items: [] });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({ items: data || [] });
+    } catch (e) {
+        console.error('GET admin palette types:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.post('/api/admin/material-color-palette-types', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const name = String((req.body || {}).name || '').trim().slice(0, 64);
+        if (!name) return res.status(400).json({ error: '請填類型名稱' });
+        const sortOrder = parseInt((req.body || {}).sort_order, 10);
+        const { data, error } = await supabase.from('material_color_palette_types').insert({
+            name: name,
+            sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+            is_active: true,
+            updated_at: new Date().toISOString()
+        }).select('*').single();
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({ success: true, item: data });
+    } catch (e) {
+        console.error('POST admin palette types:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.patch('/api/admin/material-color-palette-types/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const id = String(req.params.id || '').trim();
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name != null) {
+            const name = String(body.name || '').trim().slice(0, 64);
+            if (!name) return res.status(400).json({ error: '名稱不可空白' });
+            updates.name = name;
+        }
+        if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
+        if (body.is_active != null) updates.is_active = !!body.is_active;
+        const { data, error } = await supabase.from('material_color_palette_types').update(updates).eq('id', id).select('*').maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: '找不到類型' });
+        res.json({ success: true, item: data });
+    } catch (e) {
+        console.error('PATCH admin palette types:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.delete('/api/admin/material-color-palette-types/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const id = String(req.params.id || '').trim();
+        const { count, error: cntErr } = await supabase
+            .from('material_color_palettes')
+            .select('id', { count: 'exact', head: true })
+            .eq('type_id', id);
+        if (cntErr) return res.status(500).json({ error: cntErr.message });
+        if (count && count > 0) {
+            return res.status(400).json({ error: '此類型尚有配色列，請先改類型或刪除配色，或改為停用' });
+        }
+        const { data, error } = await supabase.from('material_color_palette_types').delete().eq('id', id).select('id').maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: '找不到類型' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE admin palette types:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.get('/api/admin/material-color-palettes', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const showInactive = String(req.query.show_inactive || '') === '1' || String(req.query.show_inactive || '') === 'true';
+        const { rows: types, map } = await loadMaterialPaletteTypeNameMap(true);
+        let q = supabase
+            .from('material_color_palettes')
+            .select('*')
+            .eq('owner_scope', 'platform')
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (!showInactive) q = q.eq('is_active', true);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', types: [], items: [] });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({
+            types: types || [],
+            items: (data || []).map(function (r) { return mapMaterialColorPaletteRow(r, map); })
+        });
+    } catch (e) {
+        console.error('GET admin palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.post('/api/admin/material-color-palettes', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const name = String(body.name || '').trim().slice(0, 80);
+        const typeId = String(body.type_id || '').trim();
+        const primary = normalizeMaterialPaletteHex(body.primary_hex);
+        const accent = normalizeMaterialPaletteHex(body.accent_hex);
+        const tertiary = body.tertiary_hex != null && String(body.tertiary_hex).trim()
+            ? normalizeMaterialPaletteHex(body.tertiary_hex)
+            : null;
+        if (!name) return res.status(400).json({ error: '請填名稱' });
+        if (!typeId) return res.status(400).json({ error: '請選類型' });
+        if (!primary || !accent) return res.status(400).json({ error: '主色／配色須為 #RRGGBB' });
+        const insert = {
+            owner_scope: 'platform',
+            owner_user_id: null,
+            type_id: typeId,
+            type_text: null,
+            name: name,
+            color_count: tertiary ? 3 : 2,
+            primary_hex: primary,
+            accent_hex: accent,
+            tertiary_hex: tertiary,
+            sort_order: parseInt(body.sort_order, 10) || 0,
+            is_active: body.is_active === false ? false : true,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('material_color_palettes').insert(insert).select('*').single();
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        const { map } = await loadMaterialPaletteTypeNameMap(true);
+        res.json({ success: true, item: mapMaterialColorPaletteRow(data, map) });
+    } catch (e) {
+        console.error('POST admin palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const id = String(req.params.id || '').trim();
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name != null) {
+            const name = String(body.name || '').trim().slice(0, 80);
+            if (!name) return res.status(400).json({ error: '名稱不可空白' });
+            updates.name = name;
+        }
+        if (body.type_id != null) {
+            const typeId = String(body.type_id || '').trim();
+            if (!typeId) return res.status(400).json({ error: '請選類型' });
+            updates.type_id = typeId;
+        }
+        if (body.primary_hex != null) {
+            const primary = normalizeMaterialPaletteHex(body.primary_hex);
+            if (!primary) return res.status(400).json({ error: '主色須為 #RRGGBB' });
+            updates.primary_hex = primary;
+        }
+        if (body.accent_hex != null) {
+            const accent = normalizeMaterialPaletteHex(body.accent_hex);
+            if (!accent) return res.status(400).json({ error: '配色須為 #RRGGBB' });
+            updates.accent_hex = accent;
+        }
+        if (body.tertiary_hex !== undefined) {
+            if (body.tertiary_hex == null || !String(body.tertiary_hex).trim()) {
+                updates.tertiary_hex = null;
+                updates.color_count = 2;
+            } else {
+                const tertiary = normalizeMaterialPaletteHex(body.tertiary_hex);
+                if (!tertiary) return res.status(400).json({ error: '第三色須為 #RRGGBB' });
+                updates.tertiary_hex = tertiary;
+                updates.color_count = 3;
+            }
+        }
+        if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
+        if (body.is_active != null) updates.is_active = !!body.is_active;
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .update(updates)
+            .eq('id', id)
+            .eq('owner_scope', 'platform')
+            .select('*')
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: '找不到配色' });
+        const { map } = await loadMaterialPaletteTypeNameMap(true);
+        res.json({ success: true, item: mapMaterialColorPaletteRow(data, map) });
+    } catch (e) {
+        console.error('PATCH admin palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+app.delete('/api/admin/material-color-palettes/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const id = String(req.params.id || '').trim();
+        const { data, error } = await supabase
+            .from('material_color_palettes')
+            .delete()
+            .eq('id', id)
+            .eq('owner_scope', 'platform')
+            .select('id')
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: '找不到配色' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE admin palettes:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
 function normalizeUserAssetLibraryTitle(raw) {
     const t = String(raw == null ? '' : raw).trim().slice(0, 120);
     return t || null;
