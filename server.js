@@ -18720,7 +18720,86 @@ async function loadOwnedCustomProductForSemantics(userId, productId) {
     return { product: data, imageUrl };
 }
 
-// POST /api/custom-products/:id/regenerate-tags — 本人設計稿：讀圖重生標籤（扣點，預設 1）
+/** 與廠商作品／版型庫相同：讀圖 → Gemini → 寫回 custom_products（不用 enrich 靜默 null） */
+async function runCustomProductSemanticsLikePortfolio(product, imageUrl, ownerId) {
+    const fetchUrl = resolveFetchableImageUrl(imageUrl);
+    if (!fetchUrl) throw new Error('無效的圖片網址');
+    if (!process.env.GEMINI_API_KEY) throw new Error('未設定 GEMINI_API_KEY');
+    const imageFile = await fetchPortfolioImageFileFromUrl(fetchUrl);
+    if (!imageFile) throw new Error('無法讀取設計圖');
+    const context = await vendorAssetSemanticsContextFields({
+        asset_kind: 'prototype',
+        category_key: product.category || '',
+        subcategory_key: product.subcategory_key || '',
+        title: product.title || '',
+        description: product.description || '',
+        image_url: fetchUrl
+    });
+    const genPrompt = (product.generation_prompt || '').trim();
+    if (genPrompt) {
+        context.description = [context.description, '（生圖提示詞僅供對照）' + genPrompt].filter(Boolean).join('\n');
+    }
+    const sem = await runVendorAssetImageSemantics(imageFile, context, ownerId);
+    const description = (sem && (sem.description || vendorAssetDescriptionFromSemantics(sem.semantics))) || null;
+    try {
+        await recordVisualSemanticsEvent({
+            source_type: 'custom_product',
+            source_id: product.id,
+            image_url: fetchUrl,
+            text_input: genPrompt || null,
+            semantics_kind: 'image',
+            ai_tags: (sem && sem.tags) || [],
+            semantics_json: (sem && sem.semantics) || null,
+            model: (sem && sem.model) || null,
+            prompt_version: (sem && sem.prompt_version) || null,
+            owner_id: ownerId || null,
+            category_key: product.category || null
+        });
+    } catch (evErr) {
+        console.warn('custom_product semantics event:', evErr && evErr.message ? evErr.message : evErr);
+    }
+    return { ...(sem || {}), description, fetchUrl };
+}
+
+async function updateCustomProductSemanticsFields(productId, ownerId, updates) {
+    const patch = { ...(updates || {}) };
+    let { data, error } = await supabase
+        .from('custom_products')
+        .update(patch)
+        .eq('id', productId)
+        .eq('owner_id', ownerId)
+        .select('id, title, description, ai_tags')
+        .maybeSingle();
+    if (error && error.code === '42703') {
+        delete patch.title_en;
+        delete patch.ai_tags_by_dimension;
+        delete patch.semantics_generated_at;
+        ({ data, error } = await supabase
+            .from('custom_products')
+            .update(patch)
+            .eq('id', productId)
+            .eq('owner_id', ownerId)
+            .select('id, title, description, ai_tags')
+            .maybeSingle());
+    }
+    if (error && error.code === '42703') {
+        const minimal = {};
+        if (patch.ai_tags) minimal.ai_tags = patch.ai_tags;
+        if (patch.description != null) minimal.description = patch.description;
+        if (patch.title) minimal.title = patch.title;
+        if (patch.image_semantics_json) minimal.image_semantics_json = patch.image_semantics_json;
+        ({ data, error } = await supabase
+            .from('custom_products')
+            .update(minimal)
+            .eq('id', productId)
+            .eq('owner_id', ownerId)
+            .select('id, title, description, ai_tags')
+            .maybeSingle());
+    }
+    return { data, error };
+}
+
+// POST /api/custom-products/:id/regenerate-tags — 本人設計稿：與版型庫相同 Gemini 管線（扣點，預設 1）
 app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
@@ -18734,14 +18813,25 @@ app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
             const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
             if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
         }
-        const out = await enrichCustomProductSemantics(product.id, user.id, {
-            imageUrl,
-            generationPrompt: product.generation_prompt || null,
-            title: product.title || null,
-            categoryKey: product.category || null
-        });
-        if (!out || !Array.isArray(out.ai_tags) || !out.ai_tags.length) {
+        const sem = await runCustomProductSemanticsLikePortfolio(product, imageUrl, user.id);
+        if (!sem || !Array.isArray(sem.tags) || !sem.tags.length) {
             return res.status(503).json({ error: 'AI 標籤產生失敗，請稍後重試' });
+        }
+        const updates = {
+            ai_tags: sem.tags,
+            image_semantics_json: sem.semantics || null,
+            semantics_generated_at: new Date().toISOString()
+        };
+        try {
+            updates.ai_tags_by_dimension = visualSemantics.buildTagsByDimension(sem.semantics);
+        } catch (_) {}
+        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(sem.semantics);
+        if (titlePair && titlePair.zh && isGenericMediaWallTitle(product.title)) updates.title = titlePair.zh;
+        if (titlePair && titlePair.en) updates.title_en = titlePair.en;
+        const { data: updated, error: updErr } = await updateCustomProductSemanticsFields(product.id, user.id, updates);
+        if (updErr) {
+            console.error('custom-product regenerate-tags update:', updErr.message || updErr);
+            return res.status(500).json({ error: '更新標籤失敗' });
         }
         let balanceAfter = null;
         let pointsDeducted = 0;
@@ -18751,15 +18841,10 @@ app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
             balanceAfter = consumed.balance_after;
             pointsDeducted = pointsRequired;
         }
-        const { data: updated } = await supabase
-            .from('custom_products')
-            .select('id, title, description, ai_tags')
-            .eq('id', product.id)
-            .maybeSingle();
         res.json({
             success: true,
-            product: updated || { id: product.id, ai_tags: out.ai_tags, title: out.title || product.title },
-            ai_tags: out.ai_tags,
+            product: updated || { id: product.id, ai_tags: sem.tags, title: updates.title || product.title },
+            ai_tags: sem.tags,
             points_deducted: pointsDeducted,
             balance_after: balanceAfter
         });
@@ -18769,7 +18854,7 @@ app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
     }
 });
 
-// POST /api/custom-products/:id/generate-description — 本人設計稿：讀圖產生產品描述（扣點，預設 1）
+// POST /api/custom-products/:id/generate-description — 本人設計稿：與版型庫相同 Gemini 管線（扣點，預設 1）
 app.post('/api/custom-products/:id/generate-description', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
@@ -18783,46 +18868,26 @@ app.post('/api/custom-products/:id/generate-description', async (req, res) => {
             const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
             if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
         }
-        if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: '未設定 GEMINI_API_KEY' });
-        const deps = getVisualSemanticsDeps();
-        const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
-        const imgResult = await visualSemantics.analyzeGeneratedImageSemantics(deps, imagePart, {
-            generation_prompt: product.generation_prompt || null,
-            title: product.title || null,
-            category_key: product.category || null
-        });
-        const description = (imgResult.semantics && imgResult.semantics.product_description_zh
-            ? String(imgResult.semantics.product_description_zh).trim()
-            : '') || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics) || '';
+        const sem = await runCustomProductSemanticsLikePortfolio(product, imageUrl, user.id);
+        const description = (sem && sem.description) || vendorAssetDescriptionFromSemantics(sem && sem.semantics) || '';
         if (!description) return res.status(503).json({ error: 'AI 產品描述產生失敗，請稍後重試' });
         const updates = {
             description,
-            image_semantics_json: imgResult.semantics,
+            image_semantics_json: (sem && sem.semantics) || null,
             semantics_generated_at: new Date().toISOString()
         };
-        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(imgResult.semantics);
+        if (sem && Array.isArray(sem.tags) && sem.tags.length) {
+            updates.ai_tags = sem.tags;
+            try {
+                updates.ai_tags_by_dimension = visualSemantics.buildTagsByDimension(sem.semantics);
+            } catch (_) {}
+        }
+        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(sem && sem.semantics);
         if (titlePair && titlePair.zh && isGenericMediaWallTitle(product.title)) updates.title = titlePair.zh;
         if (titlePair && titlePair.en) updates.title_en = titlePair.en;
-        let { data: updated, error: updErr } = await supabase
-            .from('custom_products')
-            .update(updates)
-            .eq('id', product.id)
-            .eq('owner_id', user.id)
-            .select('id, title, description, ai_tags')
-            .maybeSingle();
-        if (updErr && updErr.code === '42703') {
-            delete updates.title_en;
-            delete updates.semantics_generated_at;
-            ({ data: updated, error: updErr } = await supabase
-                .from('custom_products')
-                .update(updates)
-                .eq('id', product.id)
-                .eq('owner_id', user.id)
-                .select('id, title, description')
-                .maybeSingle());
-        }
+        const { data: updated, error: updErr } = await updateCustomProductSemanticsFields(product.id, user.id, updates);
         if (updErr) {
-            console.error('generate-description update:', updErr.message);
+            console.error('custom-product generate-description update:', updErr.message || updErr);
             return res.status(500).json({ error: '寫入描述失敗' });
         }
         let balanceAfter = null;
@@ -18835,7 +18900,7 @@ app.post('/api/custom-products/:id/generate-description', async (req, res) => {
         }
         res.json({
             success: true,
-            product: updated || { id: product.id, description, title: updates.title || product.title },
+            product: updated || { id: product.id, description, title: updates.title || product.title, ai_tags: updates.ai_tags || product.ai_tags },
             description,
             points_deducted: pointsDeducted,
             balance_after: balanceAfter
@@ -20420,8 +20485,18 @@ async function tryPortfolioSemanticsFromMainFiles(mainFiles, context, ownerId, p
     }
 }
 
+/** 相對路徑／protocol-relative → 可 fetch 的絕對 URL（版型／設計稿共用） */
+function resolveFetchableImageUrl(imageUrl) {
+    const u = String(imageUrl || '').trim();
+    if (!u || /^data:/i.test(u)) return '';
+    if (/^https?:\/\//i.test(u)) return u;
+    if (u.startsWith('//')) return 'https:' + u;
+    const base = String(BASE_URL || process.env.PUBLIC_SITE_URL || 'https://matchdo.cc').replace(/\/$/, '');
+    return base + (u.startsWith('/') ? u : '/' + u);
+}
+
 async function fetchPortfolioImageFileFromUrl(imageUrl) {
-    const url = (imageUrl || '').trim();
+    const url = resolveFetchableImageUrl(imageUrl);
     if (!url) return null;
     const deps = getVisualSemanticsDeps();
     const resImg = await deps.fetch(url, { redirect: 'follow' });
