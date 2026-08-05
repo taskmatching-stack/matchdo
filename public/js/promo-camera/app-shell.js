@@ -249,7 +249,7 @@
     dock.id = 'pcGenerateDock';
     dock.className = 'pc-generate-dock';
     dock.setAttribute('role', 'region');
-    dock.setAttribute('aria-label', t('promoCamera.generateDockLabel', '生成'));
+    dock.setAttribute('aria-label', t('promoCamera.generateDockLabel', '拍照'));
     var meta = document.createElement('div');
     meta.className = 'pc-generate-dock-meta';
     meta.appendChild(pts);

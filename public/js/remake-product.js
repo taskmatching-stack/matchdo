@@ -334,7 +334,7 @@ $(document).ready(function () {
 
         const btn = $(this);
         const originalText = btn.html();
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>生成中...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>' + (t('customProduct.generating') || '設計稿建立中…'));
         document.getElementById('generatedImagePreviewWrap')?.classList.add('is-loading');
 
         var referenceImages = refDataUrls.filter(Boolean);

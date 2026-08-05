@@ -227,7 +227,7 @@
     if (!el || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '生成中，請稍候…') }));
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '拍攝中…') }));
   }
 
   function showResultArea(url, data, payload) {

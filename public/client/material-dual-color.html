@@ -67,15 +67,15 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">材料組合 <span class="text-muted fw-normal fs-6">Material Combination</span></h4>
+                    <h4 class="mb-0 fw-bold"><span data-i18n="materialCombo.pageTitle">材料組合</span> <span class="text-muted fw-normal fs-6" data-i18n="materialCombo.pageTitleEn">Material Combination</span></h4>
                 </div>
-                <a href="#" class="btn btn-sm btn-outline-secondary" id="mdc-back-link"><i class="bi bi-arrow-left me-1"></i>返回材料/顏色</a>
+                <a href="#" class="btn btn-sm btn-outline-secondary" id="mdc-back-link"><i class="bi bi-arrow-left me-1"></i><span data-i18n="materialCombo.backMaterials">返回材料/顏色</span></a>
             </div>
         </div>
     </div>
 
     <div class="container py-4" style="max-width: 920px;">
-        <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="materialCombo.authPrefix">請先</span> <a href="/index.html" class="alert-link" data-i18n="credits.loginRequiredLink">登入</a><span data-i18n="materialCombo.authSuffix">。</span></div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台</a></div>
         <div id="admin-official-hint" class="alert alert-info d-none">
             <i class="bi bi-info-circle me-2"></i>管理員編輯<strong>官方版型</strong>請從
@@ -89,25 +89,25 @@
 
         <div id="main-content" class="d-none">
             <div class="card mdc-step-card shadow-sm mb-4">
-                <div class="card-header bg-white fw-semibold">選色</div>
+                <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepColors">選色</div>
                 <div class="card-body">
                     <div class="row g-3 align-items-end mb-3">
                         <div class="col-md-5">
-                            <label class="form-label small mb-1">主色（上方 75%）</label>
+                            <label class="form-label small mb-1" data-i18n="materialCombo.mainColorLabel">主色（上方 75%）</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-main-color" value="#3B82C4" aria-label="主色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-main-hex" value="#3B82C4" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label small mb-1">配色（下方 25%）</label>
+                            <label class="form-label small mb-1" data-i18n="materialCombo.accentColorLabel">配色（下方 25%）</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-accent-color" value="#F5F0E8" aria-label="配色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-accent-hex" value="#F5F0E8" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
                     </div>
-                    <p class="small text-muted mb-2">色卡固定為上方主色 75%、下方配色 25%。</p>
+                    <p class="small text-muted mb-2" data-i18n="materialCombo.swatchHint">色卡固定為上方主色 75%、下方配色 25%。</p>
                     <div class="mdc-preview-wrap mb-0">
                         <canvas id="mdc-swatch-canvas" width="1024" height="1024" aria-label="雙色色卡預覽"></canvas>
                     </div>
@@ -115,17 +115,17 @@
             </div>
 
             <div class="card mdc-step-card shadow-sm mb-4">
-                <div class="card-header bg-white fw-semibold">材質生成</div>
+                <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepGenerate">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">印花只能上或下擇一。</p>
+                    <p class="small text-muted mb-3" data-i18n="materialCombo.printOneZoneHint">印花只能上或下擇一。</p>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">主色區材質</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-main-material" placeholder="例：編織布" maxlength="64">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.mainMaterialLabel">主色區材質</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-main-material" data-i18n-placeholder="materialCombo.mainMaterialPh" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i>主色區印花</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
-                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-main-clear-print">清除</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.mainPrintBtn">主色區印花</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-upload-print"><i class="bi bi-upload me-1"></i><span data-i18n="materialCombo.upload">上傳</span></button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-main-clear-print" data-i18n="materialCombo.clear">清除</button>
                             </div>
                             <input type="file" id="mdc-main-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-main-pattern-wrap">
@@ -133,12 +133,12 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">配色區材質</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-accent-material" placeholder="例：粒面皮革" maxlength="64">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.accentMaterialLabel">配色區材質</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i>配色區印花</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
-                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-accent-clear-print">清除</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.accentPrintBtn">配色區印花</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i><span data-i18n="materialCombo.upload">上傳</span></button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-accent-clear-print" data-i18n="materialCombo.clear">清除</button>
                             </div>
                             <input type="file" id="mdc-accent-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-accent-pattern-wrap">
@@ -147,34 +147,34 @@
                         </div>
                         <div class="col-12 d-none" id="mdc-print-kind-wrap">
                             <div class="d-flex flex-wrap gap-3 small">
-                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="pattern" checked> 印花圖樣</label>
-                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="color"> 印花色</label>
+                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="pattern" checked> <span data-i18n="materialCombo.printKindPattern">印花圖樣</span></label>
+                                <label class="mb-0"><input type="radio" name="mdc-print-kind" value="color"> <span data-i18n="materialCombo.printKindColor">印花色</span></label>
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small mb-1">分界處（選填）</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-boundary" placeholder="例：同色明線車縫" maxlength="64">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.boundaryLabel">分界處（選填）</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-boundary" data-i18n-placeholder="materialCombo.boundaryPh" placeholder="例：同色明線車縫" maxlength="64">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">存庫名稱（選填）</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-library-title" placeholder="預設：主材／配材" maxlength="120">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.libraryTitleLabel">存庫名稱（選填）</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-library-title" data-i18n-placeholder="materialCombo.libraryTitlePh" placeholder="預設：主材／配材" maxlength="120">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1">存庫分類（選填）</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-library-category" placeholder="例：皮革、春夏" maxlength="64">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.libraryCategoryLabel">存庫分類（選填）</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-library-category" data-i18n-placeholder="materialCombo.libraryCategoryPh" placeholder="例：皮革、春夏" maxlength="64">
                         </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                        <button type="button" class="btn btn-primary" id="mdc-generate-btn" disabled><i class="bi bi-stars me-1"></i>生成材質圖</button>
+                        <button type="button" class="btn btn-primary" id="mdc-generate-btn" disabled><i class="bi bi-stars me-1"></i><span data-i18n="materialCombo.generateBtn">生成材質圖</span></button>
                         <span class="text-muted small" id="mdc-points-label"></span>
                     </div>
                     <div id="mdc-status" class="small mt-2 text-muted"></div>
                     <div id="mdc-result-wrap" class="mdc-preview-wrap mt-3 d-none">
-                        <p class="small fw-semibold mb-1">生成結果</p>
+                        <p class="small fw-semibold mb-1" data-i18n="materialCombo.resultTitle">生成結果</p>
                         <img id="mdc-result-img" alt="材質化結果" />
                         <div class="d-flex flex-wrap gap-2 mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-secondary d-none" id="mdc-download-btn" download="material-combination.jpg"><i class="bi bi-download me-1"></i>下載 JPG</a>
-                            <button type="button" class="btn btn-sm btn-success d-none" id="mdc-add-pending-btn"><i class="bi bi-inbox me-1"></i>加入材料待傳清單</button>
+                            <a href="#" class="btn btn-sm btn-outline-secondary d-none" id="mdc-download-btn" download="material-combination.jpg"><i class="bi bi-download me-1"></i><span data-i18n="materialCombo.downloadJpg">下載 JPG</span></a>
+                            <button type="button" class="btn btn-sm btn-success d-none" id="mdc-add-pending-btn"><i class="bi bi-inbox me-1"></i><span data-i18n="materialCombo.addPending">加入材料待傳清單</span></button>
                         </div>
                     </div>
                 </div>
@@ -186,27 +186,44 @@
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h6 class="modal-title" id="mdcPrintPickerLabel">從數位資產選擇圖片</h6>
+                    <h6 class="modal-title" id="mdcPrintPickerLabel" data-i18n="materialCombo.pickerTitle">從數位資產選擇圖片</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
                     <div id="mdcPrintPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
                     <div id="mdcPrintPickerList" class="row g-2"></div>
                     <p id="mdcPrintPickerEmpty" class="text-muted small mb-0 d-none"></p>
-                    <p id="mdcPrintPickerLoading" class="text-muted small mb-0">載入中…</p>
+                    <p id="mdcPrintPickerLoading" class="text-muted small mb-0" data-i18n="materialCombo.loadingAssets">載入中…</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/digital-asset-picker.js?v=8"></script>
     <script src="/js/material-dual-color-compose.js?v=20260805c"></script>
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-library-title-category-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-i18n-20260805';
+        function t(key, fb) {
+            var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
+            return (v && v !== key) ? v : (fb != null ? fb : key);
+        }
+        function tf(key, fb, map) {
+            var s = t(key, fb);
+            if (map) Object.keys(map).forEach(function (k) {
+                s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(map[k]));
+            });
+            return s;
+        }
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+            });
+        }
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -440,7 +457,7 @@
                 var d = await res.json().catch(function () { return {}; });
                 if (res.ok && d.points_dual_color_flux != null) pointsFlux = d.points_dual_color_flux;
             } catch (e) {}
-            pointsLabel.textContent = '成功後扣 ' + pointsFlux + ' 點';
+            pointsLabel.textContent = tf('materialCombo.pointsCharged', '成功後扣 {n} 點', { n: pointsFlux });
         }
 
         async function getToken() {
@@ -524,12 +541,12 @@
             if (!mainOk || !accentOk) return;
             var tok = await getToken();
             if (!tok) {
-                statusEl.textContent = '登入已過期，請重新登入';
+                statusEl.textContent = t('materialCombo.loginExpired', '登入已過期，請重新登入');
                 statusEl.className = 'small mt-2 text-danger';
                 return;
             }
             generateBtn.disabled = true;
-            statusEl.textContent = '生成中，請稍候…';
+            statusEl.textContent = t('materialCombo.loading', '材料配置中…');
             statusEl.className = 'small mt-2 text-muted';
             try {
                 var fd = new FormData();
@@ -562,7 +579,7 @@
                 });
                 var d = await res.json().catch(function () { return {}; });
                 if (!res.ok) {
-                    statusEl.textContent = d.error || '生成失敗';
+                    statusEl.textContent = d.error || t('materialCombo.generateFailed', '生成失敗');
                     statusEl.className = 'small mt-2 text-danger';
                     lastFluxResponse = null;
                     if (addPendingBtn) addPendingBtn.classList.add('d-none');
@@ -579,8 +596,8 @@
                     downloadBtn.classList.remove('d-none');
                 }
                 var pts = d.points_deducted != null ? d.points_deducted : 0;
-                var bal = d.balance_after != null ? '，剩餘 ' + d.balance_after + ' 點' : '';
-                var baseMsg = '生成完成' + (pts ? '（已扣 ' + pts + ' 點' + bal + '）' : '');
+                var bal = d.balance_after != null ? tf('materialCombo.doneBal', '，剩餘 {n} 點', { n: d.balance_after }) : '';
+                var baseMsg = t('materialCombo.doneBase', '生成完成') + (pts ? tf('materialCombo.donePts', '（已扣 {pts} 點{bal}）', { pts: pts, bal: bal }) : '');
                 if (d.library_saved === false) {
                     if (d.library_save_error === 'table_missing') {
                         statusEl.textContent = baseMsg + '。尚未寫入數位資產庫：請先在 Supabase 執行 add-user-material-combo-generations.sql，再建表後重新生成。';
@@ -589,7 +606,7 @@
                     }
                     statusEl.className = 'small mt-2 text-warning';
                 } else {
-                    statusEl.textContent = baseMsg + (d.library_saved ? '，已加入數位資產庫「材料組合」' : '');
+                    statusEl.textContent = baseMsg + (d.library_saved ? t('materialCombo.doneLibraryOk', '，已加入數位資產庫「材料組合」') : '');
                     statusEl.className = 'small mt-2 text-success';
                 }
                 if (addPendingBtn) {
@@ -601,7 +618,7 @@
                     if (canPending) addPendingBtn.classList.remove('d-none');
                 }
             } catch (e) {
-                statusEl.textContent = '連線失敗，請稍後重試';
+                statusEl.textContent = t('materialCombo.connectionFailed', '連線失敗，請稍後重試');
                 statusEl.className = 'small mt-2 text-danger';
             } finally {
                 updateGenerateEnabled();
@@ -622,7 +639,7 @@
             addPendingBtn.addEventListener('click', async function () {
                 if (!lastFluxResponse || !window.MatchdoDualColorImport) return;
                 addPendingBtn.disabled = true;
-                statusEl.textContent = '正在加入待傳清單…';
+                statusEl.textContent = t('materialCombo.addingPending', '正在加入待傳清單…');
                 statusEl.className = 'small mt-2 text-muted';
                 try {
                     var main = (mainMaterial.value || '').trim();
@@ -643,7 +660,7 @@
                     }, swatchFile, fluxFile);
                     window.location.href = materialsReturnHref();
                 } catch (e) {
-                    statusEl.textContent = e.message || '加入待傳失敗';
+                    statusEl.textContent = e.message || t('materialCombo.addPendingFail', '加入待傳失敗');
                     statusEl.className = 'small mt-2 text-danger';
                     addPendingBtn.disabled = false;
                 }

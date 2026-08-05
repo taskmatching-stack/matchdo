@@ -4540,7 +4540,7 @@ $(document).ready(function () {
 
         const btn = $(this);
         const originalText = btn.html();
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>生成中...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>' + (t('customProduct.generating') || '設計稿建立中…'));
         // 手機版畫布：顯示 loading 脈衝
         $('#generatedImagePreviewWrap').addClass('is-loading');
 
@@ -6388,7 +6388,7 @@ $(document).ready(function () {
         var $wrap = $('#sceneSimResultWrap');
         var prompt = ($('#sceneSimPrompt').val() || '').trim();
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + t('home.loading') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
+        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.sceneSimLoading') || '場景配置中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -6606,7 +6606,7 @@ $(document).ready(function () {
         var dims = getPatternExtractWidthHeight();
         var outputFormat = ($('#patternExtractOutputFormat').val() === 'png') ? 'png' : 'jpeg';
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>');
+        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.patternExtractLoading') || '圖樣提取中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -6751,7 +6751,7 @@ $(document).ready(function () {
         var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
             (t('customProduct.designToPhysicalResultNote') || '此圖不會自動存入數位資產，請自行下載；亦可加入「數位原型」參考圖。') + '</p>';
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
+        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.designToPhysicalLoading') || '材質套用中…') + '</p>' + noteHtml);
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -7022,7 +7022,7 @@ $(document).ready(function () {
                 : true)
         };
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
+        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.promoImageLoading') || '情境建立中…') + '</p>' + noteHtml);
         var genFn = (window.MatchdoPromoImage && window.MatchdoPromoImage.generate)
             ? window.MatchdoPromoImage.generate
             : null;
