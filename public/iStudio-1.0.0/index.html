@@ -1076,7 +1076,6 @@
                         if ((!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '未命名' || titleRaw === 'Untitled') && udPrompt) {
                             titleRaw = udPrompt.length > 56 ? udPrompt.slice(0, 56) + '\u2026' : udPrompt;
                         }
-                        if (titleRaw === '產品設計圖') titleRaw = '產品設計稿';
                     } else if (p.type === 'promo_scene') {
                         if (!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '推廣圖' || titleRaw === '未命名' || titleRaw === '情境圖' || titleRaw === 'Scene image' || titleRaw === 'Untitled') {
                             var pd = (p.scene_description || p.description || p.user_prompt || '').trim();

@@ -570,8 +570,7 @@ function resolveUserDesignMediaWallTitlePair(p) {
             en: enDesc ? truncateMediaWallTitle(enDesc) : ''
         };
     }
-    // 舊泛用標題「產品設計圖」一律顯示為「產品設計稿」
-    return { zh: '產品設計稿', en: 'Product design draft' };
+    return { zh: dbZh || '未命名', en: dbEn || '' };
 }
 
 function resolveUserDesignMediaWallTitle(p, lang) {
@@ -4858,16 +4857,6 @@ function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     });
 }
 
-/** 舊泛用標題「產品設計圖」→「產品設計稿」（僅改文案，不呼叫 Gemini） */
-function scheduleLegacyCustomProductTitleRewrite(rows) {
-    if (!rows || !rows.length) return;
-    rows.forEach(function (row) {
-        if (!row || !row.id) return;
-        if (String(row.title || '').trim() !== '產品設計圖') return;
-        supabase.from('custom_products').update({ title: '產品設計稿' }).eq('id', row.id).then(function () {}).catch(function () {});
-    });
-}
-
 /** 情境圖成圖 → ai_tags／描述；失敗不拋出（背景執行） */
 async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
     if (!generationId || !process.env.GEMINI_API_KEY) return null;
@@ -8799,6 +8788,80 @@ app.post('/api/admin/migrations/:id/run', express.json(), async (req, res) => {
     } catch (e) {
         console.error('POST /api/admin/migrations/:id/run:', e);
         res.status(500).json({ error: e.message || '執行失敗' });
+    }
+});
+
+/**
+ * POST /api/admin/backfill-custom-product-tags
+ * 管理員手動補跑缺標設計圖（一次一批，不掛公開頁）。
+ * body: { limit?: number } 預設 10、上限 20
+ */
+app.post('/api/admin/backfill-custom-product-tags', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(503).json({ error: '未設定 GEMINI_API_KEY' });
+        }
+        const limit = Math.min(Math.max(parseInt((req.body && req.body.limit), 10) || 10, 1), 20);
+        let q = supabase
+            .from('custom_products')
+            .select('id, owner_id, title, category, generation_prompt, ai_generated_image_url, ai_tags, semantics_generated_at')
+            .not('ai_generated_image_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(200);
+        let { data: rows, error } = await q;
+        if (error && error.code === '42703') {
+            ({ data: rows, error } = await supabase
+                .from('custom_products')
+                .select('id, owner_id, title, category, generation_prompt, ai_generated_image_url, ai_tags')
+                .not('ai_generated_image_url', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(200));
+        }
+        if (error) {
+            console.error('admin backfill-custom-product-tags query:', error.message);
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        const pending = (rows || []).filter(function (row) {
+            if (!row || !row.id || !row.ai_generated_image_url) return false;
+            if (String(row.ai_generated_image_url).indexOf('data:') === 0) return false;
+            if (row.semantics_generated_at) return false;
+            return !(Array.isArray(row.ai_tags) && row.ai_tags.length > 0);
+        }).slice(0, limit);
+
+        const results = [];
+        for (let i = 0; i < pending.length; i++) {
+            const row = pending[i];
+            try {
+                const out = await enrichCustomProductSemantics(row.id, row.owner_id, {
+                    imageUrl: row.ai_generated_image_url,
+                    generationPrompt: row.generation_prompt || null,
+                    title: row.title || null,
+                    categoryKey: row.category || null
+                });
+                results.push({
+                    id: row.id,
+                    ok: !!(out && Array.isArray(out.ai_tags) && out.ai_tags.length),
+                    tags: out && out.ai_tags ? out.ai_tags.length : 0
+                });
+            } catch (e) {
+                results.push({ id: row.id, ok: false, error: (e && e.message) || '失敗' });
+            }
+        }
+        const okCount = results.filter((r) => r.ok).length;
+        console.log('admin backfill-custom-product-tags done=%d/%d by=%s', okCount, results.length, adminUser.id);
+        res.json({
+            success: true,
+            requested: limit,
+            processed: results.length,
+            ok: okCount,
+            failed: results.length - okCount,
+            items: results
+        });
+    } catch (e) {
+        console.error('POST /api/admin/backfill-custom-product-tags:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -17532,8 +17595,6 @@ app.get('/api/media-wall', async (req, res) => {
             userRows.forEach(p => {
                 out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });
-            // 僅改舊標題文案（DB UPDATE，不呼叫 Gemini）；缺標不在公開媒體牆補跑，避免訪客流量燒 token
-            scheduleLegacyCustomProductTitleRewrite(userRows);
         }
         if (compRows && compRows.length) {
             // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
