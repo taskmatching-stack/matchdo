@@ -87,7 +87,7 @@
         </div>
         <div id="upload-block-alert" class="alert alert-warning d-none"></div>
 
-        <div id="main-content" class="d-none">
+        <div id="main-content">
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepColors">選色</div>
                 <div class="card-body">
@@ -202,12 +202,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/digital-asset-picker.js?v=8"></script>
     <script src="/js/material-dual-color-compose.js?v=20260805c"></script>
-    <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-i18n-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-show-first-20260806';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -229,6 +227,7 @@
         var token = null;
         var pointsFlux = 10;
         var swatchBlob = null;
+        var swatchDirty = true;
         var lastFluxResponse = null;
         var isAdmin = false;
         var hasManufacturer = false;
@@ -240,6 +239,27 @@
         var printPickTarget = null;
         var printPickerModal = null;
         var printPickerMounted = null;
+        var scriptLoadPromises = {};
+
+        function loadScriptOnce(src) {
+            if (scriptLoadPromises[src]) return scriptLoadPromises[src];
+            scriptLoadPromises[src] = new Promise(function (resolve, reject) {
+                var existing = document.querySelector('script[src="' + src + '"]');
+                if (existing) {
+                    if (existing.getAttribute('data-loaded') === '1') { resolve(); return; }
+                    existing.addEventListener('load', function () { resolve(); });
+                    existing.addEventListener('error', function () { reject(new Error('script load failed')); });
+                    return;
+                }
+                var s = document.createElement('script');
+                s.src = src;
+                s.async = true;
+                s.onload = function () { s.setAttribute('data-loaded', '1'); resolve(); };
+                s.onerror = function () { reject(new Error('script load failed')); };
+                document.head.appendChild(s);
+            });
+            return scriptLoadPromises[src];
+        }
 
         var mainColor = document.getElementById('mdc-main-color');
         var mainHex = document.getElementById('mdc-main-hex');
@@ -281,7 +301,8 @@
         function updateGenerateEnabled() {
             var mainOk = !!(mainMaterial.value || '').trim() || zoneHasPattern('main');
             var accentOk = !!(accentMaterial.value || '').trim() || zoneHasPattern('accent');
-            generateBtn.disabled = !mainOk || !accentOk || !swatchBlob;
+            var hexOk = !!(Compose.normalizeHex(mainHex.value) && Compose.normalizeHex(accentHex.value));
+            generateBtn.disabled = !mainOk || !accentOk || !hexOk;
             syncPrintKindVisibility();
         }
 
@@ -352,33 +373,38 @@
 
         function openPrintPicker(zone) {
             printPickTarget = zone;
-            if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
+            loadScriptOnce('/js/digital-asset-picker.js?v=8').then(function () {
+                if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
+                    statusEl.textContent = '資產選擇器未載入，請重新整理頁面';
+                    statusEl.className = 'small mt-2 text-danger';
+                    return;
+                }
+                var modalEl = document.getElementById('mdcPrintPickerModal');
+                if (!printPickerModal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    printPickerModal = new bootstrap.Modal(modalEl);
+                }
+                printPickerMounted = window.MatchdoDigitalAssetPicker.mount({
+                    tabsEl: document.getElementById('mdcPrintPickerTabs'),
+                    listEl: document.getElementById('mdcPrintPickerList'),
+                    emptyEl: document.getElementById('mdcPrintPickerEmpty'),
+                    loadingEl: document.getElementById('mdcPrintPickerLoading'),
+                    initialTab: 'print',
+                    allowedTabs: ['print'],
+                    onPick: function (item) {
+                        if (!printPickTarget || !item || !item.url) return;
+                        setZonePatternFromUrl(printPickTarget, item.url);
+                        if (printPickerModal) printPickerModal.hide();
+                    }
+                });
+                if (printPickerModal) printPickerModal.show();
+                else if (modalEl) {
+                    modalEl.classList.add('show');
+                    modalEl.style.display = 'block';
+                }
+            }).catch(function () {
                 statusEl.textContent = '資產選擇器未載入，請重新整理頁面';
                 statusEl.className = 'small mt-2 text-danger';
-                return;
-            }
-            var modalEl = document.getElementById('mdcPrintPickerModal');
-            if (!printPickerModal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                printPickerModal = new bootstrap.Modal(modalEl);
-            }
-            printPickerMounted = window.MatchdoDigitalAssetPicker.mount({
-                tabsEl: document.getElementById('mdcPrintPickerTabs'),
-                listEl: document.getElementById('mdcPrintPickerList'),
-                emptyEl: document.getElementById('mdcPrintPickerEmpty'),
-                loadingEl: document.getElementById('mdcPrintPickerLoading'),
-                initialTab: 'print',
-                allowedTabs: ['print'],
-                onPick: function (item) {
-                    if (!printPickTarget || !item || !item.url) return;
-                    setZonePatternFromUrl(printPickTarget, item.url);
-                    if (printPickerModal) printPickerModal.hide();
-                }
             });
-            if (printPickerModal) printPickerModal.show();
-            else if (modalEl) {
-                modalEl.classList.add('show');
-                modalEl.style.display = 'block';
-            }
         }
 
         document.getElementById('mdc-main-pick-print').addEventListener('click', function () { openPrintPicker('main'); });
@@ -430,19 +456,44 @@
             return false;
         }
 
-        async function refreshSwatch() {
+        function paintSwatchPreview() {
             try {
-                var canvas = Compose.composeDualColorSwatch(mainHex.value, accentHex.value);
+                var main = Compose.normalizeHex(mainHex.value);
+                var accent = Compose.normalizeHex(accentHex.value);
+                if (!main || !accent) {
+                    swatchBlob = null;
+                    swatchDirty = true;
+                    updateGenerateEnabled();
+                    return;
+                }
+                var size = 256;
+                var topH = Math.floor(size * 0.75);
+                swatchCanvas.width = size;
+                swatchCanvas.height = size;
                 var ctx = swatchCanvas.getContext('2d');
-                swatchCanvas.width = canvas.width;
-                swatchCanvas.height = canvas.height;
-                ctx.drawImage(canvas, 0, 0);
-                swatchBlob = await Compose.canvasToBlob(canvas, 'image/png');
+                ctx.fillStyle = main;
+                ctx.fillRect(0, 0, size, topH);
+                ctx.fillStyle = accent;
+                ctx.fillRect(0, topH, size, size - topH);
+                swatchDirty = true;
                 updateGenerateEnabled();
             } catch (e) {
                 swatchBlob = null;
+                swatchDirty = true;
                 updateGenerateEnabled();
             }
+        }
+
+        async function ensureSwatchBlob() {
+            if (!swatchDirty && swatchBlob) return swatchBlob;
+            var canvas = Compose.composeDualColorSwatch(mainHex.value, accentHex.value);
+            swatchBlob = await Compose.canvasToBlob(canvas, 'image/png');
+            swatchDirty = false;
+            return swatchBlob;
+        }
+
+        function refreshSwatch() {
+            paintSwatchPreview();
         }
 
         function bindColorSync(picker, hexInput) {
@@ -472,17 +523,37 @@
             } catch (e) { return null; }
         }
 
+        function paintUiNow() {
+            paintSwatchPreview();
+            updateGenerateEnabled();
+        }
+
         async function initAuth() {
-            var user = await AuthService.getCurrentUser();
-            if (!user) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
-            if (!(await getToken())) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            // 表單已在 HTML 直接顯示；認證／門檻背景跑，不擋首屏
+            paintUiNow();
+
+            var user = null;
+            try {
+                user = await AuthService.getCurrentUser();
+            } catch (_) { user = null; }
+            if (!user || !(await getToken())) {
+                document.getElementById('auth-alert').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('auth-alert').classList.add('d-none');
+
+            var isOfficial = !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB;
+
+            // 設計頁入口：不打 admin／廠商／capabilities，只拉定價
+            if (returnTarget === 'design' && !isOfficial) {
+                loadPricing();
+                return;
+            }
 
             try {
                 var adminGate = await fetch('/api/admin/can-access', { headers: authHeaders(), cache: 'no-store' });
                 isAdmin = adminGate.ok;
             } catch (_) { isAdmin = false; }
-
-            var isOfficial = !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB;
 
             if (isOfficial) {
                 if (!isAdmin) {
@@ -502,6 +573,7 @@
                 if (!supCap.ok || !supCapData.industry_supplier_id) {
                     document.getElementById('no-mfr-alert').classList.remove('d-none');
                     document.getElementById('no-mfr-alert').innerHTML = '您尚未綁定產業供應商。<a href="/client/industry-supplier-dashboard.html" class="alert-link">前往供應商控制台</a>';
+                    loadPricing();
                     return;
                 }
             } else if (!isOfficial && !isAdmin) {
@@ -526,14 +598,10 @@
                 uploadHint.textContent = '仍可生成材質圖；加入材料待傳清單需付費方案。';
                 uploadHint.classList.remove('d-none');
             }
-            document.getElementById('main-content').classList.remove('d-none');
-            await loadPricing();
-            await refreshSwatch();
-            updateGenerateEnabled();
+            loadPricing();
         }
 
         generateBtn.addEventListener('click', async function () {
-            if (!swatchBlob) return;
             var main = (mainMaterial.value || '').trim();
             var accent = (accentMaterial.value || '').trim();
             var mainOk = main || zoneHasPattern('main');
@@ -549,8 +617,10 @@
             statusEl.textContent = t('materialCombo.loading', '材料配置中…');
             statusEl.className = 'small mt-2 text-muted';
             try {
+                var blob = await ensureSwatchBlob();
+                if (!blob) throw new Error('swatch');
                 var fd = new FormData();
-                fd.append('image', swatchBlob, 'material-combination-swatch.png');
+                fd.append('image', blob, 'material-combination-swatch.png');
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
                 if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
@@ -612,7 +682,7 @@
                 if (addPendingBtn) {
                     var canPending = returnTarget === 'design'
                         || returnTarget === 'supplier'
-                        || isOfficial
+                        || !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB
                         || isAdmin
                         || (hasManufacturer && canUploadAssets);
                     if (canPending) addPendingBtn.classList.remove('d-none');
@@ -637,15 +707,18 @@
 
         if (addPendingBtn) {
             addPendingBtn.addEventListener('click', async function () {
-                if (!lastFluxResponse || !window.MatchdoDualColorImport) return;
+                if (!lastFluxResponse) return;
                 addPendingBtn.disabled = true;
                 statusEl.textContent = t('materialCombo.addingPending', '正在加入待傳清單…');
                 statusEl.className = 'small mt-2 text-muted';
                 try {
+                    await loadScriptOnce('/js/material-dual-color-import.js?v=20260805b');
+                    if (!window.MatchdoDualColorImport) throw new Error(t('materialCombo.addPendingFail', '加入待傳失敗'));
                     var main = (mainMaterial.value || '').trim();
                     var accent = (accentMaterial.value || '').trim();
                     var fluxFile = await MatchdoDualColorImport.fluxFileFromApiResponse(lastFluxResponse, 'material-combination-flux.jpg');
-                    var swatchFile = swatchBlob ? new File([swatchBlob], 'material-combination-swatch.png', { type: swatchBlob.type || 'image/png' }) : null;
+                    var blob = await ensureSwatchBlob();
+                    var swatchFile = blob ? new File([blob], 'material-combination-swatch.png', { type: blob.type || 'image/png' }) : null;
                     await MatchdoDualColorImport.saveImport({
                         returnTarget: returnTarget,
                         mainMaterial: main,
@@ -667,6 +740,7 @@
             });
         }
 
+        paintUiNow();
         initAuth();
     })();
     </script>
