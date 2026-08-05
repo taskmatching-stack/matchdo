@@ -4922,7 +4922,7 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
     }
 }
 
-/** 與 schedulePromoGenerationSemanticsEnrich 相同：setImmediate 排隊生圖後打標 */
+/** 設計圖生圖後背景打標（setImmediate）；情境圖已改為僅按鈕觸發，不再自動 schedule */
 function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     if (!productId || !process.env.GEMINI_API_KEY) return;
     setImmediate(function () {
@@ -5027,41 +5027,7 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
     }
 }
 
-function schedulePromoGenerationSemanticsEnrich(generationId, ownerId, ctx) {
-    if (!generationId || !process.env.GEMINI_API_KEY) return;
-    setImmediate(function () {
-        enrichPromoGenerationSemantics(generationId, ownerId, ctx || {}).catch(function () {});
-    });
-}
-
-function scheduleMissingPromoSemanticsBackfill(rows, sourceProductMap, templateNameMap) {
-    if (!process.env.GEMINI_API_KEY || !rows || !rows.length) return;
-    const pending = rows.filter(function (row) {
-        if (!row || !row.id || !row.result_image_url) return false;
-        if (row.semantics_generated_at) return false;
-        const hasTags = Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
-        return !hasTags;
-    }).slice(0, 4);
-    pending.forEach(function (row) {
-        const srcProd = row.source_id && sourceProductMap ? sourceProductMap[row.source_id] : null;
-        const tplMap = templateNameMap || {};
-        const themeKey = row.scene_template_key ? String(row.scene_template_key).trim() : '';
-        const sceneKey = row.scene_key ? String(row.scene_key).trim() : '';
-        schedulePromoGenerationSemanticsEnrich(row.id, row.user_id, {
-            imageUrl: row.result_image_url,
-            userPrompt: row.user_prompt || null,
-            finalPrompt: row.final_prompt || null,
-            themeKey: themeKey || null,
-            sceneKey: sceneKey || null,
-            sourceType: row.source_type || null,
-            sourceId: row.source_id || null,
-            productTitle: srcProd && srcProd.title ? srcProd.title : null,
-            categoryKey: srcProd && srcProd.category ? srcProd.category : null,
-            themeName: themeKey ? (tplMap[themeKey] || themeKey) : null,
-            sceneName: sceneKey ? (tplMap[sceneKey] || sceneKey) : null
-        });
-    });
-}
+/** 情境圖語意／描述／標籤：僅使用者按「描述 1點」「標籤 1點」時呼叫 enrichPromoGenerationSemantics；禁止生圖後或媒體牆自動讀圖 */
 
 function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
     if (normalizeVendorAssetKind(assetKind) !== 'material' || !semanticsJson) {
@@ -13127,18 +13093,6 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 }
             }
         }
-        if (generationId) {
-            schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
-                imageBuffer: buffer,
-                imageUrl: resultImageUrl,
-                userPrompt,
-                finalPrompt,
-                themeKey: themeKey || null,
-                sceneKey: sceneKey || null,
-                sourceType,
-                sourceId
-            });
-        }
         res.json({
             success: true,
             id: generationId,
@@ -13449,18 +13403,6 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                     librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
                 }
             }
-        }
-        if (generationId) {
-            schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
-                imageBuffer: buffer,
-                imageUrl: resultImageUrl,
-                userPrompt,
-                finalPrompt,
-                themeKey: themeKey || null,
-                sceneKey: sceneKey || null,
-                sourceType,
-                sourceId
-            });
         }
         res.json({
             success: true,
@@ -17888,7 +17830,7 @@ app.get('/api/media-wall', async (req, res) => {
                 if (profsRes && profsRes.data) {
                     profsRes.data.forEach((pr) => { promoOwnerMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                 }
-                scheduleMissingPromoSemanticsBackfill(promoRows, promoSrcMap, tplMap);
+                // 禁止媒體牆載入時 Gemini 缺標補跑（與設計圖相同：訪客流量不得燒 token）
                 promoRows.forEach((row) => {
                     out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, promoSrcMap, tplMap, contentLang));
                 });
