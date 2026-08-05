@@ -537,7 +537,7 @@ $(document).ready(function () {
         if ($hint.length) {
             $hint.text(official
                 ? (t('customProduct.officialStylesBrowseHint') || '平台共用官方版型（顯示名固定「官方版型」）。子分類僅篩選數位原型；有關聯的主產品可看可搭配（產品 MAP）。')
-                : (t('customProduct.vendorStylesTabHint') || '與「產品設計」共用主／子分類（網址會帶入 category_key）。可直接點「變更分類」；點「用此款進行設計」帶入參考圖。'));
+                : (t('customProduct.vendorStylesTabHint') || '與「設計稿」共用主／子分類（網址會帶入 category_key）。可直接點「變更分類」；點「用此款進行設計」帶入參考圖。'));
         }
     }
 
@@ -4221,7 +4221,7 @@ $(document).ready(function () {
                 if ($p.length) {
                     var pickMsg = (window.matchMedia('(max-width: 768px)').matches)
                         ? (t('customProduct.vendorStylesPickCategoryMobile') || '請點上方「分類」選擇主分類與子分類。')
-                        : (t('customProduct.vendorStylesPickCategoryFirst') || '請先到「產品設計」Tab 選擇主分類與子分類。');
+                        : (t('customProduct.vendorStylesPickCategoryFirst') || '請先到「設計稿」Tab 選擇主分類與子分類。');
                     $p.text(pickMsg);
                 }
             }
@@ -6705,7 +6705,7 @@ $(document).ready(function () {
                 if (typeof addRefImageToSlot === 'function') {
                     var ok = addRefImageToSlot('prototype', imageDataUrl, { asset_kind: 'prototype', from: 'design_to_physical' });
                     if (ok) {
-                        alert(t('customProduct.designToPhysicalAddedRef') || '已加入數位原型參考圖，可切回「產品設計」繼續生圖。');
+                        alert(t('customProduct.designToPhysicalAddedRef') || '已加入數位原型參考圖，可切回「設計稿」繼續生圖。');
                         var tabEl = document.getElementById('tab-product-design');
                         if (tabEl && typeof showBootstrapTab === 'function') showBootstrapTab(tabEl);
                     } else {
