@@ -6811,8 +6811,19 @@ async function listOfficialPublicCatalogForPage(opts) {
     let list = rows || [];
     const total = list.length;
     list = list.slice(offset, offset + limit);
+    let linkCounts = {};
+    try {
+        linkCounts = await batchPrototypeLinkCounts(list);
+    } catch (e) {
+        console.warn('listOfficialPublicCatalogForPage linkCounts:', e && e.message);
+        linkCounts = {};
+    }
     const items = list.map((r) => {
         const kind = normalizeVendorAssetKind(r.asset_kind);
+        const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
+        const linkCount = kind === 'prototype'
+            ? ((counts.material_count || 0) + (counts.part_count || 0))
+            : 0;
         return {
             id: r.id,
             category_key: r.category_key,
@@ -6821,7 +6832,13 @@ async function listOfficialPublicCatalogForPage(opts) {
             description: r.description || '',
             image_url: r.image_url,
             asset_kind: kind,
-            official: true
+            official: true,
+            material_count: kind === 'prototype' ? (counts.material_count || 0) : undefined,
+            part_count: kind === 'prototype' ? (counts.part_count || 0) : undefined,
+            link_count: kind === 'prototype' ? linkCount : undefined,
+            match_guide_url: (kind === 'prototype' && linkCount > 0)
+                ? ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id))
+                : null
         };
     });
     return { items, total, categories };
@@ -6893,10 +6910,19 @@ async function listVendorPublicCatalogForPage(opts) {
     });
     const total = list.length;
     list = list.slice(offset, offset + limit);
+    let linkCounts = {};
+    try {
+        linkCounts = await batchPrototypeLinkCounts(list);
+    } catch (e) {
+        console.warn('listVendorPublicCatalogForPage linkCounts:', e && e.message);
+        linkCounts = {};
+    }
     const items = list.map((r) => {
         const kind = typeof normalizeVendorAssetKind === 'function'
             ? normalizeVendorAssetKind(r.asset_kind)
             : 'prototype';
+        const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
+        const linkCount = (counts.material_count || 0) + (counts.part_count || 0);
         return {
             id: r.id,
             manufacturer_id: r.manufacturer_id || null,
@@ -6906,7 +6932,13 @@ async function listVendorPublicCatalogForPage(opts) {
             title: r.title || '',
             description: r.description || '',
             image_url: r.image_url,
-            asset_kind: kind || 'prototype'
+            asset_kind: kind || 'prototype',
+            material_count: counts.material_count || 0,
+            part_count: counts.part_count || 0,
+            link_count: linkCount,
+            match_guide_url: linkCount > 0
+                ? ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id))
+                : null
         };
     });
     return { items, total, categories };

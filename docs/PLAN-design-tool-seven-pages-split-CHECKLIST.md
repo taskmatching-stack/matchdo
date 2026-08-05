@@ -1,41 +1,30 @@
-# 設計頁 7 個 TAB → 獨立網址（執行清單）
+# 設計工具獨立 URL — 禁止發明功能（稽核備忘）
 
-> **驗收**：設計頁點 7 個 TAB，位址列必須變成下表 path（不是 `custom-product.html?tab=`）。
+> 使用者多次要求：**只搬既有行為到獨立 path，禁止新造按鈕／連結／文案功能。**
 
-## 目標對照
+## 版型卡（設計頁舊版 = 唯一真相）
 
-| TAB | 點下去位址列 |
-|-----|----------------|
-| 設計稿 | `/custom-product.html` |
-| 廠商版型 | `/vendor-styles/…` |
-| 官方版型（殼內切換） | `/official-templates/…` |
-| 圖樣提取 | `/pattern-extract/` |
-| 寫實化 | `/design-to-physical/` |
-| 實境模擬 | `/scene-sim/` |
-| 情境圖 | `/promo-image/` |
-| 商攝導演 | `/promo-camera` 或 `/promo-camera-app` |
+`public/js/custom-product.js` 版型瀏覽卡：
 
-## 本輪已改檔
-
-| 檔案 | 內容 |
+| 按鈕 | 條件 |
 |------|------|
-| `server.js` | 4 工具 path serve 殼；舊 `?tab=` 301 |
-| `public/custom-product.html` | TAB 改 `<a href>` 獨立 path |
-| `public/js/custom-product.js` | path 偵測、導向、href 同步（`?v=151`） |
-| `routes/sitemap.js` | 加入 4 path |
-| `public/js/site-header.js` | 選單對齊獨立 path |
-| `docs/url-redirect-map.md` | 登記 301 |
+| **用此款進行設計**（或官方材料／配件「加入參考圖」） | 一定有 |
+| **看可搭配** | **僅** `link_count > 0`（有材料／配件關聯）→ `/product-tree.html?prototype_asset_id=` |
+| ~~作品頁~~ | **禁止**（不是舊版功能） |
 
-## 不動
+SSR `/vendor-styles/`、`/official-templates/` **必須**同一規則。
 
-`/promo-camera`、`/promo-camera-app` 頁內容、L3／L4 Store。
+## 改獨立 path 時允許／禁止
 
-## 進度
-
-| 項目 | 狀態 |
+| 允許 | 禁止 |
 |------|------|
-| TAB → 獨立 href | ✅ 程式已改（待部署後實機點驗） |
-| 4 工具 path 200 | ✅ 路由已掛（殼＝custom-product 面板） |
-| 舊 ?tab= 301 | ✅ |
-| sitemap／選單 | ✅ |
-| `/promo-camera-app` 內容 | 不動 |
+| TAB／選單改指已有獨立 URL | 新造「作品頁」「分享」「收藏」等舊卡沒有的 CTA |
+| 舊 `?tab=` 301 到新 path | 無關聯仍顯示「看可搭配」 |
+| 修相對路徑導致 CSS 掛掉 | 順便重做卡版面／文案行銷句 |
+
+## 本輪已修（對齊舊卡）
+
+- 拿掉「作品頁」→ inspiration
+- 「看可搭配」改為僅 `link_count > 0`
+- 列表 API 補 `link_count`／`match_guide_url`
+- 縮圖不亂連（舊版為放大預覽，非跳 inspiration）
