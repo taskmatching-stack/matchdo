@@ -17229,7 +17229,7 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key';
+            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags';
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -18691,6 +18691,158 @@ app.delete('/api/custom-products/:id', async (req, res) => {
     } catch (e) {
         console.error('DELETE /api/custom-products/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function loadOwnedCustomProductForSemantics(userId, productId) {
+    const id = String(productId || '').trim();
+    if (!id || !userId) return { error: { status: 400, message: '缺少產品 id' } };
+    let { data, error } = await supabase
+        .from('custom_products')
+        .select('id, owner_id, title, description, category, subcategory_key, generation_prompt, ai_generated_image_url, reference_image_url, ai_tags')
+        .eq('id', id)
+        .eq('owner_id', userId)
+        .maybeSingle();
+    if (error && error.code === '42703') {
+        ({ data, error } = await supabase
+            .from('custom_products')
+            .select('id, owner_id, title, description, category, generation_prompt, ai_generated_image_url, reference_image_url')
+            .eq('id', id)
+            .eq('owner_id', userId)
+            .maybeSingle());
+    }
+    if (error) return { error: { status: 500, message: error.message } };
+    if (!data) return { error: { status: 404, message: '產品不存在或無權限' } };
+    const imageUrl = (data.ai_generated_image_url || data.reference_image_url || '').trim();
+    if (!imageUrl || imageUrl.indexOf('data:') === 0) {
+        return { error: { status: 400, message: '此設計沒有可讀取的成品圖，無法分析' } };
+    }
+    return { product: data, imageUrl };
+}
+
+// POST /api/custom-products/:id/regenerate-tags — 本人設計稿：讀圖重生標籤（扣點，預設 1）
+app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const loaded = await loadOwnedCustomProductForSemantics(user.id, req.params.id);
+        if (loaded.error) return res.status(loaded.error.status).json({ error: loaded.error.message });
+        const { product, imageUrl } = loaded;
+        const isAdmin = await isAdminUserId(user.id);
+        const pointsRequired = await getPointsVendorAssetRegenerateTags();
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
+            if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+        }
+        const out = await enrichCustomProductSemantics(product.id, user.id, {
+            imageUrl,
+            generationPrompt: product.generation_prompt || null,
+            title: product.title || null,
+            categoryKey: product.category || null
+        });
+        if (!out || !Array.isArray(out.ai_tags) || !out.ai_tags.length) {
+            return res.status(503).json({ error: 'AI 標籤產生失敗，請稍後重試' });
+        }
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(user.id, pointsRequired, 'custom_product_regenerate_tags', '設計稿 AI 重生標籤', { custom_product_id: product.id });
+            if (!consumed.ok) return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+        const { data: updated } = await supabase
+            .from('custom_products')
+            .select('id, title, description, ai_tags')
+            .eq('id', product.id)
+            .maybeSingle();
+        res.json({
+            success: true,
+            product: updated || { id: product.id, ai_tags: out.ai_tags, title: out.title || product.title },
+            ai_tags: out.ai_tags,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/custom-products/:id/regenerate-tags:', e);
+        res.status(503).json({ error: e.message || 'AI 標籤產生失敗，請稍後重試' });
+    }
+});
+
+// POST /api/custom-products/:id/generate-description — 本人設計稿：讀圖產生產品描述（扣點，預設 1）
+app.post('/api/custom-products/:id/generate-description', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const loaded = await loadOwnedCustomProductForSemantics(user.id, req.params.id);
+        if (loaded.error) return res.status(loaded.error.status).json({ error: loaded.error.message });
+        const { product, imageUrl } = loaded;
+        const isAdmin = await isAdminUserId(user.id);
+        const pointsRequired = await getPointsVendorAssetDescription();
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
+            if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+        }
+        if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: '未設定 GEMINI_API_KEY' });
+        const deps = getVisualSemanticsDeps();
+        const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        const imgResult = await visualSemantics.analyzeGeneratedImageSemantics(deps, imagePart, {
+            generation_prompt: product.generation_prompt || null,
+            title: product.title || null,
+            category_key: product.category || null
+        });
+        const description = (imgResult.semantics && imgResult.semantics.product_description_zh
+            ? String(imgResult.semantics.product_description_zh).trim()
+            : '') || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics) || '';
+        if (!description) return res.status(503).json({ error: 'AI 產品描述產生失敗，請稍後重試' });
+        const updates = {
+            description,
+            image_semantics_json: imgResult.semantics,
+            semantics_generated_at: new Date().toISOString()
+        };
+        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(imgResult.semantics);
+        if (titlePair && titlePair.zh && isGenericMediaWallTitle(product.title)) updates.title = titlePair.zh;
+        if (titlePair && titlePair.en) updates.title_en = titlePair.en;
+        let { data: updated, error: updErr } = await supabase
+            .from('custom_products')
+            .update(updates)
+            .eq('id', product.id)
+            .eq('owner_id', user.id)
+            .select('id, title, description, ai_tags')
+            .maybeSingle();
+        if (updErr && updErr.code === '42703') {
+            delete updates.title_en;
+            delete updates.semantics_generated_at;
+            ({ data: updated, error: updErr } = await supabase
+                .from('custom_products')
+                .update(updates)
+                .eq('id', product.id)
+                .eq('owner_id', user.id)
+                .select('id, title, description')
+                .maybeSingle());
+        }
+        if (updErr) {
+            console.error('generate-description update:', updErr.message);
+            return res.status(500).json({ error: '寫入描述失敗' });
+        }
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(user.id, pointsRequired, 'custom_product_generate_description', '設計稿 AI 產品描述', { custom_product_id: product.id });
+            if (!consumed.ok) return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+        res.json({
+            success: true,
+            product: updated || { id: product.id, description, title: updates.title || product.title },
+            description,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/custom-products/:id/generate-description:', e);
+        res.status(503).json({ error: e.message || 'AI 產品描述產生失敗，請稍後重試' });
     }
 });
 
