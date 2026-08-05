@@ -1,6 +1,6 @@
 # 後台 AI 模型設定（`/admin/ai-settings.html`）
 
-更新日期：2026-07-10
+更新日期：2026-08-05
 
 ---
 
@@ -14,7 +14,7 @@
 | **語意提示詞 API** | `GET`／`PATCH` [`/api/admin/semantics-prompts`](../server.js) |
 | **儲存位置** | Supabase `payment_config` 表，鍵名見下表 |
 
-本頁涵蓋 **Gemini** 四槽與 **FLUX** 五槽，見 §2、§2.1。材料 AI 優化**現行走 FLUX**（`bfl_flux_model_vendor_material`）；`gemini_model_material_optimize` 後台欄位仍保留但 **optimize 路徑未使用**。
+本頁涵蓋 **Gemini**（翻譯／讀圖／標籤／材料優化／材料組合 Lite・Flash）與 **FLUX** 多槽，見 §2。材料色卡 AI 優化走 Gemini（`gemini_model_material_optimize`）；材料組合生圖另兩槽，見 §2.2。
 
 ---
 
@@ -26,7 +26,7 @@
 |----------|----------------------|----------|------|
 | 訂製設計頁生圖 | `bfl_flux_model_generate` | `flux-2-pro` | `POST /api/generate-product-image` |
 | 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪 |
-| 廠商材料 AI 優化 | `bfl_flux_model_vendor_material` | `flux-2-pro` | 廠商**材料色卡** img2img（`buildVendorAssetMaterialFluxOptimizePrompt`） |
+| 廠商材料 AI 優化（legacy） | `bfl_flux_model_vendor_material` | `flux-2-pro` | 現未使用；材料請用 Gemini |
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
 | 寫實化 | `bfl_flux_model_design_to_physical` | `flux-2-pro` | 設計頁／廠商寫實化（獨立槽） |
 
@@ -34,16 +34,18 @@
 
 ### 2.2 Gemini 模型（分開設定、互不覆寫）
 
-後台「Gemini 模型設定」卡片內有四個文字欄位：
+後台「Gemini 模型設定」卡片內欄位：
 
 | 後台欄位 | `payment_config.key` | 程式讀取 | 用途摘要 |
 |----------|----------------------|----------|----------|
 | Gemini 翻譯模型 | `gemini_model` | `getTranslationModelName()` | 生圖前將中文 prompt 翻成英文等輕量文字任務 |
 | Gemini 讀圖／分析模型 | `gemini_model_read` | `getReadModelName()` | 客製產品分析、參考圖描述、首頁工項 AI 識別等**一般讀圖／結構化分析** |
 | Gemini 標籤用讀圖模型 | `gemini_model_tagging` | `getTaggingModelName()` | 訂製**生成圖**與**廠商數位原型**自動標籤 |
-| **Gemini 材料 AI 優化** | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | **未接上 optimize 路徑**（`optimizeVendorAssetMaterialWithGemini` 死碼）；材料現行用 FLUX |
+| Gemini 材料 AI 優化 | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | 廠商材料色卡 img2img |
+| **材料組合・Lite** | `gemini_model_material_combo_lite` | `getMaterialComboLiteModelName()` | 材料組合**僅色卡**生圖（Nano Banana Lite） |
+| **材料組合・Flash** | `gemini_model_material_combo_flash` | `getMaterialComboFlashModelName()` | 材料組合**色卡＋印花**生圖（Nano Banana Flash） |
 
-**環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`。
+**環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`。
 
 **程式內建預設（尚未在後台儲存前）**：
 
@@ -53,6 +55,10 @@
 | `gemini_model_read` | `gemini-3-flash-preview` |
 | `gemini_model_tagging` | `gemini-3.1-flash-lite` |
 | `gemini_model_material_optimize` | `gemini-2.5-flash-image` |
+| `gemini_model_material_combo_lite` | `gemini-3.1-flash-lite-image` |
+| `gemini_model_material_combo_flash` | `gemini-3.1-flash-image` |
+
+材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。
 
 ---
 

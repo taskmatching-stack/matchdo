@@ -27,11 +27,13 @@ git checkout material-combo-flux-baseline-6d15ef8 -- server.js public/client/mat
 
 ## 2. 模型分工
 
-| 情境 | 模型 |
-|------|------|
-| 僅色卡 | `gemini-3.1-flash-lite-image` |
-| 色卡 + 印花 | `gemini-3.1-flash-image` |
-| 滿額／429 | FLUX.2 pro（原管線） |
+| 情境 | 預設 model | 後台鍵 |
+|------|------------|--------|
+| 僅色卡 | `gemini-3.1-flash-lite-image` | `gemini_model_material_combo_lite` |
+| 色卡 + 印花 | `gemini-3.1-flash-image` | `gemini_model_material_combo_flash` |
+| 滿額／429 | FLUX.2 pro（原管線） | （FLUX 槽，非本頁） |
+
+可於 `/admin/ai-settings.html` 手填更換；未寫入 DB 前用程式預設。見 `docs/admin-ai-settings-models.md` §2.2。
 
 API：`generateContent` + `inlineData` + `responseModalities: ['Image']`（只要圖）。
 

@@ -98,6 +98,9 @@ const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
 /** 廠商材料 AI 優化（img2img 保真清理） */
 const GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT = 'gemini-2.5-flash-image';
+/** 材料組合生圖：僅色卡（Nano Banana Lite）／色卡+印花（Flash）— 可後台設定 */
+const GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT = 'gemini-3.1-flash-lite-image';
+const GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT = 'gemini-3.1-flash-image';
 const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
@@ -216,6 +219,26 @@ async function getMaterialOptimizeModelName() {
         if (fromDb) return fromDb;
     } catch (_) {}
     return process.env.GEMINI_MODEL_MATERIAL_OPTIMIZE || GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT;
+}
+
+/** 材料組合：僅色卡 → Lite image（可後台 gemini_model_material_combo_lite） */
+async function getMaterialComboLiteModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_material_combo_lite').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_MATERIAL_COMBO_LITE || GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT;
+}
+
+/** 材料組合：色卡+印花 → Flash image（可後台 gemini_model_material_combo_flash） */
+async function getMaterialComboFlashModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_material_combo_flash').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT;
 }
 
 function getVisualSemanticsDeps() {
@@ -3930,12 +3953,12 @@ function isGeminiImageRateLimitError(err) {
     return /429|RESOURCE_EXHAUSTED|rate.?limit|quota|exceeded|resource exhausted/i.test(msg);
 }
 
-function dualColorGeminiModelForRefs(hasPrint) {
-    return hasPrint ? 'gemini-3.1-flash-image' : 'gemini-3.1-flash-lite-image';
+async function dualColorGeminiModelForRefs(hasPrint) {
+    return hasPrint ? await getMaterialComboFlashModelName() : await getMaterialComboLiteModelName();
 }
 
 /**
- * 材料組合 Gemini img2img：無印花→Lite；有印花→Flash。只回圖。
+ * 材料組合 Gemini img2img：無印花→Lite；有印花→Flash（model id 可後台設定）。只回圖。
  * 參考圖：inlineData base64（等同 type/mime_type/data）。
  */
 async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
@@ -3953,7 +3976,7 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
         hasAccentPattern: hasAccentPat,
         printKind: hasPrint ? printKind : 'pattern'
     });
-    const model = dualColorGeminiModelForRefs(hasPrint);
+    const model = await dualColorGeminiModelForRefs(hasPrint);
 
     let swatchMime = 'image/png';
     if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) swatchMime = 'image/jpeg';
@@ -8066,6 +8089,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         if (!adminUser) return;
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
+            'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash',
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', configKeys);
@@ -8076,6 +8100,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
             gemini_model_tagging: byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT,
             gemini_model_material_optimize: byKey.gemini_model_material_optimize || process.env.GEMINI_MODEL_MATERIAL_OPTIMIZE || GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT,
+            gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite || process.env.GEMINI_MODEL_MATERIAL_COMBO_LITE || GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT,
+            gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash || process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -8083,6 +8109,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_read: !!byKey.gemini_model_read,
                 gemini_model_tagging: !!byKey.gemini_model_tagging,
                 gemini_model_material_optimize: !!byKey.gemini_model_material_optimize,
+                gemini_model_material_combo_lite: !!byKey.gemini_model_material_combo_lite,
+                gemini_model_material_combo_flash: !!byKey.gemini_model_material_combo_flash,
                 ...bfl.saved_in_db
             }
         });
@@ -8111,6 +8139,12 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         }
         if (body.gemini_model_material_optimize !== undefined) {
             upserts.push({ key: 'gemini_model_material_optimize', value: String(body.gemini_model_material_optimize).trim(), updated_at: now });
+        }
+        if (body.gemini_model_material_combo_lite !== undefined) {
+            upserts.push({ key: 'gemini_model_material_combo_lite', value: String(body.gemini_model_material_combo_lite).trim(), updated_at: now });
+        }
+        if (body.gemini_model_material_combo_flash !== undefined) {
+            upserts.push({ key: 'gemini_model_material_combo_flash', value: String(body.gemini_model_material_combo_flash).trim(), updated_at: now });
         }
         for (const key of Object.keys(BFL_FLUX_MODEL_CONFIG)) {
             if (body[key] === undefined) continue;
@@ -8147,6 +8181,8 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_read: byKey.gemini_model_read ?? null,
             gemini_model_tagging: byKey.gemini_model_tagging ?? null,
             gemini_model_material_optimize: byKey.gemini_model_material_optimize ?? null,
+            gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite ?? null,
+            gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash ?? null,
             ...bfl.models
         });
     } catch (e) {

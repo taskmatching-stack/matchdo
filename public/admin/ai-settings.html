@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。材料 AI 優化用 <code>gemini-2.5-flash-image</code>（Gemini 區）；產品重繪／設計頁生圖仍用 FLUX（預設 <code>flux-2-pro</code>）。</p>
+        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。材料色卡 AI 優化用 Gemini；材料組合生圖用 Nano Banana Flash／Lite（可於下方分槽設定）；產品重繪／設計頁生圖仍用 FLUX（預設 <code>flux-2-pro</code>）。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -46,6 +46,16 @@
               <label class="form-label small mb-1">Gemini 材料 AI 優化</label>
               <input type="text" id="aiConfigGeminiModelMaterialOptimize" class="form-control form-control-sm" placeholder="gemini-2.5-flash-image" />
               <p class="form-text small text-muted mb-0">廠商<strong>材料色卡 AI 優化</strong> img2img（<code>gemini_model_material_optimize</code>）。預設 gemini-2.5-flash-image。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">材料組合生圖・Lite（僅色卡）</label>
+              <input type="text" id="aiConfigGeminiModelMaterialComboLite" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
+              <p class="form-text small text-muted mb-0"><code>/client/material-dual-color.html</code> 無印花時（Nano Banana Lite，<code>gemini_model_material_combo_lite</code>）。預設 gemini-3.1-flash-lite-image。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">材料組合生圖・Flash（色卡＋印花）</label>
+              <input type="text" id="aiConfigGeminiModelMaterialComboFlash" class="form-control form-control-sm" placeholder="gemini-3.1-flash-image" />
+              <p class="form-text small text-muted mb-0">材料組合<strong>有印花</strong>時（Nano Banana Flash，<code>gemini_model_material_combo_flash</code>）。預設 gemini-3.1-flash-image。</p>
             </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
@@ -208,12 +218,16 @@
     var inpRead = document.getElementById('aiConfigGeminiModelRead');
     var inpTag = document.getElementById('aiConfigGeminiModelTagging');
     var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
+    var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
+    var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
     if (data.gemini_model_read != null) inpRead.value = data.gemini_model_read;
     if (data.gemini_model_tagging != null) inpTag.value = data.gemini_model_tagging;
     if (data.gemini_model_material_optimize != null && inpMat) inpMat.value = data.gemini_model_material_optimize;
+    if (data.gemini_model_material_combo_lite != null && inpComboLite) inpComboLite.value = data.gemini_model_material_combo_lite;
+    if (data.gemini_model_material_combo_flash != null && inpComboFlash) inpComboFlash.value = data.gemini_model_material_combo_flash;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -221,6 +235,8 @@
       if (s.gemini_model_read) parts.push('讀圖分析');
       if (s.gemini_model_tagging) parts.push('標籤讀圖');
       if (s.gemini_model_material_optimize) parts.push('材料優化');
+      if (s.gemini_model_material_combo_lite) parts.push('組合Lite');
+      if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyBflFluxConfigToForm(data);
@@ -377,6 +393,8 @@
     var inpRead = document.getElementById('aiConfigGeminiModelRead');
     var inpTag = document.getElementById('aiConfigGeminiModelTagging');
     var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
+    var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
+    var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -384,7 +402,9 @@
       gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite',
       gemini_model_read: inpRead.value.trim() || 'gemini-3-flash-preview',
       gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite',
-      gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-2.5-flash-image'
+      gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-2.5-flash-image',
+      gemini_model_material_combo_lite: (inpComboLite && inpComboLite.value.trim()) || 'gemini-3.1-flash-lite-image',
+      gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -398,7 +418,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，讀圖分析「' + (data.gemini_model_read || payload.gemini_model_read) + '」，標籤讀圖「' + (data.gemini_model_tagging || payload.gemini_model_tagging) + '」');
+      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，讀圖「' + (data.gemini_model_read || payload.gemini_model_read) + '」，組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
