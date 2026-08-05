@@ -4799,11 +4799,12 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         if (ctx.imageBuffer) {
             imagePart = visualSemantics.bufferToImagePart(ctx.imageBuffer, ctx.mimeType || 'image/jpeg');
         } else {
-            const imageUrl = (ctx.imageUrl || '').trim();
+            const imageUrlRaw = (ctx.imageUrl || '').trim();
+            const imageUrl = resolveFetchableImageUrl(imageUrlRaw) || imageUrlRaw;
             if (!imageUrl) return null;
             imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
         }
-        const imageUrl = (ctx.imageUrl || '').trim();
+        const imageUrl = resolveFetchableImageUrl((ctx.imageUrl || '').trim()) || (ctx.imageUrl || '').trim();
         const imgResult = await visualSemantics.analyzeGeneratedImageSemantics(deps, imagePart, {
             generation_prompt: ctx.generationPrompt || null,
             title: ctx.title || null,
@@ -4827,12 +4828,14 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
         let currentTitle = (ctx.title || '').trim();
         let currentTitleEn = (ctx.title_en || '').trim();
-        if (!currentTitle || !currentTitleEn) {
+        let currentDescription = '';
+        if (!currentTitle || !currentTitleEn || !genPrompt) {
             try {
-                const { data: row } = await supabase.from('custom_products').select('title, title_en').eq('id', productId).maybeSingle();
+                const { data: row } = await supabase.from('custom_products').select('title, title_en, description').eq('id', productId).maybeSingle();
                 if (row) {
                     if (!currentTitle) currentTitle = (row.title) ? String(row.title).trim() : '';
                     if (!currentTitleEn) currentTitleEn = (row.title_en) ? String(row.title_en).trim() : '';
+                    currentDescription = (row.description) ? String(row.description).trim() : '';
                 }
             } catch (_) {}
         }
@@ -4848,6 +4851,13 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
             if (titlePair.en && (!currentTitleEn || isGenericMediaWallTitle(currentTitleEn))) updates.title_en = titlePair.en;
         }
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
+        // 無提示詞：一併寫入產品描述（僅在 description 仍空時；有提示詞則不自動灌描述）
+        if (!genPrompt && !currentDescription) {
+            const autoDesc = (imgResult.semantics && imgResult.semantics.product_description_zh
+                ? String(imgResult.semantics.product_description_zh).trim()
+                : '') || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics) || '';
+            if (autoDesc) updates.description = autoDesc;
+        }
         let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
         if (updErr && updErr.code === '42703' && updates.title_en) {
             delete updates.title_en;
