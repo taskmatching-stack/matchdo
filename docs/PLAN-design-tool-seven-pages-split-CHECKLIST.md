@@ -28,3 +28,5 @@ SSR `/vendor-styles/`、`/official-templates/` **必須**同一規則。
 - 「看可搭配」改為僅 `link_count > 0`
 - 列表 API 補 `link_count`／`match_guide_url`
 - 縮圖不亂連（舊版為放大預覽，非跳 inspiration）
+- **產品樹「用此款開始設計」**：`return_to` 必須是設計稿（與舊版卡相同：`/custom-product.html?tab=product-design`）。列表頁 `/vendor-styles/` 不可當導向目標。`persistGuideSelectionForDesign` → `matchdo.guidePrototypeRefs`（原型槽）+ `matchdo.guideLinkedAssetRefs`（材料／配件分槽）仍為唯一帶入管線。
+- SSR「看可搭配」的 `return_to` 改回設計稿；SSR 列表卡改用設計頁 `bs-card`

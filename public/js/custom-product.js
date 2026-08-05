@@ -1769,6 +1769,8 @@ $(document).ready(function () {
         var proto = treeData.prototype || {};
         var slotsToClear = {};
         refs.forEach(function (ref) {
+            // 只帶入「此原型樹」上的關聯項（避免殘留 session 誤塞其他款的材／配）
+            if (!ref || !ref.id || !byId[ref.id]) return;
             var slotKey = guideLinkedRefSlotKey(ref, byId[ref.id]);
             if (slotKey) slotsToClear[slotKey] = true;
         });
@@ -1776,6 +1778,7 @@ $(document).ready(function () {
         var chain = Promise.resolve();
         refs.forEach(function (ref) {
             var a = byId[ref.id];
+            if (!a) return;
             var slotKey = guideLinkedRefSlotKey(ref, a);
             if (!slotKey) return;
             var imgUrl = (ref.image_url || (a && a.image_url) || '').trim();
@@ -1848,6 +1851,12 @@ $(document).ready(function () {
         session = session || consumeGuideSessionFromStorage();
         var p = treeData && treeData.prototype;
         if (!p) return Promise.resolve();
+        // 只套用同一原型的角度圖（殘留 session 不可塞進別款）
+        if (session.protoRefs && session.protoRefs.length) {
+            session.protoRefs = session.protoRefs.filter(function (r) {
+                return r && r.image_url && (!r.id || String(r.id) === String(p.id));
+            });
+        }
         var chain = Promise.resolve();
         if (session.protoRefs.length) {
             chain = chain.then(function () { return applyGuidePrototypeRefsToSlot(session.protoRefs, p); });

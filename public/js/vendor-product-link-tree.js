@@ -1479,6 +1479,12 @@
         });
     }
 
+    /** 舊版：return_to 應是設計稿頁。獨立列表誤傳 /vendor-styles/ 時不可當導向目標。 */
+    function isDesignImportCapablePath(pathname) {
+        var p = String(pathname || '').replace(/\/$/, '') || '';
+        return /custom-product\.html$/i.test(p);
+    }
+
     function buildStartDesignUrl(p) {
         if (!p || !p.id) return '/custom-product.html';
         var ret = qs('return_to');
@@ -1486,13 +1492,16 @@
             try {
                 var decoded = decodeURIComponent(ret);
                 var u = new URL(decoded, window.location.origin);
-                u.searchParams.set('prototype_asset_id', p.id);
-                if (p.manufacturer_id) u.searchParams.set('manufacturer_id', p.manufacturer_id);
-                if (p.category_key) u.searchParams.set('category_key', p.category_key);
-                if (p.subcategory_key) u.searchParams.set('subcategory_key', p.subcategory_key);
-                return u.pathname + u.search + u.hash;
+                if (isDesignImportCapablePath(u.pathname)) {
+                    u.searchParams.set('prototype_asset_id', p.id);
+                    if (p.manufacturer_id) u.searchParams.set('manufacturer_id', p.manufacturer_id);
+                    if (p.category_key) u.searchParams.set('category_key', p.category_key);
+                    if (p.subcategory_key) u.searchParams.set('subcategory_key', p.subcategory_key);
+                    return u.pathname + u.search + u.hash;
+                }
             } catch (e) { /* fall through */ }
         }
+        // 與舊版 fallback 相同：一定回設計稿並帶 prototype_asset_id（才會吃 guide session）
         var designUrl = '/custom-product.html?prototype_asset_id=' + encodeURIComponent(p.id);
         if (p.manufacturer_id) {
             designUrl += '&manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
@@ -1655,7 +1664,7 @@
         if (hintEl) hintEl.classList.remove('d-none');
         var changeBtn = document.getElementById('btn-change-style');
         if (changeBtn && p && p.manufacturer_id) {
-            changeBtn.href = '/custom-product.html?tab=vendor-styles&manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
+            changeBtn.href = '/vendor-styles/?manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
         }
         if (document.body) document.body.classList.add('vplt-page--single');
     }
@@ -1757,7 +1766,7 @@
     async function loadGuideTree() {
         var pid = qs('prototype_asset_id');
         if (!pid) {
-            window.location.replace('/custom-product.html?tab=vendor-styles');
+            window.location.replace('/vendor-styles/');
             return;
         }
         var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree', { cache: 'no-store' });

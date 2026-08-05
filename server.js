@@ -6923,10 +6923,15 @@ async function listVendorPublicCatalogForPage(opts) {
             : 'prototype';
         const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
         const linkCount = (counts.material_count || 0) + (counts.part_count || 0);
+        const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
         return {
             id: r.id,
             manufacturer_id: r.manufacturer_id || null,
             manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id) || '廠商',
+            manufacturer_logo_url: manufacturerLogoFromRow(mfr),
+            manufacturer_profile_url: r.manufacturer_id
+                ? ('/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id))
+                : null,
             category_key: r.category_key,
             subcategory_key: r.subcategory_key,
             title: r.title || '',
