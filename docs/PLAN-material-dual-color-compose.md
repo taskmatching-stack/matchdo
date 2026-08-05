@@ -86,7 +86,7 @@
 | 行為 | payment_config key | 預設 | 管理區 |
 |------|-------------------|------|--------|
 | Step1 色卡 canvas | — | 0 | — |
-| Step2 FLUX 材質生成 | `points_material_dual_color_flux` | **5** | `/admin/membership.html` |
+| Step2 材質生成 | `points_material_dual_color_flux` | **10** | `/admin/membership.html` |
 
 SQL：`docs/add-user-material-combo-generations.sql`（資產庫表）；印花另見 `docs/add-user-print-generations.sql`。
 

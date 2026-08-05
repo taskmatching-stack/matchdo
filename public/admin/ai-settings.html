@@ -43,9 +43,9 @@
               <p class="form-text small text-muted mb-0"><strong>設計頁 AI 生成圖</strong>與<strong>廠商數位原型上傳</strong>共用此模型讀圖產標籤（<code>gemini_model_tagging</code>）。建議 gemini-3.1-flash-lite。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">Gemini 材料 AI 優化</label>
-              <input type="text" id="aiConfigGeminiModelMaterialOptimize" class="form-control form-control-sm" placeholder="gemini-2.5-flash-image" />
-              <p class="form-text small text-muted mb-0">廠商<strong>材料色卡 AI 優化</strong> img2img（<code>gemini_model_material_optimize</code>）。預設 gemini-2.5-flash-image。</p>
+              <label class="form-label small mb-1">Gemini 材料／版型 AI 重繪</label>
+              <input type="text" id="aiConfigGeminiModelMaterialOptimize" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
+              <p class="form-text small text-muted mb-0">官方版型、廠商數位原型／材料、供應商目錄的 <strong>AI 重繪</strong>共用此槽（<code>gemini_model_material_optimize</code>）。未寫入 DB 前預設 <code>gemini-3.1-flash-lite-image</code>；滿額可 fallback FLUX。手填後按「儲存 Gemini 模型」即生效。</p>
             </div>
             <div class="mb-3">
               <label class="form-label small mb-1">材料組合生圖・Lite（僅色卡）</label>
@@ -241,7 +241,7 @@
       if (s.gemini_model) parts.push('翻譯');
       if (s.gemini_model_read) parts.push('讀圖分析');
       if (s.gemini_model_tagging) parts.push('標籤讀圖');
-      if (s.gemini_model_material_optimize) parts.push('材料優化');
+      if (s.gemini_model_material_optimize) parts.push('材料／版型重繪');
       if (s.gemini_model_material_combo_lite) parts.push('組合Lite');
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       if (s.gemini_model_print_asset) parts.push('印花');
@@ -411,7 +411,7 @@
       gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite',
       gemini_model_read: inpRead.value.trim() || 'gemini-3-flash-preview',
       gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite',
-      gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-2.5-flash-image',
+      gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_material_combo_lite: (inpComboLite && inpComboLite.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image',
       gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image'

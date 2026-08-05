@@ -41,7 +41,7 @@
 | Gemini 翻譯模型 | `gemini_model` | `getTranslationModelName()` | 生圖前將中文 prompt 翻成英文等輕量文字任務 |
 | Gemini 讀圖／分析模型 | `gemini_model_read` | `getReadModelName()` | 客製產品分析、參考圖描述、首頁工項 AI 識別等**一般讀圖／結構化分析** |
 | Gemini 標籤用讀圖模型 | `gemini_model_tagging` | `getTaggingModelName()` | 訂製**生成圖**與**廠商數位原型**自動標籤 |
-| Gemini 材料 AI 優化 | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | 廠商材料色卡 img2img |
+| Gemini 材料／版型 AI 重繪 | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | 廠商／官方／供應商材料與數位原型／版型 img2img |
 | **材料組合・Lite** | `gemini_model_material_combo_lite` | `getMaterialComboLiteModelName()` | 材料組合**僅色卡**生圖（Nano Banana Lite） |
 | **材料組合・Flash** | `gemini_model_material_combo_flash` | `getMaterialComboFlashModelName()` | 材料組合**色卡＋印花**生圖（Nano Banana Flash） |
 | **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
@@ -55,13 +55,14 @@
 | `gemini_model` | `gemini-2.5-flash-lite` |
 | `gemini_model_read` | `gemini-3-flash-preview` |
 | `gemini_model_tagging` | `gemini-3.1-flash-lite` |
-| `gemini_model_material_optimize` | `gemini-2.5-flash-image` |
+| `gemini_model_material_optimize` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_material_combo_lite` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_material_combo_flash` | `gemini-3.1-flash-image` |
 | `gemini_model_print_asset` | `gemini-3.1-flash-lite-image` |
 
 材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。  
-點數（與其他 AI 相同）：`/admin/membership.html` →「點數規則」→ `points_material_dual_color_flux`、`points_print_asset_flux`。
+點數（與其他 AI 相同）：`/admin/membership.html` →「點數規則」→ `points_material_dual_color_flux`、`points_print_asset_flux`。  
+FLUX 並行排隊與 Gemini 生圖軟上限見 `docs/PLAN-flux-bfl-queue-and-vendor-gemini-redraw.md`。
 
 ---
 

@@ -96,8 +96,8 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 // 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
 const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
-/** 廠商材料 AI 優化（img2img 保真清理） */
-const GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT = 'gemini-2.5-flash-image';
+/** 廠商／官方／供應商材料與版型 AI 重繪（img2img；預設 Nano Banana Lite） */
+const GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT = 'gemini-3.1-flash-lite-image';
 /** 材料組合生圖：僅色卡（Nano Banana Lite）／色卡+印花（Flash）— 可後台設定 */
 const GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT = 'gemini-3.1-flash-lite-image';
 const GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT = 'gemini-3.1-flash-image';
@@ -163,18 +163,54 @@ function runInGeminiQueue(fn) {
     _geminiQueueTail = p.catch(() => {});
     return p;
 }
-/** 僅材料組合「生圖」專用佇列：與 runInGeminiQueue 隔離，避免生圖卡住標籤／翻譯 */
-let _dualColorGeminiImageQueueTail = Promise.resolve();
-function runInDualColorGeminiImageQueue(fn) {
-    const p = _dualColorGeminiImageQueueTail.then(() => fn());
-    _dualColorGeminiImageQueueTail = p.catch(() => {});
+/**
+ * Gemini「生圖」專用佇列（材料組合／印花／廠商材料・版型重繪）。
+ * 與 runInGeminiQueue 隔離，避免生圖卡住標籤／翻譯。
+ */
+let _geminiImageQueueTail = Promise.resolve();
+function runInGeminiImageQueue(fn) {
+    const p = _geminiImageQueueTail.then(() => fn());
+    _geminiImageQueueTail = p.catch(() => {});
     return p;
 }
+/** @deprecated 別名：材料組合／印花既有呼叫點 */
+function runInDualColorGeminiImageQueue(fn) {
+    return runInGeminiImageQueue(fn);
+}
+
+/**
+ * BFL／FLUX 全站並行上限（官方約 24 active；預設留 4 緩衝）。
+ * 達上限時排隊等待，不直接 429。env: BFL_MAX_CONCURRENT
+ */
+const BFL_MAX_CONCURRENT = Math.max(1, Math.min(24, parseInt(process.env.BFL_MAX_CONCURRENT, 10) || 20));
+let _bflActiveCount = 0;
+const _bflWaitQueue = [];
+function runInBflQueue(fn) {
+    return new Promise((resolve, reject) => {
+        const start = () => {
+            if (_bflActiveCount >= BFL_MAX_CONCURRENT) {
+                _bflWaitQueue.push(start);
+                return;
+            }
+            _bflActiveCount += 1;
+            Promise.resolve()
+                .then(() => fn())
+                .then(resolve, reject)
+                .finally(() => {
+                    _bflActiveCount = Math.max(0, _bflActiveCount - 1);
+                    const next = _bflWaitQueue.shift();
+                    if (next) next();
+                });
+        };
+        start();
+    });
+}
+
 // 將 prompt 翻譯成英文（可關閉：.env 設 ENABLE_PROMPT_TRANSLATION=false 則不翻譯，直接送原文）
 function looksLikeNonEnglish(str) {
     return /[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(str);
 }
-// Gemini 僅用於讀圖產生描述（輔助），生圖僅用 FLUX
+// Gemini：讀圖／標籤走 runInGeminiQueue；生圖走 runInGeminiImageQueue；FLUX 走 runInBflQueue
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -3668,7 +3704,7 @@ async function maybeOptimizeVendorAssetMulterFile(
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
     const filenameHint = String(filenameHintOverride || labelFromOriginalFilename(file.originalname) || '').trim();
-    const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+    const optimizedBuf = await optimizeVendorAssetImage(
         file.buffer, file.mimetype, productNameForPrompt, assetKind,
         assetKind === 'material' ? materialHint : null,
         optimizeBg,
@@ -3895,7 +3931,7 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
 }
 
 /**
- * 材料組合／印花 Gemini「生圖」軟上限（僅此兩路徑；不影響標籤／翻譯／材料單色 optimize）。
+ * Gemini「生圖」軟上限（材料組合／印花／廠商材料・版型重繪共用；不影響標籤／翻譯）。
  * 記憶體計數，重啟歸零。env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
  */
 const DUAL_COLOR_GEMINI_USAGE_TS = [];
@@ -4546,15 +4582,15 @@ function extractGeminiResponseImageBuffer(result) {
     return null;
 }
 
-/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData；只回圖（官方 responseModalities: ['Image']，勿用 SDK 列舉 'IMAGE'） */
-async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, promptText) {
+/** 材料／版型 img2img：Gemini Lite image；只回圖（官方 responseModalities: ['Image']） */
+async function optimizeVendorAssetImageWithGemini(imageBuffer, mimeType, promptText) {
     if (!process.env.GEMINI_API_KEY) return null;
     if (!imageBuffer || !imageBuffer.length) throw new Error('無效的參考圖');
     const prompt = String(promptText || '').trim();
-    if (!prompt) throw new Error('材質優化提示詞為空');
+    if (!prompt) throw new Error('優化提示詞為空');
     const model = await getMaterialOptimizeModelName();
     const mime = (mimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
-    const result = await runInGeminiQueue(() => genAI.models.generateContent({
+    const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
         model,
         contents: [{
             role: 'user',
@@ -4576,8 +4612,73 @@ async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, prom
         .toBuffer();
 }
 
+/** @deprecated 別名 */
+async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, promptText) {
+    return optimizeVendorAssetImageWithGemini(imageBuffer, mimeType, promptText);
+}
+
 /**
- * 材料 FLUX 編輯句（legacy，現行材料 optimize 已改 gemini-2.5-flash-image；保留供 Admin／日後切換）。
+ * 廠商／官方／供應商材料與版型 AI 重繪：優先 Gemini Lite → 軟上限／429 則 FLUX（受 BFL 排隊）。
+ * VENDOR_ASSET_OPTIMIZE_ENGINE=auto|gemini|flux（預設 auto）
+ */
+async function optimizeVendorAssetImage(
+    fileBuffer, mimeType, productNameRaw, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
+    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand, photoCtx
+) {
+    const pref = String(process.env.VENDOR_ASSET_OPTIMIZE_ENGINE || 'auto').trim().toLowerCase();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasKey = !!process.env.GEMINI_API_KEY;
+    const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
+    const ctx = photoCtx && typeof photoCtx === 'object' ? photoCtx : {};
+
+    async function runGeminiPath() {
+        let prompt;
+        let buf;
+        let mime;
+        if (isMaterial) {
+            const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
+            prompt = await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType);
+            buf = prepared.buffer;
+            mime = prepared.mimetype;
+        } else {
+            const productNameHint = await translateOptimizeProductNameForFlux(productNameRaw);
+            prompt = await buildVendorAssetProductOptimizePromptWithPhoto(
+                productNameHint, backgroundColor, !!useDisplayStand, ctx.categoryKey, ctx.subcategoryKey, assetKind
+            );
+            buf = fileBuffer;
+            mime = mimeType || 'image/jpeg';
+        }
+        return optimizeVendorAssetImageWithGemini(buf, mime, prompt);
+    }
+
+    if (!forceFlux && hasKey) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                return await runGeminiPath();
+            } catch (err) {
+                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
+                console.warn('vendor-asset optimize Gemini rate-limited → FLUX:', err.message || err);
+            }
+        } else if (forceGemini) {
+            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            e.status = 429;
+            e.retry_after_sec = quota.retry_after_sec;
+            e.quota_reason = quota.reason;
+            throw e;
+        }
+    }
+
+    return optimizeVendorAssetImageWithFlux(
+        fileBuffer, mimeType, productNameRaw, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
+        materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand, photoCtx
+    );
+}
+
+/**
+ * 材料 FLUX 編輯句（legacy；現行 optimize 優先 Gemini Lite，滿額可 FLUX）。
  * @see https://docs.bfl.ml/guides/prompting_editing_single_reference.md
  */
 function buildVendorAssetMaterialOptimizePrompt(materialFluxEditPrompt) {
@@ -8108,8 +8209,8 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
-            points_material_dual_color_flux: parseInt(obj.points_material_dual_color_flux, 10) || 5,
-            points_print_asset_flux: parseInt(obj.points_print_asset_flux, 10) || 5,
+            points_material_dual_color_flux: parseInt(obj.points_material_dual_color_flux, 10) || 10,
+            points_print_asset_flux: parseInt(obj.points_print_asset_flux, 10) || 10,
             points_promo_image_standard: parseInt(obj.points_promo_image_standard, 10) || parseInt(obj.points_promo_image_base, 10) || 20,
             points_promo_image_subscriber: parseInt(obj.points_promo_image_subscriber, 10) || 15,
             points_promo_camera_standard: parseInt(obj.points_promo_camera_standard, 10) || 20,
@@ -11261,6 +11362,7 @@ async function pollBflResult(createData, BFL_API_KEY) {
 
 /** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */
 async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl, captureOut, textToImageOpts) {
+    return runInBflQueue(async () => {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
@@ -11292,10 +11394,12 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, 
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 /** FLUX 2 參考圖編輯；BFL 僅 body.prompt（無 negative_prompt） */
 async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat, fluxOpts) {
+    return runInBflQueue(async () => {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
@@ -11347,6 +11451,7 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 /** 廠商素材：材料＝FLUX img2img；數位原型／零件＝FLUX 重繪 */
@@ -11394,6 +11499,7 @@ async function optimizeVendorAssetImageWithFlux(
 
 /** 通用 BFL 文生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed, outputFormat, BFL_API_KEY) {
+    return runInBflQueue(async () => {
     prompt = await translatePromptToEnglishForFlux(prompt);
     const body = {
         prompt,
@@ -11414,10 +11520,12 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 /** 通用 BFL 圖生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, width, height, seed, outputFormat, BFL_API_KEY, opts) {
+    return runInBflQueue(async () => {
     prompt = await translatePromptToEnglishForFlux(prompt);
     const images = referenceImages.slice(0, 8).map((img) => {
         if (typeof img === 'string' && img.startsWith('data:')) {
@@ -11453,6 +11561,7 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 /** 使用者描述原樣併入 prompt（FLUX 原廠：引號只包「要印的字」，寫在描述句內；不自動整段包引號） */
@@ -11702,6 +11811,7 @@ async function resolveImageRawForDesignToPhysical(img) {
 
 /** 實境模擬：環境圖 + 產品圖 + 提示詞，送 BFL Flux 2 Pro 圖生圖，回傳 PNG buffer */
 async function generateSceneSimulateImage(environmentImageBase64, productImageBase64, userPrompt, seed) {
+    return runInBflQueue(async () => {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !environmentImageBase64 || !productImageBase64) return null;
     const systemPrompt = await getSceneSimSystemPrompt();
@@ -11730,10 +11840,12 @@ async function generateSceneSimulateImage(environmentImageBase64, productImageBa
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 /** 圖樣提取：單張圖 + 提示詞 + 可選無縫拼接 + 解析度 + 輸出格式，送 BFL 圖生圖（僅 input_image），回傳 buffer */
 async function generatePatternExtractImage(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+    return runInBflQueue(async () => {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !imageBase64) return null;
     const systemPrompt = seamless
@@ -11766,6 +11878,7 @@ async function generatePatternExtractImage(imageBase64, userPrompt, seamless, se
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
+    });
 }
 
 // API: 實境模擬（環境/人物圖 + 產品圖 → 合成圖，不存數位資產）；需登入，成功後扣 points_scene_simulate（預設 20 點）
@@ -13960,18 +14073,18 @@ async function getPointsVendorAssetDescription() {
     return Number.isFinite(v) && v >= 0 ? v : 1;
 }
 
-/** 材料雙色卡 Step2 FLUX 材質生成（預設 5 點；Step1 色卡 canvas 不扣點） */
+/** 材料雙色卡 Step2 材質生成（預設 10 點；Step1 色卡 canvas 不扣點） */
 async function getPointsMaterialDualColorFlux() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_material_dual_color_flux');
     const v = (rows && rows[0]) ? rows[0].value : null;
-    return Math.max(0, parseInt(v, 10) || 5);
+    return Math.max(0, parseInt(v, 10) || 10);
 }
 
-/** 印花資產 AI 重繪（預設 5 點；僅存原圖不扣點） */
+/** 印花資產 AI 重繪（預設 10 點；僅存原圖／僅存庫不扣點） */
 async function getPointsPrintAssetFlux() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_print_asset_flux');
     const v = (rows && rows[0]) ? rows[0].value : null;
-    return Math.max(0, parseInt(v, 10) || 5);
+    return Math.max(0, parseInt(v, 10) || 10);
 }
 
 /** 編輯區 AI 重生標籤（預設 1 點；上傳含 AI 標籤仍用 points_vendor_asset_upload 預設 5 點） */
@@ -26936,7 +27049,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     if (assetKind === 'material' && !materialSurfacePut) {
                         return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
                     }
-                    const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+                    const optimizedBuf = await optimizeVendorAssetImage(
                         file.buffer, file.mimetype, productNameForPrompt, assetKind,
                         assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
                         optimizeBackground,
@@ -28055,7 +28168,7 @@ async function processSupplierCatalogImagePipeline({
             const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
             const useDisplayStand = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
             const materialSurfaceCat = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
-            const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+            const optimizedBuf = await optimizeVendorAssetImage(
                 file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground,
                 fluxSeedFromImageBuffer(file.buffer),
                 labelFromOriginalFilename(file.originalname),
