@@ -1,17 +1,59 @@
 /**
- * 數位資產選擇器（設計圖／材料組合／印花／情境圖／我的最愛）— custom-product、promo-camera 共用
- * 印花 TAB 為佔位，供日後搭配使用；目前無資料來源。
+ * 數位資產選擇器（設計稿／材料組合／印花／情境圖／我的最愛）— custom-product、promo-camera 共用
  */
 (function (global) {
   'use strict';
 
-  var TABS = [
-    { key: 'designs', label: '設計圖' },
-    { key: 'material_combo', label: '材料組合' },
-    { key: 'print', label: '印花' },
-    { key: 'promo', label: '情境圖' },
-    { key: 'favorites', label: '我的最愛' }
-  ];
+  var TAB_I18N = {
+    designs: { zh: '設計稿', en: 'Design drafts', key: 'myCustomProducts.tabDesigns' },
+    material_combo: { zh: '材料組合', en: 'Material combo', key: 'nav.materialCombination' },
+    print: { zh: '印花', en: 'Print', key: 'nav.printAsset' },
+    promo: { zh: '情境圖', en: 'Scene images', key: 'myCustomProducts.tabPromo' },
+    favorites: { zh: '我的最愛', en: 'Favorites', key: 'home.myFavorites' }
+  };
+
+  function tLabel(meta) {
+    try {
+      if (global.i18n && typeof global.i18n.t === 'function' && meta.key) {
+        var v = global.i18n.t(meta.key);
+        if (v && v !== meta.key) return v;
+      }
+    } catch (_) {}
+    var lang = '';
+    try {
+      lang = String((global.i18n && global.i18n.getLang && global.i18n.getLang()) || global.__MATCHDO_LANG || '').toLowerCase();
+    } catch (_) {}
+    return lang.indexOf('zh') === 0 ? meta.zh : meta.en;
+  }
+
+  function getTabs() {
+    return Object.keys(TAB_I18N).map(function (key) {
+      return { key: key, label: tLabel(TAB_I18N[key]) };
+    });
+  }
+
+  var TABS = getTabs();
+
+  function refreshTabs() {
+    TABS = getTabs();
+    return TABS;
+  }
+
+  function isZhUi() {
+    var lang = '';
+    try {
+      lang = String((global.i18n && global.i18n.getLang && global.i18n.getLang()) || global.__MATCHDO_LANG || '').toLowerCase();
+    } catch (_) {}
+    return lang.indexOf('zh') === 0 || !lang;
+  }
+
+  function fallbackTitle(tab) {
+    if (tab === 'print') return isZhUi() ? '印花' : 'Print';
+    if (tab === 'promo') return isZhUi() ? '情境圖' : 'Scene image';
+    if (tab === 'material_combo') return isZhUi() ? '材料組合' : 'Material combo';
+    if (tab === 'favorites') return isZhUi() ? '我的最愛' : 'Favorite';
+    return isZhUi() ? '設計稿' : 'Design draft';
+  }
 
   function esc(s) {
     if (s == null) return '';
@@ -56,14 +98,14 @@
         var title = (row.title || '').trim();
         if (!title && meta && meta.print_type) title = String(meta.print_type);
         var cat = (row.category || '').trim();
-        var label = title || '印花';
+        var label = title || fallbackTitle('print');
         if (cat) label = label + ' · ' + cat;
         items.push({
           url: url,
           title: label.substring(0, 48),
           sourceType: 'print',
           sourceId: row.id || null,
-          badge: cat || '印花',
+          badge: cat || fallbackTitle('print'),
           category: cat || null,
           print_meta: meta
         });
@@ -77,10 +119,10 @@
         var ratio = row.aspect_ratio ? (' · ' + row.aspect_ratio) : '';
         items.push({
           url: url,
-          title: ((row.user_prompt || '情境圖') + ratio).trim().substring(0, 48),
+          title: ((row.user_prompt || fallbackTitle('promo')) + ratio).trim().substring(0, 48),
           sourceType: 'digital_asset',
           sourceId: row.id || null,
-          badge: '情境圖'
+          badge: fallbackTitle('promo')
         });
       });
       return items;
@@ -92,10 +134,10 @@
         if (!url) return;
         items.push({
           url: url,
-          title: (item.title || '我的最愛').substring(0, 48),
+          title: (item.title || fallbackTitle('favorites')).substring(0, 48),
           sourceType: 'digital_asset',
           sourceId: null,
-          badge: '最愛'
+          badge: isZhUi() ? '最愛' : 'Fav'
         });
       });
       return items;
@@ -110,14 +152,14 @@
           title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
         }
         var cat = (row.category || '').trim();
-        var label = title || '材料組合';
+        var label = title || fallbackTitle('material_combo');
         if (cat) label = label + ' · ' + cat;
         items.push({
           url: url,
           title: label.substring(0, 48),
           sourceType: 'material_combo',
           sourceId: row.id || null,
-          badge: cat || '材料組合',
+          badge: cat || fallbackTitle('material_combo'),
           category: cat || null,
           material_combo: combo
         });
@@ -129,7 +171,7 @@
       if (!url) return;
       items.push({
         url: url,
-        title: (p.title || p.generation_prompt || '設計圖').substring(0, 48),
+        title: (p.title || p.generation_prompt || fallbackTitle('designs')).substring(0, 48),
         sourceType: p.id ? 'custom_product' : 'digital_asset',
         sourceId: p.id || null,
         badge: null
@@ -217,11 +259,18 @@
   }
 
   function emptyMessage(tab) {
-    if (tab === 'material_combo') return '尚無材料組合，請至「材料組合」頁生成後會自動出現於此。';
-    if (tab === 'print') return '尚無印花，請至「印花」頁上傳（可選 AI 重繪）後存入。';
-    if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
-    if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
-    return '尚無設計圖，請先在產品設計中生成並儲存。';
+    if (isZhUi()) {
+      if (tab === 'material_combo') return '尚無材料組合，請至「材料組合」頁生成後會自動出現於此。';
+      if (tab === 'print') return '尚無印花，請至「印花」頁上傳（可選 AI 重繪）後存入。';
+      if (tab === 'promo') return '尚無情境圖，請先在商攝導演或設計頁生成。';
+      if (tab === 'favorites') return '尚無收藏，或收藏項目沒有可用的圖片。';
+      return '尚無設計稿，請先在產品設計中生成並儲存。';
+    }
+    if (tab === 'material_combo') return 'No material combos yet. Generate on the Material combination page.';
+    if (tab === 'print') return 'No prints yet. Upload on the Print page (AI redraw optional), then save.';
+    if (tab === 'promo') return 'No scene images yet. Generate in Promo Camera or Product Design first.';
+    if (tab === 'favorites') return 'No favorites yet, or favorites have no usable image.';
+    return 'No design drafts yet. Generate in Product Design and save first.';
   }
 
   /**
@@ -237,6 +286,7 @@
    */
   function mount(opts) {
     opts = opts || {};
+    refreshTabs();
     var mode = opts.mode === 'browse' ? 'browse' : 'pick';
     var allowedTabs = Array.isArray(opts.allowedTabs) ? opts.allowedTabs : null;
     var initial = opts.initialTab || 'designs';
@@ -268,9 +318,13 @@
         if (!items.length) {
           if (opts.emptyEl) {
             if (tab === 'material_combo' && payload.table_missing) {
-              opts.emptyEl.textContent = '材料組合資料表尚未建立。請在 Supabase 執行 docs/add-user-material-combo-generations.sql 後再生成；建表前的生成不會出現在此。';
+              opts.emptyEl.textContent = isZhUi()
+                ? '材料組合資料表尚未建立。請在 Supabase 執行 docs/add-user-material-combo-generations.sql 後再生成；建表前的生成不會出現在此。'
+                : 'Material combo table is missing. Run docs/add-user-material-combo-generations.sql in Supabase, then generate again.';
             } else if (tab === 'print' && payload.table_missing) {
-              opts.emptyEl.textContent = '印花資料表尚未建立。請在 Supabase 執行 docs/add-user-print-generations.sql 後再上傳。';
+              opts.emptyEl.textContent = isZhUi()
+                ? '印花資料表尚未建立。請在 Supabase 執行 docs/add-user-print-generations.sql 後再上傳。'
+                : 'Print table is missing. Run docs/add-user-print-generations.sql in Supabase, then upload again.';
             } else {
               opts.emptyEl.textContent = emptyMessage(tab);
             }
@@ -284,7 +338,7 @@
       }).catch(function () {
         if (opts.loadingEl) opts.loadingEl.classList.add('d-none');
         if (opts.emptyEl) {
-          opts.emptyEl.textContent = '載入失敗，請稍後再試。';
+          opts.emptyEl.textContent = isZhUi() ? '載入失敗，請稍後再試。' : 'Failed to load. Please try again.';
           opts.emptyEl.classList.remove('d-none');
         }
       });
@@ -296,7 +350,9 @@
 
   global.MatchdoDigitalAssetPicker = {
     mount: mount,
-    TABS: TABS,
+    get TABS() { return refreshTabs(); },
+    getTabs: getTabs,
+    refreshTabs: refreshTabs,
     fetchTabItems: fetchTabItems,
     normalizeItems: normalizeItems,
     emptyMessage: emptyMessage

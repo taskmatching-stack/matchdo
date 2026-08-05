@@ -453,8 +453,11 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品設計圖';
-        var description = promptText || '（無描述）';
+        var isEn = (window.i18n && typeof window.i18n.getLang === 'function' && window.i18n.getLang() === 'en');
+        var title = promptText
+            ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '')
+            : (isEn ? 'Product design draft' : '產品設計稿');
+        var description = promptText || (isEn ? '(No description)' : '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
             var seedInput = $('#generationSeed').val();
@@ -465,12 +468,14 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert('尚無可儲存的生成圖，請先生成設計圖。');
+            alert(isEn
+                ? 'No image to save yet. Generate a design draft first.'
+                : '尚無可儲存的生成圖，請先生成設計稿。');
             return;
         }
         getAuthToken(function (token) {
             if (!token) {
-                alert('請先登入後再儲存。');
+                alert(isEn ? 'Please log in to save.' : '請先登入後再儲存。');
                 return;
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';

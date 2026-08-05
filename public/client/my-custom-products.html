@@ -180,7 +180,7 @@
         <ul class="nav nav-tabs mb-4" id="assetTabs">
             <li class="nav-item">
                 <a class="nav-link active" id="tab-designs" data-bs-toggle="tab" href="#pane-designs">
-                    <i class="bi bi-pencil-square me-1" id="tabDesignsIcon"></i><span id="tabDesignsLabel">設計圖</span>
+                    <i class="bi bi-pencil-square me-1" id="tabDesignsIcon"></i><span id="tabDesignsLabel">設計稿</span>
                     <span class="badge bg-secondary ms-1" id="badgeDesigns">…</span>
                 </a>
             </li>
@@ -357,6 +357,24 @@
         let currentUser = null;
         let authToken = null;
         let promoCanControlHomepage = false;
+
+        function uiT(key, fallbackZh, fallbackEn) {
+            try {
+                if (window.i18n && typeof window.i18n.t === 'function') {
+                    var v = window.i18n.t(key);
+                    if (v && v !== key) return v;
+                }
+            } catch (_) {}
+            var lang = '';
+            try {
+                lang = String((window.i18n && window.i18n.getLang && window.i18n.getLang()) || '').toLowerCase();
+            } catch (_) {}
+            return lang.indexOf('en') === 0 ? (fallbackEn || fallbackZh) : fallbackZh;
+        }
+
+        function useForDesignDraftLabel() {
+            return uiT('myCustomProducts.useForDesignDraft', '用於設計稿', 'Use in design draft');
+        }
 
         const isDesignDirectionView = (function () {
             const v = (new URLSearchParams(window.location.search).get('view') || '').toLowerCase();
@@ -745,7 +763,7 @@
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>
                         <div class="d-grid gap-2 mt-auto">
-                            <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>用於產品設計</a>
+                            <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
@@ -894,7 +912,7 @@
                         ${catBadge}
                         <div class="text-muted small mb-2">${escapeHtml(kindLabel)} · <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}</div>
                         <div class="d-grid gap-2 mt-auto">
-                            <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>用於產品設計</a>
+                            <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>

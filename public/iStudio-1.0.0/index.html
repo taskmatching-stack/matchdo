@@ -263,7 +263,7 @@
                     <i class="bi bi-heart me-1"></i><span data-i18n="home.myFavorites">我的收藏</span><span class="fav-count"></span>
                 </button>
                 <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型" data-i18n="home.layoutAll">全部</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign">設計圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign">設計稿</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖" data-i18n="home.layoutComparison">對照圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="系列圖" data-i18n="home.layoutSeries">系列圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="promo_scene" role="button" tabindex="0" title="情境圖" data-i18n="home.layoutPromoScene">情境圖</span>
@@ -1049,11 +1049,11 @@
                     var titleRaw = pickMediaWallLocalizedTitle(p);
                     if (p.type === 'user_design') {
                         var udPrompt = ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
-                        if ((!titleRaw || titleRaw === '產品設計圖' || titleRaw === '未命名') && udPrompt) {
+                        if ((!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '未命名' || titleRaw === 'Untitled') && udPrompt) {
                             titleRaw = udPrompt.length > 56 ? udPrompt.slice(0, 56) + '\u2026' : udPrompt;
                         }
                     } else if (p.type === 'promo_scene') {
-                        if (!titleRaw || titleRaw === '產品設計圖' || titleRaw === '推廣圖' || titleRaw === '未命名' || titleRaw === '情境圖' || titleRaw === 'Scene image') {
+                        if (!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '推廣圖' || titleRaw === '未命名' || titleRaw === '情境圖' || titleRaw === 'Scene image' || titleRaw === 'Untitled') {
                             var pd = (p.scene_description || p.description || p.user_prompt || '').trim();
                             if (pd) {
                                 var pl = pd.replace(/\s+/g, ' ').split(/[。.\n]/)[0].trim();

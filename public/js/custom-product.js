@@ -4873,8 +4873,10 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品設計圖';
-        var description = promptText || '（無描述）';
+        var title = promptText
+            ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '')
+            : (staffDebugLangEn() ? 'Product design draft' : '產品設計稿');
+        var description = promptText || (staffDebugLangEn() ? '(No description)' : '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
             var seedInput = $('#generationSeed').val();
@@ -4885,12 +4887,14 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert('尚無可儲存的生成圖，請先生成設計圖。');
+            alert(staffDebugLangEn()
+                ? 'No image to save yet. Generate a design draft first.'
+                : '尚無可儲存的生成圖，請先生成設計稿。');
             return;
         }
         getAuthToken(function (token) {
             if (!token) {
-                alert('請先登入後再儲存。');
+                alert(staffDebugLangEn() ? 'Please log in to save.' : '請先登入後再儲存。');
                 return;
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
@@ -5104,10 +5108,12 @@ $(document).ready(function () {
     function initPastGalleryTabs($tabsEl) {
         if (!$tabsEl.length || $tabsEl.data('inited')) return;
         $tabsEl.data('inited', true);
-        var tabs = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.TABS) || [
-            { key: 'designs', label: '設計圖' },
-            { key: 'promo', label: '情境圖' },
-            { key: 'favorites', label: '我的最愛' }
+        var tabs = (window.MatchdoDigitalAssetPicker && (window.MatchdoDigitalAssetPicker.getTabs
+            ? window.MatchdoDigitalAssetPicker.getTabs()
+            : window.MatchdoDigitalAssetPicker.TABS)) || [
+            { key: 'designs', label: (typeof t === 'function' ? (t('myCustomProducts.tabDesigns') || '設計稿') : '設計稿') },
+            { key: 'promo', label: (typeof t === 'function' ? (t('myCustomProducts.tabPromo') || '情境圖') : '情境圖') },
+            { key: 'favorites', label: (typeof t === 'function' ? (t('home.myFavorites') || '我的最愛') : '我的最愛') }
         ];
         $tabsEl.html(tabs.map(function (t) {
             return '<button type="button" class="dap-tab' + (t.key === galleryActiveTab ? ' active' : '') + '" data-gallery-tab="' + t.key + '">' + t.label + '</button>';

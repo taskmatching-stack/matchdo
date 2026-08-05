@@ -506,7 +506,7 @@ function stripMediaWallHeavyFields(item) {
 function isGenericMediaWallTitle(title) {
     const t = String(title || '').trim();
     if (!t) return true;
-    const generic = ['產品設計圖', '未命名', '推廣圖', '情境圖', 'Untitled', 'Product design'];
+    const generic = ['產品設計稿', '產品設計圖', '未命名', '推廣圖', '情境圖', 'Untitled', 'Product design', 'Product design draft', 'Design draft', 'Design drafts'];
     return generic.some((g) => t === g || t.toLowerCase() === g.toLowerCase());
 }
 
@@ -13484,8 +13484,12 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
                         else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
                     }
-                    const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品設計圖';
-                    const description = (prompt && String(prompt).trim()) || '（無描述）';
+                    const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
+                    const titleFallbackEn = autoUiLocale && String(autoUiLocale).toLowerCase().indexOf('en') === 0;
+                    const title = (prompt && String(prompt).trim())
+                        ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '')
+                        : (titleFallbackEn ? 'Product design draft' : '產品設計稿');
+                    const description = (prompt && String(prompt).trim()) || (titleFallbackEn ? '(No description)' : '（無描述）');
                     const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
@@ -13515,7 +13519,6 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         autoInsertPayload.data_lineage_json = autoLineage.data_lineage_json;
                         if (autoLineage.reference_sources) autoInsertPayload.reference_sources = autoLineage.reference_sources;
                     }
-                    const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
                     mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
                     let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
                     if (insertRes.error && insertRes.error.code === '42703') {
