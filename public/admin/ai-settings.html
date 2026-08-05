@@ -57,6 +57,11 @@
               <input type="text" id="aiConfigGeminiModelMaterialComboFlash" class="form-control form-control-sm" placeholder="gemini-3.1-flash-image" />
               <p class="form-text small text-muted mb-0">材料組合<strong>有印花</strong>時（Nano Banana Flash，<code>gemini_model_material_combo_flash</code>）。預設 gemini-3.1-flash-image。</p>
             </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">印花資產 AI 重繪</label>
+              <input type="text" id="aiConfigGeminiModelPrintAsset" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
+              <p class="form-text small text-muted mb-0"><code>/client/print-asset.html</code> AI 重繪（Nano Banana Lite，<code>gemini_model_print_asset</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX。</p>
+            </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
           </div>
@@ -220,6 +225,7 @@
     var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
     var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
     var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
+    var inpPrint = document.getElementById('aiConfigGeminiModelPrintAsset');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
@@ -228,6 +234,7 @@
     if (data.gemini_model_material_optimize != null && inpMat) inpMat.value = data.gemini_model_material_optimize;
     if (data.gemini_model_material_combo_lite != null && inpComboLite) inpComboLite.value = data.gemini_model_material_combo_lite;
     if (data.gemini_model_material_combo_flash != null && inpComboFlash) inpComboFlash.value = data.gemini_model_material_combo_flash;
+    if (data.gemini_model_print_asset != null && inpPrint) inpPrint.value = data.gemini_model_print_asset;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -237,6 +244,7 @@
       if (s.gemini_model_material_optimize) parts.push('材料優化');
       if (s.gemini_model_material_combo_lite) parts.push('組合Lite');
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
+      if (s.gemini_model_print_asset) parts.push('印花');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyBflFluxConfigToForm(data);
@@ -395,6 +403,7 @@
     var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
     var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
     var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
+    var inpPrint = document.getElementById('aiConfigGeminiModelPrintAsset');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -404,7 +413,8 @@
       gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite',
       gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-2.5-flash-image',
       gemini_model_material_combo_lite: (inpComboLite && inpComboLite.value.trim()) || 'gemini-3.1-flash-lite-image',
-      gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image'
+      gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image',
+      gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -418,7 +428,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，讀圖「' + (data.gemini_model_read || payload.gemini_model_read) + '」，組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」');
+      showMsg('已儲存：組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」，印花「' + (data.gemini_model_print_asset || payload.gemini_model_print_asset) + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

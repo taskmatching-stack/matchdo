@@ -101,6 +101,8 @@ const GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT = 'gemini-2.5-flash-image';
 /** 材料組合生圖：僅色卡（Nano Banana Lite）／色卡+印花（Flash）— 可後台設定 */
 const GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT = 'gemini-3.1-flash-lite-image';
 const GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT = 'gemini-3.1-flash-image';
+/** 印花資產 AI 重繪（預設 Nano Banana Lite） */
+const GEMINI_MODEL_PRINT_ASSET_DEFAULT = 'gemini-3.1-flash-lite-image';
 const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
@@ -239,6 +241,16 @@ async function getMaterialComboFlashModelName() {
         if (fromDb) return fromDb;
     } catch (_) {}
     return process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT;
+}
+
+/** 印花 AI 重繪 → 預設 Lite image（可後台 gemini_model_print_asset） */
+async function getPrintAssetOptimizeModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_print_asset').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_PRINT_ASSET || GEMINI_MODEL_PRINT_ASSET_DEFAULT;
 }
 
 function getVisualSemanticsDeps() {
@@ -3883,7 +3895,7 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
 }
 
 /**
- * 材料組合 Gemini「生圖」軟上限（僅 dual-color 路徑；不影響標籤／翻譯／材料單色 optimize）。
+ * 材料組合／印花 Gemini「生圖」軟上限（僅此兩路徑；不影響標籤／翻譯／材料單色 optimize）。
  * 記憶體計數，重啟歸零。env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
  */
 const DUAL_COLOR_GEMINI_USAGE_TS = [];
@@ -4083,16 +4095,53 @@ function normalizePrintAssetType(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
 }
 
-function buildPrintAssetFluxOptimizePrompt(printType) {
+function buildPrintAssetOptimizePrompt(printType) {
     const t = normalizePrintAssetType(printType);
     if (!t) throw new Error('請填印花類型（例：碎花、幾何圖案）');
     return `保持顏色並優化此${t}印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}印花圖樣。`;
+}
+/** @deprecated 別名：舊 FLUX 路徑／呼叫點仍可用 */
+function buildPrintAssetFluxOptimizePrompt(printType) {
+    return buildPrintAssetOptimizePrompt(printType);
+}
+
+async function optimizePrintAssetWithGemini(fileBuffer, printType) {
+    if (!process.env.GEMINI_API_KEY) throw new Error('未設定 GEMINI_API_KEY');
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const prompt = buildPrintAssetOptimizePrompt(printType);
+    const model = await getPrintAssetOptimizeModelName();
+
+    let mime = 'image/png';
+    if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) mime = 'image/jpeg';
+    else if (fileBuffer[0] === 0x52 && fileBuffer[1] === 0x49) mime = 'image/webp';
+    const b64 = await resolveImageToBase64(`data:${mime};base64,${fileBuffer.toString('base64')}`);
+    if (!b64) throw new Error('印花圖片無效');
+
+    const parts = [
+        { text: prompt },
+        { inlineData: { mimeType: mime, data: b64 } }
+    ];
+    const result = await runInDualColorGeminiImageQueue(() => genAI.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: { responseModalities: ['Image'] }
+    }));
+    const extracted = extractGeminiResponseImageBuffer(result);
+    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
+        throw new Error('Gemini 未回傳印花圖，請稍後重試');
+    }
+    const sharp = require('sharp');
+    const buf = await sharp(extracted.buffer, { failOn: 'none' })
+        .rotate()
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+    return { buffer: buf, prompt, engine: 'gemini', model };
 }
 
 async function optimizePrintAssetWithFlux(fileBuffer, printType) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-    const prompt = buildPrintAssetFluxOptimizePrompt(printType);
+    const prompt = buildPrintAssetOptimizePrompt(printType);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
         width: 1024,
@@ -4103,7 +4152,48 @@ async function optimizePrintAssetWithFlux(fileBuffer, printType) {
     const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
-    return { buffer: buf, prompt };
+    return { buffer: buf, prompt, engine: 'flux', model: 'flux' };
+}
+
+/**
+ * 印花重繪：優先 Gemini Lite → 軟上限／429 則 FLUX。
+ * PRINT_ASSET_ENGINE=flux|gemini|auto（預設 auto）
+ */
+async function optimizePrintAsset(fileBuffer, printType) {
+    const pref = String(process.env.PRINT_ASSET_ENGINE || 'auto').trim().toLowerCase();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasKey = !!process.env.GEMINI_API_KEY;
+
+    if (!forceFlux && hasKey) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                return await optimizePrintAssetWithGemini(fileBuffer, printType);
+            } catch (err) {
+                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
+                const fluxResult = await optimizePrintAssetWithFlux(fileBuffer, printType);
+                return Object.assign({}, fluxResult, {
+                    fallback: true,
+                    fallback_reason: 'gemini_api_429'
+                });
+            }
+        }
+        if (forceGemini) {
+            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            e.status = 429;
+            e.retry_after_sec = quota.retry_after_sec;
+            e.quota_reason = quota.reason;
+            throw e;
+        }
+        const fluxResult = await optimizePrintAssetWithFlux(fileBuffer, printType);
+        return Object.assign({}, fluxResult, {
+            fallback: true,
+            fallback_reason: 'soft_quota_' + (quota.reason || 'limit')
+        });
+    }
+    return await optimizePrintAssetWithFlux(fileBuffer, printType);
 }
 
 /** 攝影參數提示詞：追加於各 FLUX prompt 最後（見 docs/add-photography-prompt-sets.sql） */
@@ -8089,7 +8179,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         if (!adminUser) return;
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
-            'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash',
+            'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash', 'gemini_model_print_asset',
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', configKeys);
@@ -8102,6 +8192,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_material_optimize: byKey.gemini_model_material_optimize || process.env.GEMINI_MODEL_MATERIAL_OPTIMIZE || GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT,
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite || process.env.GEMINI_MODEL_MATERIAL_COMBO_LITE || GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash || process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT,
+            gemini_model_print_asset: byKey.gemini_model_print_asset || process.env.GEMINI_MODEL_PRINT_ASSET || GEMINI_MODEL_PRINT_ASSET_DEFAULT,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -8111,6 +8202,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_material_optimize: !!byKey.gemini_model_material_optimize,
                 gemini_model_material_combo_lite: !!byKey.gemini_model_material_combo_lite,
                 gemini_model_material_combo_flash: !!byKey.gemini_model_material_combo_flash,
+                gemini_model_print_asset: !!byKey.gemini_model_print_asset,
                 ...bfl.saved_in_db
             }
         });
@@ -8145,6 +8237,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         }
         if (body.gemini_model_material_combo_flash !== undefined) {
             upserts.push({ key: 'gemini_model_material_combo_flash', value: String(body.gemini_model_material_combo_flash).trim(), updated_at: now });
+        }
+        if (body.gemini_model_print_asset !== undefined) {
+            upserts.push({ key: 'gemini_model_print_asset', value: String(body.gemini_model_print_asset).trim(), updated_at: now });
         }
         for (const key of Object.keys(BFL_FLUX_MODEL_CONFIG)) {
             if (body[key] === undefined) continue;
@@ -8183,6 +8278,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_material_optimize: byKey.gemini_model_material_optimize ?? null,
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite ?? null,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash ?? null,
+            gemini_model_print_asset: byKey.gemini_model_print_asset ?? null,
             ...bfl.models
         });
     } catch (e) {
@@ -24577,7 +24673,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
         const printType = normalizePrintAssetType(body.print_type || body.printType || '');
         let aiPromptUsed;
         try {
-            aiPromptUsed = buildPrintAssetFluxOptimizePrompt(printType);
+            aiPromptUsed = buildPrintAssetOptimizePrompt(printType);
         } catch (promptErr) {
             return res.status(400).json({ error: promptErr.message || '請填印花類型' });
         }
@@ -24590,12 +24686,27 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
             }
         }
         let optimized;
+        let printEngine = null;
+        let printModel = null;
+        let printFallback = false;
+        let printFallbackReason = null;
         try {
-            const result = await optimizePrintAssetWithFlux(file.buffer, printType);
+            const result = await optimizePrintAsset(file.buffer, printType);
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
+            printEngine = result.engine || null;
+            printModel = result.model || null;
+            printFallback = !!result.fallback;
+            printFallbackReason = result.fallback_reason || null;
         } catch (optErr) {
             console.error('print-generations/redraw optimize:', optErr);
+            if (optErr && optErr.status === 429) {
+                return res.status(429).json({
+                    error: optErr.message || 'Gemini 生圖次數已達上限，請稍後再試',
+                    retry_after_sec: optErr.retry_after_sec || null,
+                    quota_reason: optErr.quota_reason || null
+                });
+            }
             const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
             return res.status(mapped.status).json(mapped.body);
         }
@@ -24613,7 +24724,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
                 pointsRequired,
                 'print_asset_flux',
                 `印花 AI 重繪（${pointsRequired} 點）`,
-                { preview: true, print_type: printType }
+                { preview: true, print_type: printType, engine: printEngine, model: printModel }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
@@ -24628,7 +24739,11 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId,
             ai_prompt: aiPromptUsed,
-            print_type: printType
+            print_type: printType,
+            engine: printEngine,
+            model: printModel,
+            fallback: printFallback,
+            fallback_reason: printFallbackReason
         });
     } catch (e) {
         console.error('POST /api/me/print-generations/redraw:', e);

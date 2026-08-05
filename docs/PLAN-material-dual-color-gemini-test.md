@@ -53,9 +53,8 @@ API：`generateContent` + `inlineData` + `responseModalities: ['Image']`（只�
 
 ## 4. 軟上限 env（僅材料組合生圖）
 
-**範圍：** 只計／只擋 `optimizeMaterialDualColorWithGemini`。  
-**不影響：** 標籤、翻譯、語意、材料單色 AI optimize、其他 `runInGeminiQueue` 呼叫。  
-生圖另走 `runInDualColorGeminiImageQueue`，與一般 Gemini 佇列隔離。
+**範圍：** 計／擋 `optimizeMaterialDualColorWithGemini` **與** `optimizePrintAssetWithGemini`（共用軟上限與生圖佇列）。  
+**不影響：** 標籤、翻譯、語意、材料單色 AI optimize、其他 `runInGeminiQueue` 呼叫。
 
 | env（建議） | 舊名（仍相容） | 預設 |
 |-------------|----------------|------|

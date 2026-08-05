@@ -44,8 +44,9 @@
 | Gemini 材料 AI 優化 | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | 廠商材料色卡 img2img |
 | **材料組合・Lite** | `gemini_model_material_combo_lite` | `getMaterialComboLiteModelName()` | 材料組合**僅色卡**生圖（Nano Banana Lite） |
 | **材料組合・Flash** | `gemini_model_material_combo_flash` | `getMaterialComboFlashModelName()` | 材料組合**色卡＋印花**生圖（Nano Banana Flash） |
+| **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
 
-**環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`。
+**環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`、`GEMINI_MODEL_PRINT_ASSET`。
 
 **程式內建預設（尚未在後台儲存前）**：
 
@@ -57,8 +58,10 @@
 | `gemini_model_material_optimize` | `gemini-2.5-flash-image` |
 | `gemini_model_material_combo_lite` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_material_combo_flash` | `gemini-3.1-flash-image` |
+| `gemini_model_print_asset` | `gemini-3.1-flash-lite-image` |
 
-材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。
+材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。  
+點數（與其他 AI 相同）：`/admin/membership.html` →「點數規則」→ `points_material_dual_color_flux`、`points_print_asset_flux`。
 
 ---
 
