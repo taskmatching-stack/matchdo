@@ -18,6 +18,7 @@ alwaysApply: true
 - **供應商上架**：與 `vendor_assets` 同 P1 語意管線；`supplier_catalog_items` + `add-supplier-catalog-ai-fields.sql`；events 用 `source_type: catalog_item`。
 - **拆路由部署前**：`node --check server.js` 與 `node -e "require('./server.js')"`；`routes/*.js` 若用 `express.json()` 須 `require('express')`。
 - **FLUX／Gemini 提示詞**：嚴禁查表式硬編碼，見 `docs/flux-and-gemini-prompt-policy.md` 與 `.cursor/rules/flux-gemini-prompt-policy.mdc`。
+- **SEO 禁止塞設計頁**：列表／目錄勿做成 `custom-product.html?tab=`；基準 `8281e3a`；必讀 `docs/SEO-AUDIT-PLAN-2026-08-06.md` 與 `.cursor/rules/seo-no-stuff-design-page.mdc`。
 
 ## 檔案位置
 

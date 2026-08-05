@@ -1,12 +1,19 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-08-01  
+> **更新日期**：2026-08-06  
 > **網域**：https://matchdo.cc  
-> **完整規劃**：`docs/SEO-PLAN.md`  
+> **基準 commit（凍結）**：`8281e3a` — 見 **`docs/SEO-AUDIT-PLAN-2026-08-06.md`**（全站稽核＋分期；**禁止再往設計頁塞列表／目錄**）  
+> **Agent 必守**：`.cursor/rules/seo-no-stuff-design-page.mdc`  
+> **完整規劃（舊）**：`docs/SEO-PLAN.md`  
 > **整體調整計畫（URL／sitemap／embed）**：`docs/site-url-seo-reconciliation-plan.md`  
 > **301 對照表**：`docs/url-redirect-map.md`  
 > **架構 Step 0～4 × B 線頁型**：`docs/architecture-and-seo-principles.md`（A5 已還原，勿當完成）  
 > **推送／部署步驟**：見下方「四、部署流程」
+
+### ⚠️ 2026-08-06 方向修正（第六次禁止重演）
+
+先前多次 SEO 把「官方／廠商版型目錄」做成 `custom-product.html?tab=` 並進 sitemap，造成**假多頁、真內容少**。  
+**下一輪只准拆獨立列表（先 `/official-templates/` 真頁）**，禁止再新增設計頁 tab 當 SEO 落地。詳見稽核檔 Phase A～C。
 
 ### B 線／產業供應商與 `/client/` SEO（2026-07-30 修正）
 
