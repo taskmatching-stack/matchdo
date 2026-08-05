@@ -4858,26 +4858,7 @@ function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     });
 }
 
-/** 與 scheduleMissingPromoSemanticsBackfill 對齊：媒體牆載入時補跑缺標設計圖 */
-function scheduleMissingCustomProductSemanticsBackfill(rows) {
-    if (!process.env.GEMINI_API_KEY || !rows || !rows.length) return;
-    const pending = rows.filter(function (row) {
-        if (!row || !row.id || !row.ai_generated_image_url) return false;
-        if (row.semantics_generated_at) return false;
-        const hasTags = Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
-        return !hasTags;
-    }).slice(0, 4);
-    pending.forEach(function (row) {
-        scheduleCustomProductSemanticsEnrich(row.id, row.owner_id, {
-            imageUrl: row.ai_generated_image_url,
-            generationPrompt: row.generation_prompt || null,
-            title: row.title || null,
-            categoryKey: row.category || null
-        });
-    });
-}
-
-/** 舊泛用標題「產品設計圖」→「產品設計稿」（僅改文案，不碰打標） */
+/** 舊泛用標題「產品設計圖」→「產品設計稿」（僅改文案，不呼叫 Gemini） */
 function scheduleLegacyCustomProductTitleRewrite(rows) {
     if (!rows || !rows.length) return;
     rows.forEach(function (row) {
@@ -17551,7 +17532,7 @@ app.get('/api/media-wall', async (req, res) => {
             userRows.forEach(p => {
                 out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });
-            scheduleMissingCustomProductSemanticsBackfill(userRows);
+            // 僅改舊標題文案（DB UPDATE，不呼叫 Gemini）；缺標不在公開媒體牆補跑，避免訪客流量燒 token
             scheduleLegacyCustomProductTitleRewrite(userRows);
         }
         if (compRows && compRows.length) {
