@@ -408,6 +408,9 @@
                     <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" title="聯絡廠商">
                         <i class="bi bi-chat-dots me-1"></i><span data-i18n="home.contactVendor">聯絡廠商</span>
                     </button>
+                    <button type="button" id="media-wall-lightbox-page" class="btn btn-outline-secondary btn-sm" title="開啟此圖的獨立作品頁">
+                        <i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="home.viewFullPage">查看作品頁</span>
+                    </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
                     <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm">找廠商訂製</button>
                     <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
@@ -725,53 +728,17 @@
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
-                var contactBtn = document.getElementById('media-wall-lightbox-contact');
                 if (titleEl) titleEl.textContent = item.title || '';
-
-                // 「找廠商訂製」vs「查看廠商頁」依類型調整
-                var isVendorItem = (item.type === 'comparison' || item.type === 'collection' || item.type === 'series');
-                var mUserId = item.manufacturer_user_id || null;
-                var mfrId = item.manufacturer_id || null;
-
-                if (linkEl) {
-                    configureLightboxFindVendorLink(item, linkEl);
-                }
+                if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
-
+                syncLightboxInspirationPageBtn(item);
+                syncLightboxContactBtn(item);
                 var imgUrl = item.image_url || item.cover_image_url || '';
                 if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
                 var detailWrap = document.getElementById('media-wall-lightbox-detail');
                 if (detailWrap) detailWrap.classList.add('d-none');
                 var favId = item.id || (item.title + item.type);
                 syncLightboxFavBtn(favId, item);
-
-                // 廠商聯絡按鈕：廠商上傳的項目且有 manufacturer_user_id 時顯示站內聯絡
-                if (contactBtn) {
-                    if (isVendorItem && mUserId) {
-                        contactBtn.classList.remove('d-none');
-                        contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>聯絡廠商';
-                        contactBtn.onclick = function() {
-                            if (!favUserLoggedIn) { showLoginToast(); return; }
-                            window.location.href = '/client/messages.html?open=' + encodeURIComponent(mUserId);
-                        };
-                    } else if (isVendorItem && mfrId) {
-                        // 有廠商ID但無用戶帳號 → 引導到廠商頁
-                        contactBtn.classList.remove('d-none');
-                        contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商';
-                        contactBtn.onclick = function() {
-                            window.location.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                        };
-                    } else if (isVendorItem) {
-                        // 廠商項目但無任何ID → 引導到廠商列表
-                        contactBtn.classList.remove('d-none');
-                        contactBtn.innerHTML = '<i class="bi bi-building me-1"></i>瀏覽廠商';
-                        contactBtn.onclick = function() { window.location.href = '/vendors.html'; };
-                    } else {
-                        // user_design：不顯示廠商聯絡（用「找廠商訂製」按鈕代替）
-                        contactBtn.classList.add('d-none');
-                        contactBtn.onclick = null;
-                    }
-                }
                 if (window.bootstrap) { var m = new bootstrap.Modal(document.getElementById('media-wall-lightbox')); m.show(); }
             }
             /* ═══ 結束 我的最愛 ═══ */
@@ -931,6 +898,23 @@
                 if (!Array.isArray(list)) return false;
                 return list.some(function (s) { return s && s.vendor_asset_id; });
             }
+            function resolveInspirationPath(item) {
+                if (!item) return '';
+                var raw = (item.inspiration_url && String(item.inspiration_url).trim()) || '';
+                if (raw) {
+                    if (raw.indexOf('/inspiration/') === 0) return raw.split('?')[0];
+                    if (raw.indexOf('http') === 0) {
+                        try {
+                            var u = new URL(raw);
+                            if (u.pathname.indexOf('/inspiration/') === 0) return u.pathname;
+                        } catch (err) {}
+                    }
+                }
+                var type = String(item.type || 'user_design').trim() || 'user_design';
+                var id = item.id != null ? String(item.id).trim() : '';
+                if (!id) return '';
+                return '/inspiration/' + encodeURIComponent(type) + '/' + encodeURIComponent(id);
+            }
             function resolveUserDesignFindVendorUrl(item) {
                 if (!item) return '/custom/gallery.html';
                 if (hasVendorReference(item) && item.ref_manufacturer_id) {
@@ -944,6 +928,46 @@
                 if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
                 q.push('customization_levels=' + encodeURIComponent('form_structure'));
                 return '/custom/gallery.html?' + q.join('&');
+            }
+            function syncLightboxInspirationPageBtn(item) {
+                var pageBtn = document.getElementById('media-wall-lightbox-page');
+                if (!pageBtn) return;
+                var path = resolveInspirationPath(item);
+                if (!path) {
+                    pageBtn.classList.add('d-none');
+                    pageBtn.onclick = null;
+                    return;
+                }
+                pageBtn.classList.remove('d-none');
+                pageBtn.onclick = function () { window.location.href = path; };
+            }
+            function syncLightboxContactBtn(item) {
+                var contactBtn = document.getElementById('media-wall-lightbox-contact');
+                if (!contactBtn || !item) return;
+                var isVendorItem = (item.type === 'comparison' || item.type === 'collection' || item.type === 'series');
+                var mUserId = item.manufacturer_user_id || null;
+                var mfrId = item.manufacturer_id || null;
+                if (isVendorItem && mUserId) {
+                    contactBtn.classList.remove('d-none');
+                    contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>聯絡廠商';
+                    contactBtn.onclick = function () {
+                        if (!favUserLoggedIn) { showLoginToast(); return; }
+                        window.location.href = '/client/messages.html?open=' + encodeURIComponent(mUserId);
+                    };
+                } else if (isVendorItem && mfrId) {
+                    contactBtn.classList.remove('d-none');
+                    contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商';
+                    contactBtn.onclick = function () {
+                        window.location.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                    };
+                } else if (isVendorItem) {
+                    contactBtn.classList.remove('d-none');
+                    contactBtn.innerHTML = '<i class="bi bi-building me-1"></i>瀏覽廠商';
+                    contactBtn.onclick = function () { window.location.href = '/vendors.html'; };
+                } else {
+                    contactBtn.classList.add('d-none');
+                    contactBtn.onclick = null;
+                }
             }
             function syncLightboxVendorRef(item) {
                 var wrap = document.getElementById('media-wall-lightbox-vendor-ref');
@@ -1158,7 +1182,6 @@
                     if (p.type === 'comparison' || p.type === 'series' || p.type === 'collection') {
                         dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
-                    wrap.setAttribute('data-item', JSON.stringify(dataItem));
                     var isFaved = isFavorite(p.id || (p.title + p.type));
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
@@ -1166,9 +1189,11 @@
                     else if (p.type === 'promo_scene') typeBadge = '';
                     else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
                     var itemId = String(p.id || (p.title + p.type));
-                    var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
-                        || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId));
+                    var inspirationHref = resolveInspirationPath(Object.assign({}, p, { id: p.id || itemId }));
                     dataItem.inspiration_url = inspirationHref;
+                    dataItem.id = p.id || dataItem.id;
+                    dataItem.type = p.type || dataItem.type;
+                    wrap.setAttribute('data-item', JSON.stringify(dataItem));
                     var seoDescSpan = seoDescFull ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(seoDescFull) + '</span>') : '';
                     var seoTagsSpan = displayTags.length ? ('<span class="media-wall-seo-desc">\u6a19\u7c64\uff1a' + esc(displayTags.join(' ')) + '</span>') : '';
                     var tagsBtnHtml = displayTags.length
@@ -1854,6 +1879,8 @@
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
+                syncLightboxInspirationPageBtn(item);
+                syncLightboxContactBtn(item);
                 var rBtn = document.getElementById('media-wall-lightbox-redesign');
                 if (rBtn) {
                     var imgForBtn = (item.type === 'comparison' && item.image_url_before) ? (item.image_url_before || '').trim() : (item.image_url || item.cover_image_url || '').trim();
@@ -1928,7 +1955,8 @@
                 (function() {
                     var origin = window.location.origin;
                     var itemId = item.id != null ? String(item.id) : (item.title + (item.type || ''));
-                    var shareUrl = (item.type && itemId) ? (origin + '/inspiration/' + encodeURIComponent(item.type) + '/' + encodeURIComponent(itemId)) : origin;
+                    var inspPath = resolveInspirationPath(item) || ('/inspiration/' + encodeURIComponent(item.type || 'user_design') + '/' + encodeURIComponent(itemId));
+                    var shareUrl = origin + inspPath;
                     var rawImg = item.image_url || item.cover_image_url || '';
                     document.getElementById('media-wall-lightbox').dataset.shareUrl = shareUrl;
                     document.getElementById('media-wall-lightbox').dataset.shareImg = imageSrcForShare(rawImg);
@@ -2064,19 +2092,27 @@
                     setLightboxDetailAndShow(categoriesData.categories || []);
                 }
             }
+            function isPlainPrimaryCardClick(e) {
+                return !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button);
+            }
             grid.addEventListener('click', function (e) {
                 var aEarly = e.target.closest('a.media-wall-card-link');
-                if (aEarly) e.preventDefault();
+                if (!aEarly) return;
+                var wrapEarly = aEarly.closest('.media-wall-item');
+                // 一般左鍵 + data-item → lightbox；Ctrl／⌘／Shift 等保留瀏覽器開獨立 /inspiration/*
+                if (wrapEarly && wrapEarly.getAttribute('data-item') && isPlainPrimaryCardClick(e)) e.preventDefault();
             }, true);
             grid.addEventListener('click', function (e) {
                 if (e.target.closest('.mw-fav-btn, .mw-tags-btn, .media-wall-admin-actions, .comparison-slider-wrap')) return;
+                if (!isPlainPrimaryCardClick(e)) return;
                 var a = e.target.closest('a.media-wall-card-link');
                 if (!a) return;
-                e.preventDefault();
                 var wrap = a.closest('.media-wall-item');
                 var data = wrap && wrap.getAttribute('data-item');
                 if (!data) return;
+                e.preventDefault();
                 var item = JSON.parse(data);
+                if (!item.inspiration_url) item.inspiration_url = resolveInspirationPath(item);
                 openLightboxWithItem(item);
             });
             // 從獨立 URL 導向（/?item=type-id）進入時，取得單一作品並開啟 lightbox
