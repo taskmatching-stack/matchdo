@@ -52,7 +52,7 @@
     <div class="container py-4" style="max-width: 920px;">
         <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="printAsset.authPrefix">請先</span> <a href="/index.html" class="alert-link" data-i18n="credits.loginRequiredLink">登入</a><span data-i18n="printAsset.authSuffix">。</span></div>
 
-        <div id="main-content" class="d-none">
+        <div id="main-content">
             <div class="alert alert-light border small mb-3" data-i18n="printAsset.intro">
                 選圖後下方出現存庫區（圖只顯示一次）。只存原圖免費；AI 重繪選用，成功後才扣點。
             </div>
@@ -145,7 +145,7 @@
     <script src="/js/site-footer.js"></script>
     <script>
     (function () {
-        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-i18n-20260805';
+        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-show-first-20260806';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -418,15 +418,15 @@
             }
         });
 
+        updatePromptPreview();
         AuthService.getCurrentUser().then(async function (user) {
             if (!user || !(await getToken())) {
                 document.getElementById('auth-alert').classList.remove('d-none');
                 return;
             }
-            document.getElementById('main-content').classList.remove('d-none');
+            document.getElementById('auth-alert').classList.add('d-none');
             await loadPricing();
             await checkTable();
-            updatePromptPreview();
         }).catch(function () {
             document.getElementById('auth-alert').classList.remove('d-none');
         });

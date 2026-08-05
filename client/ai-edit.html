@@ -124,7 +124,7 @@
                     <span data-i18n="aiEdit.loginPrefix">請先</span><a href="/login.html?returnUrl=/client/ai-edit.html" class="alert-link" data-i18n="aiEdit.loginLink">登入</a><span data-i18n="aiEdit.loginSuffix">後使用。</span>
                 </div>
 
-                <div id="mainPanel" class="create-panel" style="display:none;">
+                <div id="mainPanel" class="create-panel" style="display:grid;">
                     <div class="create-panel-left">
                         <label class="form-label" data-i18n="aiEdit.toolLabel">工具</label>
                         <ul class="tool-list" id="toolList">
@@ -2372,13 +2372,17 @@
         document.title = t('aiEdit.title');
         var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
         if (document.documentElement) document.documentElement.lang = lang;
-        var isAuth = await AuthMiddleware.requireAuth();
-        if (!isAuth) {
-            loginRequired.style.display = 'block';
-            return;
-        }
+        // 公開工具：先顯示 UI；僅「開始生成」等操作需登入（勿 requireAuth 硬導向）
         mainPanel.style.display = 'grid';
         showRight('placeholder');
+        var user = null;
+        try {
+            user = (typeof AuthService !== 'undefined' && AuthService.getCurrentUser)
+                ? await AuthService.getCurrentUser() : null;
+        } catch (_) { user = null; }
+        if (!user) {
+            loginRequired.style.display = 'block';
+        }
     });
 })();
     </script>

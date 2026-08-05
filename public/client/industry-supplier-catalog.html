@@ -43,7 +43,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
-    window.__MATCHDO_INDUSTRY_CATALOG_BUILD = 'supplier-import-open-20260704k';
+    window.__MATCHDO_INDUSTRY_CATALOG_BUILD = 'supplier-catalog-show-first-20260806';
     (function () {
         var supplierId = new URLSearchParams(window.location.search).get('id') || '';
         var activeKind = 'material';
@@ -162,12 +162,6 @@
                 return;
             }
             token = await getToken();
-            if (!token) {
-                window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
-                    ? AuthService.getLoginUrl(window.location.pathname + window.location.search)
-                    : '/login.html';
-                return;
-            }
             var hashKind = (window.location.hash || '').replace('#', '');
             if (hashKind === 'prototype' || hashKind === 'prototype_set') activeKind = 'prototype_set';
             else if (hashKind === 'part') activeKind = 'part';
@@ -177,12 +171,22 @@
                 btn.addEventListener('click', function () {
                     activeKind = btn.getAttribute('data-kind');
                     document.querySelectorAll('#kind-tabs .nav-link').forEach(function (b) { b.classList.toggle('active', b === btn); });
-                    loadCatalog();
+                    if (token) loadCatalog();
                 });
             });
             var i18nP = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
             await i18nP;
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            if (!token) {
+                var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                    ? AuthService.getLoginUrl(window.location.pathname + window.location.search)
+                    : '/login.html';
+                document.getElementById('catalog-loading').classList.add('d-none');
+                var gateEl = document.getElementById('gate-alert');
+                gateEl.innerHTML = '請先 <a href="' + loginUrl + '" class="alert-link">登入</a> 後瀏覽並匯入品項。';
+                gateEl.classList.remove('d-none');
+                return;
+            }
             await loadCapabilities();
             await loadCatalog();
         }

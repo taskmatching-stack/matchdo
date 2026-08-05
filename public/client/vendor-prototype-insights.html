@@ -112,7 +112,17 @@
         async function loadPrototypes() {
             var tok = await getToken();
             if (!tok) {
-                showAlert('請先登入', 'danger');
+                var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                    ? AuthService.getLoginUrl(window.location.pathname + window.location.search)
+                    : '/login.html';
+                var sel = document.getElementById('proto-select');
+                if (sel) sel.innerHTML = '<option value="">請先登入</option>';
+                var el = document.getElementById('load-alert');
+                if (el) {
+                    el.className = 'alert alert-warning';
+                    el.innerHTML = '請先 <a href="' + esc(loginUrl) + '" class="alert-link">登入</a> 後查看設計洞察。';
+                    el.classList.remove('d-none');
+                }
                 return;
             }
             var r = await fetch('/api/me/vendor-assets?asset_kind=prototype', {

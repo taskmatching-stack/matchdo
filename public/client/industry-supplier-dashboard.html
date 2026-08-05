@@ -197,8 +197,11 @@
                 if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
                 var token = await getToken();
                 if (!token) {
-                    window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                    var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
                         ? AuthService.getLoginUrl(window.location.pathname) : '/login.html';
+                    showGate({ error: '' });
+                    document.getElementById('gate-extra').innerHTML =
+                        '請先 <a href="' + loginUrl + '" class="alert-link">登入</a> 後查看製造商引用紀錄。';
                     return;
                 }
                 var main = document.getElementById('dash-main');

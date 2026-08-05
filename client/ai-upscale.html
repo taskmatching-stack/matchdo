@@ -193,13 +193,14 @@
             });
 
             document.addEventListener('DOMContentLoaded', async () => {
-                const isAuth = await AuthMiddleware.requireAuth();
-                if (!isAuth) {
-                    loginRequired.style.display = 'block';
-                    mainPanel.style.display = 'none';
-                    return;
-                }
+                // 公開工具：UI 一律顯示；放大按鈕已有 token 檢查
                 mainPanel.style.display = 'block';
+                var user = null;
+                try {
+                    user = (typeof AuthService !== 'undefined' && AuthService.getCurrentUser)
+                        ? await AuthService.getCurrentUser() : null;
+                } catch (_) { user = null; }
+                if (!user) loginRequired.style.display = 'block';
             });
         })();
     </script>
