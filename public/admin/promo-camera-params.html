@@ -26,7 +26,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build field-persist-fix-20260730d</small></h4>
+        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build lens-aperture-link-20260805</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -68,6 +68,10 @@
               <div class="col-12"><label class="form-label small mb-0">prompt_fragment（英文，進 FLUX）</label><textarea id="addFragment" class="form-control form-control-sm" rows="2"></textarea></div>
               <div class="col-md-6"><label class="form-label small mb-0">說明（前台提示）</label><input id="addDesc" class="form-control form-control-sm"></div>
               <div class="col-md-6"><label class="form-label small mb-0">說明（英文）</label><input id="addDescEn" class="form-control form-control-sm"></div>
+              <div class="col-12 d-none" id="addApertureCompatCol">
+                <label class="form-label small mb-1">可用光圈（新建預設全選，可取消勾選）</label>
+                <div id="addApertureCompat" class="d-flex flex-wrap gap-3 small border rounded px-2 py-2 bg-white"></div>
+              </div>
               <div class="col-12"><div id="addFormFeedback" class="small rounded px-2 py-2" role="status" aria-live="polite"></div></div>
               <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
             </div>
@@ -129,6 +133,10 @@
             <div class="col-12"><label class="form-label small">prompt_fragment</label><textarea id="editFragment" class="form-control form-control-sm" rows="4"></textarea></div>
             <div class="col-md-6"><label class="form-label small">說明（中）</label><input id="editDesc" class="form-control form-control-sm"></div>
             <div class="col-md-6"><label class="form-label small">說明（英）</label><input id="editDescEn" class="form-control form-control-sm"></div>
+            <div class="col-12 d-none" id="editApertureCompatCol">
+              <label class="form-label small mb-1">可用光圈（未設定＝全選；可取消勾選）</label>
+              <div id="editApertureCompat" class="d-flex flex-wrap gap-3 small border rounded px-2 py-2 bg-white"></div>
+            </div>
           </div>
         </div>
         <div class="modal-footer py-2">
@@ -203,6 +211,47 @@
     if (GROUPABLE_KEYS.indexOf(key) >= 0) return true;
     var cat = categories.find(function (c) { return c.key === key; });
     return !!(cat && catMeta(cat, 'groupable'));
+  }
+  function apertureOptionRows() {
+    return items.filter(function (r) {
+      return r && r.category === 'aperture' && r.is_active !== false;
+    }).sort(function (a, b) {
+      return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+    });
+  }
+  function compatibleApertureKeysFromMeta(meta) {
+    if (!meta || typeof meta !== 'object' || !Array.isArray(meta.compatible_apertures)) return null;
+    var keys = meta.compatible_apertures.map(function (k) { return String(k || '').trim(); }).filter(Boolean);
+    return keys.length ? keys : null;
+  }
+  function fillApertureCompatChecks(containerId, selectedKeysOrNull) {
+    var wrap = document.getElementById(containerId);
+    if (!wrap) return;
+    var rows = apertureOptionRows();
+    var selected = selectedKeysOrNull;
+    var allSelected = !selected;
+    wrap.innerHTML = rows.length
+      ? rows.map(function (r) {
+          var on = allSelected || selected.indexOf(r.key) >= 0;
+          return '<label class="mb-0"><input type="checkbox" class="form-check-input me-1 aperture-compat-cb" value="' +
+            esc(r.key) + '"' + (on ? ' checked' : '') + '> ' + esc(r.name || r.key) + '</label>';
+        }).join('')
+      : '<span class="text-muted">尚無光圈選項，請先到「光圈」TAB 新增。</span>';
+  }
+  function readApertureCompatChecks(containerId) {
+    var wrap = document.getElementById(containerId);
+    if (!wrap) return [];
+    return Array.prototype.slice.call(wrap.querySelectorAll('.aperture-compat-cb:checked')).map(function (el) {
+      return el.value;
+    });
+  }
+  function syncApertureCompatUi(forCategory) {
+    var isLens = forCategory === 'lens';
+    var addCol = document.getElementById('addApertureCompatCol');
+    var editCol = document.getElementById('editApertureCompatCol');
+    if (addCol) addCol.classList.toggle('d-none', !isLens);
+    if (editCol) editCol.classList.toggle('d-none', !isLens);
+    if (isLens) fillApertureCompatChecks('addApertureCompat', null);
   }
   function paramGroup(row) {
     var m = row && row.meta;
@@ -365,6 +414,7 @@
     document.getElementById('groupFilterWrap').classList.toggle('d-none', !groupable);
     document.getElementById('groupableHint').classList.toggle('d-none', !groupable);
     document.getElementById('thGroup').classList.toggle('d-none', !groupable);
+    syncApertureCompatUi(key);
     renderGroupList();
   }
   function setActiveOptionTab(key) {
@@ -491,6 +541,12 @@
     var groupable = isCategoryGroupable(row.category);
     document.getElementById('editGroupCol').classList.toggle('d-none', !groupable);
     fillGroupSelects(row.category, resolveGroupIdForRow(row));
+    var isLens = row.category === 'lens';
+    var editCompatCol = document.getElementById('editApertureCompatCol');
+    if (editCompatCol) editCompatCol.classList.toggle('d-none', !isLens);
+    if (isLens) {
+      fillApertureCompatChecks('editApertureCompat', compatibleApertureKeysFromMeta(row.meta));
+    }
     document.getElementById('editModalTitle').textContent = '編輯選項 · ' + (row.name || row.key) + ' (' + catLabel(row.category) + ')';
   }
   function mergeSavedItem(item) {
@@ -532,6 +588,10 @@
     };
     if (isCategoryGroupable(cat)) {
       payload.group_id = document.getElementById(prefix + 'GroupId').value || null;
+    }
+    if (cat === 'lens') {
+      var compatId = prefix === 'edit' ? 'editApertureCompat' : 'addApertureCompat';
+      payload.meta = { compatible_apertures: readApertureCompatChecks(compatId) };
     }
     return payload;
   }
@@ -643,6 +703,7 @@
       document.getElementById('addDesc').value = '';
       document.getElementById('addDescEn').value = '';
       document.getElementById('addDefault').checked = false;
+      if (activeOptionTab === 'lens') fillApertureCompatChecks('addApertureCompat', null);
       await loadList();
     } finally {
       btn.disabled = false;

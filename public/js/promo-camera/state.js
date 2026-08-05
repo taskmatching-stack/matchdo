@@ -141,6 +141,7 @@
     }
     state.lookMode = inferLookModeFromCamera();
     applyLookModeDefaults();
+    clampApertureToLens();
     if (data && data.themes && data.themes.length && !state.themeKey) {
       state.themeKey = data.themes[0].key || '';
     }
@@ -185,6 +186,46 @@
     if (category === getDigitalLookCategory()) state.lookMode = 'digital';
     if (category === getFilmLookCategory()) state.lookMode = 'film';
     applyLookModeDefaults();
+    if (category === getLensCategory()) clampApertureToLens();
+  }
+
+  function getCompatibleApertureKeys(lensKey) {
+    var lensCat = getLensCategory();
+    var list = (state.options && state.options.camera_params && state.options.camera_params[lensCat]) || [];
+    var lens = null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].key === lensKey) { lens = list[i]; break; }
+    }
+    var meta = lens && lens.meta && typeof lens.meta === 'object' ? lens.meta : null;
+    if (!meta || !Array.isArray(meta.compatible_apertures)) return null;
+    var keys = meta.compatible_apertures.map(function (k) { return String(k || '').trim(); }).filter(Boolean);
+    return keys.length ? keys : null;
+  }
+
+  function apertureOptionsForCurrentLens() {
+    var all = (state.options && state.options.camera_params && state.options.camera_params.aperture) || [];
+    var lensCat = getLensCategory();
+    var lensKey = (state.camera || {})[lensCat] || '';
+    var allowed = getCompatibleApertureKeys(lensKey);
+    if (!allowed) return all.slice();
+    var set = {};
+    allowed.forEach(function (k) { set[k] = true; });
+    var filtered = all.filter(function (r) { return r && set[r.key]; });
+    return filtered.length ? filtered : all.slice();
+  }
+
+  function clampApertureToLens() {
+    var filtered = apertureOptionsForCurrentLens();
+    if (!filtered.length) return;
+    var cur = (state.camera || {}).aperture || '';
+    if (filtered.some(function (r) { return r.key === cur; })) return;
+    var defs = (state.options && state.options.camera_defaults) || {};
+    var prefer = defs.aperture;
+    if (prefer && filtered.some(function (r) { return r.key === prefer; })) {
+      state.camera.aperture = prefer;
+    } else {
+      state.camera.aperture = filtered[0].key;
+    }
   }
 
   function setDims(w, h, ratio, mp) {
@@ -240,6 +281,7 @@
       if (optionKeyExists(cat, incoming[cat])) state.camera[cat] = incoming[cat];
     });
     applyLookModeDefaults();
+    clampApertureToLens();
     return true;
   }
 
@@ -327,6 +369,8 @@
     setLookMode: setLookMode,
     setCameraKey: setCameraKey,
     setDims: setDims,
+    apertureOptionsForCurrentLens: apertureOptionsForCurrentLens,
+    clampApertureToLens: clampApertureToLens,
     toPresetSnapshot: toPresetSnapshot,
     applyPreset: applyPreset,
     pushMessage: pushMessage,

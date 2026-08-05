@@ -468,11 +468,14 @@
     syncLookModeRadios();
     fillLookSelect();
     var lensCat = St.getLensCategory ? St.getLensCategory() : 'lens';
+    if (St.clampApertureToLens) St.clampApertureToLens();
     St.visibleCategories().forEach(function (cat) {
       if (cat === lensCat) return;
       var el = document.getElementById('pcCam_' + cat);
       if (!el) return;
-      var list = opts.camera_params[cat] || [];
+      var list = (cat === 'aperture' && St.apertureOptionsForCurrentLens)
+        ? St.apertureOptionsForCurrentLens()
+        : (opts.camera_params[cat] || []);
       var cur = (St.get().camera || {})[cat] || '';
       el.innerHTML = list.map(function (r) {
         return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
@@ -647,6 +650,7 @@
         St.setCameraKey(cat, el.value);
         if (cat === lensCat) {
           refreshParamHint(el, document.getElementById('pcLensHint'), (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[lensCat] || [] : []);
+          fillCameraSelects();
         }
         updateLcd();
         flashLcd();

@@ -31810,7 +31810,8 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             if (groupResolved) {
                 updates.group_id = groupResolved.group_id;
                 meta = mergePromoCameraOptionMetaFromGroup(meta, groupResolved.meta);
-            } else if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
+            }
+            if (body.meta !== undefined || body.group !== undefined || body.group_en !== undefined) {
                 meta = buildPromoCameraOptionMetaFromBody(body, meta);
             }
             updates.meta = mergePromoCameraOptionMetaExtras(meta, body);
