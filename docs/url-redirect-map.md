@@ -41,6 +41,23 @@
 
 ---
 
+## 設計工具獨立 path（2026-08-06）
+
+| 來源 | 目標 | 碼 |
+|------|------|-----|
+| `/custom-product.html?tab=vendor-styles` | `/vendor-styles/`（保留 category／subcategory） | 301 |
+| `/custom-product.html?tab=vendor-styles&browse=official` | `/official-templates/` | 301 |
+| `/custom-product.html?tab=pattern-extract` | `/pattern-extract/` | 301 |
+| `/custom-product.html?tab=design-to-physical` | `/design-to-physical/` | 301 |
+| `/custom-product.html?tab=scene-sim` | `/scene-sim/` | 301 |
+| `/custom-product.html?tab=promo-image` | `/promo-image/` | 301 |
+| `/custom-product.html?tab=promo-camera` | `/promo-camera` | 301 |
+| `/pattern-extract/`、`/design-to-physical/`、`/scene-sim/`、`/promo-image/` | 設計工具殼（同 `custom-product.html` 面板） | 200 |
+
+設計頁 TAB 為 `<a href>` 連到上表獨立 path（見 `PLAN-design-tool-seven-pages-split-CHECKLIST.md`）。
+
+---
+
 ## 攝影模擬（短網址）
 
 | 來源 | 目標 | 碼 |

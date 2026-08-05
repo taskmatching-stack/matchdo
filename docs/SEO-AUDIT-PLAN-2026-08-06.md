@@ -109,11 +109,15 @@
 - `sitemap-categories` 改產新 path。
 - 設計頁 vendor-styles tab：改為「工作中挑選」或 redirect／橫幅導向公開列表（產品再定）。
 
-### Phase C — 設計頁瘦身＋sitemap 清掃
+### Phase C — 設計頁瘦身＋**拆那 7 頁**（使用者定案）
 
-1. Sitemap **停止**把每個工具 tab 當獨立高權重頁（scene-sim／promo-image…）；工具改列**一個**設計頁 + 各**獨立工具 URL**（已有則用已有）。
-2. 選單：「廠商版型訂製／官方版型」→ 獨立列表，不是設計頁 tab。
-3. 文件：更新 `SEO-PROGRESS.md`、`url-redirect-map.md`、`architecture-and-seo-principles.md` §2.1。
+**主軸**：設計頁內 7 個分頁 → 各自獨立可收錄 URL；另含官方版型、產品樹。  
+詳見 **`docs/PLAN-design-tool-seven-pages-split.md`**（唯一對照表）。
+
+1. Sitemap **停止**把每個工具 tab 當獨立高權重頁；改列獨立 path。  
+2. 選單／對外入口 → 獨立 URL，不是 `?tab=`。  
+3. 待建缺口：**圖樣提取／寫實化／實境模擬／情境圖** 四落地。  
+4. 文件：更新本檔、`url-redirect-map.md`、`architecture-and-seo-principles.md` §2.1。
 
 ### Phase D — 內容與技術債（並行、不擋 A）
 
@@ -157,7 +161,7 @@
 | 首頁首屏 SSR | ✅ | 網格內 SSR 卡片（標題／說明／Tags＋inspiration href）；lightbox UX 不變；`/?category_key=` 強化 title／canonical |
 | 首頁 lightbox 獨立落地連結 | ✅ | 卡片／分享／「查看作品頁」→ `/inspiration/*`；Ctrl 開新分頁 |
 | Phase B 廠商版型列表 | ✅ 實作 | `/vendor-styles/` SSR；sitemap 分類 landing；`/browse-styles.html` 301；設計頁 tab 未改 UI |
-| Phase C 設計頁瘦身 | ⏳ 進行中 | sitemap 已清 `?tab=`；**選單**「官方版型／廠商版型」→ `/official-templates/`、`/vendor-styles/`（設計頁 tab 暫留工作流，未大拆 UI） |
+| Phase C 設計頁 7 TAB 獨立網址 | ✅ 程式 | TAB→獨立 path；四工具路由；舊 `?tab=` 301；sitemap／選單。**部署後**點驗位址列。清單：`PLAN-design-tool-seven-pages-split-CHECKLIST.md` |
 
 ---
 

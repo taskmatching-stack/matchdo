@@ -31,7 +31,11 @@ function registerSitemapRoutes(app, deps) {
         { path: '/design-direction/',       priority: '0.9', changefreq: 'weekly' },
         { path: '/subscription-plans.html', priority: '0.8', changefreq: 'monthly' },
         { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
-        // 設計頁 ?tab= 不再進 sitemap（假多頁）；工具請用獨立 URL（/promo-camera、/official-templates/ 等）
+        // 設計工具獨立 path（勿再用 ?tab= 充數）
+        { path: '/pattern-extract/',        priority: '0.75', changefreq: 'monthly' },
+        { path: '/design-to-physical/',     priority: '0.75', changefreq: 'monthly' },
+        { path: '/scene-sim/',              priority: '0.75', changefreq: 'monthly' },
+        { path: '/promo-image/',            priority: '0.75', changefreq: 'monthly' },
         { path: '/official-templates/',           priority: '0.8', changefreq: 'weekly' },
         { path: '/vendor-styles/',                priority: '0.8', changefreq: 'weekly' },
         { path: '/promo-camera',            priority: '0.75', changefreq: 'monthly' },

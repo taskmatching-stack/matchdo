@@ -97,7 +97,7 @@
 
 <body>
     <div id="site-header"></div>
-    <script src="/js/site-header.js"></script>
+    <script src="/js/site-header.js?v=20260806-design-tabs"></script>
 
     <!-- 放大 modal：Bootstrap 於頁尾 defer 載入 -->
     <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
@@ -1501,19 +1501,19 @@
                         <div class="cp-tab-group-label" data-i18n="customProduct.tabGroupDesign">設計稿</div>
                         <ul class="nav nav-tabs cp-tab-group-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="tab-product-design" data-bs-toggle="tab" data-bs-target="#panel-product-design" type="button" role="tab" aria-controls="panel-product-design" aria-selected="true" data-i18n="customProduct.productDesignTab">設計稿</button>
+                                <a class="nav-link active" id="tab-product-design" href="/custom-product.html" role="tab" aria-controls="panel-product-design" aria-selected="true" data-design-tool="product-design" data-i18n="customProduct.productDesignTab">設計稿</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-vendor-styles" data-bs-toggle="tab" data-bs-target="#panel-vendor-styles" type="button" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-i18n="customProduct.vendorStylesTab">廠商版型</button>
+                                <a class="nav-link" id="tab-vendor-styles" href="/vendor-styles/" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-design-tool="vendor-styles" data-i18n="customProduct.vendorStylesTab">廠商版型</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-pattern-extract" data-bs-toggle="tab" data-bs-target="#panel-pattern-extract" type="button" role="tab" aria-controls="panel-pattern-extract" aria-selected="false" data-i18n="customProduct.patternExtractTab">圖樣提取</button>
+                                <a class="nav-link" id="tab-pattern-extract" href="/pattern-extract/" role="tab" aria-controls="panel-pattern-extract" aria-selected="false" data-design-tool="pattern-extract" data-i18n="customProduct.patternExtractTab">圖樣提取</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-design-to-physical" data-bs-toggle="tab" data-bs-target="#panel-design-to-physical" type="button" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-i18n="customProduct.designToPhysicalTab">寫實化</button>
+                                <a class="nav-link" id="tab-design-to-physical" href="/design-to-physical/" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-design-tool="design-to-physical" data-i18n="customProduct.designToPhysicalTab">寫實化</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-scene-sim" data-bs-toggle="tab" data-bs-target="#panel-scene-sim" type="button" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-i18n="home.sceneSim">實境模擬</button>
+                                <a class="nav-link" id="tab-scene-sim" href="/scene-sim/" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-design-tool="scene-sim" data-i18n="home.sceneSim">實境模擬</a>
                             </li>
                         </ul>
                     </div>
@@ -1521,10 +1521,10 @@
                         <div class="cp-tab-group-label" data-i18n="customProduct.tabGroupMarketing">行銷影像</div>
                         <ul class="nav nav-tabs cp-tab-group-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-promo-image" data-bs-toggle="tab" data-bs-target="#panel-promo-image" type="button" role="tab" aria-controls="panel-promo-image" aria-selected="false" data-i18n="customProduct.promoImageTab">情境圖</button>
+                                <a class="nav-link" id="tab-promo-image" href="/promo-image/" role="tab" aria-controls="panel-promo-image" aria-selected="false" data-design-tool="promo-image" data-i18n="customProduct.promoImageTab">情境圖</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-promo-camera" data-bs-toggle="tab" data-bs-target="#panel-promo-camera" type="button" role="tab" aria-controls="panel-promo-camera" aria-selected="false" data-i18n="customProduct.promoCameraTab">商攝導演</button>
+                                <a class="nav-link" id="tab-promo-camera" href="/promo-camera" role="tab" aria-controls="panel-promo-camera" aria-selected="false" data-design-tool="promo-camera" data-i18n="customProduct.promoCameraTab">商攝導演</a>
                             </li>
                         </ul>
                     </div>
@@ -1911,7 +1911,7 @@
                                     </button>
                                     <p class="promo-camera-link mb-0">
                                         <span data-i18n="customProduct.promoCameraLinkPrefix">需要更細的光學／畫質控制？</span>
-                                        <a href="/custom-product.html?tab=promo-camera" data-i18n="customProduct.promoCameraLinkLabel">商攝導演 →</a>
+                                        <a href="/promo-camera" data-i18n="customProduct.promoCameraLinkLabel">商攝導演 →</a>
                                     </p>
                                 </div>
                             </div>
@@ -1992,7 +1992,7 @@
     <script src="/js/digital-asset-picker.js?v=6" defer></script>
     <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
-    <script src="js/custom-product.js?v=150" defer></script>
+    <script src="js/custom-product.js?v=151" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

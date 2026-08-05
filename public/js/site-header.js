@@ -386,7 +386,7 @@ function loadSiteHeader(sessionFromEvent, options) {
 
 function isCustomProductSection() {
     const p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
-    return p.startsWith('/custom') || p.includes('custom-product') || p.includes('my-custom-products') || p.includes('manufacturer-') || p.includes('material-dual-color') || p.includes('print-asset');
+    return p.startsWith('/custom') || p.includes('custom-product') || p.includes('my-custom-products') || p.includes('manufacturer-') || p.includes('material-dual-color') || p.includes('print-asset') || p === '/pattern-extract' || p.startsWith('/pattern-extract/') || p === '/design-to-physical' || p.startsWith('/design-to-physical/') || p === '/scene-sim' || p.startsWith('/scene-sim/') || p === '/promo-image' || p.startsWith('/promo-image/') || p === '/vendor-styles' || p.startsWith('/vendor-styles/') || p === '/official-templates' || p.startsWith('/official-templates/') || p === '/promo-camera' || p.startsWith('/promo-camera');
 }
 function isRemakeSection() {
     const p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
@@ -490,13 +490,18 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                     <div class="nav-item dropdown nav-has-hover">
                         <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
                         <div class="dropdown-menu nav-hover-menu">
-                            <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '產品設計') + `</a>
+                            <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '設計稿') + `</a>
+                            <a href="/vendor-styles/" class="dropdown-item"><i class="bi bi-grid"></i>` + (t('nav.browseVendorStyles') || '廠商版型') + `</a>
                             <a href="/official-templates/" class="dropdown-item"><i class="bi bi-collection"></i>` + (t('nav.browseOfficialTemplates') || '官方版型') + `</a>
-                            <a href="/vendor-styles/" class="dropdown-item"><i class="bi bi-grid"></i>` + (t('nav.browseVendorStyles') || '廠商版型訂製') + `</a>
+                            <a href="/pattern-extract/" class="dropdown-item"><i class="bi bi-bounding-box"></i>` + (t('nav.patternExtract') || '圖樣提取') + `</a>
+                            <a href="/design-to-physical/" class="dropdown-item"><i class="bi bi-box"></i>` + (t('nav.designToPhysical') || '寫實化') + `</a>
+                            <a href="/scene-sim/" class="dropdown-item"><i class="bi bi-image"></i>` + (t('nav.sceneSim') || '實境模擬') + `</a>
+                            <a href="/promo-image/" class="dropdown-item"><i class="bi bi-megaphone"></i>` + (t('nav.promoImage') || t('nav.marketingVisuals') || '情境圖') + `</a>
+                            <a href="/promo-camera" class="dropdown-item"><i class="bi bi-camera"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a>
+                            <div class="dropdown-divider"></div>
                             <a href="/client/material-dual-color.html?return=design" class="dropdown-item"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
                             <a href="/client/print-asset.html" class="dropdown-item"><i class="bi bi-flower1"></i>` + (t('nav.printAsset') || '印花') + `</a>
                             <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
-                            <a href="/custom-product.html?tab=promo-image" class="dropdown-item"><i class="bi bi-megaphone"></i>` + (t('nav.marketingVisuals') || '行銷影像') + `</a>
                             <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
                         </div>
                     </div>

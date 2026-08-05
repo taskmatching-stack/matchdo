@@ -10383,7 +10383,45 @@ function servePublicFileNoCache(relativePath, req, res, next) {
     res.set('Surrogate-Control', 'no-store');
     res.sendFile(filePath);
 }
-app.get('/custom-product.html', (req, res, next) => servePublicFileNoCache('custom-product.html', req, res, next));
+/** 設計工具獨立 path：仍提供 custom-product.html（面板在該 URL 開啟）；舊 ?tab= 301 到此 */
+function designToolQueryWithoutTab(req) {
+    const params = new URLSearchParams();
+    const q = req.query || {};
+    Object.keys(q).forEach(function (k) {
+        if (k === 'tab' || k === 'browse') return;
+        const v = q[k];
+        if (v == null || v === '') return;
+        if (Array.isArray(v)) v.forEach(function (x) { if (x != null && x !== '') params.append(k, String(x)); });
+        else params.set(k, String(v));
+    });
+    const s = params.toString();
+    return s ? ('?' + s) : '';
+}
+function serveDesignToolShell(req, res, next) {
+    return servePublicFileNoCache('custom-product.html', req, res, next);
+}
+app.get(['/pattern-extract', '/pattern-extract/'], serveDesignToolShell);
+app.get(['/design-to-physical', '/design-to-physical/'], serveDesignToolShell);
+app.get(['/scene-sim', '/scene-sim/'], serveDesignToolShell);
+app.get(['/promo-image', '/promo-image/'], serveDesignToolShell);
+app.get('/custom-product.html', (req, res, next) => {
+    const tab = String((req.query && req.query.tab) || '').trim();
+    const browse = String((req.query && req.query.browse) || '').trim();
+    const rest = designToolQueryWithoutTab(req);
+    if (tab === 'vendor-styles') {
+        const dest = (browse === 'official') ? '/official-templates/' : '/vendor-styles/';
+        return res.redirect(301, dest + rest);
+    }
+    const tabDest = {
+        'pattern-extract': '/pattern-extract/',
+        'design-to-physical': '/design-to-physical/',
+        'scene-sim': '/scene-sim/',
+        'promo-image': '/promo-image/',
+        'promo-camera': '/promo-camera'
+    };
+    if (tabDest[tab]) return res.redirect(301, tabDest[tab] + rest);
+    return servePublicFileNoCache('custom-product.html', req, res, next);
+});
 app.get('/js/custom-product.js', (req, res, next) => servePublicFileNoCache('js/custom-product.js', req, res, next));
 app.get(/^\/locales\/[a-z]{2}(-[A-Z]{2})?\.json$/i, (req, res, next) => {
     const rel = (req.path || '').replace(/^\//, '');
