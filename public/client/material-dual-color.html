@@ -153,6 +153,14 @@
                             <label class="form-label small mb-1">分界處（選填）</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" placeholder="例：同色明線車縫" maxlength="64">
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">存庫名稱（選填）</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-library-title" placeholder="預設：主材／配材" maxlength="120">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">存庫分類（選填）</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-library-category" placeholder="例：皮革、春夏" maxlength="64">
+                        </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
                         <button type="button" class="btn btn-primary" id="mdc-generate-btn" disabled><i class="bi bi-stars me-1"></i>生成材質圖</button>
@@ -191,12 +199,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/digital-asset-picker.js?v=7"></script>
+    <script src="/js/digital-asset-picker.js?v=8"></script>
     <script src="/js/material-dual-color-compose.js?v=20260805c"></script>
     <script src="/js/material-dual-color-import.js?v=20260805b"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-gemini-image-quota-isolated-20260805';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-library-title-category-20260805';
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
         var token = null;
@@ -541,6 +549,10 @@
                 if (zoneHasPattern('main') || zoneHasPattern('accent')) {
                     fd.append('print_kind', getPrintKind());
                 }
+                var libTitle = document.getElementById('mdc-library-title');
+                var libCat = document.getElementById('mdc-library-category');
+                if (libTitle && libTitle.value.trim()) fd.append('title', libTitle.value.trim());
+                if (libCat && libCat.value.trim()) fd.append('category', libCat.value.trim());
                 var res = await fetch('/api/me/vendor-assets/material-dual-color-flux', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },

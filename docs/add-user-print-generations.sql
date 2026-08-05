@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_print_generations (
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     image_url text NOT NULL,
     title text,
+    category text,
     print_meta_json jsonb NOT NULL DEFAULT '{}'::jsonb,
     credit_transaction_id uuid,
     created_at timestamptz NOT NULL DEFAULT now()

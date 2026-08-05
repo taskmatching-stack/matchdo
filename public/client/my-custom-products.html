@@ -239,11 +239,17 @@
 
             <!-- ── Tab 2：材料組合 ── -->
             <div class="tab-pane fade" id="pane-combo">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">雙色材料組合生成紀錄；可於產品設計頁右側資產庫選用。</p>
-                    <a href="/client/material-dual-color.html?return=design" class="btn btn-primary btn-sm">
-                        <i class="bi bi-layout-split me-1"></i>生成材料組合
-                    </a>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <p class="text-muted mb-0 small">雙色材料組合生成紀錄；可設定名稱／分類便於管理，並於產品設計頁右側資產庫選用。</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label class="small text-muted mb-0" for="comboCategoryFilter">分類</label>
+                        <select id="comboCategoryFilter" class="form-select form-select-sm" style="width:auto;min-width:8rem;">
+                            <option value="">全部</option>
+                        </select>
+                        <a href="/client/material-dual-color.html?return=design" class="btn btn-primary btn-sm">
+                            <i class="bi bi-layout-split me-1"></i>生成材料組合
+                        </a>
+                    </div>
                 </div>
                 <div id="comboLoading" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
@@ -262,11 +268,17 @@
 
             <!-- ── Tab：印花 ── -->
             <div class="tab-pane fade" id="pane-print">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">印花圖稿資產；上傳免費，AI 重繪才扣點。可於產品設計「原圖印刷」參考槽選用。</p>
-                    <a href="/client/print-asset.html" class="btn btn-primary btn-sm">
-                        <i class="bi bi-postage me-1"></i>上傳／重繪印花
-                    </a>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <p class="text-muted mb-0 small">印花圖稿資產；可設定名稱／分類。上傳免費，AI 重繪才扣點。</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label class="small text-muted mb-0" for="printCategoryFilter">分類</label>
+                        <select id="printCategoryFilter" class="form-select form-select-sm" style="width:auto;min-width:8rem;">
+                            <option value="">全部</option>
+                        </select>
+                        <a href="/client/print-asset.html" class="btn btn-primary btn-sm">
+                            <i class="bi bi-postage me-1"></i>上傳／重繪印花
+                        </a>
+                    </div>
                 </div>
                 <div id="printLoading" class="text-center py-5" style="display:none;">
                     <div class="spinner-border text-primary" role="status"></div>
@@ -563,20 +575,116 @@
             return lines.length ? ('<div class="material-combo-meta small mb-2">' + lines.join('<br>') + '</div>') : '';
         }
 
+        let comboCategoryFilterValue = '';
+        let printCategoryFilterValue = '';
+        let assetMetaEditModal = null;
+        let assetMetaEditKind = null; // 'combo' | 'print'
+        let assetMetaEditId = null;
+        let assetMetaEditCol = null;
+
+        function fillCategoryFilterSelect(selectEl, categories, selected) {
+            if (!selectEl) return;
+            const cur = selected != null ? String(selected) : '';
+            selectEl.innerHTML = '<option value="">全部</option>';
+            (categories || []).forEach(function (c) {
+                if (!c) return;
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                if (c === cur) opt.selected = true;
+                selectEl.appendChild(opt);
+            });
+            if (cur && !(categories || []).includes(cur)) {
+                const opt = document.createElement('option');
+                opt.value = cur;
+                opt.textContent = cur;
+                opt.selected = true;
+                selectEl.appendChild(opt);
+            }
+            const dl = document.getElementById('assetMetaCategorySuggestions');
+            if (dl) {
+                const existing = {};
+                Array.prototype.forEach.call(dl.options || [], function (o) { existing[o.value] = true; });
+                (categories || []).forEach(function (c) {
+                    if (!c || existing[c]) return;
+                    existing[c] = true;
+                    const o = document.createElement('option');
+                    o.value = c;
+                    dl.appendChild(o);
+                });
+            }
+        }
+
+        function openAssetMetaEdit(kind, item, colEl) {
+            const modalEl = document.getElementById('assetMetaEditModal');
+            if (!modalEl || !item || !item.id) return;
+            assetMetaEditKind = kind;
+            assetMetaEditId = item.id;
+            assetMetaEditCol = colEl || null;
+            const titleInp = document.getElementById('assetMetaEditTitle');
+            const catInp = document.getElementById('assetMetaEditCategory');
+            const label = document.getElementById('assetMetaEditLabel');
+            if (titleInp) titleInp.value = (item.title || '').trim();
+            if (catInp) catInp.value = (item.category || '').trim();
+            if (label) label.textContent = kind === 'print' ? '編輯印花名稱與分類' : '編輯材料組合名稱與分類';
+            if (!assetMetaEditModal) assetMetaEditModal = new bootstrap.Modal(modalEl);
+            assetMetaEditModal.show();
+        }
+
+        async function saveAssetMetaEdit() {
+            if (!assetMetaEditKind || !assetMetaEditId) return;
+            const titleInp = document.getElementById('assetMetaEditTitle');
+            const catInp = document.getElementById('assetMetaEditCategory');
+            const title = titleInp ? titleInp.value.trim() : '';
+            const category = catInp ? catInp.value.trim() : '';
+            const path = assetMetaEditKind === 'print'
+                ? '/api/me/print-generations/' + encodeURIComponent(assetMetaEditId)
+                : '/api/me/material-combo-generations/' + encodeURIComponent(assetMetaEditId);
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const res = await fetch(path, {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: title, category: category })
+                });
+                const data = await res.json().catch(function () { return {}; });
+                if (!res.ok) {
+                    if (data.category_column_missing) {
+                        throw new Error('請先在 Supabase 執行 docs/add-user-asset-library-category.sql');
+                    }
+                    throw new Error((data && data.error) || '儲存失敗');
+                }
+                if (assetMetaEditModal) assetMetaEditModal.hide();
+                showAlert('已更新名稱與分類', 'success');
+                if (assetMetaEditKind === 'print') await loadPrintAssets();
+                else await loadMaterialCombos();
+            } catch (err) {
+                showAlert('儲存失敗: ' + err.message, 'danger');
+            }
+        }
+
         async function loadMaterialCombos() {
             const loading = document.getElementById('comboLoading');
             const list = document.getElementById('comboList');
             const empty = document.getElementById('comboEmpty');
             const badge = document.getElementById('badgeCombo');
+            if (loading) loading.style.display = 'block';
+            if (list) { list.style.display = 'none'; list.innerHTML = ''; }
+            if (empty) empty.style.display = 'none';
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
                 if (!token) throw new Error('未登入');
-                const response = await fetch('/api/me/material-combo-generations?limit=48', {
+                var url = '/api/me/material-combo-generations?limit=48';
+                if (comboCategoryFilterValue) url += '&category=' + encodeURIComponent(comboCategoryFilterValue);
+                const response = await fetch(url, {
                     headers: { Authorization: 'Bearer ' + token }
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || '載入失敗');
+                fillCategoryFilterSelect(document.getElementById('comboCategoryFilter'), data.categories || [], comboCategoryFilterValue);
                 const items = data.items || [];
                 if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
                 if (loading) loading.style.display = 'none';
@@ -586,6 +694,8 @@
                         const p = empty.querySelector('p');
                         if (p && data.table_missing) {
                             p.textContent = '資料表尚未建立：請在 Supabase 執行 docs/add-user-material-combo-generations.sql；建表前的生成不會出現在此，請建表後重新生成。';
+                        } else if (p && comboCategoryFilterValue) {
+                            p.textContent = '此分類尚無材料組合，可改選「全部」或清除篩選。';
                         }
                     }
                     return;
@@ -617,26 +727,42 @@
                 title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
             }
             if (!title) title = '材料組合';
+            const category = (item.category || '').trim();
             const metaHtml = formatComboMetaHtml(combo);
+            const catBadge = category
+                ? ('<span class="badge bg-light text-dark border mb-2">' + escapeHtml(category) + '</span>')
+                : '';
             col.innerHTML = `
                 <div class="card product-card h-100" data-combo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
                         <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
-                        <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
+                        <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
+                        ${catBadge}
                         ${metaHtml}
                         <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>
                         <div class="d-grid gap-2 mt-auto">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>用於產品設計</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
                 </div>
             `;
+            const editBtn = col.querySelector('.btn-combo-edit');
+            if (editBtn && item.id) {
+                editBtn.addEventListener('click', function () {
+                    openAssetMetaEdit('combo', {
+                        id: item.id,
+                        title: title,
+                        category: category
+                    }, col);
+                });
+            }
             const deleteBtn = col.querySelector('.btn-combo-delete');
             if (deleteBtn && item.id) {
                 deleteBtn.addEventListener('click', function () {
@@ -699,17 +825,20 @@
             const empty = document.getElementById('printEmpty');
             const badge = document.getElementById('badgePrint');
             if (loading) loading.style.display = 'block';
-            if (list) list.style.display = 'none';
+            if (list) { list.style.display = 'none'; list.innerHTML = ''; }
             if (empty) empty.style.display = 'none';
             try {
                 const session = await AuthService.getSession();
                 const tok = session?.access_token;
                 if (!tok) throw new Error('未登入');
-                const response = await fetch('/api/me/print-generations?limit=48', {
+                var url = '/api/me/print-generations?limit=48';
+                if (printCategoryFilterValue) url += '&category=' + encodeURIComponent(printCategoryFilterValue);
+                const response = await fetch(url, {
                     headers: { Authorization: 'Bearer ' + tok }
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || '載入失敗');
+                fillCategoryFilterSelect(document.getElementById('printCategoryFilter'), data.categories || [], printCategoryFilterValue);
                 const items = data.items || [];
                 if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
                 if (loading) loading.style.display = 'none';
@@ -719,6 +848,8 @@
                         const p = empty.querySelector('p');
                         if (p && data.table_missing) {
                             p.textContent = '資料表尚未建立：請在 Supabase 執行 docs/add-user-print-generations.sql。';
+                        } else if (p && printCategoryFilterValue) {
+                            p.textContent = '此分類尚無印花，可改選「全部」或清除篩選。';
                         }
                     }
                     return;
@@ -748,23 +879,39 @@
             var title = (item.title || '').trim();
             if (!title && meta && meta.print_type) title = String(meta.print_type);
             if (!title) title = '印花';
+            const category = (item.category || '').trim();
             const kindLabel = (meta && meta.source_kind === 'redraw') ? 'AI 重繪' : '原圖';
+            const catBadge = category
+                ? ('<span class="badge bg-light text-dark border mb-2">' + escapeHtml(category) + '</span>')
+                : '';
             col.innerHTML = `
                 <div class="card product-card h-100" data-print-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
                         <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
-                        <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
+                        <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
+                        ${catBadge}
                         <div class="text-muted small mb-2">${escapeHtml(kindLabel)} · <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}</div>
                         <div class="d-grid gap-2 mt-auto">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>用於產品設計</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
                 </div>
             `;
+            const editBtn = col.querySelector('.btn-print-edit');
+            if (editBtn && item.id) {
+                editBtn.addEventListener('click', function () {
+                    openAssetMetaEdit('print', {
+                        id: item.id,
+                        title: title,
+                        category: category
+                    }, col);
+                });
+            }
             const deleteBtn = col.querySelector('.btn-print-delete');
             if (deleteBtn && item.id) {
                 deleteBtn.addEventListener('click', function () {
@@ -804,6 +951,25 @@
                 showAlert('刪除失敗: ' + err.message, 'danger');
             }
         }
+
+        (function bindAssetLibraryMetaUi() {
+            const comboFilter = document.getElementById('comboCategoryFilter');
+            if (comboFilter) {
+                comboFilter.addEventListener('change', function () {
+                    comboCategoryFilterValue = (comboFilter.value || '').trim();
+                    loadMaterialCombos();
+                });
+            }
+            const printFilter = document.getElementById('printCategoryFilter');
+            if (printFilter) {
+                printFilter.addEventListener('change', function () {
+                    printCategoryFilterValue = (printFilter.value || '').trim();
+                    loadPrintAssets();
+                });
+            }
+            const saveBtn = document.getElementById('assetMetaEditSave');
+            if (saveBtn) saveBtn.addEventListener('click', saveAssetMetaEdit);
+        })();
 
         async function loadPromoCapabilities() {
             try {
@@ -1367,8 +1533,34 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'print-asset-library-20260805';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'asset-library-title-category-20260805';
     </script>
+    <div class="modal fade" id="assetMetaEditModal" tabindex="-1" aria-labelledby="assetMetaEditLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assetMetaEditLabel">編輯名稱與分類</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="assetMetaEditTitle">名稱</label>
+                        <input type="text" class="form-control" id="assetMetaEditTitle" maxlength="120" placeholder="例：夏日雙色／碎花主色">
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="assetMetaEditCategory">分類</label>
+                        <input type="text" class="form-control" id="assetMetaEditCategory" maxlength="64" placeholder="例：皮革、春夏、客戶A（自由文字）" list="assetMetaCategorySuggestions">
+                        <datalist id="assetMetaCategorySuggestions"></datalist>
+                        <p class="form-text small mb-0">分類為自訂標籤，方便之後篩選；可留空。</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="assetMetaEditSave">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="site-footer"></div>
     <script src="/js/site-footer.js"></script>
 </body>

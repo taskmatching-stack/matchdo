@@ -23809,16 +23809,29 @@ app.get('/api/me/material-dual-color-pricing', async (req, res) => {
     }
 });
 
-async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title, creditTransactionId) {
+function normalizeUserAssetLibraryTitle(raw) {
+    const t = String(raw == null ? '' : raw).trim().slice(0, 120);
+    return t || null;
+}
+/** 資產庫自訂分類（自由文字，非產品 taxonomy） */
+function normalizeUserAssetLibraryCategory(raw) {
+    const t = String(raw == null ? '' : raw).trim().slice(0, 64);
+    return t || null;
+}
+
+async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title, creditTransactionId, category) {
     if (!userId || !imageUrl || !combo) return { ok: false, reason: 'invalid' };
     try {
-        const { error } = await supabase.from('user_material_combo_generations').insert({
+        const row = {
             user_id: userId,
             image_url: imageUrl,
-            title: (title || '').trim().slice(0, 120) || null,
+            title: normalizeUserAssetLibraryTitle(title),
             material_combo_json: combo,
             credit_transaction_id: creditTransactionId || null
-        });
+        };
+        const cat = normalizeUserAssetLibraryCategory(category);
+        if (cat) row.category = cat;
+        const { error } = await supabase.from('user_material_combo_generations').insert(row);
         if (error) {
             if (isSupabaseMissingTableError(error) || error.code === '42P01') {
                 return { ok: false, reason: 'table_missing' };
@@ -23845,10 +23858,13 @@ app.get('/api/me/material-combo-generations', async (req, res) => {
         const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
         const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
         const rangeEnd = offsetN + limitN;
-        const { data, error } = await supabase
+        const categoryFilter = normalizeUserAssetLibraryCategory(req.query.category);
+        let q = supabase
             .from('user_material_combo_generations')
-            .select('id, image_url, title, material_combo_json, created_at')
-            .eq('user_id', user.id)
+            .select('id, image_url, title, category, material_combo_json, created_at')
+            .eq('user_id', user.id);
+        if (categoryFilter) q = q.eq('category', categoryFilter);
+        const { data, error } = await q
             .order('created_at', { ascending: false })
             .range(offsetN, rangeEnd);
         if (error) {
@@ -23859,8 +23875,44 @@ app.get('/api/me/material-combo-generations', async (req, res) => {
                     count: 0,
                     offset: offsetN,
                     hasMore: false,
+                    categories: [],
                     table_missing: true,
                     hint: '請在 Supabase 執行 docs/add-user-material-combo-generations.sql'
+                });
+            }
+            // 舊表尚無 category 欄：退回不篩選／不選 category
+            if (/category/i.test(error.message || '') && (error.code === '42703' || error.code === 'PGRST204')) {
+                const { data: data2, error: err2 } = await supabase
+                    .from('user_material_combo_generations')
+                    .select('id, image_url, title, material_combo_json, created_at')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .range(offsetN, rangeEnd);
+                if (err2) {
+                    console.error('GET /api/me/material-combo-generations fallback:', err2);
+                    return res.status(500).json({ error: err2.message || '載入失敗' });
+                }
+                const raw2 = data2 || [];
+                const hasMore2 = raw2.length > limitN;
+                const items2 = (hasMore2 ? raw2.slice(0, limitN) : raw2).map(function (row) {
+                    return {
+                        id: row.id,
+                        image_url: row.image_url,
+                        title: row.title || null,
+                        category: null,
+                        material_combo: row.material_combo_json || null,
+                        created_at: row.created_at
+                    };
+                });
+                return res.json({
+                    success: true,
+                    items: items2,
+                    count: items2.length,
+                    offset: offsetN,
+                    hasMore: hasMore2,
+                    categories: [],
+                    category_column_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-asset-library-category.sql'
                 });
             }
             console.error('GET /api/me/material-combo-generations:', error);
@@ -23873,14 +23925,100 @@ app.get('/api/me/material-combo-generations', async (req, res) => {
                 id: row.id,
                 image_url: row.image_url,
                 title: row.title || null,
+                category: row.category || null,
                 material_combo: row.material_combo_json || null,
                 created_at: row.created_at
             };
         });
-        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore });
+        let categories = [];
+        try {
+            const { data: catRows } = await supabase
+                .from('user_material_combo_generations')
+                .select('category')
+                .eq('user_id', user.id)
+                .not('category', 'is', null)
+                .limit(500);
+            const seen = {};
+            (catRows || []).forEach(function (r) {
+                const c = normalizeUserAssetLibraryCategory(r.category);
+                if (c && !seen[c]) { seen[c] = true; categories.push(c); }
+            });
+            categories.sort(function (a, b) { return a.localeCompare(b, 'zh-Hant'); });
+        } catch (_) {}
+        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore, categories });
     } catch (e) {
         console.error('GET /api/me/material-combo-generations:', e);
         res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** PATCH /api/me/material-combo-generations/:id — 更新名稱／分類 */
+app.patch('/api/me/material-combo-generations/:id', express.json(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const body = req.body || {};
+        const patch = {};
+        if (body.title !== undefined) patch.title = normalizeUserAssetLibraryTitle(body.title);
+        if (body.category !== undefined) patch.category = normalizeUserAssetLibraryCategory(body.category);
+        if (Object.keys(patch).length === 0) {
+            return res.status(400).json({ error: '請提供 title 或 category' });
+        }
+
+        const { data: row, error: findErr } = await supabase
+            .from('user_material_combo_generations')
+            .select('id, user_id')
+            .eq('id', id)
+            .maybeSingle();
+        if (findErr) {
+            if (isSupabaseMissingTableError(findErr) || findErr.code === '42P01') {
+                return res.status(503).json({
+                    error: '材料組合資料表尚未建立',
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-material-combo-generations.sql'
+                });
+            }
+            return res.status(500).json({ error: findErr.message });
+        }
+        if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到材料組合紀錄' });
+
+        const { data: updated, error } = await supabase
+            .from('user_material_combo_generations')
+            .update(patch)
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select('id, image_url, title, category, material_combo_json, created_at')
+            .maybeSingle();
+        if (error) {
+            if (/category/i.test(error.message || '') && (error.code === '42703' || error.code === 'PGRST204')) {
+                return res.status(503).json({
+                    error: '尚未加入 category 欄位',
+                    category_column_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-asset-library-category.sql'
+                });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({
+            success: true,
+            item: {
+                id: updated.id,
+                image_url: updated.image_url,
+                title: updated.title || null,
+                category: updated.category || null,
+                material_combo: updated.material_combo_json || null,
+                created_at: updated.created_at
+            }
+        });
+    } catch (e) {
+        console.error('PATCH /api/me/material-combo-generations/:id:', e);
+        res.status(500).json({ error: e.message || '更新失敗' });
     }
 });
 
@@ -24073,8 +24211,12 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         let librarySaved = false;
         let librarySaveError = null;
         if (comboForLibrary && publicUrl) {
-            const comboTitle = (mainMaterial && accentMaterial) ? `${mainMaterial}／${accentMaterial}` : '材料組合';
-            const saved = await insertUserMaterialComboGeneration(ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId);
+            const comboTitle = normalizeUserAssetLibraryTitle(body.title || body.library_title)
+                || ((mainMaterial && accentMaterial) ? `${mainMaterial}／${accentMaterial}` : '材料組合');
+            const comboCategory = normalizeUserAssetLibraryCategory(body.category || body.library_category);
+            const saved = await insertUserMaterialComboGeneration(
+                ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId, comboCategory
+            );
             librarySaved = !!(saved && saved.ok);
             if (!librarySaved) librarySaveError = (saved && saved.reason) || 'insert_failed';
         } else if (publicUrl && !comboForLibrary) {
@@ -24101,16 +24243,19 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
     }
 });
 
-async function insertUserPrintGeneration(userId, imageUrl, meta, title, creditTransactionId) {
+async function insertUserPrintGeneration(userId, imageUrl, meta, title, creditTransactionId, category) {
     if (!userId || !imageUrl) return { ok: false, reason: 'invalid' };
     try {
-        const { error } = await supabase.from('user_print_generations').insert({
+        const row = {
             user_id: userId,
             image_url: imageUrl,
-            title: (title || '').trim().slice(0, 120) || null,
+            title: normalizeUserAssetLibraryTitle(title),
             print_meta_json: (meta && typeof meta === 'object') ? meta : {},
             credit_transaction_id: creditTransactionId || null
-        });
+        };
+        const cat = normalizeUserAssetLibraryCategory(category);
+        if (cat) row.category = cat;
+        const { error } = await supabase.from('user_print_generations').insert(row);
         if (error) {
             if (isSupabaseMissingTableError(error) || error.code === '42P01') {
                 return { ok: false, reason: 'table_missing' };
@@ -24153,10 +24298,13 @@ app.get('/api/me/print-generations', async (req, res) => {
         const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
         const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
         const rangeEnd = offsetN + limitN;
-        const { data, error } = await supabase
+        const categoryFilter = normalizeUserAssetLibraryCategory(req.query.category);
+        let q = supabase
             .from('user_print_generations')
-            .select('id, image_url, title, print_meta_json, created_at')
-            .eq('user_id', user.id)
+            .select('id, image_url, title, category, print_meta_json, created_at')
+            .eq('user_id', user.id);
+        if (categoryFilter) q = q.eq('category', categoryFilter);
+        const { data, error } = await q
             .order('created_at', { ascending: false })
             .range(offsetN, rangeEnd);
         if (error) {
@@ -24167,8 +24315,43 @@ app.get('/api/me/print-generations', async (req, res) => {
                     count: 0,
                     offset: offsetN,
                     hasMore: false,
+                    categories: [],
                     table_missing: true,
                     hint: '請在 Supabase 執行 docs/add-user-print-generations.sql'
+                });
+            }
+            if (/category/i.test(error.message || '') && (error.code === '42703' || error.code === 'PGRST204')) {
+                const { data: data2, error: err2 } = await supabase
+                    .from('user_print_generations')
+                    .select('id, image_url, title, print_meta_json, created_at')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .range(offsetN, rangeEnd);
+                if (err2) {
+                    console.error('GET /api/me/print-generations fallback:', err2);
+                    return res.status(500).json({ error: err2.message || '載入失敗' });
+                }
+                const raw2 = data2 || [];
+                const hasMore2 = raw2.length > limitN;
+                const items2 = (hasMore2 ? raw2.slice(0, limitN) : raw2).map(function (row) {
+                    return {
+                        id: row.id,
+                        image_url: row.image_url,
+                        title: row.title || null,
+                        category: null,
+                        print_meta: row.print_meta_json || null,
+                        created_at: row.created_at
+                    };
+                });
+                return res.json({
+                    success: true,
+                    items: items2,
+                    count: items2.length,
+                    offset: offsetN,
+                    hasMore: hasMore2,
+                    categories: [],
+                    category_column_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-asset-library-category.sql'
                 });
             }
             console.error('GET /api/me/print-generations:', error);
@@ -24181,14 +24364,100 @@ app.get('/api/me/print-generations', async (req, res) => {
                 id: row.id,
                 image_url: row.image_url,
                 title: row.title || null,
+                category: row.category || null,
                 print_meta: row.print_meta_json || null,
                 created_at: row.created_at
             };
         });
-        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore });
+        let categories = [];
+        try {
+            const { data: catRows } = await supabase
+                .from('user_print_generations')
+                .select('category')
+                .eq('user_id', user.id)
+                .not('category', 'is', null)
+                .limit(500);
+            const seen = {};
+            (catRows || []).forEach(function (r) {
+                const c = normalizeUserAssetLibraryCategory(r.category);
+                if (c && !seen[c]) { seen[c] = true; categories.push(c); }
+            });
+            categories.sort(function (a, b) { return a.localeCompare(b, 'zh-Hant'); });
+        } catch (_) {}
+        res.json({ success: true, items, count: items.length, offset: offsetN, hasMore, categories });
     } catch (e) {
         console.error('GET /api/me/print-generations:', e);
         res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** PATCH /api/me/print-generations/:id — 更新名稱／分類 */
+app.patch('/api/me/print-generations/:id', express.json(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const body = req.body || {};
+        const patch = {};
+        if (body.title !== undefined) patch.title = normalizeUserAssetLibraryTitle(body.title);
+        if (body.category !== undefined) patch.category = normalizeUserAssetLibraryCategory(body.category);
+        if (Object.keys(patch).length === 0) {
+            return res.status(400).json({ error: '請提供 title 或 category' });
+        }
+
+        const { data: row, error: findErr } = await supabase
+            .from('user_print_generations')
+            .select('id, user_id')
+            .eq('id', id)
+            .maybeSingle();
+        if (findErr) {
+            if (isSupabaseMissingTableError(findErr) || findErr.code === '42P01') {
+                return res.status(503).json({
+                    error: '印花資料表尚未建立',
+                    table_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-print-generations.sql'
+                });
+            }
+            return res.status(500).json({ error: findErr.message });
+        }
+        if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到印花紀錄' });
+
+        const { data: updated, error } = await supabase
+            .from('user_print_generations')
+            .update(patch)
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select('id, image_url, title, category, print_meta_json, created_at')
+            .maybeSingle();
+        if (error) {
+            if (/category/i.test(error.message || '') && (error.code === '42703' || error.code === 'PGRST204')) {
+                return res.status(503).json({
+                    error: '尚未加入 category 欄位',
+                    category_column_missing: true,
+                    hint: '請在 Supabase 執行 docs/add-user-asset-library-category.sql'
+                });
+            }
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({
+            success: true,
+            item: {
+                id: updated.id,
+                image_url: updated.image_url,
+                title: updated.title || null,
+                category: updated.category || null,
+                print_meta: updated.print_meta_json || null,
+                created_at: updated.created_at
+            }
+        });
+    } catch (e) {
+        console.error('PATCH /api/me/print-generations/:id:', e);
+        res.status(500).json({ error: e.message || '更新失敗' });
     }
 });
 
@@ -24240,7 +24509,8 @@ app.post('/api/me/print-generations', upload.single('image'), async (req, res) =
         const seedUser = await getRequestUserFromAuthHeader(req);
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
         const body = req.body || {};
-        const title = (body.title || '').trim().slice(0, 120);
+        const title = normalizeUserAssetLibraryTitle(body.title);
+        const category = normalizeUserAssetLibraryCategory(body.category);
         const printType = normalizePrintAssetType(body.print_type || body.printType || '');
         const sourceKind = String(body.source_kind || body.sourceKind || 'original').trim().toLowerCase() === 'redraw'
             ? 'redraw'
@@ -24270,7 +24540,8 @@ app.post('/api/me/print-generations', upload.single('image'), async (req, res) =
             publicUrl,
             meta,
             title || printType || (sourceKind === 'redraw' ? '印花（重繪）' : '印花'),
-            null
+            null,
+            category
         );
         if (!saved.ok) {
             if (saved.reason === 'table_missing') {

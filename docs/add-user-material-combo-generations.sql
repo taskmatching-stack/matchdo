@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_material_combo_generations (
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     image_url text NOT NULL,
     title text,
+    category text,
     material_combo_json jsonb NOT NULL DEFAULT '{}'::jsonb,
     credit_transaction_id uuid,
     created_at timestamptz NOT NULL DEFAULT now()

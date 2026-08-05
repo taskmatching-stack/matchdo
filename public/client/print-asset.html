@@ -102,6 +102,16 @@
                         </div>
                     </div>
                     <p class="small text-muted mb-2">僅存原圖：<strong>不扣點</strong>。AI 重繪已成功時扣過點，再存庫不另收費。</p>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1" for="pa-save-title">名稱（可選）</label>
+                            <input type="text" class="form-control form-control-sm" id="pa-save-title" maxlength="120" placeholder="預設用印花類型或「印花」">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1" for="pa-save-category">分類（可選）</label>
+                            <input type="text" class="form-control form-control-sm" id="pa-save-category" maxlength="64" placeholder="例：碎花、客戶A">
+                        </div>
+                    </div>
                     <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-success" id="pa-save-btn"><i class="bi bi-box-seam me-1"></i>存入數位資產庫</button>
                         <a href="/client/my-custom-products.html?tab=print" class="btn btn-outline-secondary">查看印花資產</a>
@@ -132,7 +142,7 @@
     <script src="/js/site-footer.js"></script>
     <script>
     (function () {
-        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-no-dup-preview-20260805';
+        window.__MATCHDO_PRINT_ASSET_BUILD = 'print-asset-title-category-20260805';
         var token = null;
         var pointsFlux = 5;
         var originalFile = null;
@@ -325,7 +335,11 @@
             var fd = new FormData();
             fd.append('source_kind', kind);
             fd.append('print_type', lastPrintType || (printTypeEl.value || '').trim());
-            fd.append('title', (lastPrintType || (printTypeEl.value || '').trim() || '印花'));
+            var titleEl = document.getElementById('pa-save-title');
+            var catEl = document.getElementById('pa-save-category');
+            var titleVal = (titleEl && titleEl.value.trim()) || lastPrintType || (printTypeEl.value || '').trim() || '印花';
+            fd.append('title', titleVal);
+            if (catEl && catEl.value.trim()) fd.append('category', catEl.value.trim());
             if (typeof imageUrlOrFile === 'string') {
                 fd.append('image_url', imageUrlOrFile);
             } else {

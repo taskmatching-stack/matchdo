@@ -55,12 +55,16 @@
         var meta = row.print_meta || null;
         var title = (row.title || '').trim();
         if (!title && meta && meta.print_type) title = String(meta.print_type);
+        var cat = (row.category || '').trim();
+        var label = title || '印花';
+        if (cat) label = label + ' · ' + cat;
         items.push({
           url: url,
-          title: (title || '印花').substring(0, 48),
+          title: label.substring(0, 48),
           sourceType: 'print',
           sourceId: row.id || null,
-          badge: '印花',
+          badge: cat || '印花',
+          category: cat || null,
           print_meta: meta
         });
       });
@@ -105,12 +109,16 @@
         if (!title && combo && combo.main && combo.accent) {
           title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
         }
+        var cat = (row.category || '').trim();
+        var label = title || '材料組合';
+        if (cat) label = label + ' · ' + cat;
         items.push({
           url: url,
-          title: (title || '材料組合').substring(0, 48),
+          title: label.substring(0, 48),
           sourceType: 'material_combo',
           sourceId: row.id || null,
-          badge: '材料組合',
+          badge: cat || '材料組合',
+          category: cat || null,
           material_combo: combo
         });
       });
