@@ -169,6 +169,74 @@
     return '<td class="' + cls + '">' + (n != null ? n : 0) + '</td>';
   }
 
+  function setTableFoot(footId, html) {
+    var el = $(footId);
+    if (!el) return;
+    el.innerHTML = html || '';
+  }
+
+  function sumRowCounts(rows, field) {
+    return (rows || []).reduce(function (n, r) { return n + (r[field] || 0); }, 0);
+  }
+
+  function sumVendorCategories(categories) {
+    var t = {
+      official_prototype_records: 0, vendor_prototype_records: 0,
+      official_prototype_images: 0, vendor_prototype_images: 0,
+      official_material_records: 0, vendor_material_records: 0,
+      official_material_images: 0, vendor_material_images: 0
+    };
+    (categories || []).forEach(function (c) {
+      t.official_prototype_records += c.official_prototype_records || 0;
+      t.vendor_prototype_records += c.vendor_prototype_records || 0;
+      t.official_prototype_images += c.official_prototype_images || 0;
+      t.vendor_prototype_images += c.vendor_prototype_images || 0;
+      t.official_material_records += c.official_material_records || 0;
+      t.vendor_material_records += c.vendor_material_records || 0;
+      t.official_material_images += c.official_material_images || 0;
+      t.vendor_material_images += c.vendor_material_images || 0;
+    });
+    return t;
+  }
+
+  function renderVendorGrandTotal(summary) {
+    if (!summary) return '';
+    return '<tr><td class="col-main">總計</td><td class="col-sub"></td>' + vendorNumCells(summary) + '</tr>';
+  }
+
+  function renderSimpleGrandTotal(summary) {
+    if (!summary) return '';
+    return '<tr><td class="col-main">總計</td><td class="col-sub"></td>' + numCell(summary.records) + numCell(summary.images) + '</tr>';
+  }
+
+  function renderPromoGrandTotal(summary) {
+    if (!summary) return '';
+    return '<tr><td class="col-main">總計</td><td class="col-sub"></td>'
+      + numCell(summary.promo_page, 'col-promo-page') + numCell(summary.promo_camera, 'col-promo-camera') + '</tr>';
+  }
+
+  function renderCountGrandTotal(label, total, colSpan) {
+    var cs = colSpan || 1;
+    var labelCell = '<td' + (cs > 1 ? ' colspan="' + cs + '"' : '') + '>' + esc(label) + '</td>';
+    return '<tr>' + labelCell + '<td class="col-num">' + (total != null ? total.toLocaleString() : 0) + '</td></tr>';
+  }
+
+  function renderPointsFuncGrandTotal(totalCount, totalPoints) {
+    return '<tr><td>總計</td><td class="col-num">' + (totalCount || 0).toLocaleString()
+      + '</td><td class="col-num">' + (totalPoints || 0).toLocaleString() + '</td><td></td></tr>';
+  }
+
+  function renderPointsLevelGrandTotal(rows) {
+    var users = sumRowCounts(rows, 'user_count');
+    var times = sumRowCounts(rows, 'count');
+    var points = sumRowCounts(rows, 'total_points');
+    var avg = users > 0 ? Math.round(points / users) : null;
+    return '<tr><td>總計</td><td class="col-num">' + users.toLocaleString()
+      + '</td><td class="col-num">' + times.toLocaleString()
+      + '</td><td class="col-num">' + points.toLocaleString()
+      + '</td><td class="col-num">' + (avg != null ? avg.toLocaleString() : '—') + '</td></tr>';
+  }
+
   function catGroupKey(cat) {
     return String(cat.category_key || 'cat').replace(/[^a-zA-Z0-9_-]/g, '_');
   }
@@ -279,35 +347,79 @@
     return html.join('');
   }
 
-  function fillCategoryTable(tbodyId, html) {
+  function hasPromoRowData(row) {
+    return row && (row.promo_page || row.promo_camera);
+  }
+
+  function promoNumCells(row) {
+    return numCell(row.promo_page, 'col-promo-page') + numCell(row.promo_camera, 'col-promo-camera');
+  }
+
+  function renderPromoRows(categories, orphanMode) {
+    if (!categories || !categories.length) {
+      return '<tr><td colspan="4" class="text-muted p-2">尚無分類或資料</td></tr>';
+    }
+    var html = [];
+    categories.forEach(function (cat) {
+      var cls = rowInactiveClass(cat.is_active, false) + (orphanMode ? ' row-orphan' : '');
+      var gk = catGroupKey(cat);
+      var subs = visibleSubs(cat.subcategories, hasPromoRowData);
+      var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
+      html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + promoNumCells(cat) + '</tr>');
+      subs.forEach(function (sub) {
+        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + promoNumCells(sub) + '</tr>');
+      });
+    });
+    return html.join('');
+  }
+
+  function fillCategoryTable(tbodyId, html, footId, footHtml) {
     var tb = $(tbodyId);
     if (!tb) return;
     tb.innerHTML = html;
     bindCatGroupToggles(tb);
+    if (footId) setTableFoot(footId, footHtml);
   }
 
-  function fillOrphan(wrapId, tbodyId, list, orphanMode) {
+  function fillOrphan(wrapId, tbodyId, list, orphanMode, footId, footHtml) {
     var wrap = $(wrapId);
     var tb = $(tbodyId);
     if (!wrap || !tb) return;
     if (!list || !list.length) {
       wrap.classList.add('d-none');
       tb.innerHTML = '';
+      if (footId) setTableFoot(footId, '');
       return;
     }
     wrap.classList.remove('d-none');
-    fillCategoryTable(tbodyId, renderSimpleRows(list, orphanMode));
+    fillCategoryTable(tbodyId, renderSimpleRows(list, orphanMode), footId, footHtml);
   }
 
-  function fillTable(tbodyId, rows, renderRow, colSpan) {
+  function fillPromoOrphan(wrapId, tbodyId, list, footId, footHtml) {
+    var wrap = $(wrapId);
+    var tb = $(tbodyId);
+    if (!wrap || !tb) return;
+    if (!list || !list.length) {
+      wrap.classList.add('d-none');
+      tb.innerHTML = '';
+      if (footId) setTableFoot(footId, '');
+      return;
+    }
+    wrap.classList.remove('d-none');
+    fillCategoryTable(tbodyId, renderPromoRows(list, true), footId, footHtml);
+  }
+
+  function fillTable(tbodyId, rows, renderRow, colSpan, footId, footHtml) {
     var tb = $(tbodyId);
     if (!tb) return;
     var cs = colSpan || 4;
     if (!rows || !rows.length) {
       tb.innerHTML = '<tr><td colspan="' + cs + '" class="text-muted p-2">尚無資料</td></tr>';
+      if (footId) setTableFoot(footId, '');
       return;
     }
     tb.innerHTML = rows.map(renderRow).join('');
+    if (footId) setTableFoot(footId, footHtml || '');
   }
 
   function cacheKey() {
@@ -338,21 +450,22 @@
     $('vaVendorMatRec').textContent = vs.vendor_material_records != null ? vs.vendor_material_records : '—';
     $('ddRec').textContent = (dd.summary && dd.summary.records != null) ? dd.summary.records : '—';
     $('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
-    $('psRec').textContent = (ps.summary && ps.summary.records != null) ? ps.summary.records : '—';
-    $('psImg').textContent = (ps.summary && ps.summary.images != null) ? ps.summary.images : '—';
+    $('psPromoPage').textContent = (ps.summary && ps.summary.promo_page != null) ? ps.summary.promo_page : '—';
+    $('psPromoCamera').textContent = (ps.summary && ps.summary.promo_camera != null) ? ps.summary.promo_camera : '—';
     $('tabMetaVendor').textContent =
       '· 官 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
       + ' / 廠 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('tabMetaDesign').textContent = '· ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—') + ' 筆';
-    $('tabMetaPromo').textContent = '· ' + ((ps.summary && ps.summary.records != null) ? ps.summary.records : '—') + ' 筆';
+    var promoTotal = ((ps.summary && ps.summary.promo_page) || 0) + ((ps.summary && ps.summary.promo_camera) || 0);
+    $('tabMetaPromo').textContent = '· ' + (promoTotal || '—') + ' 張';
     $('secMetaCategory').textContent =
       '官原型 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
       + ' / 廠原型 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('scanMeta').textContent = '掃描：素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
-    fillCategoryTable('tblVendor', renderVendorRows(va.categories));
+    fillCategoryTable('tblVendor', renderVendorRows(va.categories), 'tfootVendor', renderVendorGrandTotal(vs));
     if (va.orphan_categories && va.orphan_categories.length) {
       $('orphanVendorWrap').classList.remove('d-none');
-      fillCategoryTable('tblOrphanVendor', renderVendorRows(va.orphan_categories.map(function (c) {
+      var orphanVa = va.orphan_categories.map(function (c) {
         return {
           category_key: c.category_key,
           category_name: c.category_key,
@@ -371,18 +484,29 @@
           vendor_material_images: c.vendor_material_images,
           subcategories: c.subcategories || []
         };
-      })));
+      });
+      fillCategoryTable('tblOrphanVendor', renderVendorRows(orphanVa), 'tfootOrphanVendor', renderVendorGrandTotal(sumVendorCategories(orphanVa)));
     } else {
       $('orphanVendorWrap').classList.add('d-none');
       $('tblOrphanVendor').innerHTML = '';
+      setTableFoot('tfootOrphanVendor', '');
     }
-    fillCategoryTable('tblDesign', renderSimpleRows(dd.categories, false));
-    fillOrphan('orphanDesignWrap', 'tblOrphanDesign', dd.orphan_categories, true);
+    fillCategoryTable('tblDesign', renderSimpleRows(dd.categories, false), 'tfootDesign', renderSimpleGrandTotal(dd.summary));
+    fillOrphan('orphanDesignWrap', 'tblOrphanDesign', dd.orphan_categories, true, 'tfootOrphanDesign',
+      dd.orphan_categories && dd.orphan_categories.length ? renderSimpleGrandTotal({
+        records: sumRowCounts(dd.orphan_categories, 'records'),
+        images: sumRowCounts(dd.orphan_categories, 'images')
+      }) : '');
     if (ps.promo_table_missing) {
       $('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted p-2">表不存在</td></tr>';
+      setTableFoot('tfootPromo', '');
     } else {
-      fillCategoryTable('tblPromo', renderSimpleRows(ps.categories, false));
-      fillOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, true);
+      fillCategoryTable('tblPromo', renderPromoRows(ps.categories, false), 'tfootPromo', renderPromoGrandTotal(ps.summary));
+      fillPromoOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, 'tfootOrphanPromo',
+        ps.orphan_categories && ps.orphan_categories.length ? renderPromoGrandTotal({
+          promo_page: sumRowCounts(ps.orphan_categories, 'promo_page'),
+          promo_camera: sumRowCounts(ps.orphan_categories, 'promo_camera')
+        }) : '');
     }
   }
 
@@ -413,16 +537,16 @@
     }
     fillTable('tblMain', data.top_main_materials, function (r) {
       return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
-    }, 2);
+    }, 2, 'tfootMain', renderCountGrandTotal('總計', sumRowCounts(data.top_main_materials, 'count')));
     fillTable('tblAccent', data.top_accent_materials, function (r) {
       return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
-    }, 2);
+    }, 2, 'tfootAccent', renderCountGrandTotal('總計', sumRowCounts(data.top_accent_materials, 'count')));
     fillTable('tblPairs', data.top_material_combinations, function (r) {
       return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
-    }, 2);
+    }, 2, 'tfootPairs', renderCountGrandTotal('總計', sumRowCounts(data.top_material_combinations, 'count')));
     fillTable('tblPalette', data.top_palette_sources, function (r) {
       return '<tr><td>' + esc(r.type_name) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.scope) + '</td><td class="col-num">' + r.count + '</td></tr>';
-    }, 4);
+    }, 4, 'tfootPalette', '<tr><td colspan="3">總計</td><td class="col-num">' + sumRowCounts(data.top_palette_sources, 'count').toLocaleString() + '</td></tr>');
   }
 
   async function loadPoints(headers, range) {
@@ -440,13 +564,13 @@
     $('secMetaPoints').textContent = (data.total_points || 0).toLocaleString() + ' 點';
     fillTable('tblPointsFunc', stats, function (s) {
       return '<tr><td>' + esc(s.description || '其他') + '</td><td class="col-num">' + (s.times || 0).toLocaleString() + '</td><td class="col-num">' + (s.total_points || 0).toLocaleString() + '</td><td class="col-num">' + (s.avg_points != null ? s.avg_points.toLocaleString() : '—') + '</td></tr>';
-    }, 4);
+    }, 4, 'tfootPointsFunc', renderPointsFuncGrandTotal(data.total_count, data.total_points));
     fillTable('tblPointsLevel', byLevel, function (b) {
       return '<tr><td>' + esc(b.member_level || '一般') + '</td><td class="col-num">' + (b.user_count || 0).toLocaleString() + '</td><td class="col-num">' + (b.count || 0).toLocaleString() + '</td><td class="col-num">' + (b.total_points || 0).toLocaleString() + '</td><td class="col-num">' + (b.avg_per_user != null ? b.avg_per_user.toLocaleString() : '—') + '</td></tr>';
-    }, 5);
+    }, 5, 'tfootPointsLevel', renderPointsLevelGrandTotal(byLevel));
     fillTable('tblPointsDaily', daily, function (d) {
       return '<tr><td>' + esc(d.date) + '</td><td class="col-num">' + (d.total_points || 0).toLocaleString() + '</td></tr>';
-    }, 2);
+    }, 2, 'tfootPointsDaily', renderCountGrandTotal('總計', sumRowCounts(daily, 'total_points')));
   }
 
   async function loadActions(headers, range) {
@@ -471,6 +595,7 @@
     $('tblActions').innerHTML = items.map(function (row) {
       return '<tr><td>' + esc(row[0]) + '</td><td class="col-num">' + (row[1] != null ? row[1].toLocaleString() : '0') + '</td></tr>';
     }).join('');
+    setTableFoot('tfootActions', renderCountGrandTotal('總計', total));
   }
 
   async function loadCurrentSection(force) {

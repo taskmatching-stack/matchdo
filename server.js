@@ -9831,14 +9831,17 @@ async function fetchAllCustomProductsForCategoryStats(opts) {
 
 async function fetchAllPromoGenerationsForCategoryStats(opts) {
     const options = opts || {};
-    const select = 'source_type, source_id, result_image_url, status, created_at';
+    const selectWithMode = 'source_type, source_id, result_image_url, status, created_at, generation_mode';
+    const selectLegacy = 'source_type, source_id, result_image_url, status, created_at';
+    let select = selectWithMode;
     const pageSize = 1000;
     let offset = 0;
     const all = [];
+    let useLegacySelect = false;
     while (true) {
         let q = supabase
             .from('product_promo_generations')
-            .select(select)
+            .select(useLegacySelect ? selectLegacy : select)
             .eq('status', 'success')
             .not('result_image_url', 'is', null)
             .neq('result_image_url', '')
@@ -9850,6 +9853,12 @@ async function fetchAllPromoGenerationsForCategoryStats(opts) {
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return { rows: [], table_missing: true };
+            }
+            if (!useLegacySelect && isSupabaseMissingColumnError(error, 'generation_mode')) {
+                useLegacySelect = true;
+                offset = 0;
+                all.length = 0;
+                continue;
             }
             throw error;
         }
@@ -9912,11 +9921,12 @@ function mapPromoRowToUsageItem(row, maps, catIndex) {
         category_key = String(maps.vaMap[sid].category_key || '').trim() || '(無分類)';
         subcategory_key = maps.vaMap[sid].subcategory_key || null;
     }
+    const src = categoryUsageStats.mapPromoRowToSourceDelta(row);
     return {
         category_key: category_key,
         subcategory_key: subcategory_key,
-        records: 1,
-        images: categoryUsageStats.countPromoGenerationImages(row)
+        promo_page: src.promo_page,
+        promo_camera: src.promo_camera
     };
 }
 
@@ -9959,7 +9969,7 @@ app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
             include_inactive: includeInactive
         });
 
-        let promoScenes = categoryUsageStats.aggregateSimpleCategoryUsage([], categories, {
+        let promoScenes = categoryUsageStats.aggregatePromoCategoryUsage([], categories, {
             include_inactive: includeInactive
         });
         promoScenes.promo_table_missing = !!promoPack.table_missing;
@@ -9968,7 +9978,7 @@ app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
             const promoItems = promoRows.map(function (row) {
                 return mapPromoRowToUsageItem(row, maps, catIndex);
             });
-            promoScenes = categoryUsageStats.aggregateSimpleCategoryUsage(promoItems, categories, {
+            promoScenes = categoryUsageStats.aggregatePromoCategoryUsage(promoItems, categories, {
                 include_inactive: includeInactive
             });
             promoScenes.promo_table_missing = false;

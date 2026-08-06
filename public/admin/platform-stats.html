@@ -52,6 +52,12 @@
       border-right: 2px solid #adb5bd;
     }
     .table-cat-stats .col-num { width: 8.75%; }
+    .table-cat-stats .col-promo-page { border-right: 2px solid #adb5bd !important; }
+    .table-cat-stats.table-promo-stats th.col-main,
+    .table-cat-stats.table-promo-stats td.col-main { width: 18%; }
+    .table-cat-stats.table-promo-stats th.col-sub,
+    .table-cat-stats.table-promo-stats td.col-sub { width: 34%; }
+    .table-cat-stats.table-promo-stats .col-num { width: 24%; }
     .table-cat-stats .col-group-end { border-right: 2px solid #adb5bd !important; }
     .col-num { text-align: right; white-space: nowrap; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
     .col-num-group { text-align: center; font-size: 0.75rem; border-bottom: 0 !important; }
@@ -71,6 +77,10 @@
     tr.row-inactive tr.row-sub-inactive td,
     tr.row-inactive + tr.row-sub-inactive td { background: #d8dde3 !important; }
     tr.row-orphan td { background: rgba(255, 193, 7, 0.08); }
+    .table-cat-stats tfoot td, .stats-table tfoot td {
+      font-weight: 600; background: #eef2f5 !important; border-top: 2px solid #adb5bd;
+    }
+    .stats-table-wrap tfoot { position: sticky; bottom: 0; z-index: 2; }
     .orphan-block { margin-top: 0.75rem; font-size: 0.8125rem; }
     .overview-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -182,11 +192,12 @@
                   </tr>
                 </thead>
                 <tbody id="tblVendor"></tbody>
+                <tfoot id="tfootVendor"></tfoot>
               </table>
             </div>
             <div class="orphan-block d-none" id="orphanVendorWrap">
               <div class="small fw-semibold text-warning mb-1">未對應訂製品分類的素材</div>
-              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats"><tbody id="tblOrphanVendor"></tbody></table></div>
+              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats"><tbody id="tblOrphanVendor"></tbody><tfoot id="tfootOrphanVendor"></tfoot></table></div>
             </div>
           </section>
           <section class="d-none" id="panelDesign">
@@ -201,30 +212,32 @@
                   <th class="col-main">主分類</th><th class="col-sub">子分類</th><th class="col-num">筆數</th><th class="col-num">圖數</th>
                 </tr></thead>
                 <tbody id="tblDesign"></tbody>
+                <tfoot id="tfootDesign"></tfoot>
               </table>
             </div>
             <div class="orphan-block d-none" id="orphanDesignWrap">
               <div class="small fw-semibold text-warning mb-1">未對應訂製品分類的設計稿</div>
-              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats"><tbody id="tblOrphanDesign"></tbody></table></div>
+              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats"><tbody id="tblOrphanDesign"></tbody><tfoot id="tfootOrphanDesign"></tfoot></table></div>
             </div>
           </section>
           <section class="d-none" id="panelPromo">
             <div class="panel-head">
               <span class="ph-title">情境圖</span>
-              <span class="ph-nums text-muted">成功且有結果圖</span>
-              <span class="ph-nums"><strong id="psRec">—</strong> 筆 / <strong id="psImg">—</strong> 張</span>
+              <span class="ph-nums text-muted">成功且有結果圖；依生成入口</span>
+              <span class="ph-nums">情境圖頁 <strong id="psPromoPage">—</strong>｜商攝導演 <strong id="psPromoCamera">—</strong></span>
             </div>
             <div class="stats-table-wrap">
-              <table class="table table-sm table-hover mb-0 table-cat-stats">
+              <table class="table table-sm table-hover mb-0 table-cat-stats table-promo-stats">
                 <thead class="table-light"><tr>
-                  <th class="col-main">主分類</th><th class="col-sub">子分類</th><th class="col-num">筆數</th><th class="col-num">張數</th>
+                  <th class="col-main">主分類</th><th class="col-sub">子分類</th><th class="col-num col-promo-page">情境圖頁</th><th class="col-num col-promo-camera">商攝導演</th>
                 </tr></thead>
                 <tbody id="tblPromo"></tbody>
+                <tfoot id="tfootPromo"></tfoot>
               </table>
             </div>
             <div class="orphan-block d-none" id="orphanPromoWrap">
               <div class="small fw-semibold text-warning mb-1">未對應訂製品分類（上傳／其他來源）</div>
-              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats"><tbody id="tblOrphanPromo"></tbody></table></div>
+              <div class="stats-table-wrap"><table class="table table-sm mb-0 table-cat-stats table-promo-stats"><tbody id="tblOrphanPromo"></tbody><tfoot id="tfootOrphanPromo"></tfoot></table></div>
             </div>
           </section>
         </div>
@@ -254,11 +267,11 @@
               <div class="dual-tables">
                 <div class="half">
                   <div class="sub-head">主色區</div>
-                  <table class="table table-sm mb-0 stats-table"><thead><tr><th>材質</th><th class="col-num">次數</th></tr></thead><tbody id="tblMain"></tbody></table>
+                  <table class="table table-sm mb-0 stats-table"><thead><tr><th>材質</th><th class="col-num">次數</th></tr></thead><tbody id="tblMain"></tbody><tfoot id="tfootMain"></tfoot></table>
                 </div>
                 <div class="half">
                   <div class="sub-head">配色區</div>
-                  <table class="table table-sm mb-0 stats-table"><thead><tr><th>材質</th><th class="col-num">次數</th></tr></thead><tbody id="tblAccent"></tbody></table>
+                  <table class="table table-sm mb-0 stats-table"><thead><tr><th>材質</th><th class="col-num">次數</th></tr></thead><tbody id="tblAccent"></tbody><tfoot id="tfootAccent"></tfoot></table>
                 </div>
               </div>
             </div>
@@ -266,13 +279,13 @@
           <section class="d-none" id="panelComboPairs">
             <div class="panel-head"><span class="ph-title">材質組合 TOP</span><span class="ph-nums text-muted">主 + 配 + 輔</span></div>
             <div class="stats-table-wrap">
-              <table class="table table-sm mb-0 stats-table"><thead><tr><th>組合</th><th class="col-num">次數</th></tr></thead><tbody id="tblPairs"></tbody></table>
+              <table class="table table-sm mb-0 stats-table"><thead><tr><th>組合</th><th class="col-num">次數</th></tr></thead><tbody id="tblPairs"></tbody><tfoot id="tfootPairs"></tfoot></table>
             </div>
           </section>
           <section class="d-none" id="panelComboPalette">
             <div class="panel-head"><span class="ph-title">配色範例來源 TOP</span><span class="ph-nums text-muted">套用官方／我的配色後才有</span></div>
             <div class="stats-table-wrap">
-              <table class="table table-sm mb-0 stats-table"><thead><tr><th>類型</th><th>配色名稱</th><th>scope</th><th class="col-num">次數</th></tr></thead><tbody id="tblPalette"></tbody></table>
+              <table class="table table-sm mb-0 stats-table"><thead><tr><th>類型</th><th>配色名稱</th><th>scope</th><th class="col-num">次數</th></tr></thead><tbody id="tblPalette"></tbody><tfoot id="tfootPalette"></tfoot></table>
             </div>
           </section>
         </div>
@@ -288,6 +301,7 @@
             <table class="table table-sm mb-0 stats-table">
               <thead class="table-light"><tr><th>功能</th><th class="col-num">次數</th><th class="col-num">點數</th><th class="col-num">平均/次</th></tr></thead>
               <tbody id="tblPointsFunc"></tbody>
+              <tfoot id="tfootPointsFunc"></tfoot>
             </table>
           </div>
           <div class="sub-block-title">依會員層級</div>
@@ -295,6 +309,7 @@
             <table class="table table-sm mb-0 stats-table">
               <thead class="table-light"><tr><th>層級</th><th class="col-num">人數</th><th class="col-num">次數</th><th class="col-num">點數</th><th class="col-num">平均/人</th></tr></thead>
               <tbody id="tblPointsLevel"></tbody>
+              <tfoot id="tfootPointsLevel"></tfoot>
             </table>
           </div>
           <div class="sub-block-title">每日點數</div>
@@ -302,6 +317,7 @@
             <table class="table table-sm mb-0 stats-table">
               <thead class="table-light"><tr><th>日期</th><th class="col-num">點數</th></tr></thead>
               <tbody id="tblPointsDaily"></tbody>
+              <tfoot id="tfootPointsDaily"></tfoot>
             </table>
           </div>
         </div>
@@ -316,6 +332,7 @@
             <table class="table table-sm mb-0 stats-table">
               <thead class="table-light"><tr><th>行為</th><th class="col-num">次數</th></tr></thead>
               <tbody id="tblActions"></tbody>
+              <tfoot id="tfootActions"></tfoot>
             </table>
           </div>
         </div>
