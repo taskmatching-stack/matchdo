@@ -147,6 +147,9 @@
         var url = (row.image_url || '').trim();
         if (!url) return;
         var combo = row.material_combo || null;
+        if (combo && row.id) {
+          combo = Object.assign({}, combo, { source_generation_id: row.id });
+        }
         var title = (row.title || '').trim();
         if (!title && combo && combo.main && combo.accent) {
           title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');

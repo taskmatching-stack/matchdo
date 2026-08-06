@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>材料組合分析 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+    .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; }
+    .table-sm td, .table-sm th { font-size: 0.875rem; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">材料組合分析</h4>
+        <p class="text-muted small mb-3">
+          聚合「材料組合生成紀錄」與「設計稿材料參考」中的 <code>material_combo</code>：
+          主色區材質、配色區材質（手打亦可）、配色範例來源（新資料起有記錄）。
+        </p>
+
+        <div id="analyticsMsg" class="alert mb-3 py-2 d-none"></div>
+
+        <div class="card mb-3">
+          <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+              <div class="col-auto">
+                <label class="form-label small mb-0">起日</label>
+                <input type="date" class="form-control form-control-sm" id="fromDate" />
+              </div>
+              <div class="col-auto">
+                <label class="form-label small mb-0">迄日</label>
+                <input type="date" class="form-control form-control-sm" id="toDate" />
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnLoad">重新載入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3" id="summaryRow">
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">總筆數</div>
+              <div class="stat-num" id="sumTotal">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">生成紀錄</div>
+              <div class="stat-num text-primary" id="sumGen">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">設計稿引用</div>
+              <div class="stat-num text-success" id="sumDesign">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">雙色</div>
+              <div class="stat-num" id="sumDual">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">三色</div>
+              <div class="stat-num" id="sumTri">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">有配色範例來源</div>
+              <div class="stat-num" id="sumPalette">—</div>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-header bg-white fw-semibold">主色區材質 TOP</div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>材質</th><th class="text-end">次數</th></tr></thead>
+                  <tbody id="tblMain"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-header bg-white fw-semibold">配色區材質 TOP</div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>材質</th><th class="text-end">次數</th></tr></thead>
+                  <tbody id="tblAccent"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header bg-white fw-semibold">材質組合 TOP（主 + 配 + 輔）</div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>組合</th><th class="text-end">次數</th></tr></thead>
+                  <tbody id="tblPairs"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header bg-white fw-semibold">配色範例來源 TOP（套用官方／我的配色後生成才有）</div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>類型</th><th>配色名稱</th><th>scope</th><th class="text-end">次數</th></tr></thead>
+                  <tbody id="tblPalette"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  function showMsg(text, isErr) {
+    var el = document.getElementById('analyticsMsg');
+    el.className = 'alert mb-3 py-2 ' + (isErr ? 'alert-danger' : 'alert-info');
+    el.textContent = text;
+    el.classList.remove('d-none');
+  }
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    var session = await AuthService.getSession();
+    var token = session && session.access_token;
+    if (!token) return {};
+    return { Authorization: 'Bearer ' + token };
+  }
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function fillTable(tbodyId, rows, renderRow) {
+    var tb = document.getElementById(tbodyId);
+    if (!tb) return;
+    if (!rows || !rows.length) {
+      tb.innerHTML = '<tr><td colspan="4" class="text-muted small p-3">尚無資料</td></tr>';
+      return;
+    }
+    tb.innerHTML = rows.map(renderRow).join('');
+  }
+  async function load() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      showMsg('請先登入管理員帳號', true);
+      return;
+    }
+    var from = document.getElementById('fromDate').value;
+    var to = document.getElementById('toDate').value;
+    var qs = new URLSearchParams();
+    if (from) qs.set('from_date', from);
+    if (to) qs.set('to_date', to);
+    showMsg('載入中…', false);
+    try {
+      var res = await fetch('/api/admin/material-combo-analytics?' + qs.toString(), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) {
+        showMsg(data.error || '載入失敗', true);
+        return;
+      }
+      document.getElementById('analyticsMsg').classList.add('d-none');
+      var s = data.summary || {};
+      document.getElementById('sumTotal').textContent = s.total != null ? s.total : '—';
+      document.getElementById('sumGen').textContent = s.from_generations != null ? s.from_generations : '—';
+      document.getElementById('sumDesign').textContent = s.from_design_references != null ? s.from_design_references : '—';
+      document.getElementById('sumDual').textContent = s.dual_count != null ? s.dual_count : '—';
+      document.getElementById('sumTri').textContent = s.tri_count != null ? s.tri_count : '—';
+      document.getElementById('sumPalette').textContent = s.with_palette_source != null ? s.with_palette_source : '—';
+      if (data.generations_table_missing) {
+        showMsg('材料組合生成表尚未建立；設計稿引用仍會統計。', false);
+      }
+      fillTable('tblMain', data.top_main_materials, function (r) {
+        return '<tr><td>' + esc(r.label) + '</td><td class="text-end">' + r.count + '</td></tr>';
+      });
+      fillTable('tblAccent', data.top_accent_materials, function (r) {
+        return '<tr><td>' + esc(r.label) + '</td><td class="text-end">' + r.count + '</td></tr>';
+      });
+      fillTable('tblPairs', data.top_material_combinations, function (r) {
+        return '<tr><td>' + esc(r.label) + '</td><td class="text-end">' + r.count + '</td></tr>';
+      });
+      fillTable('tblPalette', data.top_palette_sources, function (r) {
+        return '<tr><td>' + esc(r.type_name) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.scope) + '</td><td class="text-end">' + r.count + '</td></tr>';
+      });
+    } catch (e) {
+      showMsg('載入失敗', true);
+    }
+  }
+  document.getElementById('btnLoad').addEventListener('click', load);
+  load();
+})();
+  </script>
+</body>
+</html>

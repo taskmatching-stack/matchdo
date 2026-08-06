@@ -92,6 +92,14 @@
                 ratio_percents: Array.isArray(it.ratio_percents) ? it.ratio_percents.slice() : null,
                 ratio_preset: it.ratio_preset || null
             };
+            if (it.id) {
+                payload.source_palette = {
+                    id: it.id,
+                    scope: state.scope === 'mine' ? 'user' : 'platform',
+                    type_name: it.type_name || it.type_text || null,
+                    name: it.name || null
+                };
+            }
             if (typeof applyPalette === 'function') {
                 applyPalette(payload);
                 return;

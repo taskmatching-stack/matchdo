@@ -107,6 +107,7 @@ const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
+const materialComboAnalytics = require('./lib/material-combo-analytics');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
@@ -4655,7 +4656,28 @@ function normalizeMaterialCombo(raw) {
     }
     const boundary = String(raw.boundary || '').trim();
     if (boundary) out.boundary = boundary;
-    return out;
+    return mergeMaterialComboLineage(out, raw);
+}
+
+/** 保留配色範例／生成紀錄等血緣欄位（不影響 normalize 必填驗證） */
+function mergeMaterialComboLineage(combo, raw) {
+    if (!combo || !raw || typeof raw !== 'object') return combo;
+    const sp = raw.source_palette;
+    if (sp && typeof sp === 'object') {
+        const id = sp.id != null ? String(sp.id).trim() : '';
+        const name = sp.name != null ? String(sp.name).trim() : '';
+        if (id || name) {
+            combo.source_palette = {
+                id: id || null,
+                scope: sp.scope != null ? String(sp.scope).trim() || null : null,
+                type_name: sp.type_name != null ? String(sp.type_name).trim() || null : null,
+                name: name || null
+            };
+        }
+    }
+    const gid = raw.source_generation_id;
+    if (gid) combo.source_generation_id = String(gid).trim();
+    return combo;
 }
 
 function parseMaterialComboFromBody(body) {
@@ -9658,6 +9680,76 @@ app.get('/api/admin/design-action-stats', async (req, res) => {
         });
     } catch (e) {
         console.error('GET /api/admin/design-action-stats 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/material-combo-analytics — 材料組合：主色／配色材質、配色範例來源聚合（管理員）
+app.get('/api/admin/material-combo-analytics', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const fromDate = (req.query.from_date || '').trim() || null;
+        const toDate = (req.query.to_date || '').trim() || null;
+        const topLimit = Math.min(50, Math.max(5, parseInt(req.query.top_limit, 10) || 30));
+        const rowLimit = Math.min(10000, Math.max(100, parseInt(req.query.limit, 10) || 5000));
+        const toEnd = toDate && toDate.length <= 10 ? toDate + 'T23:59:59.999Z' : toDate;
+
+        let genQ = supabase
+            .from('user_material_combo_generations')
+            .select('id, material_combo_json, created_at')
+            .order('created_at', { ascending: false })
+            .limit(rowLimit);
+        if (fromDate) genQ = genQ.gte('created_at', fromDate);
+        if (toEnd) genQ = genQ.lte('created_at', toEnd);
+        const { data: genRows, error: genErr } = await genQ;
+
+        let cpQ = supabase
+            .from('custom_products')
+            .select('id, title, reference_sources, created_at')
+            .not('reference_sources', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(rowLimit);
+        if (fromDate) cpQ = cpQ.gte('created_at', fromDate);
+        if (toEnd) cpQ = cpQ.lte('created_at', toEnd);
+        const { data: cpRows, error: cpErr } = await cpQ;
+
+        if (genErr && !isSupabaseMissingTableError(genErr)) {
+            console.error('GET /api/admin/material-combo-analytics generations:', genErr);
+            return res.status(500).json({ error: '查詢材料組合生成紀錄失敗' });
+        }
+        if (cpErr) {
+            console.error('GET /api/admin/material-combo-analytics custom_products:', cpErr);
+            return res.status(500).json({ error: '查詢設計稿引用失敗' });
+        }
+
+        const snapshots = [];
+        (genRows || []).forEach(function (row) {
+            const snap = materialComboAnalytics.parseMaterialComboSnapshot(row.material_combo_json, {
+                source: 'generation',
+                source_id: row.id,
+                generation_id: row.id,
+                created_at: row.created_at
+            });
+            if (snap) snapshots.push(snap);
+        });
+        (cpRows || []).forEach(function (row) {
+            materialComboAnalytics.extractCombosFromReferenceSources(row.reference_sources).forEach(function (snap) {
+                snap.source_id = row.id;
+                snap.created_at = row.created_at || snap.created_at;
+                snapshots.push(snap);
+            });
+        });
+
+        const report = materialComboAnalytics.aggregateMaterialComboSnapshots(snapshots, { top_limit: topLimit });
+        res.json(Object.assign({
+            ok: true,
+            from_date: fromDate,
+            to_date: toDate,
+            generations_table_missing: !!(genErr && isSupabaseMissingTableError(genErr))
+        }, report));
+    } catch (e) {
+        console.error('GET /api/admin/material-combo-analytics 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -25638,6 +25730,143 @@ app.delete('/api/me/material-color-palettes/:id', async (req, res) => {
     }
 });
 
+function mapUserMaterialPresetRow(r) {
+    if (!r) return null;
+    return {
+        id: r.id,
+        kind: r.kind === 'boundary' ? 'boundary' : 'material',
+        name: r.name,
+        sort_order: r.sort_order != null ? r.sort_order : 0,
+        created_at: r.created_at,
+        updated_at: r.updated_at
+    };
+}
+
+function normalizeUserMaterialPresetKind(raw) {
+    const k = String(raw || 'material').trim().toLowerCase();
+    return k === 'boundary' ? 'boundary' : 'material';
+}
+
+// GET /api/me/material-presets — 材料組合常用文字（材質／分界處）
+app.get('/api/me/material-presets', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const kind = normalizeUserMaterialPresetKind(req.query.kind);
+        let q = supabase
+            .from('user_material_presets')
+            .select('id, kind, name, sort_order, created_at, updated_at')
+            .eq('user_id', user.id)
+            .eq('kind', kind)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql', items: [] });
+            }
+            if (/(\bkind\b)/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql（含 kind 欄）', items: [] });
+            }
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        res.json({ items: (data || []).map(mapUserMaterialPresetRow) });
+    } catch (e) {
+        console.error('GET /api/me/material-presets:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// POST /api/me/material-presets — 新增常用（同名同 kind 略過）
+app.post('/api/me/material-presets', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const kind = normalizeUserMaterialPresetKind(body.kind);
+        const name = String(body.name || '').trim().slice(0, 64);
+        if (!name) return res.status(400).json({ error: kind === 'boundary' ? '請填分界處文字' : '請填材質名稱' });
+        const { data: existing, error: findErr } = await supabase
+            .from('user_material_presets')
+            .select('id, kind, name, sort_order, created_at, updated_at')
+            .eq('user_id', user.id)
+            .eq('kind', kind)
+            .ilike('name', name)
+            .maybeSingle();
+        if (findErr) {
+            if (findErr.code === '42P01' || /does not exist/i.test(findErr.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql' });
+            }
+            if (/(\bkind\b)/i.test(findErr.message || '') || findErr.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql（含 kind 欄）' });
+            }
+            return res.status(500).json({ error: findErr.message || '查詢失敗' });
+        }
+        if (existing) {
+            return res.json({ success: true, item: mapUserMaterialPresetRow(existing), duplicate: true });
+        }
+        const insert = {
+            user_id: user.id,
+            kind: kind,
+            name: name,
+            sort_order: parseInt(body.sort_order, 10) || 0,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('user_material_presets').insert(insert).select('*').single();
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql' });
+            }
+            if (/(\bkind\b)/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql（含 kind 欄）' });
+            }
+            if (error.code === '23505') {
+                const { data: dup } = await supabase
+                    .from('user_material_presets')
+                    .select('id, kind, name, sort_order, created_at, updated_at')
+                    .eq('user_id', user.id)
+                    .eq('kind', kind)
+                    .ilike('name', name)
+                    .maybeSingle();
+                return res.json({ success: true, item: mapUserMaterialPresetRow(dup), duplicate: true });
+            }
+            return res.status(500).json({ error: error.message || '儲存失敗' });
+        }
+        res.json({ success: true, item: mapUserMaterialPresetRow(data) });
+    } catch (e) {
+        console.error('POST /api/me/material-presets:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// DELETE /api/me/material-presets/:id
+app.delete('/api/me/material-presets/:id', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const { data, error } = await supabase
+            .from('user_material_presets')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-user-material-presets.sql' });
+            }
+            return res.status(500).json({ error: error.message || '刪除失敗' });
+        }
+        if (!data) return res.status(404).json({ error: '找不到常用材質' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/me/material-presets:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
 app.get('/api/admin/material-color-palette-types', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
@@ -25960,7 +26189,7 @@ async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title,
         };
         const cat = normalizeUserAssetLibraryCategory(category);
         if (cat) row.category = cat;
-        const { error } = await supabase.from('user_material_combo_generations').insert(row);
+        const { data, error } = await supabase.from('user_material_combo_generations').insert(row).select('id').single();
         if (error) {
             if (isSupabaseMissingTableError(error) || error.code === '42P01') {
                 return { ok: false, reason: 'table_missing' };
@@ -25968,7 +26197,7 @@ async function insertUserMaterialComboGeneration(userId, imageUrl, combo, title,
             console.warn('insertUserMaterialComboGeneration:', error.message);
             return { ok: false, reason: error.message || 'insert_failed' };
         }
-        return { ok: true };
+        return { ok: true, id: data && data.id ? data.id : null };
     } catch (e) {
         console.warn('insertUserMaterialComboGeneration:', e.message || e);
         return { ok: false, reason: (e && e.message) || 'insert_failed' };
@@ -26360,10 +26589,20 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             boundary: boundary,
             ratio_percents: ratioPercents,
             ratio_preset: body.ratio_preset || body.ratioPreset || null,
-            color_count: colorCount
+            color_count: colorCount,
+            source_palette: (function () {
+                try {
+                    const raw = body.source_palette_json || body.source_palette;
+                    if (!raw) return null;
+                    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+                } catch (_) {
+                    return null;
+                }
+            })()
         });
         let librarySaved = false;
         let librarySaveError = null;
+        let libraryGenerationId = null;
         if (comboForLibrary && publicUrl) {
             const comboTitle = normalizeUserAssetLibraryTitle(body.title || body.library_title)
                 || ((mainMaterial && accentMaterial) ? `${mainMaterial}／${accentMaterial}` : '材料組合');
@@ -26372,6 +26611,8 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
                 ownerId, publicUrl, comboForLibrary, comboTitle, creditTransactionId, comboCategory
             );
             librarySaved = !!(saved && saved.ok);
+            libraryGenerationId = saved && saved.id ? saved.id : null;
+            if (libraryGenerationId) comboForLibrary.source_generation_id = libraryGenerationId;
             if (!librarySaved) librarySaveError = (saved && saved.reason) || 'insert_failed';
         } else if (publicUrl && !comboForLibrary) {
             librarySaveError = 'combo_invalid';
@@ -26389,7 +26630,9 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             fallback: dualFallback,
             fallback_reason: dualFallbackReason,
             library_saved: librarySaved,
-            library_save_error: librarySaveError
+            library_save_error: librarySaveError,
+            library_generation_id: libraryGenerationId,
+            material_combo: comboForLibrary || null
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/material-dual-color-flux:', e);
