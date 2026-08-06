@@ -1,6 +1,6 @@
 # 後台 AI 模型設定（`/admin/ai-settings.html`）
 
-更新日期：2026-08-05
+更新日期：2026-08-06
 
 ---
 
@@ -14,7 +14,20 @@
 | **語意提示詞 API** | `GET`／`PATCH` [`/api/admin/semantics-prompts`](../server.js) |
 | **儲存位置** | Supabase `payment_config` 表，鍵名見下表 |
 
-本頁涵蓋 **Gemini**（翻譯／讀圖／標籤／材料優化／材料組合 Lite・Flash）與 **FLUX** 多槽，見 §2。材料色卡 AI 優化走 Gemini（`gemini_model_material_optimize`）；材料組合生圖另兩槽，見 §2.2。
+本頁涵蓋 **重繪引擎切換**、**Gemini**（翻譯／讀圖／標籤／材料優化／材料組合 Lite・Flash）與 **FLUX** 多槽。
+
+---
+
+## 1.1 重繪引擎切換（`*_engine`）
+
+| 後台欄位 | `payment_config.key` | 環境變數備援 | 影響範圍 |
+|----------|----------------------|--------------|----------|
+| 數位原型／零件／材料 AI 重繪 | `vendor_asset_optimize_engine` | `VENDOR_ASSET_OPTIMIZE_ENGINE` | 官方／廠商／供應商「AI 重繪」 |
+| 材料組合生圖 | `material_dual_color_engine` | `MATERIAL_DUAL_COLOR_ENGINE` | `material-dual-color` |
+| 印花資產 AI 重繪 | `print_asset_engine` | `PRINT_ASSET_ENGINE` | 印花資產重繪 |
+
+可選值：`auto`（Gemini 優先，滿額／429 → FLUX）、`gemini`（僅 Gemini）、`flux`（僅 FLUX）。  
+**優先序**：DB 已存值 → 環境變數 → 預設 `auto`。儲存後立即生效。
 
 ---
 
@@ -25,8 +38,8 @@
 | 後台欄位 | `payment_config.key` | 程式預設 | 用途 |
 |----------|----------------------|----------|------|
 | 訂製設計頁生圖 | `bfl_flux_model_generate` | `flux-2-pro` | `POST /api/generate-product-image` |
-| 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪 |
-| 廠商材料 AI 優化（legacy） | `bfl_flux_model_vendor_material` | `flux-2-pro` | 現未使用；材料請用 Gemini |
+| 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪（含備援／強制 FLUX） |
+| 廠商材料／材料組合 FLUX | `bfl_flux_model_vendor_material` | `flux-2-pro` | 材料重繪與材料組合備援／強制 FLUX |
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
 | 寫實化 | `bfl_flux_model_design_to_physical` | `flux-2-pro` | 設計頁／廠商寫實化（獨立槽） |
 

@@ -289,6 +289,39 @@ async function getPrintAssetOptimizeModelName() {
     return process.env.GEMINI_MODEL_PRINT_ASSET || GEMINI_MODEL_PRINT_ASSET_DEFAULT;
 }
 
+/** @returns {'auto'|'gemini'|'flux'} */
+function normalizeOptimizeEnginePref(raw) {
+    const v = String(raw == null ? '' : raw).trim().toLowerCase();
+    if (v === 'gemini' || v === 'flux' || v === 'auto') return v;
+    return 'auto';
+}
+
+/**
+ * 讀取重繪／組合引擎偏好：payment_config 優先，其次環境變數，預設 auto。
+ * @param {string} configKey
+ * @param {string} envKey
+ */
+async function getOptimizeEnginePref(configKey, envKey) {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', configKey).maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return normalizeOptimizeEnginePref(fromDb);
+    } catch (_) {}
+    return normalizeOptimizeEnginePref(process.env[envKey] || 'auto');
+}
+
+async function getVendorAssetOptimizeEngine() {
+    return getOptimizeEnginePref('vendor_asset_optimize_engine', 'VENDOR_ASSET_OPTIMIZE_ENGINE');
+}
+
+async function getMaterialDualColorEngine() {
+    return getOptimizeEnginePref('material_dual_color_engine', 'MATERIAL_DUAL_COLOR_ENGINE');
+}
+
+async function getPrintAssetEngine() {
+    return getOptimizeEnginePref('print_asset_engine', 'PRINT_ASSET_ENGINE');
+}
+
 function getVisualSemanticsDeps() {
     return {
         supabase,
@@ -4180,10 +4213,10 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
 
 /**
  * 優先 Gemini（Lite／Flash）→ 本站軟上限或 API 429 則 FLUX；額度恢復後自動切回 Gemini。
- * MATERIAL_DUAL_COLOR_ENGINE=flux 強制 FLUX；=gemini 強制 Gemini（不 fallback）。
+ * 引擎偏好：後台 payment_config.material_dual_color_engine 或 MATERIAL_DUAL_COLOR_ENGINE=auto|gemini|flux。
  */
 async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extraOpts) {
-    const pref = String(process.env.MATERIAL_DUAL_COLOR_ENGINE || 'auto').trim().toLowerCase();
+    const pref = await getMaterialDualColorEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
     const hasKey = !!process.env.GEMINI_API_KEY;
@@ -4301,10 +4334,10 @@ async function optimizePrintAssetWithFlux(fileBuffer, printType) {
 
 /**
  * 印花重繪：優先 Gemini Lite → 軟上限／429 則 FLUX。
- * PRINT_ASSET_ENGINE=flux|gemini|auto（預設 auto）
+ * 引擎偏好：後台 print_asset_engine 或 PRINT_ASSET_ENGINE=auto|gemini|flux。
  */
 async function optimizePrintAsset(fileBuffer, printType) {
-    const pref = String(process.env.PRINT_ASSET_ENGINE || 'auto').trim().toLowerCase();
+    const pref = await getPrintAssetEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
     const hasKey = !!process.env.GEMINI_API_KEY;
@@ -4740,13 +4773,13 @@ async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, prom
 
 /**
  * 廠商／官方／供應商材料與版型 AI 重繪：優先 Gemini Lite → 軟上限／429 則 FLUX（受 BFL 排隊）。
- * VENDOR_ASSET_OPTIMIZE_ENGINE=auto|gemini|flux（預設 auto）
+ * 引擎偏好：後台 vendor_asset_optimize_engine 或 VENDOR_ASSET_OPTIMIZE_ENGINE=auto|gemini|flux。
  */
 async function optimizeVendorAssetImage(
     fileBuffer, mimeType, productNameRaw, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
     materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand, photoCtx
 ) {
-    const pref = String(process.env.VENDOR_ASSET_OPTIMIZE_ENGINE || 'auto').trim().toLowerCase();
+    const pref = await getVendorAssetOptimizeEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
     const hasKey = !!process.env.GEMINI_API_KEY;
@@ -8765,14 +8798,23 @@ app.get('/api/admin/ai-config', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
+        const engineKeys = [
+            'vendor_asset_optimize_engine',
+            'material_dual_color_engine',
+            'print_asset_engine'
+        ];
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
             'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash', 'gemini_model_print_asset',
+            ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', configKeys);
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
         const bfl = resolveBflFluxModelsFromRows(rows);
+        const vendorEngine = await getVendorAssetOptimizeEngine();
+        const comboEngine = await getMaterialDualColorEngine();
+        const printEngine = await getPrintAssetEngine();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -8781,6 +8823,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite || process.env.GEMINI_MODEL_MATERIAL_COMBO_LITE || GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash || process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT,
             gemini_model_print_asset: byKey.gemini_model_print_asset || process.env.GEMINI_MODEL_PRINT_ASSET || GEMINI_MODEL_PRINT_ASSET_DEFAULT,
+            vendor_asset_optimize_engine: vendorEngine,
+            material_dual_color_engine: comboEngine,
+            print_asset_engine: printEngine,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -8791,6 +8836,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_material_combo_lite: !!byKey.gemini_model_material_combo_lite,
                 gemini_model_material_combo_flash: !!byKey.gemini_model_material_combo_flash,
                 gemini_model_print_asset: !!byKey.gemini_model_print_asset,
+                vendor_asset_optimize_engine: !!byKey.vendor_asset_optimize_engine,
+                material_dual_color_engine: !!byKey.material_dual_color_engine,
+                print_asset_engine: !!byKey.print_asset_engine,
                 ...bfl.saved_in_db
             }
         });
@@ -8828,6 +8876,22 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         }
         if (body.gemini_model_print_asset !== undefined) {
             upserts.push({ key: 'gemini_model_print_asset', value: String(body.gemini_model_print_asset).trim(), updated_at: now });
+        }
+        const engineFields = [
+            'vendor_asset_optimize_engine',
+            'material_dual_color_engine',
+            'print_asset_engine'
+        ];
+        for (const key of engineFields) {
+            if (body[key] === undefined) continue;
+            const raw = String(body[key]).trim().toLowerCase();
+            if (raw !== 'auto' && raw !== 'gemini' && raw !== 'flux') {
+                return res.status(400).json({
+                    error: '引擎偏好無效：' + key,
+                    hint: '請選 auto、gemini 或 flux'
+                });
+            }
+            upserts.push({ key, value: raw, updated_at: now });
         }
         for (const key of Object.keys(BFL_FLUX_MODEL_CONFIG)) {
             if (body[key] === undefined) continue;
@@ -8867,6 +8931,15 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite ?? null,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash ?? null,
             gemini_model_print_asset: byKey.gemini_model_print_asset ?? null,
+            vendor_asset_optimize_engine: byKey.vendor_asset_optimize_engine
+                ? normalizeOptimizeEnginePref(byKey.vendor_asset_optimize_engine)
+                : null,
+            material_dual_color_engine: byKey.material_dual_color_engine
+                ? normalizeOptimizeEnginePref(byKey.material_dual_color_engine)
+                : null,
+            print_asset_engine: byKey.print_asset_engine
+                ? normalizeOptimizeEnginePref(byKey.print_asset_engine)
+                : null,
             ...bfl.models
         });
     } catch (e) {

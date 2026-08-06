@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。材料色卡 AI 優化用 Gemini；材料組合生圖用 Nano Banana Flash／Lite（可於下方分槽設定）；產品重繪／設計頁生圖仍用 FLUX（預設 <code>flux-2-pro</code>）。</p>
+        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。下方「重繪引擎切換」可選 auto（Gemini 優先、滿額／429 備援 FLUX）、強制 Gemini、或強制 FLUX。儲存後立即生效，不必改 Cloud Run 環境變數。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -22,6 +22,48 @@
           <span id="loginStatusText">檢查中…</span>
           <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入</a>
           <button type="button" id="logoutBtn" class="btn btn-sm btn-outline-secondary" style="display:none;">登出</button>
+        </div>
+
+        <div class="card mb-3 border-warning">
+          <div class="card-body">
+            <h6 class="card-title">重繪引擎切換</h6>
+            <p class="form-text small text-muted mb-3">
+              <code>auto</code>＝Gemini 優先，滿額或 API 429 才備援 FLUX；
+              <code>gemini</code>＝只用 Gemini（不備援）；
+              <code>flux</code>＝只用 FLUX。寫入 <code>payment_config</code>，優先於環境變數。
+            </p>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small mb-1" for="engineVendorAsset">數位原型／零件／材料 AI 重繪</label>
+                <select id="engineVendorAsset" class="form-select form-select-sm">
+                  <option value="auto">auto（Gemini → FLUX 備援）</option>
+                  <option value="gemini">gemini（僅 Gemini）</option>
+                  <option value="flux">flux（僅 FLUX）</option>
+                </select>
+                <p class="form-text small text-muted mb-0"><code>vendor_asset_optimize_engine</code></p>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-1" for="engineMaterialCombo">材料組合生圖</label>
+                <select id="engineMaterialCombo" class="form-select form-select-sm">
+                  <option value="auto">auto（Gemini → FLUX 備援）</option>
+                  <option value="gemini">gemini（僅 Gemini）</option>
+                  <option value="flux">flux（僅 FLUX）</option>
+                </select>
+                <p class="form-text small text-muted mb-0"><code>material_dual_color_engine</code></p>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-1" for="enginePrintAsset">印花資產 AI 重繪</label>
+                <select id="enginePrintAsset" class="form-select form-select-sm">
+                  <option value="auto">auto（Gemini → FLUX 備援）</option>
+                  <option value="gemini">gemini（僅 Gemini）</option>
+                  <option value="flux">flux（僅 FLUX）</option>
+                </select>
+                <p class="form-text small text-muted mb-0"><code>print_asset_engine</code></p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-warning mt-3" id="btnSaveEngineConfig">儲存引擎切換</button>
+            <span id="engineConfigDbHint" class="small text-muted ms-2"></span>
+          </div>
         </div>
 
         <div class="card mb-3">
@@ -86,9 +128,9 @@
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_product</code> — 數位原型／零件白底重繪</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">廠商材料 AI 優化（legacy）</label>
-              <input type="text" id="bflFluxModelVendorMaterial" class="form-control form-control-sm" placeholder="flux-2-pro" disabled title="材料已改 Gemini，此欄保留 DB 鍵、現未使用" />
-              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_material</code> — 現未使用；材料請改上方 Gemini「材料 AI 優化」欄位。</p>
+              <label class="form-label small mb-1">廠商材料／材料組合 FLUX 備援</label>
+              <input type="text" id="bflFluxModelVendorMaterial" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_material</code> — 材料 AI 重繪與材料組合在備援／強制 FLUX 時使用</p>
             </div>
             <div class="mb-3">
               <label class="form-label small mb-1">實境模擬／圖樣提取</label>
@@ -188,6 +230,26 @@
     el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
     el.textContent = msg;
   }
+  function applyEngineConfigToForm(data) {
+    var vendor = document.getElementById('engineVendorAsset');
+    var combo = document.getElementById('engineMaterialCombo');
+    var print = document.getElementById('enginePrintAsset');
+    if (vendor && data.vendor_asset_optimize_engine) vendor.value = data.vendor_asset_optimize_engine;
+    if (combo && data.material_dual_color_engine) combo.value = data.material_dual_color_engine;
+    if (print && data.print_asset_engine) print.value = data.print_asset_engine;
+    var hint = document.getElementById('engineConfigDbHint');
+    if (hint && data.saved_in_db) {
+      var s = data.saved_in_db;
+      var parts = [];
+      if (s.vendor_asset_optimize_engine) parts.push('版型／材料');
+      if (s.material_dual_color_engine) parts.push('材料組合');
+      if (s.print_asset_engine) parts.push('印花');
+      hint.textContent = parts.length
+        ? '（已從資料庫載入：' + parts.join('、') + '）'
+        : '（尚未寫入 DB；目前為程式／環境變數預設 auto）';
+    }
+  }
+
   function applyBflFluxConfigToForm(data) {
     var gen = document.getElementById('bflFluxModelGenerate');
     var official = document.getElementById('bflFluxModelOfficial');
@@ -210,7 +272,7 @@
       if (s.bfl_flux_model_generate) parts.push('設計頁');
       if (s.bfl_flux_model_official) parts.push('官方版型');
       if (s.bfl_flux_model_vendor_product) parts.push('產品重繪');
-      if (s.bfl_flux_model_vendor_material) parts.push('材料');
+      if (s.bfl_flux_model_vendor_material) parts.push('材料備援');
       if (s.bfl_flux_model_scene_pattern) parts.push('實境/圖樣');
       if (s.bfl_flux_model_design_to_physical) parts.push('寫實化');
       if (s.bfl_flux_model_promo_image) parts.push('情境圖');
@@ -247,6 +309,7 @@
       if (s.gemini_model_print_asset) parts.push('印花');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
+    applyEngineConfigToForm(data);
     applyBflFluxConfigToForm(data);
   }
 
@@ -352,6 +415,35 @@
     } catch (e) { showMsg('儲存失敗', true); }
   }
 
+  async function saveEngineConfig() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var vendor = document.getElementById('engineVendorAsset');
+    var combo = document.getElementById('engineMaterialCombo');
+    var print = document.getElementById('enginePrintAsset');
+    var payload = {
+      vendor_asset_optimize_engine: (vendor && vendor.value) || 'auto',
+      material_dual_color_engine: (combo && combo.value) || 'auto',
+      print_asset_engine: (print && print.value) || 'auto'
+    };
+    var btn = document.getElementById('btnSaveEngineConfig');
+    if (btn) btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/ai-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = await res.json();
+      if (!res.ok) {
+        showMsg(data.error || '儲存失敗', true);
+        return;
+      }
+      await loadAiConfig();
+      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」');
+    } catch (e) {
+      showMsg('儲存失敗：' + (e.message || ''), true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function saveBflFluxConfig() {
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -359,6 +451,7 @@
       bfl_flux_model_generate: (document.getElementById('bflFluxModelGenerate') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_official: (document.getElementById('bflFluxModelOfficial') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_vendor_product: (document.getElementById('bflFluxModelVendorProduct') || {}).value.trim() || 'flux-2-pro',
+      bfl_flux_model_vendor_material: (document.getElementById('bflFluxModelVendorMaterial') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_design_to_physical: (document.getElementById('bflFluxModelDesignToPhysical') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_promo_image: (document.getElementById('bflFluxModelPromoImage') || {}).value.trim() || 'flux-2-pro'
@@ -373,7 +466,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，官方版型「' + payload.bfl_flux_model_official + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，寫實化「' + payload.bfl_flux_model_design_to_physical + '」，情境圖「' + payload.bfl_flux_model_promo_image + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -541,6 +634,7 @@
       location.href = '/login.html';
     });
     document.getElementById('btnSaveAiConfig')?.addEventListener('click', saveAiConfig);
+    document.getElementById('btnSaveEngineConfig')?.addEventListener('click', saveEngineConfig);
     document.getElementById('btnSaveBflFluxConfig')?.addEventListener('click', saveBflFluxConfig);
     document.getElementById('btnSaveGeneratedImageSemanticsPrompt')?.addEventListener('click', saveGeneratedImageSemanticsPrompt);
     document.getElementById('btnResetGeneratedImageSemanticsPrompt')?.addEventListener('click', resetGeneratedImageSemanticsPrompt);
