@@ -7,19 +7,47 @@
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <style>
-    .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
-    .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; }
-    .table-sm td, .table-sm th { font-size: 0.875rem; vertical-align: middle; }
-    .table-cat-stats { table-layout: fixed; width: 100%; min-width: 640px; }
-    .table-cat-stats .col-main { width: 9.5rem; max-width: 9.5rem; }
-    .table-cat-stats .col-sub { width: 8rem; max-width: 8rem; }
-    .table-cat-stats .col-num { width: 4.75rem; }
-    .cell-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    tr.row-sub td:first-child { color: transparent; font-size: 0; }
-    tr.row-sub td:nth-child(2) { padding-left: 0.5rem; color: #6c757d; }
-    tr.row-total td { font-weight: 600; background: rgba(0,0,0,.02); }
+    main.stats-main { max-width: 960px; }
+    .toolbar-row { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: flex-end; }
+    .tab-bar { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .tab-bar .tab-btn {
+      border: 1px solid #dee2e6;
+      background: #fff;
+      border-radius: 0.375rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      line-height: 1.3;
+    }
+    .tab-bar .tab-btn:hover { background: #f8f9fa; }
+    .tab-bar .tab-btn.active {
+      border-color: #7A8FA3;
+      background: #eef2f5;
+      font-weight: 600;
+    }
+    .tab-bar .tab-btn .tab-meta { color: #6c757d; font-weight: 400; margin-left: 0.25rem; }
+    .panel-head {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 1rem;
+      padding: 0.5rem 0.75rem; background: #fff; border: 1px solid #dee2e6; border-bottom: 0;
+      border-radius: 0.375rem 0.375rem 0 0; font-size: 0.8125rem;
+    }
+    .panel-head .ph-title { font-weight: 600; }
+    .panel-head .ph-nums { color: #495057; }
+    .panel-head .ph-nums strong { color: #212529; }
+    .stats-table-wrap {
+      border: 1px solid #dee2e6; border-radius: 0 0 0.375rem 0.375rem;
+      background: #fff; overflow-x: auto;
+    }
+    .table-cat-stats { width: auto; min-width: 100%; margin: 0; font-size: 0.8125rem; }
+    .table-cat-stats th, .table-cat-stats td { padding: 0.3rem 0.5rem; vertical-align: middle; white-space: nowrap; }
+    .table-cat-stats th.col-main, .table-cat-stats td.col-main { min-width: 7.5rem; max-width: 11rem; white-space: normal; }
+    .table-cat-stats th.col-sub, .table-cat-stats td.col-sub { min-width: 6.5rem; max-width: 10rem; white-space: normal; }
+    .table-cat-stats .col-num { text-align: right; min-width: 3.25rem; }
+    tr.row-total td { font-weight: 600; background: rgba(0,0,0,.025); }
+    tr.row-sub td.col-sub { padding-left: 1rem; color: #495057; font-weight: 400; }
     tr.row-inactive td { opacity: 0.65; }
     tr.row-orphan td { background: rgba(255, 193, 7, 0.08); }
+    .orphan-block { margin-top: 0.75rem; font-size: 0.8125rem; }
   </style>
 </head>
 <body class="bg-light">
@@ -27,156 +55,143 @@
   <div class="container-fluid">
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
-      <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-1">分類使用統計</h4>
-        <p class="text-muted small mb-3">
-          依「訂製品分類」彙總全站<strong>素材</strong>、<strong>設計稿</strong>、<strong>情境圖</strong>使用情形（主分類／子分類）。
-        </p>
+      <main class="col-md-9 col-lg-10 py-3 stats-main">
+        <h5 class="mb-1">分類使用統計</h5>
+        <p class="text-muted small mb-2">依訂製品分類彙總素材、設計稿、情境圖。</p>
 
-        <div id="statsMsg" class="alert mb-3 py-2 d-none"></div>
+        <div id="statsMsg" class="alert mb-2 py-2 d-none small"></div>
 
-        <div class="card mb-3">
-          <div class="card-body py-3">
-            <div class="row g-2 align-items-end">
-              <div class="col-auto">
+        <div class="card mb-2">
+          <div class="card-body py-2 px-3">
+            <div class="toolbar-row">
+              <div>
                 <label class="form-label small mb-0">起日</label>
                 <input type="date" class="form-control form-control-sm" id="fromDate" />
               </div>
-              <div class="col-auto">
+              <div>
                 <label class="form-label small mb-0">迄日</label>
                 <input type="date" class="form-control form-control-sm" id="toDate" />
               </div>
-              <div class="col-auto d-flex flex-wrap gap-1 align-items-end pb-1">
+              <div class="d-flex flex-wrap gap-1 align-items-end pb-1">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-range="all">全部</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="7">近 7 日</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="30">近 30 日</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="7">7 日</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="30">30 日</button>
               </div>
-              <div class="col-auto">
-                <div class="form-check form-check-inline mb-0">
-                  <input class="form-check-input" type="checkbox" id="chkPublicOnly" />
-                  <label class="form-check-label small" for="chkPublicOnly">素材僅公開（is_public）</label>
-                </div>
+              <div class="form-check form-check-inline mb-1">
+                <input class="form-check-input" type="checkbox" id="chkPublicOnly" />
+                <label class="form-check-label small" for="chkPublicOnly">素材僅公開</label>
               </div>
-              <div class="col-auto">
-                <div class="form-check form-check-inline mb-0">
-                  <input class="form-check-input" type="checkbox" id="chkIncludeInactive" checked />
-                  <label class="form-check-label small" for="chkIncludeInactive">含停用分類列（仍顯示 0）</label>
-                </div>
+              <div class="form-check form-check-inline mb-1">
+                <input class="form-check-input" type="checkbox" id="chkIncludeInactive" checked />
+                <label class="form-check-label small" for="chkIncludeInactive">含停用</label>
               </div>
-              <div class="col-auto">
-                <button type="button" class="btn btn-sm btn-primary" id="btnLoad">重新載入</button>
-              </div>
+              <button type="button" class="btn btn-sm btn-primary mb-1" id="btnLoad">載入</button>
             </div>
-            <p class="text-muted small mb-0 mt-2">依各表 <code>created_at</code> 篩選；空白＝不限時間。</p>
-            <div class="small text-muted mt-1" id="rangeMeta"></div>
-            <div class="small text-muted mt-1" id="scanMeta"></div>
+            <div class="small text-muted mt-1">
+              <span id="rangeMeta">—</span>
+              <span class="ms-2" id="scanMeta"></span>
+            </div>
           </div>
         </div>
 
+        <div class="tab-bar" role="tablist">
+          <button type="button" class="tab-btn active" data-panel="vendor" role="tab">
+            素材<span class="tab-meta" id="tabMetaVendor">—</span>
+          </button>
+          <button type="button" class="tab-btn" data-panel="design" role="tab">
+            設計稿<span class="tab-meta" id="tabMetaDesign">—</span>
+          </button>
+          <button type="button" class="tab-btn" data-panel="promo" role="tab">
+            情境圖<span class="tab-meta" id="tabMetaPromo">—</span>
+          </button>
+        </div>
+
         <!-- 素材 -->
-        <div class="card mb-3">
-          <div class="card-header bg-white py-2">
-            <span class="fw-semibold">素材（vendor_assets）</span>
-            <span class="text-muted small ms-1">原型／材料；圖數＝封面＋圖庫</span>
+        <section class="panel-section" id="panelVendor">
+          <div class="panel-head">
+            <span class="ph-title">素材</span>
+            <span class="ph-nums text-muted">圖數＝封面＋圖庫</span>
+            <span class="ph-nums">原型 <strong id="vaProtoRec">—</strong> 筆 / <strong id="vaProtoImg">—</strong> 圖</span>
+            <span class="ph-nums">材料 <strong id="vaMatRec">—</strong> 筆 / <strong id="vaMatImg">—</strong> 圖</span>
           </div>
-          <div class="card-body py-2">
-            <div class="row g-2 mb-2">
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">原型筆數</div><div class="stat-num text-primary" id="vaProtoRec">—</div></div></div></div>
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">原型圖數</div><div class="stat-num text-primary" id="vaProtoImg">—</div></div></div></div>
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">材料筆數</div><div class="stat-num text-success" id="vaMatRec">—</div></div></div></div>
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">材料圖數</div><div class="stat-num text-success" id="vaMatImg">—</div></div></div></div>
-            </div>
-          </div>
-          <div class="table-responsive">
+          <div class="stats-table-wrap">
             <table class="table table-sm table-hover mb-0 table-cat-stats">
               <thead class="table-light">
                 <tr>
                   <th class="col-main">主分類</th>
                   <th class="col-sub">子分類</th>
-                  <th class="text-end col-num">原型筆</th>
-                  <th class="text-end col-num">原型圖</th>
-                  <th class="text-end col-num">材料筆</th>
-                  <th class="text-end col-num">材料圖</th>
+                  <th class="col-num">原型筆</th>
+                  <th class="col-num">原型圖</th>
+                  <th class="col-num">材料筆</th>
+                  <th class="col-num">材料圖</th>
                 </tr>
               </thead>
               <tbody id="tblVendor"></tbody>
             </table>
           </div>
-          <div class="card-footer py-2 d-none" id="orphanVendorWrap">
+          <div class="orphan-block d-none" id="orphanVendorWrap">
             <div class="small fw-semibold text-warning mb-1">未對應訂製品分類的素材</div>
-            <div class="table-responsive">
-              <table class="table table-sm table-hover mb-0 table-cat-stats">
-                <tbody id="tblOrphanVendor"></tbody>
-              </table>
+            <div class="stats-table-wrap">
+              <table class="table table-sm table-hover mb-0 table-cat-stats"><tbody id="tblOrphanVendor"></tbody></table>
             </div>
           </div>
-        </div>
+        </section>
 
         <!-- 設計稿 -->
-        <div class="card mb-3">
-          <div class="card-header bg-white py-2">
-            <span class="fw-semibold">設計稿（custom_products）</span>
-            <span class="text-muted small ms-1">圖數＝AI 生成圖＋參考示意圖（各算 1 張）</span>
+        <section class="panel-section d-none" id="panelDesign">
+          <div class="panel-head">
+            <span class="ph-title">設計稿</span>
+            <span class="ph-nums text-muted">圖數＝AI 生成＋參考示意</span>
+            <span class="ph-nums"><strong id="ddRec">—</strong> 筆 / <strong id="ddImg">—</strong> 圖</span>
           </div>
-          <div class="card-body py-2">
-            <div class="row g-2 mb-2">
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">設計稿筆數</div><div class="stat-num text-primary" id="ddRec">—</div></div></div></div>
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">設計稿圖數</div><div class="stat-num text-primary" id="ddImg">—</div></div></div></div>
-            </div>
-          </div>
-          <div class="table-responsive">
+          <div class="stats-table-wrap">
             <table class="table table-sm table-hover mb-0 table-cat-stats">
               <thead class="table-light">
                 <tr>
                   <th class="col-main">主分類</th>
                   <th class="col-sub">子分類</th>
-                  <th class="text-end col-num">筆數</th>
-                  <th class="text-end col-num">圖數</th>
+                  <th class="col-num">筆數</th>
+                  <th class="col-num">圖數</th>
                 </tr>
               </thead>
               <tbody id="tblDesign"></tbody>
             </table>
           </div>
-          <div class="card-footer py-2 d-none" id="orphanDesignWrap">
+          <div class="orphan-block d-none" id="orphanDesignWrap">
             <div class="small fw-semibold text-warning mb-1">未對應訂製品分類的設計稿</div>
-            <div class="table-responsive">
+            <div class="stats-table-wrap">
               <table class="table table-sm table-hover mb-0 table-cat-stats"><tbody id="tblOrphanDesign"></tbody></table>
             </div>
           </div>
-        </div>
+        </section>
 
         <!-- 情境圖 -->
-        <div class="card mb-3">
-          <div class="card-header bg-white py-2">
-            <span class="fw-semibold">情境圖（product_promo_generations）</span>
-            <span class="text-muted small ms-1">僅成功且有結果圖；分類依來源設計稿／素材</span>
+        <section class="panel-section d-none" id="panelPromo">
+          <div class="panel-head">
+            <span class="ph-title">情境圖</span>
+            <span class="ph-nums text-muted">成功且有結果圖</span>
+            <span class="ph-nums"><strong id="psRec">—</strong> 筆 / <strong id="psImg">—</strong> 張</span>
           </div>
-          <div class="card-body py-2">
-            <div class="row g-2 mb-2">
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">情境圖筆數</div><div class="stat-num text-success" id="psRec">—</div></div></div></div>
-              <div class="col-6 col-md-3 col-lg-2"><div class="card stat-card"><div class="card-body py-2 px-3"><div class="text-muted small">情境圖張數</div><div class="stat-num text-success" id="psImg">—</div></div></div></div>
-            </div>
-          </div>
-          <div class="table-responsive">
+          <div class="stats-table-wrap">
             <table class="table table-sm table-hover mb-0 table-cat-stats">
               <thead class="table-light">
                 <tr>
                   <th class="col-main">主分類</th>
                   <th class="col-sub">子分類</th>
-                  <th class="text-end col-num">筆數</th>
-                  <th class="text-end col-num">張數</th>
+                  <th class="col-num">筆數</th>
+                  <th class="col-num">張數</th>
                 </tr>
               </thead>
               <tbody id="tblPromo"></tbody>
             </table>
           </div>
-          <div class="card-footer py-2 d-none" id="orphanPromoWrap">
+          <div class="orphan-block d-none" id="orphanPromoWrap">
             <div class="small fw-semibold text-warning mb-1">未對應訂製品分類（上傳／其他來源）</div>
-            <div class="table-responsive">
+            <div class="stats-table-wrap">
               <table class="table table-sm table-hover mb-0 table-cat-stats"><tbody id="tblOrphanPromo"></tbody></table>
             </div>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   </div>
@@ -186,9 +201,40 @@
   <script src="/admin/js/admin-common.js"></script>
   <script>
 (function () {
+  var PANELS = {
+    vendor: document.getElementById('panelVendor'),
+    design: document.getElementById('panelDesign'),
+    promo: document.getElementById('panelPromo')
+  };
+
+  function showPanel(name) {
+    var key = PANELS[name] ? name : 'vendor';
+    Object.keys(PANELS).forEach(function (k) {
+      if (PANELS[k]) PANELS[k].classList.toggle('d-none', k !== key);
+    });
+    document.querySelectorAll('.tab-btn').forEach(function (el) {
+      el.classList.toggle('active', el.getAttribute('data-panel') === key);
+    });
+    if (window.history && window.history.replaceState) {
+      var u = new URL(window.location.href);
+      u.searchParams.set('tab', key);
+      window.history.replaceState(null, '', u.pathname + u.search);
+    }
+  }
+
+  function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(function (el) {
+      el.addEventListener('click', function () {
+        showPanel(el.getAttribute('data-panel'));
+      });
+    });
+    var tab = (new URLSearchParams(window.location.search).get('tab') || '').trim();
+    showPanel(tab === 'design' || tab === 'promo' ? tab : 'vendor');
+  }
+
   function showMsg(text, isErr) {
     var el = document.getElementById('statsMsg');
-    el.className = 'alert mb-3 py-2 ' + (isErr ? 'alert-danger' : 'alert-info');
+    el.className = 'alert mb-2 py-2 small ' + (isErr ? 'alert-danger' : 'alert-info');
     el.textContent = text;
     el.classList.remove('d-none');
   }
@@ -203,27 +249,32 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
   function numCell(n) {
-    return '<td class="text-end">' + (n != null ? n : 0) + '</td>';
+    return '<td class="col-num">' + (n != null ? n : 0) + '</td>';
   }
   function catMainCell(cat) {
     var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
-    var html = '<span class="cell-ellipsis d-inline-block" style="max-width:100%" title="' + title + '">' + esc(cat.category_name);
+    var html = esc(cat.category_name);
     if (cat.is_active === false) html += ' <span class="badge bg-secondary">停</span>';
-    html += '</span>';
-    return html;
+    return '<span title="' + title + '">' + html + '</span>';
+  }
+  function visibleSubs(subs, pickFn) {
+    return (subs || []).filter(function (sub) { return pickFn(sub); });
   }
   function renderVendorRows(categories) {
     if (!categories || !categories.length) {
-      return '<tr><td colspan="6" class="text-muted small p-3">尚無分類或資料</td></tr>';
+      return '<tr><td colspan="6" class="text-muted p-2">尚無分類或資料</td></tr>';
     }
     var html = [];
     categories.forEach(function (cat) {
       var cls = cat.is_active === false ? ' row-inactive' : '';
-      html.push('<tr class="row-total' + cls + '"><td class="col-main">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
+      var subs = visibleSubs(cat.subcategories, function (s) {
+        return s.prototype_records || s.prototype_images || s.material_records || s.material_images;
+      });
+      var span = subs.length + 1;
+      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
         + numCell(cat.prototype_records) + numCell(cat.prototype_images) + numCell(cat.material_records) + numCell(cat.material_images) + '</tr>');
-      (cat.subcategories || []).forEach(function (sub) {
-        if (!sub.prototype_records && !sub.prototype_images && !sub.material_records && !sub.material_images) return;
-        html.push('<tr class="row-sub' + cls + '"><td></td><td class="cell-ellipsis" title="' + esc(sub.subcategory_name) + '">' + esc(sub.subcategory_name) + '</td>'
+      subs.forEach(function (sub) {
+        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>'
           + numCell(sub.prototype_records) + numCell(sub.prototype_images) + numCell(sub.material_records) + numCell(sub.material_images) + '</tr>');
       });
     });
@@ -231,18 +282,19 @@
   }
   function renderSimpleRows(categories, orphanMode) {
     if (!categories || !categories.length) {
-      return '<tr><td colspan="4" class="text-muted small p-3">尚無分類或資料</td></tr>';
+      return '<tr><td colspan="4" class="text-muted p-2">尚無分類或資料</td></tr>';
     }
     var html = [];
     categories.forEach(function (cat) {
       var cls = (cat.is_active === false ? ' row-inactive' : '') + (orphanMode ? ' row-orphan' : '');
+      var subs = visibleSubs(cat.subcategories, function (s) { return s.records || s.images; });
+      var span = subs.length + 1;
       var main = orphanMode
         ? '<code class="small">' + esc(cat.category_key) + '</code>'
         : catMainCell(cat);
-      html.push('<tr class="row-total' + cls + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
-      (cat.subcategories || []).forEach(function (sub) {
-        if (!sub.records && !sub.images) return;
-        html.push('<tr class="row-sub' + cls + '"><td></td><td class="cell-ellipsis" title="' + esc(sub.subcategory_name) + '">' + esc(sub.subcategory_name) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
+      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
+      subs.forEach(function (sub) {
+        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
       });
     });
     return html.join('');
@@ -282,10 +334,10 @@
     var from = data && data.from_date;
     var to = data && data.to_date;
     if (!from && !to) {
-      el.textContent = '目前：全部時間';
+      el.textContent = '全部時間';
       return;
     }
-    el.textContent = '目前：' + (from || '…') + ' ～ ' + (to || '…');
+    el.textContent = (from || '…') + ' ～ ' + (to || '…');
   }
   async function load() {
     var headers = await getAuthHeaders();
@@ -322,8 +374,14 @@
       document.getElementById('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
       document.getElementById('psRec').textContent = (ps.summary && ps.summary.records != null) ? ps.summary.records : '—';
       document.getElementById('psImg').textContent = (ps.summary && ps.summary.images != null) ? ps.summary.images : '—';
+      document.getElementById('tabMetaVendor').textContent =
+        '· 原型 ' + (vs.prototype_records != null ? vs.prototype_records : '—') + ' / 材料 ' + (vs.material_records != null ? vs.material_records : '—');
+      document.getElementById('tabMetaDesign').textContent =
+        '· ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—') + ' 筆';
+      document.getElementById('tabMetaPromo').textContent =
+        '· ' + ((ps.summary && ps.summary.records != null) ? ps.summary.records : '—') + ' 筆';
       document.getElementById('scanMeta').textContent =
-        '素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
+        '掃描：素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
       document.getElementById('tblVendor').innerHTML = renderVendorRows(va.categories);
       if (va.orphan_categories && va.orphan_categories.length) {
         document.getElementById('orphanVendorWrap').classList.remove('d-none');
@@ -346,8 +404,8 @@
       document.getElementById('tblDesign').innerHTML = renderSimpleRows(dd.categories, false);
       fillOrphan('orphanDesignWrap', 'tblOrphanDesign', dd.orphan_categories, true);
       if (ps.promo_table_missing) {
-        showMsg('情境圖表尚未建立（product_promo_generations）；其餘區塊已載入。', false);
-        document.getElementById('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted small p-3">表不存在</td></tr>';
+        showMsg('情境圖表尚未建立；其餘分項已載入。', false);
+        document.getElementById('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted p-2">表不存在</td></tr>';
       } else {
         document.getElementById('tblPromo').innerHTML = renderSimpleRows(ps.categories, false);
         fillOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, true);
@@ -356,6 +414,7 @@
       showMsg('載入失敗', true);
     }
   }
+  initTabs();
   document.getElementById('btnLoad').addEventListener('click', load);
   document.querySelectorAll('[data-range]').forEach(function (btn) {
     btn.addEventListener('click', function () {
