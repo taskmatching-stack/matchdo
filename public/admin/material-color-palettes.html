@@ -19,7 +19,7 @@
         <h4 class="mb-1">材料組合 · 配色範例</h4>
         <p class="text-muted small mb-3">
           維護<strong>風格類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。類型是配色風格分類（與材質無關）。前台材料組合「配色範例 → 官方」以類型分 Tab、表格綜覽一鍵套用。
-          請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 <code>docs/add-material-color-palette-ratios.sql</code>（或後台資料庫維護）。
+          請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 <code>docs/add-material-color-palette-ratios.sql</code>、<code>docs/add-material-color-palette-notes.sql</code>（或後台資料庫維護）。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
@@ -103,6 +103,12 @@
                 </div>
               </div>
             </div>
+            <div class="row g-2 mt-1">
+              <div class="col-md-8">
+                <label class="form-label small mb-0">備註描述（選填）</label>
+                <input id="palNote" class="form-control form-control-sm" maxlength="200" placeholder="例：適合春夏休閒鞋、對比鮮明">
+              </div>
+            </div>
           </div>
         </div>
 
@@ -123,6 +129,7 @@
                 <tr>
                   <th>類型</th>
                   <th>名稱</th>
+                  <th>備註</th>
                   <th>主色</th>
                   <th>配色</th>
                   <th>輔色</th>
@@ -148,6 +155,10 @@
                 <input type="hidden" id="editPalId">
                 <div class="mb-2"><label class="form-label">類型</label><select id="editPalType" class="form-select"></select></div>
                 <div class="mb-2"><label class="form-label">名稱</label><input id="editPalName" class="form-control"></div>
+                <div class="mb-2">
+                  <label class="form-label">備註描述（選填）</label>
+                  <input id="editPalNote" class="form-control" maxlength="200" placeholder="例：適合春夏休閒鞋">
+                </div>
                 <div class="mb-2">
                   <label class="form-label">色數</label>
                   <select id="editPalColorCount" class="form-select">
@@ -291,6 +302,7 @@
     var payload = {
       type_id: document.getElementById('palType').value,
       name: document.getElementById('palName').value.trim(),
+      note: (document.getElementById('palNote').value || '').trim() || null,
       primary_hex: normHex(document.getElementById('palPrimary').value),
       accent_hex: normHex(document.getElementById('palAccent').value),
       sort_order: parseInt(document.getElementById('palSort').value, 10) || 0,
@@ -316,6 +328,7 @@
     var payload = {
       type_id: document.getElementById('editPalType').value,
       name: document.getElementById('editPalName').value.trim(),
+      note: (document.getElementById('editPalNote').value || '').trim() || null,
       primary_hex: normHex(document.getElementById('editPalPrimary').value),
       accent_hex: normHex(document.getElementById('editPalAccent').value),
       sort_order: parseInt(document.getElementById('editPalSort').value, 10) || 0,
@@ -392,13 +405,15 @@
   function renderPals() {
     var body = document.getElementById('palBody');
     if (!pals.length) {
-      body.innerHTML = '<tr><td colspan="9" class="text-muted small">尚無官方配色</td></tr>';
+      body.innerHTML = '<tr><td colspan="10" class="text-muted small">尚無官方配色</td></tr>';
       return;
     }
     body.innerHTML = pals.map(function (p) {
+      var note = (p.note && String(p.note).trim()) || '';
       return '<tr>' +
         '<td>' + esc(p.type_name || '—') + '</td>' +
         '<td>' + esc(p.name) + (p.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') + '</td>' +
+        '<td class="small text-muted" style="max-width:14rem">' + (note ? esc(note) : '—') + '</td>' +
         '<td>' + swatchCell(p.primary_hex) + '</td>' +
         '<td>' + swatchCell(p.accent_hex) + '</td>' +
         '<td>' + (p.color_count === 3 && p.tertiary_hex ? swatchCell(p.tertiary_hex) : '<span class="text-muted">—</span>') + '</td>' +
@@ -470,6 +485,7 @@
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) return showStatus(j.error || '新增失敗', false);
     document.getElementById('palName').value = '';
+    document.getElementById('palNote').value = '';
     showStatus('配色已新增', true);
     await loadPals();
   });
@@ -492,6 +508,7 @@
       document.getElementById('editPalId').value = p.id;
       fillTypeSelect(document.getElementById('editPalType'), p.type_id);
       document.getElementById('editPalName').value = p.name || '';
+      document.getElementById('editPalNote').value = p.note || '';
       document.getElementById('editPalColorCount').value = p.color_count === 3 ? '3' : '2';
       document.getElementById('editPalDualRatio').value = p.ratio_preset === 'dual_50_50' ? 'dual_50_50' : 'dual_75_25';
       document.getElementById('editPalPrimary').value = p.primary_hex || '';

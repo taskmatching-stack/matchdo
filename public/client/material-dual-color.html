@@ -265,9 +265,15 @@
                         </li>
                     </ul>
                     <div id="mdcPalMineToolbar" class="d-none mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-success" id="mdcPalSaveCurrent">
-                            <i class="bi bi-bookmark-plus me-1"></i>把目前配色存成我的
-                        </button>
+                        <div class="d-flex flex-wrap align-items-end gap-2">
+                            <div class="flex-grow-1" style="min-width:12rem;max-width:22rem;">
+                                <label class="form-label small mb-0" for="mdcPalSaveNote">備註描述（選填）</label>
+                                <input type="text" class="form-control form-control-sm" id="mdcPalSaveNote" maxlength="200" placeholder="例：適合春夏、對比鮮明">
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="mdcPalSaveCurrent">
+                                <i class="bi bi-bookmark-plus me-1"></i>把目前配色存成我的
+                            </button>
+                        </div>
                     </div>
                     <ul class="nav nav-pills flex-wrap gap-1 mb-2" id="mdcPalTypeTabs" role="tablist"></ul>
                     <div class="table-responsive">
@@ -275,6 +281,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>名稱</th>
+                                    <th>備註</th>
                                     <th>主色</th>
                                     <th>配色</th>
                                     <th>輔色</th>
@@ -315,7 +322,7 @@
     <script src="/js/material-color-palette-picker.js?v=20260806a"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-ratio-t2-20260806';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-palette-note-20260806';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);

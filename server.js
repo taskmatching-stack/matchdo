@@ -25203,6 +25203,11 @@ function normalizeMaterialPaletteHex(raw) {
     return null;
 }
 
+function normalizeMaterialPaletteNote(raw) {
+    const s = String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').slice(0, 200);
+    return s || null;
+}
+
 function deriveMaterialPaletteRatioPreset(colorCount, percents) {
     if (colorCount === 3) return 'tri_custom';
     if (Array.isArray(percents) && percents[0] === 50 && percents[1] === 50) return 'dual_50_50';
@@ -25292,6 +25297,7 @@ function mapMaterialColorPaletteRow(row, typeNameById) {
         type_name: typeId && typeNameById ? (typeNameById[typeId] || null) : null,
         type_text: row.type_text ? String(row.type_text).trim() : null,
         name: row.name,
+        note: row.note ? String(row.note).trim() : null,
         color_count: colorCount,
         primary_hex: row.primary_hex,
         accent_hex: row.accent_hex,
@@ -25323,7 +25329,7 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
         const { rows: types, map } = await loadMaterialPaletteTypeNameMap(false);
         const { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
+            .select('id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
             .eq('owner_scope', 'platform')
             .eq('is_active', true)
             .order('sort_order', { ascending: true })
@@ -25333,6 +25339,9 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', types: [], items: [] });
             }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                if (/\bnote\b/i.test(error.message || '')) {
+                    return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql', types: [], items: [] });
+                }
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', types: [], items: [] });
             }
             console.error('GET platform palettes:', error);
@@ -25356,7 +25365,7 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
         if (!user) return;
         const { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
+            .select('id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
             .eq('owner_scope', 'user')
             .eq('owner_user_id', user.id)
             .order('sort_order', { ascending: true })
@@ -25366,6 +25375,9 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', items: [] });
             }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                if (/\bnote\b/i.test(error.message || '')) {
+                    return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql', items: [] });
+                }
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', items: [] });
             }
             return res.status(500).json({ error: error.message || '載入失敗' });
@@ -25396,6 +25408,7 @@ app.post('/api/me/material-color-palettes', express.json(), async (req, res) => 
             type_id: null,
             type_text: typeText,
             name: name,
+            note: normalizeMaterialPaletteNote(body.note),
             color_count: ratioFields.color_count,
             primary_hex: primary,
             accent_hex: accent,
@@ -25410,6 +25423,9 @@ app.post('/api/me/material-color-palettes', express.json(), async (req, res) => 
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (/\bnote\b/i.test(error.message || '') || (error.code === '42703' && /note/i.test(error.message || ''))) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
             }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
@@ -25438,6 +25454,9 @@ app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res
         }
         if (body.type_text !== undefined) {
             updates.type_text = String(body.type_text || '').trim().slice(0, 64) || null;
+        }
+        if (body.note !== undefined) {
+            updates.note = normalizeMaterialPaletteNote(body.note);
         }
         if (body.primary_hex != null) {
             const primary = normalizeMaterialPaletteHex(body.primary_hex);
@@ -25484,6 +25503,9 @@ app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res
             .select('*')
             .maybeSingle();
         if (error) {
+            if (/\bnote\b/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
+            }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
             }
@@ -25664,6 +25686,7 @@ app.post('/api/admin/material-color-palettes', express.json(), async (req, res) 
             type_id: typeId,
             type_text: null,
             name: name,
+            note: normalizeMaterialPaletteNote(body.note),
             color_count: ratioFields.color_count,
             primary_hex: primary,
             accent_hex: accent,
@@ -25678,6 +25701,9 @@ app.post('/api/admin/material-color-palettes', express.json(), async (req, res) 
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (/\bnote\b/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
             }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
@@ -25708,6 +25734,9 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
             const typeId = String(body.type_id || '').trim();
             if (!typeId) return res.status(400).json({ error: '請選類型' });
             updates.type_id = typeId;
+        }
+        if (body.note !== undefined) {
+            updates.note = normalizeMaterialPaletteNote(body.note);
         }
         if (body.primary_hex != null) {
             const primary = normalizeMaterialPaletteHex(body.primary_hex);
@@ -25753,6 +25782,9 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
             .select('*')
             .maybeSingle();
         if (error) {
+            if (/\bnote\b/i.test(error.message || '')) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
+            }
             if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
             }

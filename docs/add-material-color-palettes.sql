@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.material_color_palettes (
     tertiary_hex TEXT,
     ratio_preset TEXT,
     ratio_percents JSONB,
+    note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -40,6 +41,7 @@ COMMENT ON COLUMN public.material_color_palettes.type_text IS '使用者自建�
 COMMENT ON COLUMN public.material_color_palettes.tertiary_hex IS '三色輔色；雙色為 null';
 COMMENT ON COLUMN public.material_color_palettes.ratio_preset IS 'dual_75_25｜dual_50_50｜tri_custom';
 COMMENT ON COLUMN public.material_color_palettes.ratio_percents IS '整數％陣列合計 100；雙色 [p1,p2]，三色 [p1,p2,p3]';
+COMMENT ON COLUMN public.material_color_palettes.note IS '備註描述（選填）';
 
 CREATE INDEX IF NOT EXISTS idx_mcp_types_active_sort
     ON public.material_color_palette_types (is_active, sort_order);

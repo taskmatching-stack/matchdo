@@ -170,7 +170,7 @@
             var rows = itemsForActiveType();
             if (theadRow) {
                 theadRow.innerHTML =
-                    '<th>名稱</th><th>主色</th><th>配色</th><th>輔色</th><th>比重</th><th style="width:9rem">操作</th>';
+                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th><th>輔色</th><th>比重</th><th style="width:9rem">操作</th>';
             }
             if (!rows.length) {
                 tableBody.innerHTML = '';
@@ -193,10 +193,12 @@
                 var tertiaryCell = it.color_count === 3 && it.tertiary_hex
                     ? swatchHtml(it.tertiary_hex)
                     : '<span class="text-muted small">—</span>';
+                var note = (it.note && String(it.note).trim()) || '';
                 return '<tr>' +
                     '<td>' + esc(it.name || '') +
                     (it.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') +
                     '</td>' +
+                    '<td class="small text-muted" style="max-width:10rem">' + (note ? esc(note) : '—') + '</td>' +
                     '<td>' + swatchHtml(it.primary_hex) + '</td>' +
                     '<td>' + swatchHtml(it.accent_hex) + '</td>' +
                     '<td>' + tertiaryCell + '</td>' +
@@ -301,6 +303,8 @@
                     if (!name) return onStatus('名稱不可空白', false);
                     var typeText = prompt('類型（可留空）', item.type_text || '');
                     if (typeText == null) return;
+                    var noteText = prompt('備註描述（可留空）', item.note || '');
+                    if (noteText == null) return;
                     var headers2 = await getHeaders();
                     headers2['Content-Type'] = 'application/json';
                     var r2 = await fetch('/api/me/material-color-palettes/' + encodeURIComponent(item.id), {
@@ -309,6 +313,7 @@
                         body: JSON.stringify({
                             name: name,
                             type_text: String(typeText).trim() || null,
+                            note: String(noteText).trim() || null,
                             primary_hex: item.primary_hex,
                             accent_hex: item.accent_hex,
                             tertiary_hex: item.tertiary_hex || null,
@@ -351,11 +356,14 @@
                 if (!name) return onStatus('名稱不可空白', false);
                 var typeText = prompt('類型（可留空）', '');
                 if (typeText == null) return;
+                var noteEl = document.getElementById('mdcPalSaveNote');
+                var noteFromBar = noteEl ? String(noteEl.value || '').trim() : '';
                 var headers = await getHeaders();
                 headers['Content-Type'] = 'application/json';
                 var payload = {
                     name: name,
                     type_text: String(typeText).trim() || null,
+                    note: noteFromBar || null,
                     primary_hex: primary,
                     accent_hex: accent,
                     color_count: colorCount,
@@ -372,6 +380,7 @@
                 var j = await r.json().catch(function () { return {}; });
                 if (!r.ok) return onStatus(j.error || '儲存失敗', false);
                 onStatus('已存成我的配色', true);
+                if (noteEl) noteEl.value = '';
                 state.scope = 'mine';
                 await loadMine(true);
                 setScope('mine');
