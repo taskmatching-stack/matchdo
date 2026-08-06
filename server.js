@@ -25282,22 +25282,46 @@ function resolveMaterialPaletteRatioFields(body, opts) {
     };
 }
 
-function mapMaterialColorPaletteRow(row, typeNameById) {
+function mapMaterialColorPaletteRow(row, typeNameById, opts) {
     if (!row) return null;
+    const options = opts || {};
+    const lang = options.lang || '';
     const typeId = row.type_id || null;
     const colorCount = row.color_count === 3 ? 3 : 2;
     const ratioPercents = normalizeMaterialComboRatioPercents(row.ratio_percents, colorCount);
     const ratioPreset = row.ratio_preset
         ? String(row.ratio_preset)
         : deriveMaterialPaletteRatioPreset(colorCount, ratioPercents);
+    let typeName = typeId && typeNameById ? (typeNameById[typeId] || null) : null;
+    if (options.typeRowById && typeId && options.typeRowById[typeId]) {
+        typeName = pickAdminContentLocalizedText(options.typeRowById[typeId], 'name', lang);
+    } else if (lang && typeName && options.typeRowById == null) {
+        // typeNameById 已是語系後名稱時直接用
+    }
+    const displayName = options.localize
+        ? pickAdminContentLocalizedText(row, 'name', lang)
+        : (row.name != null ? String(row.name) : null);
+    const displayNote = options.localize
+        ? pickAdminContentLocalizedText(row, 'note', lang)
+        : (row.note ? String(row.note).trim() : null);
     return {
         id: row.id,
         owner_scope: row.owner_scope,
         type_id: typeId,
-        type_name: typeId && typeNameById ? (typeNameById[typeId] || null) : null,
+        type_name: typeName,
         type_text: row.type_text ? String(row.type_text).trim() : null,
-        name: row.name,
-        note: row.note ? String(row.note).trim() : null,
+        name: displayName,
+        name_en: row.name_en != null ? String(row.name_en).trim() || null : null,
+        name_ja: row.name_ja != null ? String(row.name_ja).trim() || null : null,
+        name_es: row.name_es != null ? String(row.name_es).trim() || null : null,
+        name_de: row.name_de != null ? String(row.name_de).trim() || null : null,
+        name_fr: row.name_fr != null ? String(row.name_fr).trim() || null : null,
+        note: displayNote,
+        note_en: row.note_en != null ? String(row.note_en).trim() || null : null,
+        note_ja: row.note_ja != null ? String(row.note_ja).trim() || null : null,
+        note_es: row.note_es != null ? String(row.note_es).trim() || null : null,
+        note_de: row.note_de != null ? String(row.note_de).trim() || null : null,
+        note_fr: row.note_fr != null ? String(row.note_fr).trim() || null : null,
         color_count: colorCount,
         primary_hex: row.primary_hex,
         accent_hex: row.accent_hex,
@@ -25311,29 +25335,92 @@ function mapMaterialColorPaletteRow(row, typeNameById) {
     };
 }
 
-async function loadMaterialPaletteTypeNameMap(includeInactive) {
-    let q = supabase.from('material_color_palette_types').select('id, name, sort_order, is_active');
-    if (!includeInactive) q = q.eq('is_active', true);
-    const { data, error } = await q.order('sort_order', { ascending: true });
-    if (error) throw error;
-    const map = {};
-    (data || []).forEach(function (t) { if (t && t.id) map[t.id] = t.name; });
-    return { rows: data || [], map };
+function appendMaterialPaletteNameI18nFields(payload, body) {
+    if (!body || typeof body !== 'object' || !payload) return payload;
+    for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) {
+        if (body[col] !== undefined) {
+            payload[col] = body[col] != null && String(body[col]).trim() !== ''
+                ? String(body[col]).trim().slice(0, 80)
+                : null;
+        }
+    }
+    return payload;
 }
 
-/** GET 官方配色範例（啟用中；登入即可） */
+function appendMaterialPaletteNoteI18nFields(payload, body) {
+    if (!body || typeof body !== 'object' || !payload) return payload;
+    for (const col of ['note_en', 'note_ja', 'note_es', 'note_de', 'note_fr']) {
+        if (body[col] !== undefined) {
+            payload[col] = normalizeMaterialPaletteNote(body[col]);
+        }
+    }
+    return payload;
+}
+
+function pickAdminContentLocalizedText(row, field, lang) {
+    if (!row) return null;
+    const base = row[field] != null ? String(row[field]).trim() : '';
+    const short = String(lang || '').toLowerCase().replace(/-.*$/, '');
+    if (!short || short === 'zh') return base || null;
+    const localized = row[field + '_' + short];
+    if (localized != null && String(localized).trim()) return String(localized).trim();
+    return base || null;
+}
+
+function isMaterialPaletteI18nMissingError(error) {
+    if (!error) return false;
+    if (error.code === '42703') {
+        return /name_en|name_ja|note_en|note_ja/i.test(error.message || '');
+    }
+    return /column.*(?:name_en|note_en).*does not exist/i.test(error.message || '');
+}
+
+async function loadMaterialPaletteTypeNameMap(includeInactive, lang) {
+    let q = supabase.from('material_color_palette_types')
+        .select('id, name, name_en, name_ja, name_es, name_de, name_fr, sort_order, is_active');
+    if (!includeInactive) q = q.eq('is_active', true);
+    let { data, error } = await q.order('sort_order', { ascending: true });
+    if (error && (error.code === '42703' || /name_en/i.test(error.message || ''))) {
+        q = supabase.from('material_color_palette_types').select('id, name, sort_order, is_active');
+        if (!includeInactive) q = q.eq('is_active', true);
+        ({ data, error } = await q.order('sort_order', { ascending: true }));
+    }
+    if (error) throw error;
+    const map = {};
+    const typeRowById = {};
+    (data || []).forEach(function (t) {
+        if (!t || !t.id) return;
+        typeRowById[t.id] = t;
+        map[t.id] = pickAdminContentLocalizedText(t, 'name', lang) || t.name;
+    });
+    return { rows: data || [], map, typeRowById };
+}
+
+/** GET 官方配色範例（啟用中；登入即可；?lang= 選類型／名稱／備註顯示語系） */
 app.get('/api/material-color-palettes/platform', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        const { rows: types, map } = await loadMaterialPaletteTypeNameMap(false);
-        const { data, error } = await supabase
+        const lang = String(req.query.lang || '').toLowerCase().replace(/-.*$/, '');
+        const { rows: types, map, typeRowById } = await loadMaterialPaletteTypeNameMap(false, lang);
+        const selectFull = 'id, owner_scope, type_id, type_text, name, name_en, name_ja, name_es, name_de, name_fr, note, note_en, note_ja, note_es, note_de, note_fr, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at';
+        const selectLegacy = 'id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at';
+        let { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
+            .select(selectFull)
             .eq('owner_scope', 'platform')
             .eq('is_active', true)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
+        if (error && isMaterialPaletteI18nMissingError(error)) {
+            ({ data, error } = await supabase
+                .from('material_color_palettes')
+                .select(selectLegacy)
+                .eq('owner_scope', 'platform')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false }));
+        }
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', types: [], items: [] });
@@ -25342,6 +25429,9 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
                 if (/\bnote\b/i.test(error.message || '')) {
                     return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql', types: [], items: [] });
                 }
+                if (isMaterialPaletteI18nMissingError(error)) {
+                    return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql', types: [], items: [] });
+                }
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', types: [], items: [] });
             }
             console.error('GET platform palettes:', error);
@@ -25349,9 +25439,15 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
         }
         res.json({
             types: (types || []).map(function (t) {
-                return { id: t.id, name: t.name, sort_order: t.sort_order };
+                return {
+                    id: t.id,
+                    name: pickAdminContentLocalizedText(t, 'name', lang) || t.name,
+                    sort_order: t.sort_order
+                };
             }),
-            items: (data || []).map(function (r) { return mapMaterialColorPaletteRow(r, map); })
+            items: (data || []).map(function (r) {
+                return mapMaterialColorPaletteRow(r, map, { lang: lang, localize: true, typeRowById: typeRowById });
+            })
         });
     } catch (e) {
         console.error('GET /api/material-color-palettes/platform:', e);
@@ -25567,18 +25663,24 @@ app.post('/api/admin/material-color-palette-types', express.json(), async (req, 
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
-        const name = String((req.body || {}).name || '').trim().slice(0, 64);
+        const body = req.body || {};
+        const name = String(body.name || '').trim().slice(0, 64);
         if (!name) return res.status(400).json({ error: '請填類型名稱' });
-        const sortOrder = parseInt((req.body || {}).sort_order, 10);
-        const { data, error } = await supabase.from('material_color_palette_types').insert({
+        const sortOrder = parseInt(body.sort_order, 10);
+        const insert = {
             name: name,
             sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
             is_active: true,
             updated_at: new Date().toISOString()
-        }).select('*').single();
+        };
+        appendMaterialPaletteNameI18nFields(insert, body);
+        const { data, error } = await supabase.from('material_color_palette_types').insert(insert).select('*').single();
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (isMaterialPaletteI18nMissingError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql' });
             }
             return res.status(500).json({ error: error.message });
         }
@@ -25603,8 +25705,14 @@ app.patch('/api/admin/material-color-palette-types/:id', express.json(), async (
         }
         if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
         if (body.is_active != null) updates.is_active = !!body.is_active;
+        appendMaterialPaletteNameI18nFields(updates, body);
         const { data, error } = await supabase.from('material_color_palette_types').update(updates).eq('id', id).select('*').maybeSingle();
-        if (error) return res.status(500).json({ error: error.message });
+        if (error) {
+            if (isMaterialPaletteI18nMissingError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql' });
+            }
+            return res.status(500).json({ error: error.message });
+        }
         if (!data) return res.status(404).json({ error: '找不到類型' });
         res.json({ success: true, item: data });
     } catch (e) {
@@ -25697,10 +25805,15 @@ app.post('/api/admin/material-color-palettes', express.json(), async (req, res) 
             is_active: body.is_active === false ? false : true,
             updated_at: new Date().toISOString()
         };
+        appendMaterialPaletteNameI18nFields(insert, body);
+        appendMaterialPaletteNoteI18nFields(insert, body);
         const { data, error } = await supabase.from('material_color_palettes').insert(insert).select('*').single();
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (isMaterialPaletteI18nMissingError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql' });
             }
             if (/\bnote\b/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
@@ -25774,6 +25887,8 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
         }
         if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
         if (body.is_active != null) updates.is_active = !!body.is_active;
+        appendMaterialPaletteNameI18nFields(updates, body);
+        appendMaterialPaletteNoteI18nFields(updates, body);
         const { data, error } = await supabase
             .from('material_color_palettes')
             .update(updates)
@@ -25782,6 +25897,9 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
             .select('*')
             .maybeSingle();
         if (error) {
+            if (isMaterialPaletteI18nMissingError(error)) {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql' });
+            }
             if (/\bnote\b/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql' });
             }

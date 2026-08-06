@@ -1,0 +1,50 @@
+---
+description: 後台維護的前台可見內容必須有多語系欄位（name_en 等），供前台 ?lang= 使用；與後台 UI i18n 無關
+alwaysApply: true
+---
+
+# 後台內容多語系欄位（必守・勿再漏）
+
+## 問題（屢犯）
+
+新功能只在後台建「名稱」一個中文字串，前台切 `?lang=en` 仍顯示中文。  
+**這不是**「後台介面要套 `locales/*.json`」——後台 `/admin/` **不做** UI i18n。  
+**這是**：後台 CRUD 要提供與情境圖／攝影參數組相同的 **內容多語系欄位**，前台 API 依 `lang` 選顯示字。
+
+## 何時必做
+
+凡管理區維護、會出現在前台的 **顯示名／說明／備註／類型標籤**（官方字典、範例表、參數組、主題／場景…）都要有多語系欄。
+
+**不適用**：純技術 key、HEX、排序、啟停、使用者私有「我的」自由字（帳號自填可不強制）。
+
+## 標準欄位（對齊既有）
+
+預設語系用 `name`（中文／預設 UI）。另加：
+
+- `name_en`（英文，**必提供後台輸入**）
+- `name_ja` / `name_es` / `name_de` / `name_fr`（選填預留）
+
+若前台會顯示說明／備註，同樣加 `note_en`（或 `description_en`）與對應預留欄。
+
+參考：`docs/add-photography-prompt-sets-multilang.sql`、`public/admin/promo-scene-templates.html`、`docs/admin-content-multilang-for-frontend.md`。
+
+## 實作 checklist（新功能／新表）
+
+1. **SQL**：`ADD COLUMN … name_en` 等；新表建表時一次寫入；另加 migration 給已上線庫  
+2. **後台表單**：名稱旁必有「名稱（英文）」＋「其他語系（選填）」；列表可顯示 `EN: …`  
+3. **Admin API**：POST／PATCH 收寫多語系欄；GET 回傳原文欄（後台編輯用）  
+4. **前台 API**：`?lang=`（或同等）→ 回傳的 `name`／`note` **已換成該語系**（缺則 fallback 預設 `name`）  
+5. **前台 fetch**：帶目前 `i18n.getLang()`（見 `promo-camera/api.js`）  
+6. **文件**：PROGRESS／PLAN 勾「內容多語系」；migration 掛 `lib/admin-migrations.js`
+
+## 禁止
+
+- ❌ 只改 `public/locales/*.json` 卻期望官方 DB 內容變英文  
+- ❌ 前台硬編碼中文類型名／範例名  
+- ❌ 新官方字典／範例表漏 `name_en`（配色範例曾因此重工）
+
+## 配色範例現況
+
+- Migration：`docs/add-material-color-palette-i18n.sql`（id=`material-color-palette-i18n`）  
+- 後台：`/admin/material-color-palettes.html`  
+- 前台：`GET /api/material-color-palettes/platform?lang=`

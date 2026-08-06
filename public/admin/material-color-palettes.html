@@ -21,7 +21,8 @@
           維護<strong>風格類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。類型是配色風格分類（與材質無關）。
           <strong>排序為各類型內獨立</strong>（同類型互相比較，不必全站共用一組數字）。
           「輔色」僅三色使用。前台「配色範例 → 官方」以類型分 Tab。
-          請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 <code>docs/add-material-color-palette-ratios.sql</code>、<code>docs/add-material-color-palette-notes.sql</code>（或後台資料庫維護）。
+          <strong>名稱／備註請填多語系欄</strong>（至少英文），前台 <code>?lang=en</code> 才會顯示對應語系——見 <code>docs/admin-content-multilang-for-frontend.md</code>。
+          請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 ratios／notes／<code>docs/add-material-color-palette-i18n.sql</code>（或後台資料庫維護）。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
@@ -29,10 +30,20 @@
           <div class="card-header fw-semibold">風格類型字典</div>
           <div class="card-body">
             <div class="row g-2 align-items-end mb-3">
-              <div class="col-md-4"><label class="form-label small mb-0">名稱</label><input id="typeName" class="form-control form-control-sm" placeholder="例：經典、休閒、春夏"></div>
-              <div class="col-md-2"><label class="form-label small mb-0">排序</label><input id="typeSort" type="number" class="form-control form-control-sm" value="10"></div>
-              <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="btnAddType">新增類型</button></div>
-              <div class="col-md-4 text-md-end">
+              <div class="col-md-3"><label class="form-label small mb-0">名稱</label><input id="typeName" class="form-control form-control-sm" placeholder="例：經典、休閒、春夏"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱（英文）</label><input id="typeNameEn" class="form-control form-control-sm" placeholder="Classic" title="選填，前台 lang=en 時顯示"></div>
+              <div class="col-md-3">
+                <label class="form-label small mb-0">其他語系（選填）</label>
+                <div class="d-flex flex-wrap gap-1">
+                  <input type="text" id="typeNameJa" class="form-control form-control-sm" style="width:72px;" placeholder="日文" title="日文">
+                  <input type="text" id="typeNameEs" class="form-control form-control-sm" style="width:72px;" placeholder="西文" title="西班牙文">
+                  <input type="text" id="typeNameDe" class="form-control form-control-sm" style="width:72px;" placeholder="德文" title="德文">
+                  <input type="text" id="typeNameFr" class="form-control form-control-sm" style="width:72px;" placeholder="法文" title="法文">
+                </div>
+              </div>
+              <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="typeSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-1"><button type="button" class="btn btn-primary btn-sm" id="btnAddType">新增類型</button></div>
+              <div class="col-md-2 text-md-end">
                 <div class="form-check d-inline-block mb-0">
                   <input class="form-check-input" type="checkbox" id="showInactiveTypes">
                   <label class="form-check-label small" for="showInactiveTypes">顯示已停用</label>
@@ -41,7 +52,7 @@
             </div>
             <div class="table-responsive">
               <table class="table table-sm table-bordered mb-0 align-middle">
-                <thead class="table-light"><tr><th>名稱</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                <thead class="table-light"><tr><th>名稱</th><th>英文</th><th>其他語系</th><th>排序</th><th>狀態</th><th></th></tr></thead>
                 <tbody id="typeBody"></tbody>
               </table>
             </div>
@@ -57,6 +68,7 @@
                 <select id="palType" class="form-select form-select-sm"></select>
               </div>
               <div class="col-md-2"><label class="form-label small mb-0">名稱</label><input id="palName" class="form-control form-control-sm" placeholder="例：海軍藍＋米白"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱（英文）</label><input id="palNameEn" class="form-control form-control-sm" placeholder="Navy + Ivory" title="選填，前台 lang=en 時顯示"></div>
               <div class="col-md-2">
                 <label class="form-label small mb-0">色數</label>
                 <select id="palColorCount" class="form-select form-select-sm">
@@ -106,9 +118,22 @@
               </div>
             </div>
             <div class="row g-2 mt-1">
-              <div class="col-md-8">
+              <div class="col-md-6">
                 <label class="form-label small mb-0">備註描述（選填）</label>
                 <input id="palNote" class="form-control form-control-sm" maxlength="200" placeholder="例：適合春夏休閒鞋、對比鮮明">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small mb-0">備註（英文）</label>
+                <input id="palNoteEn" class="form-control form-control-sm" maxlength="200" placeholder="e.g. Spring casual, high contrast">
+              </div>
+              <div class="col-12">
+                <label class="form-label small mb-0">名稱其他語系（選填）</label>
+                <div class="d-flex flex-wrap gap-1">
+                  <input type="text" id="palNameJa" class="form-control form-control-sm" style="width:88px;" placeholder="日文">
+                  <input type="text" id="palNameEs" class="form-control form-control-sm" style="width:88px;" placeholder="西文">
+                  <input type="text" id="palNameDe" class="form-control form-control-sm" style="width:88px;" placeholder="德文">
+                  <input type="text" id="palNameFr" class="form-control form-control-sm" style="width:88px;" placeholder="法文">
+                </div>
               </div>
             </div>
           </div>
@@ -159,9 +184,23 @@
                 <input type="hidden" id="editPalId">
                 <div class="mb-2"><label class="form-label">類型</label><select id="editPalType" class="form-select"></select></div>
                 <div class="mb-2"><label class="form-label">名稱</label><input id="editPalName" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">名稱（英文）</label><input id="editPalNameEn" class="form-control" placeholder="選填，前台 lang=en"></div>
+                <div class="mb-2">
+                  <label class="form-label">名稱其他語系（選填）</label>
+                  <div class="d-flex flex-wrap gap-2">
+                    <input type="text" id="editPalNameJa" class="form-control" style="max-width:120px;" placeholder="日文">
+                    <input type="text" id="editPalNameEs" class="form-control" style="max-width:120px;" placeholder="西文">
+                    <input type="text" id="editPalNameDe" class="form-control" style="max-width:120px;" placeholder="德文">
+                    <input type="text" id="editPalNameFr" class="form-control" style="max-width:120px;" placeholder="法文">
+                  </div>
+                </div>
                 <div class="mb-2">
                   <label class="form-label">備註描述（選填）</label>
                   <input id="editPalNote" class="form-control" maxlength="200" placeholder="例：適合春夏休閒鞋">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">備註（英文）</label>
+                  <input id="editPalNoteEn" class="form-control" maxlength="200" placeholder="選填">
                 </div>
                 <div class="mb-2">
                   <label class="form-label">色數</label>
@@ -266,6 +305,32 @@
       if (n) { input.value = n; picker.value = n; }
     });
   }
+  function multilangNameBody(prefix, alwaysSend) {
+    var body = {};
+    var fields = [
+      { id: prefix + 'NameEn', key: 'name_en' },
+      { id: prefix + 'NameJa', key: 'name_ja' },
+      { id: prefix + 'NameEs', key: 'name_es' },
+      { id: prefix + 'NameDe', key: 'name_de' },
+      { id: prefix + 'NameFr', key: 'name_fr' }
+    ];
+    fields.forEach(function (f) {
+      var el = document.getElementById(f.id);
+      if (!el) return;
+      var v = String(el.value || '').trim();
+      if (alwaysSend || v) body[f.key] = v || null;
+    });
+    return body;
+  }
+  function multilangNoteBody(prefix, alwaysSend) {
+    var body = {};
+    var el = document.getElementById(prefix + 'NoteEn');
+    if (el) {
+      var v = String(el.value || '').trim();
+      if (alwaysSend || v) body.note_en = v || null;
+    }
+    return body;
+  }
   function fillTypeSelect(sel, selectedId) {
     sel.innerHTML = '';
     var active = types.filter(function (t) { return t.is_active !== false; });
@@ -359,6 +424,7 @@
       sort_order: parseInt(document.getElementById('palSort').value, 10) || 0,
       color_count: colorCount
     };
+    Object.assign(payload, multilangNameBody('pal', true), multilangNoteBody('pal', true));
     if (colorCount === 3) {
       payload.tertiary_hex = normHex(document.getElementById('palTertiary').value);
       payload.ratio_preset = 'tri_custom';
@@ -386,6 +452,7 @@
       is_active: document.getElementById('editPalActive').checked,
       color_count: colorCount
     };
+    Object.assign(payload, multilangNameBody('editPal', true), multilangNoteBody('editPal', true));
     if (colorCount === 3) {
       payload.tertiary_hex = normHex(document.getElementById('editPalTertiary').value);
       payload.ratio_preset = 'tri_custom';
@@ -413,8 +480,14 @@
       (canDown ? '' : ' disabled') + ' title="類型內下移">↓</button>';
     return '<tr>' +
       '<td>' + esc(p.type_name || '—') + '</td>' +
-      '<td>' + esc(p.name) + (p.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') + '</td>' +
-      '<td class="small text-muted" style="max-width:14rem">' + (note ? esc(note) : '—') + '</td>' +
+      '<td>' + esc(p.name) +
+        (p.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') +
+        (p.name_en ? '<div class="small text-muted">EN: ' + esc(p.name_en) + '</div>' : '') +
+      '</td>' +
+      '<td class="small text-muted" style="max-width:14rem">' +
+        (note ? esc(note) : '—') +
+        (p.note_en ? '<div class="text-muted">EN: ' + esc(p.note_en) + '</div>' : '') +
+      '</td>' +
       '<td>' + swatchCell(p.primary_hex) + '</td>' +
       '<td>' + swatchCell(p.accent_hex) + '</td>' +
       '<td>' + (p.color_count === 3 && p.tertiary_hex ? swatchCell(p.tertiary_hex) : '<span class="text-muted">—</span>') + '</td>' +
@@ -447,12 +520,21 @@
   function renderTypes() {
     var body = document.getElementById('typeBody');
     if (!types.length) {
-      body.innerHTML = '<tr><td colspan="4" class="text-muted small">尚無類型</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" class="text-muted small">尚無類型</td></tr>';
       return;
     }
     body.innerHTML = types.map(function (t) {
       return '<tr data-id="' + esc(t.id) + '">' +
         '<td><input class="form-control form-control-sm type-name" value="' + esc(t.name) + '"></td>' +
+        '<td><input class="form-control form-control-sm type-name-en" value="' + esc(t.name_en || '') + '" placeholder="EN"></td>' +
+        '<td class="small">' +
+          '<div class="d-flex flex-wrap gap-1">' +
+            '<input class="form-control form-control-sm type-name-ja" style="width:4.5rem" value="' + esc(t.name_ja || '') + '" placeholder="日">' +
+            '<input class="form-control form-control-sm type-name-es" style="width:4.5rem" value="' + esc(t.name_es || '') + '" placeholder="西">' +
+            '<input class="form-control form-control-sm type-name-de" style="width:4.5rem" value="' + esc(t.name_de || '') + '" placeholder="德">' +
+            '<input class="form-control form-control-sm type-name-fr" style="width:4.5rem" value="' + esc(t.name_fr || '') + '" placeholder="法">' +
+          '</div>' +
+        '</td>' +
         '<td style="width:5rem"><input type="number" class="form-control form-control-sm type-sort" value="' + esc(t.sort_order) + '"></td>' +
         '<td>' + (t.is_active === false ? '<span class="badge bg-secondary">停用</span>' : '<span class="badge bg-success">啟用</span>') + '</td>' +
         '<td class="text-nowrap">' +
@@ -588,10 +670,15 @@
     var name = document.getElementById('typeName').value.trim();
     var sort = parseInt(document.getElementById('typeSort').value, 10) || 0;
     if (!name) return showStatus('請填類型名稱', false);
-    var r = await fetch(TYPE_API, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ name: name, sort_order: sort }) });
+    var payload = Object.assign({ name: name, sort_order: sort }, multilangNameBody('type', true));
+    var r = await fetch(TYPE_API, { method: 'POST', headers: await authHeaders(), body: JSON.stringify(payload) });
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok) return showStatus(j.error || '新增失敗', false);
     document.getElementById('typeName').value = '';
+    ['typeNameEn', 'typeNameJa', 'typeNameEs', 'typeNameDe', 'typeNameFr'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     showStatus('類型已新增', true);
     await reloadAll();
   });
@@ -603,7 +690,16 @@
     if (e.target.classList.contains('btn-save-type')) {
       var name = tr.querySelector('.type-name').value.trim();
       var sort = parseInt(tr.querySelector('.type-sort').value, 10) || 0;
-      var r = await fetch(TYPE_API + '/' + encodeURIComponent(id), { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ name: name, sort_order: sort }) });
+      var payload = {
+        name: name,
+        sort_order: sort,
+        name_en: (tr.querySelector('.type-name-en') && tr.querySelector('.type-name-en').value.trim()) || null,
+        name_ja: (tr.querySelector('.type-name-ja') && tr.querySelector('.type-name-ja').value.trim()) || null,
+        name_es: (tr.querySelector('.type-name-es') && tr.querySelector('.type-name-es').value.trim()) || null,
+        name_de: (tr.querySelector('.type-name-de') && tr.querySelector('.type-name-de').value.trim()) || null,
+        name_fr: (tr.querySelector('.type-name-fr') && tr.querySelector('.type-name-fr').value.trim()) || null
+      };
+      var r = await fetch(TYPE_API + '/' + encodeURIComponent(id), { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify(payload) });
       var j = await r.json().catch(function () { return {}; });
       if (!r.ok) return showStatus(j.error || '儲存失敗', false);
       showStatus('類型已更新', true);
@@ -623,7 +719,6 @@
       await reloadAll();
     }
   });
-
   document.getElementById('btnAddPal').addEventListener('click', async function () {
     var payload = collectAddPayload();
     if (!payload.type_id) return showStatus('請先建立並選擇類型', false);
@@ -638,6 +733,10 @@
     if (!r.ok) return showStatus(j.error || '新增失敗', false);
     document.getElementById('palName').value = '';
     document.getElementById('palNote').value = '';
+    ['palNameEn', 'palNameJa', 'palNameEs', 'palNameDe', 'palNameFr', 'palNoteEn'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     listTypeFilter = payload.type_id;
     var filterSel = document.getElementById('palListTypeFilter');
     if (filterSel) filterSel.value = payload.type_id;
@@ -674,7 +773,13 @@
       document.getElementById('editPalId').value = p.id;
       fillTypeSelect(document.getElementById('editPalType'), p.type_id);
       document.getElementById('editPalName').value = p.name || '';
+      document.getElementById('editPalNameEn').value = p.name_en || '';
+      document.getElementById('editPalNameJa').value = p.name_ja || '';
+      document.getElementById('editPalNameEs').value = p.name_es || '';
+      document.getElementById('editPalNameDe').value = p.name_de || '';
+      document.getElementById('editPalNameFr').value = p.name_fr || '';
       document.getElementById('editPalNote').value = p.note || '';
+      document.getElementById('editPalNoteEn').value = p.note_en || '';
       document.getElementById('editPalColorCount').value = p.color_count === 3 ? '3' : '2';
       document.getElementById('editPalDualRatio').value = p.ratio_preset === 'dual_50_50' ? 'dual_50_50' : 'dual_75_25';
       document.getElementById('editPalPrimary').value = p.primary_hex || '';

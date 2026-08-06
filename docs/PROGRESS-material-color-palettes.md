@@ -1,7 +1,7 @@
 # 進度：材料組合 · 配色範例
 
 > **最後更新**：2026-08-06  
-> **本機未 push**（T1＋T2 待 commit）  
+> **本機未 push**（配色內容多語系＋拖曳排序待 commit）  
 > **對照規劃**：`docs/PLAN-material-color-palettes.md`  
 > **相關**：`docs/PLAN-material-dual-color-compose.md`
 
@@ -12,15 +12,17 @@
 | 項目 | 狀態 | 備註 |
 |------|------|------|
 | DB 表＋migration 白名單 | ✅ | `add-material-color-palettes.sql`；比重欄位見下 |
-| 比重欄位 migration | ✅ 本輪 | `docs/add-material-color-palette-ratios.sql`；id=`material-color-palette-ratios` |
-| Admin 類型＋官方雙／三色 CRUD | ✅ | `/admin/material-color-palettes.html`（色數／比重／輔色） |
+| 比重欄位 migration | ✅ | `docs/add-material-color-palette-ratios.sql`；id=`material-color-palette-ratios` |
+| Admin 類型＋官方雙／三色 CRUD | ✅ | `/admin/material-color-palettes.html`（色數／比重／輔色）；類型內 ↑↓ |
 | 材料組合「配色範例」Modal | ✅ | 官方｜我的 → 類型 Tab → 表格；顯示輔色／比重 |
 | 我的配色（帳號共用） | ✅ | 存目前配色（含三色／比重）／編輯／刪 |
+| 我的配色類型內拖曳排序 | ✅ | 左側把手 → `PATCH …/me/… { sort_order }` |
+| 官方類型／配色內容多語系 | ✅ 本輪 | `name_en` 等＋`note_en`；後台欄位；`?lang=`；見 `docs/admin-content-multilang-for-frontend.md` |
 | 套用＝填表單 | ✅ | 對齊色數、HEX、比重；不自動存／不自動生圖 |
-| T1 選色 UI＋色卡按比例 | ✅ | 雙色 75/25｜50/50；三色自訂％＋canvas；build `material-combo-ratio-t2-20260806` |
-| T2 範例存讀比重 | ✅ 本輪 | API／Admin／我的／套用 |
+| T1 選色 UI＋色卡按比例 | ✅ | 雙色 75/25｜50/50；三色自訂％＋canvas |
+| T2 範例存讀比重 | ✅ | API／Admin／我的／套用 |
 | 生圖提示跟實際％ | ✅（併入 T1） | `buildMaterialDualColorFluxPrompt` 用 `ratio_percents` |
-| 部署 | ⏳ | 須跑兩段 SQL → commit／push → Cloud Shell |
+| 部署 | ⏳ | commit／push → Cloud Shell |
 
 ---
 
@@ -69,5 +71,19 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gclou
 
 - 三色快速「帶入數字」預設（非必須）  
 - 印花仍一區擇一（維持）  
-- 正式 deploy 後補官方內容
-
+- 正式 deploy 後補官方內容  
+
+## 本輪變更（我的拖曳排序）
+
+- `public/js/material-color-palette-picker.js`：同一類型內 HTML5 DnD；存檔用下一個 `sort_order`  
+- `public/client/material-dual-color.html`：把手樣式＋提示；build 標記更新  
+- 後端：既有 `PATCH /api/me/material-color-palettes/:id` 已支援 `sort_order`，無需新 API／SQL  
+
+## 本輪變更（官方內容多語系）
+
+- SQL：`docs/add-material-color-palette-i18n.sql`（migration id=`material-color-palette-i18n`）  
+- 後台類型／配色：名稱（英文）＋其他語系；備註英文  
+- `GET /api/material-color-palettes/platform?lang=` 回傳已本地化的 `name`／`note`／類型名  
+- 文件／規則：`docs/admin-content-multilang-for-frontend.md`、`.cursor/rules/admin-content-multilang.mdc`  
+- build：`material-combo-palette-i18n-20260806`
+

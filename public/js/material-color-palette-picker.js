@@ -1,6 +1,6 @@
 /**
  * 材料組合「配色範例」：官方｜我的 × 類型 Tab × 表格一鍵套用
- * 依賴頁面提供 applyPalette（或舊版 applyHex）與 auth headers。
+ * 「我的」同一類型內可拖曳把手調整 sort_order。
  * 套用＝填表單（色數／HEX／比重），不自動存、不自動生圖。
  */
 (function (global) {
@@ -34,6 +34,11 @@
         return '75/25';
     }
 
+    function mineTypeKey(it) {
+        var label = (it && it.type_text && String(it.type_text).trim()) || '';
+        return label ? ('t:' + label) : '__none__';
+    }
+
     function createPicker(opts) {
         var getHeaders = opts.getHeaders;
         var applyPalette = opts.applyPalette || null;
@@ -59,6 +64,9 @@
             loadedPlatform: false,
             loadedMine: false
         };
+
+        var dragId = null;
+        var sortSaving = false;
 
         var scopeTabs = document.getElementById('mdcPalScopeTabs');
         var typeTabs = document.getElementById('mdcPalTypeTabs');
@@ -117,8 +125,8 @@
             var map = {};
             var order = [];
             state.mineItems.forEach(function (it) {
+                var key = mineTypeKey(it);
                 var label = (it.type_text && String(it.type_text).trim()) || '';
-                var key = label ? ('t:' + label) : '__none__';
                 if (!map[key]) {
                     map[key] = true;
                     order.push({ key: key, label: label || '未分類' });
@@ -141,9 +149,7 @@
                 });
             } else {
                 rows = state.mineItems.filter(function (it) {
-                    var label = (it.type_text && String(it.type_text).trim()) || '';
-                    var k = label ? ('t:' + label) : '__none__';
-                    return k === key;
+                    return mineTypeKey(it) === key;
                 });
             }
             rows.sort(function (a, b) {
@@ -153,6 +159,18 @@
                 return String(a.created_at || '').localeCompare(String(b.created_at || ''));
             });
             return rows;
+        }
+
+        function nextMineSortForTypeText(typeText) {
+            var label = String(typeText || '').trim();
+            var key = label ? ('t:' + label) : '__none__';
+            var max = 0;
+            state.mineItems.forEach(function (it) {
+                if (mineTypeKey(it) !== key) return;
+                var n = parseInt(it.sort_order, 10);
+                if (Number.isFinite(n) && n > max) max = n;
+            });
+            return max + 10;
         }
 
         function renderTypeTabs() {
@@ -177,8 +195,9 @@
         function renderTable() {
             if (!tableBody) return;
             var rows = itemsForActiveType();
+            var showMineActions = state.scope === 'mine';
             if (theadRow) {
-                theadRow.innerHTML =
+                theadRow.innerHTML = (showMineActions ? '<th style="width:2rem" title="拖曳排序"></th>' : '') +
                     '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th><th>輔色（三色）</th><th>比重</th><th style="width:9rem">操作</th>';
             }
             if (!rows.length) {
@@ -192,7 +211,6 @@
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            var showMineActions = state.scope === 'mine';
             tableBody.innerHTML = rows.map(function (it) {
                 var actions = '<button type="button" class="btn btn-sm btn-primary btn-pal-apply" data-id="' + esc(it.id) + '">套用</button>';
                 if (showMineActions) {
@@ -203,7 +221,13 @@
                     ? swatchHtml(it.tertiary_hex)
                     : '<span class="text-muted small">—</span>';
                 var note = (it.note && String(it.note).trim()) || '';
-                return '<tr>' +
+                var dragCell = showMineActions
+                    ? ('<td class="text-center align-middle">' +
+                        '<span class="mdc-pal-drag-handle" draggable="true" data-pal-id="' + esc(it.id) + '" title="拖曳調整類型內排序" aria-label="拖曳排序">⠿</span>' +
+                        '</td>')
+                    : '';
+                return '<tr data-pal-id="' + esc(it.id) + '">' +
+                    dragCell +
                     '<td>' + esc(it.name || '') +
                     (it.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') +
                     '</td>' +
@@ -217,9 +241,62 @@
             }).join('');
         }
 
+        async function persistMineOrder(orderedIds) {
+            if (sortSaving || !orderedIds.length) return;
+            sortSaving = true;
+            try {
+                var headers = await getHeaders();
+                headers['Content-Type'] = 'application/json';
+                for (var i = 0; i < orderedIds.length; i++) {
+                    var id = orderedIds[i];
+                    var sortOrder = (i + 1) * 10;
+                    var item = state.mineItems.find(function (x) { return String(x.id) === String(id); });
+                    if (item && item.sort_order === sortOrder) continue;
+                    var r = await fetch('/api/me/material-color-palettes/' + encodeURIComponent(id), {
+                        method: 'PATCH',
+                        headers: headers,
+                        body: JSON.stringify({ sort_order: sortOrder })
+                    });
+                    var j = await r.json().catch(function () { return {}; });
+                    if (!r.ok) throw new Error(j.error || '排序儲存失敗');
+                    if (item) item.sort_order = sortOrder;
+                }
+                onStatus('已更新類型內排序', true);
+            } catch (err) {
+                onStatus(err.message || '排序儲存失敗', false);
+                await loadMine(true);
+                renderTypeTabs();
+                renderTable();
+            } finally {
+                sortSaving = false;
+            }
+        }
+
+        function reorderMineDom(fromId, toId) {
+            if (!fromId || !toId || fromId === toId) return;
+            var rows = itemsForActiveType();
+            var ids = rows.map(function (r) { return String(r.id); });
+            var fromIdx = ids.indexOf(String(fromId));
+            var toIdx = ids.indexOf(String(toId));
+            if (fromIdx < 0 || toIdx < 0) return;
+            ids.splice(fromIdx, 1);
+            ids.splice(toIdx, 0, String(fromId));
+            // 同步記憶體順序：重寫該類型內 sort_order 暫值後重繪
+            ids.forEach(function (id, i) {
+                var it = state.mineItems.find(function (x) { return String(x.id) === String(id); });
+                if (it) it.sort_order = (i + 1) * 10;
+            });
+            renderTable();
+            persistMineOrder(ids);
+        }
+
         async function loadPlatform(force) {
             if (state.loadedPlatform && !force) return;
-            var r = await fetch('/api/material-color-palettes/platform', { headers: await getHeaders() });
+            var lang = (global.i18n && typeof global.i18n.getLang === 'function')
+                ? global.i18n.getLang()
+                : 'zh-TW';
+            var q = lang ? ('?lang=' + encodeURIComponent(String(lang).trim())) : '';
+            var r = await fetch('/api/material-color-palettes/platform' + q, { headers: await getHeaders() });
             var j = await r.json().catch(function () { return {}; });
             if (!r.ok) {
                 onStatus(j.error || '載入官方配色失敗', false);
@@ -274,6 +351,54 @@
             });
         }
         if (tableBody) {
+            tableBody.addEventListener('dragstart', function (e) {
+                if (state.scope !== 'mine' || sortSaving) return;
+                var handle = e.target.closest('.mdc-pal-drag-handle');
+                if (!handle) {
+                    e.preventDefault();
+                    return;
+                }
+                dragId = handle.getAttribute('data-pal-id');
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', dragId || ''); } catch (_) {}
+                var tr = handle.closest('tr');
+                if (tr) tr.classList.add('mdc-pal-dragging');
+            });
+            tableBody.addEventListener('dragend', function () {
+                dragId = null;
+                tableBody.querySelectorAll('tr.mdc-pal-dragging, tr.mdc-pal-drag-over').forEach(function (tr) {
+                    tr.classList.remove('mdc-pal-dragging', 'mdc-pal-drag-over');
+                });
+            });
+            tableBody.addEventListener('dragover', function (e) {
+                if (state.scope !== 'mine' || !dragId) return;
+                var tr = e.target.closest('tr[data-pal-id]');
+                if (!tr) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                tableBody.querySelectorAll('tr.mdc-pal-drag-over').forEach(function (el) {
+                    if (el !== tr) el.classList.remove('mdc-pal-drag-over');
+                });
+                tr.classList.add('mdc-pal-drag-over');
+            });
+            tableBody.addEventListener('dragleave', function (e) {
+                var tr = e.target.closest('tr[data-pal-id]');
+                if (tr && !tr.contains(e.relatedTarget)) tr.classList.remove('mdc-pal-drag-over');
+            });
+            tableBody.addEventListener('drop', function (e) {
+                if (state.scope !== 'mine') return;
+                var tr = e.target.closest('tr[data-pal-id]');
+                if (!tr) return;
+                e.preventDefault();
+                var toId = tr.getAttribute('data-pal-id');
+                var fromId = dragId || (function () {
+                    try { return e.dataTransfer.getData('text/plain'); } catch (_) { return ''; }
+                })();
+                tr.classList.remove('mdc-pal-drag-over');
+                reorderMineDom(fromId, toId);
+                dragId = null;
+            });
+
             tableBody.addEventListener('click', async function (e) {
                 var applyBtn = e.target.closest('.btn-pal-apply');
                 var editBtn = e.target.closest('.btn-pal-edit');
@@ -328,7 +453,8 @@
                             tertiary_hex: item.tertiary_hex || null,
                             color_count: item.color_count === 3 ? 3 : 2,
                             ratio_percents: item.ratio_percents || null,
-                            ratio_preset: item.ratio_preset || null
+                            ratio_preset: item.ratio_preset || null,
+                            sort_order: item.sort_order
                         })
                     });
                     var j2 = await r2.json().catch(function () { return {}; });
@@ -367,17 +493,19 @@
                 if (typeText == null) return;
                 var noteEl = document.getElementById('mdcPalSaveNote');
                 var noteFromBar = noteEl ? String(noteEl.value || '').trim() : '';
+                var typeTrim = String(typeText).trim() || null;
                 var headers = await getHeaders();
                 headers['Content-Type'] = 'application/json';
                 var payload = {
                     name: name,
-                    type_text: String(typeText).trim() || null,
+                    type_text: typeTrim,
                     note: noteFromBar || null,
                     primary_hex: primary,
                     accent_hex: accent,
                     color_count: colorCount,
                     ratio_preset: cur.ratio_preset || null,
-                    ratio_percents: ratioPercents
+                    ratio_percents: ratioPercents,
+                    sort_order: nextMineSortForTypeText(typeTrim)
                 };
                 if (colorCount === 3) payload.tertiary_hex = tertiary;
                 else payload.tertiary_hex = null;
@@ -393,6 +521,10 @@
                 state.scope = 'mine';
                 await loadMine(true);
                 setScope('mine');
+                if (typeTrim) state.activeTypeKey = 't:' + typeTrim;
+                else state.activeTypeKey = '__none__';
+                renderTypeTabs();
+                renderTable();
             });
         }
 
