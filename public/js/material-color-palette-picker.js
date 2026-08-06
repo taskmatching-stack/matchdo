@@ -134,16 +134,25 @@
 
         function itemsForActiveType() {
             var key = state.activeTypeKey;
+            var rows;
             if (state.scope === 'platform') {
-                return state.platformItems.filter(function (it) {
+                rows = state.platformItems.filter(function (it) {
                     return String(it.type_id || '') === String(key || '');
                 });
+            } else {
+                rows = state.mineItems.filter(function (it) {
+                    var label = (it.type_text && String(it.type_text).trim()) || '';
+                    var k = label ? ('t:' + label) : '__none__';
+                    return k === key;
+                });
             }
-            return state.mineItems.filter(function (it) {
-                var label = (it.type_text && String(it.type_text).trim()) || '';
-                var k = label ? ('t:' + label) : '__none__';
-                return k === key;
+            rows.sort(function (a, b) {
+                var sa = a.sort_order != null ? a.sort_order : 0;
+                var sb = b.sort_order != null ? b.sort_order : 0;
+                if (sa !== sb) return sa - sb;
+                return String(a.created_at || '').localeCompare(String(b.created_at || ''));
             });
+            return rows;
         }
 
         function renderTypeTabs() {
@@ -170,7 +179,7 @@
             var rows = itemsForActiveType();
             if (theadRow) {
                 theadRow.innerHTML =
-                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th><th>輔色</th><th>比重</th><th style="width:9rem">操作</th>';
+                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th><th>輔色（三色）</th><th>比重</th><th style="width:9rem">操作</th>';
             }
             if (!rows.length) {
                 tableBody.innerHTML = '';

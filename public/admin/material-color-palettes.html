@@ -18,7 +18,9 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">材料組合 · 配色範例</h4>
         <p class="text-muted small mb-3">
-          維護<strong>風格類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。類型是配色風格分類（與材質無關）。前台材料組合「配色範例 → 官方」以類型分 Tab、表格綜覽一鍵套用。
+          維護<strong>風格類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。類型是配色風格分類（與材質無關）。
+          <strong>排序為各類型內獨立</strong>（同類型互相比較，不必全站共用一組數字）。
+          「輔色」僅三色使用。前台「配色範例 → 官方」以類型分 Tab。
           請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 <code>docs/add-material-color-palette-ratios.sql</code>、<code>docs/add-material-color-palette-notes.sql</code>（或後台資料庫維護）。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
@@ -69,7 +71,7 @@
                   <option value="dual_50_50">50 / 50</option>
                 </select>
               </div>
-              <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="palSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-1"><label class="form-label small mb-0">類型內排序</label><input id="palSort" type="number" class="form-control form-control-sm" value="10" title="僅與同一類型內其他配色比較"></div>
               <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="btnAddPal">新增配色</button></div>
             </div>
             <div class="row g-2 align-items-end mt-1">
@@ -88,7 +90,7 @@
                 </div>
               </div>
               <div class="col-md-2 d-none" id="palTertiaryWrap">
-                <label class="form-label small mb-0">輔色</label>
+                <label class="form-label small mb-0">輔色（三色）</label>
                 <div class="d-flex gap-1">
                   <input type="color" id="palTertiaryPicker" value="#C4A484" style="width:2.5rem;height:2rem;padding:0;">
                   <input id="palTertiary" class="form-control form-control-sm" value="#C4A484" maxlength="7">
@@ -115,7 +117,9 @@
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="fw-semibold">官方配色列表</span>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+              <label class="small text-muted mb-0" for="palListTypeFilter">類型</label>
+              <select id="palListTypeFilter" class="form-select form-select-sm" style="width:auto;min-width:9rem;"></select>
               <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="showInactivePals">
                 <label class="form-check-label small" for="showInactivePals">顯示已停用</label>
@@ -132,11 +136,11 @@
                   <th>備註</th>
                   <th>主色</th>
                   <th>配色</th>
-                  <th>輔色</th>
+                  <th>輔色（三色）</th>
                   <th>比重</th>
-                  <th>排序</th>
+                  <th>類型內排序</th>
                   <th>狀態</th>
-                  <th></th>
+                  <th style="width:11rem"></th>
                 </tr>
               </thead>
               <tbody id="palBody"></tbody>
@@ -188,7 +192,7 @@
                   </div>
                 </div>
                 <div class="mb-2 d-none" id="editPalTertiaryWrap">
-                  <label class="form-label">輔色</label>
+                  <label class="form-label">輔色（三色）</label>
                   <div class="d-flex gap-2">
                     <input type="color" id="editPalTertiaryPicker" style="width:2.5rem;height:2.25rem;padding:0;">
                     <input id="editPalTertiary" class="form-control" maxlength="7">
@@ -202,7 +206,7 @@
                     <input id="editPalPct3" type="number" min="1" max="98" class="form-control" value="20">
                   </div>
                 </div>
-                <div class="mb-2"><label class="form-label">排序</label><input id="editPalSort" type="number" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">類型內排序</label><input id="editPalSort" type="number" class="form-control" title="僅與同一類型內其他配色比較"></div>
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="editPalActive">
                   <label class="form-check-label" for="editPalActive">啟用</label>
@@ -228,6 +232,7 @@
   var PAL_API = '/api/admin/material-color-palettes';
   var types = [];
   var pals = [];
+  var listTypeFilter = '';
   var editModal = null;
 
   function esc(s) {
@@ -276,6 +281,26 @@
       sel.appendChild(o);
     });
   }
+  function fillListTypeFilter() {
+    var sel = document.getElementById('palListTypeFilter');
+    if (!sel) return;
+    var prev = listTypeFilter || sel.value || '';
+    var active = types.filter(function (t) { return t.is_active !== false; });
+    sel.innerHTML = '<option value="">全部類型（分組顯示）</option>';
+    active.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      sel.appendChild(o);
+    });
+    if (prev && Array.prototype.some.call(sel.options, function (o) { return o.value === prev; })) {
+      sel.value = prev;
+      listTypeFilter = prev;
+    } else {
+      listTypeFilter = '';
+      sel.value = '';
+    }
+  }
   function swatchCell(hex) {
     var h = esc(hex || '');
     return '<span class="swatch me-1" style="background:' + h + '"></span><code class="small">' + h + '</code>';
@@ -284,6 +309,32 @@
     if (Array.isArray(p.ratio_percents) && p.ratio_percents.length) return p.ratio_percents.join('/');
     if (p.ratio_preset === 'dual_50_50') return '50/50';
     return p.color_count === 3 ? '—' : '75/25';
+  }
+  function comparePalsInType(a, b) {
+    var sa = a.sort_order != null ? a.sort_order : 0;
+    var sb = b.sort_order != null ? b.sort_order : 0;
+    if (sa !== sb) return sa - sb;
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  }
+  function palsInType(typeId) {
+    return pals.filter(function (p) { return String(p.type_id || '') === String(typeId || ''); })
+      .slice()
+      .sort(comparePalsInType);
+  }
+  function nextSortForType(typeId) {
+    var list = palsInType(typeId);
+    if (!list.length) return 10;
+    var max = 0;
+    list.forEach(function (p) {
+      var n = parseInt(p.sort_order, 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    });
+    return max + 10;
+  }
+  function syncAddSortForType() {
+    var typeId = document.getElementById('palType').value;
+    if (!typeId) return;
+    document.getElementById('palSort').value = String(nextSortForType(typeId));
   }
   function syncAddModeUi() {
     var tri = document.getElementById('palColorCount').value === '3';
@@ -351,6 +402,32 @@
     return payload;
   }
 
+  function palRowHtml(p, opts) {
+    var note = (p.note && String(p.note).trim()) || '';
+    var canUp = opts && opts.canUp;
+    var canDown = opts && opts.canDown;
+    var moveBtns =
+      '<button type="button" class="btn btn-sm btn-outline-secondary me-1 btn-pal-up" data-id="' + esc(p.id) + '"' +
+      (canUp ? '' : ' disabled') + ' title="類型內上移">↑</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary me-1 btn-pal-down" data-id="' + esc(p.id) + '"' +
+      (canDown ? '' : ' disabled') + ' title="類型內下移">↓</button>';
+    return '<tr>' +
+      '<td>' + esc(p.type_name || '—') + '</td>' +
+      '<td>' + esc(p.name) + (p.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') + '</td>' +
+      '<td class="small text-muted" style="max-width:14rem">' + (note ? esc(note) : '—') + '</td>' +
+      '<td>' + swatchCell(p.primary_hex) + '</td>' +
+      '<td>' + swatchCell(p.accent_hex) + '</td>' +
+      '<td>' + (p.color_count === 3 && p.tertiary_hex ? swatchCell(p.tertiary_hex) : '<span class="text-muted">—</span>') + '</td>' +
+      '<td class="small text-nowrap">' + esc(ratioText(p)) + '</td>' +
+      '<td class="small text-nowrap">' + esc(p.sort_order) + '</td>' +
+      '<td>' + (p.is_active === false ? '<span class="badge bg-secondary">停用</span>' : '<span class="badge bg-success">啟用</span>') + '</td>' +
+      '<td class="text-nowrap">' +
+        moveBtns +
+        '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit-pal" data-id="' + esc(p.id) + '">編輯</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger btn-del-pal" data-id="' + esc(p.id) + '">刪</button>' +
+      '</td></tr>';
+  }
+
   async function loadTypes() {
     var qs = document.getElementById('showInactiveTypes').checked ? '?show_inactive=1' : '';
     var r = await fetch(TYPE_API + qs, { headers: await authHeaders() });
@@ -364,6 +441,8 @@
     renderTypes();
     fillTypeSelect(document.getElementById('palType'));
     fillTypeSelect(document.getElementById('editPalType'));
+    fillListTypeFilter();
+    syncAddSortForType();
   }
   function renderTypes() {
     var body = document.getElementById('typeBody');
@@ -398,33 +477,106 @@
       pals = j.items || [];
       if (Array.isArray(j.types) && j.types.length) types = j.types;
     }
+    fillListTypeFilter();
     renderPals();
     fillTypeSelect(document.getElementById('palType'));
     fillTypeSelect(document.getElementById('editPalType'));
+    syncAddSortForType();
   }
   function renderPals() {
     var body = document.getElementById('palBody');
+    var filterId = listTypeFilter || (document.getElementById('palListTypeFilter') || {}).value || '';
+    listTypeFilter = filterId;
+
     if (!pals.length) {
       body.innerHTML = '<tr><td colspan="10" class="text-muted small">尚無官方配色</td></tr>';
       return;
     }
-    body.innerHTML = pals.map(function (p) {
-      var note = (p.note && String(p.note).trim()) || '';
-      return '<tr>' +
-        '<td>' + esc(p.type_name || '—') + '</td>' +
-        '<td>' + esc(p.name) + (p.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') + '</td>' +
-        '<td class="small text-muted" style="max-width:14rem">' + (note ? esc(note) : '—') + '</td>' +
-        '<td>' + swatchCell(p.primary_hex) + '</td>' +
-        '<td>' + swatchCell(p.accent_hex) + '</td>' +
-        '<td>' + (p.color_count === 3 && p.tertiary_hex ? swatchCell(p.tertiary_hex) : '<span class="text-muted">—</span>') + '</td>' +
-        '<td class="small text-nowrap">' + esc(ratioText(p)) + '</td>' +
-        '<td>' + esc(p.sort_order) + '</td>' +
-        '<td>' + (p.is_active === false ? '<span class="badge bg-secondary">停用</span>' : '<span class="badge bg-success">啟用</span>') + '</td>' +
-        '<td class="text-nowrap">' +
-          '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit-pal" data-id="' + esc(p.id) + '">編輯</button>' +
-          '<button type="button" class="btn btn-sm btn-outline-danger btn-del-pal" data-id="' + esc(p.id) + '">刪</button>' +
-        '</td></tr>';
-    }).join('');
+
+    var html = [];
+    function appendGroup(typeId, typeName, list) {
+      if (!list.length) return;
+      html.push(
+        '<tr class="table-light"><td colspan="10" class="small fw-semibold">' +
+        esc(typeName || '未分類') +
+        ' <span class="text-muted fw-normal">（' + list.length + ' 筆，類型內排序）</span></td></tr>'
+      );
+      list.forEach(function (p, idx) {
+        html.push(palRowHtml(p, { canUp: idx > 0, canDown: idx < list.length - 1 }));
+      });
+    }
+
+    if (filterId) {
+      var one = palsInType(filterId);
+      if (!one.length) {
+        body.innerHTML = '<tr><td colspan="10" class="text-muted small">此類型尚無配色</td></tr>';
+        return;
+      }
+      var tName = (one[0] && one[0].type_name) || '';
+      appendGroup(filterId, tName, one);
+    } else {
+      var byType = {};
+      var order = [];
+      types.filter(function (t) { return t.is_active !== false; }).forEach(function (t) {
+        byType[t.id] = [];
+        order.push(t);
+      });
+      var orphan = [];
+      pals.forEach(function (p) {
+        if (p.type_id && byType[p.type_id]) byType[p.type_id].push(p);
+        else orphan.push(p);
+      });
+      order.forEach(function (t) {
+        var list = (byType[t.id] || []).slice().sort(comparePalsInType);
+        appendGroup(t.id, t.name, list);
+      });
+      if (orphan.length) {
+        orphan.sort(comparePalsInType);
+        appendGroup('', '（無類型）', orphan);
+      }
+      if (!html.length) {
+        body.innerHTML = '<tr><td colspan="10" class="text-muted small">尚無官方配色</td></tr>';
+        return;
+      }
+    }
+    body.innerHTML = html.join('');
+  }
+
+  async function patchSort(id, sortOrder) {
+    var r = await fetch(PAL_API + '/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: await authHeaders(),
+      body: JSON.stringify({ sort_order: sortOrder })
+    });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(j.error || '更新排序失敗');
+  }
+
+  async function movePalInType(id, dir) {
+    var cur = pals.find(function (x) { return String(x.id) === String(id); });
+    if (!cur || !cur.type_id) return;
+    var list = palsInType(cur.type_id);
+    var idx = list.findIndex(function (x) { return String(x.id) === String(id); });
+    var j = idx + dir;
+    if (idx < 0 || j < 0 || j >= list.length) return;
+    var a = list[idx];
+    var b = list[j];
+    var sa = a.sort_order != null ? a.sort_order : 0;
+    var sb = b.sort_order != null ? b.sort_order : 0;
+    try {
+      if (sa === sb) {
+        // 同值時改寫成 10 間隔，避免交換無效
+        await patchSort(a.id, (j + 1) * 10);
+        await patchSort(b.id, (idx + 1) * 10);
+      } else {
+        await patchSort(a.id, sb);
+        await patchSort(b.id, sa);
+      }
+      showStatus('已調整類型內排序', true);
+      await loadPals();
+    } catch (err) {
+      showStatus(err.message || '排序失敗', false);
+    }
   }
 
   async function reloadAll() {
@@ -486,14 +638,28 @@
     if (!r.ok) return showStatus(j.error || '新增失敗', false);
     document.getElementById('palName').value = '';
     document.getElementById('palNote').value = '';
+    listTypeFilter = payload.type_id;
+    var filterSel = document.getElementById('palListTypeFilter');
+    if (filterSel) filterSel.value = payload.type_id;
     showStatus('配色已新增', true);
     await loadPals();
+    syncAddSortForType();
   });
 
   document.getElementById('palBody').addEventListener('click', async function (e) {
-    var id = e.target.getAttribute('data-id');
+    var btn = e.target.closest('[data-id]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-id');
     if (!id) return;
-    if (e.target.classList.contains('btn-del-pal')) {
+    if (btn.classList.contains('btn-pal-up')) {
+      await movePalInType(id, -1);
+      return;
+    }
+    if (btn.classList.contains('btn-pal-down')) {
+      await movePalInType(id, 1);
+      return;
+    }
+    if (btn.classList.contains('btn-del-pal')) {
       if (!confirm('確定刪除此官方配色？')) return;
       var r = await fetch(PAL_API + '/' + encodeURIComponent(id), { method: 'DELETE', headers: await authHeaders() });
       var j = await r.json().catch(function () { return {}; });
@@ -502,7 +668,7 @@
       await loadPals();
       return;
     }
-    if (e.target.classList.contains('btn-edit-pal')) {
+    if (btn.classList.contains('btn-edit-pal')) {
       var p = pals.find(function (x) { return x.id === id; });
       if (!p) return;
       document.getElementById('editPalId').value = p.id;
@@ -546,6 +712,11 @@
   document.getElementById('showInactivePals').addEventListener('change', loadPals);
   document.getElementById('palColorCount').addEventListener('change', syncAddModeUi);
   document.getElementById('editPalColorCount').addEventListener('change', syncEditModeUi);
+  document.getElementById('palType').addEventListener('change', syncAddSortForType);
+  document.getElementById('palListTypeFilter').addEventListener('change', function () {
+    listTypeFilter = this.value || '';
+    renderPals();
+  });
 
   bindHex(document.getElementById('palPrimaryPicker'), document.getElementById('palPrimary'));
   bindHex(document.getElementById('palAccentPicker'), document.getElementById('palAccent'));
