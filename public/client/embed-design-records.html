@@ -85,6 +85,11 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detail-body"></div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnEmbedResume">履歷</button>
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="btnEmbedResumePdf">匯出 PDF</button>
+                </div>
             </div>
         </div>
     </div>
@@ -92,6 +97,7 @@
     <script src="../js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/matchdo-image-lightbox.js"></script>
+    <script src="/js/provenance-resume-ui.js"></script>
     <script>
     (function () {
         'use strict';
@@ -199,6 +205,24 @@
                 '</dl>';
             if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {
                 window.MatchdoImageLightbox.wire(document.getElementById('detail-body'));
+            }
+            var btnR = document.getElementById('btnEmbedResume');
+            var btnP = document.getElementById('btnEmbedResumePdf');
+            if (row.id && window.ProvenanceResumeUI) {
+                btnR.classList.remove('d-none');
+                btnP.classList.remove('d-none');
+                btnR.onclick = function () {
+                    ProvenanceResumeUI.open({ kind: 'embed_visitor', id: row.id, admin: false });
+                };
+                btnP.onclick = function () {
+                    getToken().then(function (tok) {
+                        if (!tok) return;
+                        ProvenanceResumeUI.downloadPdf('/api/me/provenance-resume/export.pdf?kind=embed_visitor&id=' + encodeURIComponent(row.id), tok);
+                    });
+                };
+            } else {
+                btnR.classList.add('d-none');
+                btnP.classList.add('d-none');
             }
             if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
             detailModal.show();

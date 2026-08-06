@@ -301,9 +301,6 @@
       html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
         esc(JSON.stringify(row.reference_sources || [], null, 2)) + '</pre>';
       var kind = window.ProvenanceResumeUI && ProvenanceResumeUI.mapRecordSourceToKind(row.source);
-      if (!kind && row.source === 'embed') {
-        html += '<p class="text-muted small mb-0">Embed 履歷將於 P2 支援。</p>';
-      }
       document.getElementById('detailBody').innerHTML = html;
       var btnResume = document.getElementById('btnDetailResume');
       var btnPdf = document.getElementById('btnDetailResumePdf');

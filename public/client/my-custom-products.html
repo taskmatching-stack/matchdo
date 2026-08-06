@@ -921,6 +921,7 @@
                         </div>
                         <div class="d-grid gap-2 mt-auto">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
@@ -936,6 +937,12 @@
                         title: title,
                         category: category
                     }, col);
+                });
+            }
+            const resumeBtn = col.querySelector('.btn-combo-resume');
+            if (resumeBtn && item.id) {
+                resumeBtn.addEventListener('click', function () {
+                    openAssetProvenanceResume('material_combo', item.id);
                 });
             }
             const deleteBtn = col.querySelector('.btn-combo-delete');
@@ -1070,6 +1077,7 @@
                         <div class="text-muted small mb-2">${escapeHtml(kindLabel)} · <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}</div>
                         <div class="d-grid gap-2 mt-auto">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>
@@ -1085,6 +1093,12 @@
                         title: title,
                         category: category
                     }, col);
+                });
+            }
+            const resumeBtn = col.querySelector('.btn-print-resume');
+            if (resumeBtn && item.id) {
+                resumeBtn.addEventListener('click', function () {
+                    openAssetProvenanceResume('print', item.id);
                 });
             }
             const deleteBtn = col.querySelector('.btn-print-delete');

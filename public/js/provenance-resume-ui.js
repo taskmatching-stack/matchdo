@@ -91,6 +91,23 @@
       });
       html += '</ul>';
     }
+    var mc = ctx.material_combo_summary || ctx.material_combo;
+    if (mc && typeof mc === 'object') {
+      html += '<div class="fw-semibold mt-2 mb-1">材料組合</div><ul class="mb-0 ps-3">';
+      if (mc.main_material || (mc.main && mc.main.material)) html += '<li>主色：' + esc(mc.main_material || mc.main.material) + '</li>';
+      if (mc.accent_material || (mc.accent && mc.accent.material)) html += '<li>配色：' + esc(mc.accent_material || mc.accent.material) + '</li>';
+      if (mc.palette_name) html += '<li>配色來源：' + esc(mc.palette_name) + '</li>';
+      html += '</ul>';
+    }
+    if (ctx.print_meta && typeof ctx.print_meta === 'object') {
+      html += '<div class="fw-semibold mt-2 mb-1">印花</div><ul class="mb-0 ps-3">';
+      if (ctx.print_meta.print_type) html += '<li>類型：' + esc(ctx.print_meta.print_type) + '</li>';
+      if (ctx.print_meta.source_kind) html += '<li>來源：' + esc(ctx.print_meta.source_kind === 'redraw' ? 'AI 重繪' : '原圖') + '</li>';
+      html += '</ul>';
+    }
+    if (ctx.referrer_host) {
+      html += '<div class="mt-1"><span class="text-muted">Embed 來源：</span>' + esc(ctx.referrer_host) + '</div>';
+    }
     if (resume.platform && resume.platform.disclaimer) {
       html += '<p class="text-muted mt-3 mb-0" style="font-size:0.72rem">' + esc(resume.platform.disclaimer) + '</p>';
     }
