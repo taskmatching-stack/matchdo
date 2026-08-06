@@ -224,7 +224,7 @@
     return '';
   }
 
-  function subCell(sub) {
+  function visibleSubs(subs, pickFn) {
     return (subs || []).filter(function (sub) { return pickFn(sub); });
   }
 
