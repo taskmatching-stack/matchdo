@@ -507,6 +507,7 @@
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/matchdo-promo-image.js?v=20260728b"></script>
+    <script src="/js/provenance-resume-ui.js"></script>
 
     <script>
 
@@ -1274,6 +1275,7 @@
                         <div class="d-grid gap-2 mt-auto">
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
@@ -1307,6 +1309,12 @@
                     } else {
                         window.open(item.image_url, '_blank');
                     }
+                });
+            }
+            const resumeBtn = col.querySelector('.btn-promo-resume');
+            if (resumeBtn && item.id) {
+                resumeBtn.addEventListener('click', function () {
+                    openAssetProvenanceResume('promo_scene', item.id);
                 });
             }
             const deleteBtn = col.querySelector('.btn-promo-delete');
@@ -1589,6 +1597,7 @@
 
                         <div class="design-actions mt-auto">
                             <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">詳情</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-provenance-resume" data-kind="user_design" data-id="${product.id}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
                             <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
                             <div class="dropdown">
@@ -1627,8 +1636,19 @@
             if (tagsBtn) {
                 tagsBtn.addEventListener('click', () => runDesignAiAction(product.id, col, 'tags', tagsBtn));
             }
+            const resumeBtn = col.querySelector('.btn-provenance-resume');
+            if (resumeBtn) {
+                resumeBtn.addEventListener('click', function () {
+                    openAssetProvenanceResume(resumeBtn.getAttribute('data-kind'), resumeBtn.getAttribute('data-id'));
+                });
+            }
 
             return col;
+        }
+
+        function openAssetProvenanceResume(kind, id) {
+            if (!window.ProvenanceResumeUI) return;
+            ProvenanceResumeUI.open({ kind: kind, id: id, admin: false });
         }
 
         function designRefAssetKindLabel(s) {

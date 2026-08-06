@@ -139,6 +139,11 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body small" id="detailBody"></div>
+        <div class="modal-footer py-2" id="detailFooter">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
+          <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnDetailResume">履歷</button>
+          <button type="button" class="btn btn-primary btn-sm d-none" id="btnDetailResumePdf">匯出 PDF</button>
+        </div>
       </div>
     </div>
   </div>
@@ -148,6 +153,7 @@
   <script src="/js/auth-middleware.js"></script>
   <script src="/admin/js/admin-common.js"></script>
   <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/provenance-resume-ui.js"></script>
   <script>
   (function () {
     var token = null;
@@ -294,7 +300,30 @@
       }
       html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
         esc(JSON.stringify(row.reference_sources || [], null, 2)) + '</pre>';
+      var kind = window.ProvenanceResumeUI && ProvenanceResumeUI.mapRecordSourceToKind(row.source);
+      if (!kind && row.source === 'embed') {
+        html += '<p class="text-muted small mb-0">Embed 履歷將於 P2 支援。</p>';
+      }
       document.getElementById('detailBody').innerHTML = html;
+      var btnResume = document.getElementById('btnDetailResume');
+      var btnPdf = document.getElementById('btnDetailResumePdf');
+      if (kind && row.id) {
+        btnResume.classList.remove('d-none');
+        btnPdf.classList.remove('d-none');
+        btnResume.onclick = function () {
+          ProvenanceResumeUI.open({ kind: kind, id: row.id, admin: true });
+        };
+        btnPdf.onclick = function () {
+          var qs = '?kind=' + encodeURIComponent(kind) + '&id=' + encodeURIComponent(row.id);
+          getToken().then(function (tok) {
+            if (!tok || !window.ProvenanceResumeUI) return;
+            ProvenanceResumeUI.downloadPdf('/api/admin/provenance-resume/export.pdf' + qs, tok);
+          });
+        };
+      } else {
+        btnResume.classList.add('d-none');
+        btnPdf.classList.add('d-none');
+      }
       if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
       detailModal.show();
     }

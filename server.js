@@ -127,6 +127,8 @@ const {
     DEFAULT_UPSCALE_SCALE
 } = require('./lib/replicate-real-esrgan');
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
+const provenanceResume = require('./lib/provenance-resume');
+const provenanceResumePdf = require('./lib/provenance-resume-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const embedSimulator = require('./lib/embed-simulator');
 const designDirectionMarketSignals = require('./lib/design-direction-market-signals');
@@ -24872,6 +24874,131 @@ app.get('/api/admin/generation-records', async (req, res) => {
     } catch (e) {
         console.error('GET /api/admin/generation-records:', e);
         return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+function requestPublicBaseUrl(req) {
+    const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if (!host) return '';
+    return proto + '://' + host;
+}
+
+async function sendProvenanceResumePdfResponse(res, resume, audience) {
+    const pdf = await provenanceResumePdf.generateProvenanceResumePdf(resume, { audience: audience });
+    const fname = provenanceResumePdf.safePdfFilename(resume);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+        'Content-Disposition',
+        "attachment; filename=\"matchdo-provenance-resume.pdf\"; filename*=UTF-8''" + encodeURIComponent(fname)
+    );
+    res.send(pdf);
+}
+
+function provenanceResumeErrorStatus(result) {
+    if (!result || !result.error) return 500;
+    if (result.error === 'not_found') return 404;
+    if (result.error === 'forbidden') return 403;
+    if (result.error === 'invalid_kind' || result.error === 'missing_id') return 400;
+    if (result.error === 'not_implemented') return 501;
+    return 500;
+}
+
+// GET /api/me/provenance-resume — 使用者：生圖履歷 JSON
+app.get('/api/me/provenance-resume', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const kind = (req.query.kind || '').trim();
+        const id = (req.query.id || '').trim();
+        const result = await provenanceResume.buildProvenanceResume(supabase, {
+            kind: kind,
+            id: id,
+            audience: 'owner',
+            request_user_id: user.id,
+            baseUrl: requestPublicBaseUrl(req)
+        });
+        if (result.error) {
+            const code = provenanceResumeErrorStatus(result);
+            return res.status(code).json({ error: result.message || result.error });
+        }
+        return res.json({ ok: true, resume: result.resume });
+    } catch (e) {
+        console.error('GET /api/me/provenance-resume:', e);
+        return res.status(500).json({ error: e.message || '履歷載入失敗' });
+    }
+});
+
+// GET /api/me/provenance-resume/export.pdf — 使用者：生圖履歷 PDF
+app.get('/api/me/provenance-resume/export.pdf', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const kind = (req.query.kind || '').trim();
+        const id = (req.query.id || '').trim();
+        const result = await provenanceResume.buildProvenanceResume(supabase, {
+            kind: kind,
+            id: id,
+            audience: 'owner',
+            request_user_id: user.id,
+            baseUrl: requestPublicBaseUrl(req)
+        });
+        if (result.error) {
+            const code = provenanceResumeErrorStatus(result);
+            return res.status(code).json({ error: result.message || result.error });
+        }
+        await sendProvenanceResumePdfResponse(res, result.resume, 'owner');
+    } catch (e) {
+        console.error('GET /api/me/provenance-resume/export.pdf:', e);
+        return res.status(500).json({ error: 'PDF 產生失敗' });
+    }
+});
+
+// GET /api/admin/provenance-resume — 管理員：生圖履歷 JSON（含內部欄位）
+app.get('/api/admin/provenance-resume', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const kind = (req.query.kind || '').trim();
+        const id = (req.query.id || '').trim();
+        const result = await provenanceResume.buildProvenanceResume(supabase, {
+            kind: kind,
+            id: id,
+            audience: 'admin',
+            baseUrl: requestPublicBaseUrl(req)
+        });
+        if (result.error) {
+            const code = provenanceResumeErrorStatus(result);
+            return res.status(code).json({ error: result.message || result.error });
+        }
+        return res.json({ ok: true, resume: result.resume });
+    } catch (e) {
+        console.error('GET /api/admin/provenance-resume:', e);
+        return res.status(500).json({ error: e.message || '履歷載入失敗' });
+    }
+});
+
+// GET /api/admin/provenance-resume/export.pdf — 管理員：生圖履歷 PDF
+app.get('/api/admin/provenance-resume/export.pdf', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const kind = (req.query.kind || '').trim();
+        const id = (req.query.id || '').trim();
+        const result = await provenanceResume.buildProvenanceResume(supabase, {
+            kind: kind,
+            id: id,
+            audience: 'admin',
+            baseUrl: requestPublicBaseUrl(req)
+        });
+        if (result.error) {
+            const code = provenanceResumeErrorStatus(result);
+            return res.status(code).json({ error: result.message || result.error });
+        }
+        await sendProvenanceResumePdfResponse(res, result.resume, 'admin');
+    } catch (e) {
+        console.error('GET /api/admin/provenance-resume/export.pdf:', e);
+        return res.status(500).json({ error: 'PDF 產生失敗' });
     }
 });
 
