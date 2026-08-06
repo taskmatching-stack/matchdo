@@ -9758,7 +9758,7 @@ app.get('/api/admin/material-combo-analytics', async (req, res) => {
 
 async function fetchAllVendorAssetsForCategoryStats(opts) {
     const options = opts || {};
-    const select = 'category_key, subcategory_key, asset_kind, part_key, image_url, gallery_images, is_public, created_at';
+    const select = 'category_key, subcategory_key, asset_kind, part_key, image_url, gallery_images, is_public, manufacturer_id, created_at';
     const pageSize = 1000;
     let offset = 0;
     const all = [];
@@ -9945,9 +9945,11 @@ app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
             fetchAllPromoGenerationsForCategoryStats(fetchOpts)
         ]);
         const promoRows = promoPack.rows || [];
+        const officialManufacturerId = await getOrEnsureOfficialPlatformManufacturerId();
 
         const vendorAssets = vendorAssetCategoryStats.aggregateVendorAssetCategoryStats(assets, categories, {
-            include_inactive: includeInactive
+            include_inactive: includeInactive,
+            official_manufacturer_id: officialManufacturerId
         });
 
         const designItems = (designRows || []).map(function (row) {

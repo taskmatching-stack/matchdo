@@ -179,22 +179,30 @@
     return (subs || []).filter(function (sub) { return pickFn(sub); });
   }
 
+  function vendorNumCells(row) {
+    return numCell(row.official_prototype_records) + numCell(row.vendor_prototype_records)
+      + numCell(row.official_prototype_images) + numCell(row.vendor_prototype_images)
+      + numCell(row.official_material_records) + numCell(row.vendor_material_records)
+      + numCell(row.official_material_images) + numCell(row.vendor_material_images);
+  }
+
+  function hasVendorRowData(row) {
+    return row && (row.prototype_records || row.prototype_images || row.material_records || row.material_images);
+  }
+
   function renderVendorRows(categories) {
     if (!categories || !categories.length) {
-      return '<tr><td colspan="6" class="text-muted p-2">尚無分類或資料</td></tr>';
+      return '<tr><td colspan="10" class="text-muted p-2">尚無分類或資料</td></tr>';
     }
     var html = [];
     categories.forEach(function (cat) {
       var cls = cat.is_active === false ? ' row-inactive' : '';
-      var subs = visibleSubs(cat.subcategories, function (s) {
-        return s.prototype_records || s.prototype_images || s.material_records || s.material_images;
-      });
+      var subs = visibleSubs(cat.subcategories, hasVendorRowData);
       var span = subs.length + 1;
       html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
-        + numCell(cat.prototype_records) + numCell(cat.prototype_images) + numCell(cat.material_records) + numCell(cat.material_images) + '</tr>');
+        + vendorNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>'
-          + numCell(sub.prototype_records) + numCell(sub.prototype_images) + numCell(sub.material_records) + numCell(sub.material_images) + '</tr>');
+        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>' + vendorNumCells(sub) + '</tr>');
       });
     });
     return html.join('');
@@ -264,18 +272,22 @@
     var dd = data.design_drafts || {};
     var ps = data.promo_scenes || {};
     var vs = va.summary || {};
-    $('vaProtoRec').textContent = vs.prototype_records != null ? vs.prototype_records : '—';
-    $('vaProtoImg').textContent = vs.prototype_images != null ? vs.prototype_images : '—';
-    $('vaMatRec').textContent = vs.material_records != null ? vs.material_records : '—';
-    $('vaMatImg').textContent = vs.material_images != null ? vs.material_images : '—';
+    $('vaOfficialProtoRec').textContent = vs.official_prototype_records != null ? vs.official_prototype_records : '—';
+    $('vaVendorProtoRec').textContent = vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—';
+    $('vaOfficialMatRec').textContent = vs.official_material_records != null ? vs.official_material_records : '—';
+    $('vaVendorMatRec').textContent = vs.vendor_material_records != null ? vs.vendor_material_records : '—';
     $('ddRec').textContent = (dd.summary && dd.summary.records != null) ? dd.summary.records : '—';
     $('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
     $('psRec').textContent = (ps.summary && ps.summary.records != null) ? ps.summary.records : '—';
     $('psImg').textContent = (ps.summary && ps.summary.images != null) ? ps.summary.images : '—';
-    $('tabMetaVendor').textContent = '· 原型 ' + (vs.prototype_records != null ? vs.prototype_records : '—') + ' / 材料 ' + (vs.material_records != null ? vs.material_records : '—');
+    $('tabMetaVendor').textContent =
+      '· 官 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
+      + ' / 廠 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('tabMetaDesign').textContent = '· ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—') + ' 筆';
     $('tabMetaPromo').textContent = '· ' + ((ps.summary && ps.summary.records != null) ? ps.summary.records : '—') + ' 筆';
-    $('secMetaCategory').textContent = '素材 ' + (vs.prototype_records != null ? vs.prototype_records : '—') + ' / 設計 ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—');
+    $('secMetaCategory').textContent =
+      '官原型 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
+      + ' / 廠原型 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('scanMeta').textContent = '掃描：素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
     $('tblVendor').innerHTML = renderVendorRows(va.categories);
     if (va.orphan_categories && va.orphan_categories.length) {
@@ -289,6 +301,14 @@
           prototype_images: c.prototype_images,
           material_records: c.material_records,
           material_images: c.material_images,
+          official_prototype_records: c.official_prototype_records,
+          vendor_prototype_records: c.vendor_prototype_records,
+          official_prototype_images: c.official_prototype_images,
+          vendor_prototype_images: c.vendor_prototype_images,
+          official_material_records: c.official_material_records,
+          vendor_material_records: c.vendor_material_records,
+          official_material_images: c.official_material_images,
+          vendor_material_images: c.vendor_material_images,
           subcategories: c.subcategories || []
         };
       }));

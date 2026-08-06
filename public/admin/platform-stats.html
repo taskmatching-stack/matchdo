@@ -28,14 +28,20 @@
     .stats-table-wrap {
       border: 1px solid #dee2e6; border-radius: 0 0 0.375rem 0.375rem;
       background: #fff; overflow-x: auto; margin-bottom: 0.75rem;
+      width: fit-content; max-width: 100%;
     }
-    .table-cat-stats, .stats-table { width: auto; min-width: 100%; margin: 0; font-size: 0.8125rem; }
+    .table-cat-stats, .stats-table { width: auto; margin: 0; font-size: 0.8125rem; table-layout: auto; }
     .table-cat-stats th, .table-cat-stats td, .stats-table th, .stats-table td {
-      padding: 0.3rem 0.5rem; vertical-align: middle;
+      padding: 0.25rem 0.45rem; vertical-align: middle;
     }
-    .table-cat-stats th.col-main, .table-cat-stats td.col-main { min-width: 7.5rem; max-width: 11rem; white-space: normal; }
-    .table-cat-stats th.col-sub, .table-cat-stats td.col-sub { min-width: 6.5rem; max-width: 10rem; white-space: normal; }
-    .col-num { text-align: right; white-space: nowrap; min-width: 3rem; }
+    .table-cat-stats th.col-main, .table-cat-stats td.col-main {
+      width: 1%; white-space: nowrap; max-width: 11rem;
+    }
+    .table-cat-stats th.col-sub, .table-cat-stats td.col-sub {
+      width: 1%; white-space: nowrap; max-width: 10rem;
+    }
+    .col-num { text-align: right; white-space: nowrap; padding-left: 0.35rem !important; padding-right: 0.35rem !important; }
+    .col-num-group { text-align: center; font-size: 0.75rem; border-bottom: 0 !important; }
     tr.row-total td { font-weight: 600; background: rgba(0,0,0,.025); }
     tr.row-sub td.col-sub { padding-left: 1rem; color: #495057; font-weight: 400; }
     tr.row-inactive td { opacity: 0.65; }
@@ -132,16 +138,24 @@
           <section id="panelVendor">
             <div class="panel-head">
               <span class="ph-title">素材</span>
-              <span class="ph-nums text-muted">圖數＝封面＋圖庫</span>
-              <span class="ph-nums">原型 <strong id="vaProtoRec">—</strong> 筆 / <strong id="vaProtoImg">—</strong> 圖</span>
-              <span class="ph-nums">材料 <strong id="vaMatRec">—</strong> 筆 / <strong id="vaMatImg">—</strong> 圖</span>
+              <span class="ph-nums text-muted">圖數＝封面＋圖庫；官＝官方版型庫</span>
+              <span class="ph-nums">原型 官 <strong id="vaOfficialProtoRec">—</strong> / 廠 <strong id="vaVendorProtoRec">—</strong> 筆</span>
+              <span class="ph-nums">材料 官 <strong id="vaOfficialMatRec">—</strong> / 廠 <strong id="vaVendorMatRec">—</strong> 筆</span>
             </div>
             <div class="stats-table-wrap">
               <table class="table table-sm table-hover mb-0 table-cat-stats">
-                <thead class="table-light"><tr>
-                  <th class="col-main">主分類</th><th class="col-sub">子分類</th>
-                  <th class="col-num">原型筆</th><th class="col-num">原型圖</th><th class="col-num">材料筆</th><th class="col-num">材料圖</th>
-                </tr></thead>
+                <thead class="table-light">
+                  <tr>
+                    <th class="col-main" rowspan="2">主分類</th>
+                    <th class="col-sub" rowspan="2">子分類</th>
+                    <th class="col-num-group" colspan="4">原型</th>
+                    <th class="col-num-group" colspan="4">材料</th>
+                  </tr>
+                  <tr>
+                    <th class="col-num">官筆</th><th class="col-num">廠筆</th><th class="col-num">官圖</th><th class="col-num">廠圖</th>
+                    <th class="col-num">官筆</th><th class="col-num">廠筆</th><th class="col-num">官圖</th><th class="col-num">廠圖</th>
+                  </tr>
+                </thead>
                 <tbody id="tblVendor"></tbody>
               </table>
             </div>
