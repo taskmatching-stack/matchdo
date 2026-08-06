@@ -108,6 +108,7 @@ const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
 const materialComboAnalytics = require('./lib/material-combo-analytics');
+const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
@@ -9751,6 +9752,83 @@ app.get('/api/admin/material-combo-analytics', async (req, res) => {
     } catch (e) {
         console.error('GET /api/admin/material-combo-analytics 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function fetchAllVendorAssetsForCategoryStats(opts) {
+    const options = opts || {};
+    const select = 'category_key, subcategory_key, asset_kind, part_key, image_url, gallery_images, is_public';
+    const pageSize = 1000;
+    let offset = 0;
+    const all = [];
+    while (true) {
+        let q = supabase.from('vendor_assets').select(select).order('id', { ascending: true }).range(offset, offset + pageSize - 1);
+        if (options.public_only) q = q.eq('is_public', true);
+        const { data, error } = await q;
+        if (error) throw error;
+        const batch = data || [];
+        all.push.apply(all, batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+    }
+    return all;
+}
+
+async function fetchCustomProductCategoriesForStats() {
+    const { data: cats, error } = await supabase
+        .from('custom_product_categories')
+        .select('key, name, sort_order, is_active')
+        .order('sort_order', { ascending: true })
+        .order('key', { ascending: true });
+    if (error) throw error;
+    const list = cats || [];
+    const keys = list.map(function (c) { return c.key; }).filter(Boolean);
+    let subMap = {};
+    if (keys.length) {
+        const { data: subs, error: subErr } = await supabase
+            .from('custom_product_subcategories')
+            .select('category_key, key, name, sort_order, is_active')
+            .in('category_key', keys)
+            .order('sort_order', { ascending: true });
+        if (!subErr) {
+            (subs || []).forEach(function (s) {
+                if (!subMap[s.category_key]) subMap[s.category_key] = [];
+                subMap[s.category_key].push(s);
+            });
+        }
+    }
+    return list.map(function (c) {
+        return Object.assign({}, c, { subcategories: subMap[c.key] || [] });
+    });
+}
+
+// GET /api/admin/vendor-asset-category-stats — 各訂製品分類：原型／材料筆數與圖數
+app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const publicOnly = String(req.query.public_only || '').trim() === '1'
+            || String(req.query.public_only || '').trim().toLowerCase() === 'true';
+        const includeInactive = String(req.query.include_inactive || '').trim() === '1'
+            || String(req.query.include_inactive || '').trim().toLowerCase() === 'true';
+
+        const [assets, categories] = await Promise.all([
+            fetchAllVendorAssetsForCategoryStats({ public_only: publicOnly }),
+            fetchCustomProductCategoriesForStats()
+        ]);
+
+        const report = vendorAssetCategoryStats.aggregateVendorAssetCategoryStats(assets, categories, {
+            include_inactive: includeInactive
+        });
+
+        res.json(Object.assign({
+            ok: true,
+            public_only: publicOnly,
+            include_inactive: includeInactive
+        }, report));
+    } catch (e) {
+        console.error('GET /api/admin/vendor-asset-category-stats 異常:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 

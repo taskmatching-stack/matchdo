@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分類素材統計 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+    .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; }
+    .table-sm td, .table-sm th { font-size: 0.875rem; vertical-align: middle; }
+    tr.row-sub td:first-child { padding-left: 1.75rem; color: #6c757d; }
+    tr.row-total td { font-weight: 600; background: rgba(0,0,0,.02); }
+    tr.row-inactive td { opacity: 0.65; }
+    tr.row-orphan td { background: rgba(255, 193, 7, 0.08); }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">分類素材統計</h4>
+        <p class="text-muted small mb-3">
+          依「訂製品分類」彙總全站 <code>vendor_assets</code>：
+          <strong>原型</strong>（<code>asset_kind=prototype</code>）與<strong>材料</strong>（<code>asset_kind=material</code>）的筆數；
+          圖數＝封面 <code>image_url</code>（有則 1）＋ <code>gallery_images</code> 內有效 URL 數。
+          零件（part）不計入下表。
+        </p>
+
+        <div id="statsMsg" class="alert mb-3 py-2 d-none"></div>
+
+        <div class="card mb-3">
+          <div class="card-body py-3">
+            <div class="row g-2 align-items-center">
+              <div class="col-auto">
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="chkPublicOnly" />
+                  <label class="form-check-label small" for="chkPublicOnly">僅公開（is_public）</label>
+                </div>
+              </div>
+              <div class="col-auto">
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="chkIncludeInactive" checked />
+                  <label class="form-check-label small" for="chkIncludeInactive">含停用分類列（仍顯示 0）</label>
+                </div>
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnLoad">重新載入</button>
+              </div>
+              <div class="col-auto small text-muted" id="scanMeta"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-md-3 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">原型筆數</div>
+              <div class="stat-num text-primary" id="sumProtoRec">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">原型圖數</div>
+              <div class="stat-num text-primary" id="sumProtoImg">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">材料筆數</div>
+              <div class="stat-num text-success" id="sumMatRec">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">材料圖數</div>
+              <div class="stat-num text-success" id="sumMatImg">—</div>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header bg-white py-2 fw-semibold">依訂製品分類</div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>主分類</th>
+                  <th>子分類</th>
+                  <th class="text-end">原型筆數</th>
+                  <th class="text-end">原型圖數</th>
+                  <th class="text-end">材料筆數</th>
+                  <th class="text-end">材料圖數</th>
+                </tr>
+              </thead>
+              <tbody id="tblCategories"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-3 d-none" id="orphanCard">
+          <div class="card-header bg-white py-2 fw-semibold text-warning">未對應訂製品分類的素材</div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>category_key</th>
+                  <th>子分類</th>
+                  <th class="text-end">原型筆數</th>
+                  <th class="text-end">原型圖數</th>
+                  <th class="text-end">材料筆數</th>
+                  <th class="text-end">材料圖數</th>
+                </tr>
+              </thead>
+              <tbody id="tblOrphan"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  function showMsg(text, isErr) {
+    var el = document.getElementById('statsMsg');
+    el.className = 'alert mb-3 py-2 ' + (isErr ? 'alert-danger' : 'alert-info');
+    el.textContent = text;
+    el.classList.remove('d-none');
+  }
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    var session = await AuthService.getSession();
+    var token = session && session.access_token;
+    if (!token) return {};
+    return { Authorization: 'Bearer ' + token };
+  }
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function numCell(n) {
+    return '<td class="text-end">' + (n != null ? n : 0) + '</td>';
+  }
+  function statsCells(r) {
+    return numCell(r.prototype_records) + numCell(r.prototype_images) + numCell(r.material_records) + numCell(r.material_images);
+  }
+  function renderCategoryRows(categories) {
+    if (!categories || !categories.length) {
+      return '<tr><td colspan="6" class="text-muted small p-3">尚無分類或資料</td></tr>';
+    }
+    var html = [];
+    categories.forEach(function (cat) {
+      var inactive = cat.is_active === false ? ' row-inactive' : '';
+      var catLabel = esc(cat.category_name) + ' <code class="small">' + esc(cat.category_key) + '</code>';
+      if (cat.is_active === false) catLabel += ' <span class="badge bg-secondary">停用</span>';
+      html.push('<tr class="row-total' + inactive + '"><td>' + catLabel + '</td><td>— 合計</td>' + statsCells(cat) + '</tr>');
+      (cat.subcategories || []).forEach(function (sub) {
+        if (!sub.prototype_records && !sub.prototype_images && !sub.material_records && !sub.material_images) return;
+        html.push('<tr class="row-sub' + inactive + '"><td></td><td>' + esc(sub.subcategory_name || sub.subcategory_key || '—') + '</td>' + statsCells(sub) + '</tr>');
+      });
+    });
+    return html.join('');
+  }
+  function renderOrphanRows(list) {
+    if (!list || !list.length) return '';
+    var html = [];
+    list.forEach(function (cat) {
+      html.push('<tr class="row-orphan row-total"><td><code>' + esc(cat.category_key) + '</code></td><td>— 合計</td>' + statsCells(cat) + '</tr>');
+      (cat.subcategories || []).forEach(function (sub) {
+        if (!sub.prototype_records && !sub.prototype_images && !sub.material_records && !sub.material_images) return;
+        html.push('<tr class="row-orphan row-sub"><td></td><td>' + esc(sub.subcategory_name || sub.subcategory_key || '—') + '</td>' + statsCells(sub) + '</tr>');
+      });
+    });
+    return html;
+  }
+  async function load() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      showMsg('請先登入管理員帳號', true);
+      return;
+    }
+    var qs = new URLSearchParams();
+    if (document.getElementById('chkPublicOnly').checked) qs.set('public_only', '1');
+    if (document.getElementById('chkIncludeInactive').checked) qs.set('include_inactive', '1');
+    showMsg('載入中…', false);
+    try {
+      var res = await fetch('/api/admin/vendor-asset-category-stats?' + qs.toString(), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) {
+        showMsg(data.error || '載入失敗', true);
+        return;
+      }
+      document.getElementById('statsMsg').classList.add('d-none');
+      var s = data.summary || {};
+      document.getElementById('sumProtoRec').textContent = s.prototype_records != null ? s.prototype_records : '—';
+      document.getElementById('sumProtoImg').textContent = s.prototype_images != null ? s.prototype_images : '—';
+      document.getElementById('sumMatRec').textContent = s.material_records != null ? s.material_records : '—';
+      document.getElementById('sumMatImg').textContent = s.material_images != null ? s.material_images : '—';
+      document.getElementById('scanMeta').textContent = '已掃描素材 ' + (s.asset_rows_scanned || 0) + ' 筆'
+        + (data.public_only ? '（僅公開）' : '（含非公開）');
+      document.getElementById('tblCategories').innerHTML = renderCategoryRows(data.categories);
+      var orphan = data.orphan_categories || [];
+      var orphanCard = document.getElementById('orphanCard');
+      if (orphan.length) {
+        orphanCard.classList.remove('d-none');
+        document.getElementById('tblOrphan').innerHTML = renderOrphanRows(orphan);
+      } else {
+        orphanCard.classList.add('d-none');
+        document.getElementById('tblOrphan').innerHTML = '';
+      }
+    } catch (e) {
+      showMsg('載入失敗', true);
+    }
+  }
+  document.getElementById('btnLoad').addEventListener('click', load);
+  load();
+})();
+  </script>
+</body>
+</html>
