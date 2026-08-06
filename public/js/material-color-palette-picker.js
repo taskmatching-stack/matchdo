@@ -1,6 +1,6 @@
 /**
- * 材料組合「配色範例」：官方｜我的 × 類型 Tab × 表格一鍵套用
- * 「我的」同一類型內可拖曳把手調整 sort_order。
+ * 材料組合「配色範例」：官方｜我的 × 雙色｜三色 × 類型 Tab × 表格一鍵套用
+ * 「我的」同一類型＋同色數內可拖曳把手調整 sort_order。
  * 套用＝填表單（色數／HEX／比重），不自動存、不自動生圖。
  */
 (function (global) {
@@ -39,11 +39,16 @@
         return label ? ('t:' + label) : '__none__';
     }
 
+    function itemColorCount(it) {
+        return (it && it.color_count === 3) ? 3 : 2;
+    }
+
     function createPicker(opts) {
         var getHeaders = opts.getHeaders;
         var applyPalette = opts.applyPalette || null;
         var applyHex = opts.applyHex || null;
         var getCurrentPalette = opts.getCurrentPalette || opts.getCurrentHex;
+        var getFormColorCount = opts.getColorCount || null;
         var onStatus = opts.onStatus || function () {};
         var modalEl = document.getElementById('mdcPaletteModal');
         if (!modalEl) return null;
@@ -57,6 +62,7 @@
 
         var state = {
             scope: 'platform', // platform | mine
+            colorCount: 2, // 2 | 3 — 雙色／三色分開瀏覽
             platformTypes: [],
             platformItems: [],
             mineItems: [],
@@ -69,6 +75,7 @@
         var sortSaving = false;
 
         var scopeTabs = document.getElementById('mdcPalScopeTabs');
+        var countTabs = document.getElementById('mdcPalColorCountTabs');
         var typeTabs = document.getElementById('mdcPalTypeTabs');
         var tableBody = document.getElementById('mdcPalTableBody');
         var emptyEl = document.getElementById('mdcPalEmpty');
@@ -81,7 +88,7 @@
                 primary_hex: it.primary_hex,
                 accent_hex: it.accent_hex,
                 tertiary_hex: it.tertiary_hex || null,
-                color_count: it.color_count === 3 ? 3 : 2,
+                color_count: itemColorCount(it),
                 ratio_percents: Array.isArray(it.ratio_percents) ? it.ratio_percents.slice() : null,
                 ratio_preset: it.ratio_preset || null
             };
@@ -92,6 +99,22 @@
             if (typeof applyHex === 'function') {
                 applyHex(payload.primary_hex, payload.accent_hex);
             }
+        }
+
+        function syncCountTabsUi() {
+            if (!countTabs) return;
+            countTabs.querySelectorAll('[data-pal-count]').forEach(function (btn) {
+                var n = parseInt(btn.getAttribute('data-pal-count'), 10) === 3 ? 3 : 2;
+                btn.classList.toggle('active', n === state.colorCount);
+            });
+        }
+
+        function setColorCount(count) {
+            state.colorCount = count === 3 ? 3 : 2;
+            syncCountTabsUi();
+            state.activeTypeKey = null;
+            renderTypeTabs();
+            renderTable();
         }
 
         function setScope(scope) {
@@ -110,10 +133,16 @@
             renderTable();
         }
 
+        function itemsMatchingColorCount(list) {
+            return (list || []).filter(function (it) {
+                return itemColorCount(it) === state.colorCount;
+            });
+        }
+
         function typeKeysForScope() {
             if (state.scope === 'platform') {
                 var used = {};
-                state.platformItems.forEach(function (it) {
+                itemsMatchingColorCount(state.platformItems).forEach(function (it) {
                     if (it.type_id) used[it.type_id] = true;
                 });
                 return state.platformTypes
@@ -124,7 +153,7 @@
             }
             var map = {};
             var order = [];
-            state.mineItems.forEach(function (it) {
+            itemsMatchingColorCount(state.mineItems).forEach(function (it) {
                 var key = mineTypeKey(it);
                 var label = (it.type_text && String(it.type_text).trim()) || '';
                 if (!map[key]) {
@@ -144,11 +173,11 @@
             var key = state.activeTypeKey;
             var rows;
             if (state.scope === 'platform') {
-                rows = state.platformItems.filter(function (it) {
+                rows = itemsMatchingColorCount(state.platformItems).filter(function (it) {
                     return String(it.type_id || '') === String(key || '');
                 });
             } else {
-                rows = state.mineItems.filter(function (it) {
+                rows = itemsMatchingColorCount(state.mineItems).filter(function (it) {
                     return mineTypeKey(it) === key;
                 });
             }
@@ -161,12 +190,14 @@
             return rows;
         }
 
-        function nextMineSortForTypeText(typeText) {
+        function nextMineSortForTypeText(typeText, colorCount) {
             var label = String(typeText || '').trim();
             var key = label ? ('t:' + label) : '__none__';
+            var count = colorCount === 3 ? 3 : 2;
             var max = 0;
             state.mineItems.forEach(function (it) {
                 if (mineTypeKey(it) !== key) return;
+                if (itemColorCount(it) !== count) return;
                 var n = parseInt(it.sort_order, 10);
                 if (Number.isFinite(n) && n > max) max = n;
             });
@@ -196,17 +227,27 @@
             if (!tableBody) return;
             var rows = itemsForActiveType();
             var showMineActions = state.scope === 'mine';
+            var showTertiary = state.colorCount === 3;
+            var countLabel = state.colorCount === 3 ? '三色' : '雙色';
             if (theadRow) {
                 theadRow.innerHTML = (showMineActions ? '<th style="width:2rem" title="拖曳排序"></th>' : '') +
-                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th><th>輔色（三色）</th><th>比重</th><th style="width:9rem">操作</th>';
+                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th>' +
+                    (showTertiary ? '<th>輔色</th>' : '') +
+                    '<th>比重</th><th style="width:9rem">操作</th>';
             }
             if (!rows.length) {
                 tableBody.innerHTML = '';
                 if (emptyEl) {
                     emptyEl.classList.remove('d-none');
-                    emptyEl.textContent = state.scope === 'mine'
-                        ? '此類型尚無我的配色。可將目前選色存成我的。'
-                        : '此類型尚無官方配色。';
+                    if (!typeKeysForScope().length) {
+                        emptyEl.textContent = state.scope === 'mine'
+                            ? ('尚無我的' + countLabel + '配色。可將目前選色存成我的。')
+                            : ('尚無官方' + countLabel + '配色。');
+                    } else {
+                        emptyEl.textContent = state.scope === 'mine'
+                            ? ('此類型尚無我的' + countLabel + '配色。')
+                            : ('此類型尚無官方' + countLabel + '配色。');
+                    }
                 }
                 return;
             }
@@ -217,9 +258,9 @@
                     actions += ' <button type="button" class="btn btn-sm btn-outline-secondary btn-pal-edit" data-id="' + esc(it.id) + '">編輯</button>' +
                         ' <button type="button" class="btn btn-sm btn-outline-danger btn-pal-del" data-id="' + esc(it.id) + '">刪</button>';
                 }
-                var tertiaryCell = it.color_count === 3 && it.tertiary_hex
-                    ? swatchHtml(it.tertiary_hex)
-                    : '<span class="text-muted small">—</span>';
+                var tertiaryCell = showTertiary
+                    ? ('<td>' + (it.tertiary_hex ? swatchHtml(it.tertiary_hex) : '<span class="text-muted small">—</span>') + '</td>')
+                    : '';
                 var note = (it.note && String(it.note).trim()) || '';
                 var dragCell = showMineActions
                     ? ('<td class="text-center align-middle">' +
@@ -228,13 +269,11 @@
                     : '';
                 return '<tr data-pal-id="' + esc(it.id) + '">' +
                     dragCell +
-                    '<td>' + esc(it.name || '') +
-                    (it.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') +
-                    '</td>' +
+                    '<td>' + esc(it.name || '') + '</td>' +
                     '<td class="small text-muted" style="max-width:10rem">' + (note ? esc(note) : '—') + '</td>' +
                     '<td>' + swatchHtml(it.primary_hex) + '</td>' +
                     '<td>' + swatchHtml(it.accent_hex) + '</td>' +
-                    '<td>' + tertiaryCell + '</td>' +
+                    tertiaryCell +
                     '<td class="small text-nowrap">' + esc(ratioLabel(it)) + '</td>' +
                     '<td class="text-nowrap">' + actions + '</td>' +
                     '</tr>';
@@ -281,7 +320,6 @@
             if (fromIdx < 0 || toIdx < 0) return;
             ids.splice(fromIdx, 1);
             ids.splice(toIdx, 0, String(fromId));
-            // 同步記憶體順序：重寫該類型內 sort_order 暫值後重繪
             ids.forEach(function (id, i) {
                 var it = state.mineItems.find(function (x) { return String(x.id) === String(id); });
                 if (it) it.sort_order = (i + 1) * 10;
@@ -323,6 +361,10 @@
         }
 
         async function open() {
+            if (typeof getFormColorCount === 'function') {
+                state.colorCount = getFormColorCount() === 3 ? 3 : 2;
+            }
+            syncCountTabsUi();
             await loadPlatform(true);
             await loadMine(true);
             setScope(state.scope);
@@ -339,6 +381,13 @@
                 var btn = e.target.closest('[data-pal-scope]');
                 if (!btn) return;
                 setScope(btn.getAttribute('data-pal-scope'));
+            });
+        }
+        if (countTabs) {
+            countTabs.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-pal-count]');
+                if (!btn) return;
+                setColorCount(parseInt(btn.getAttribute('data-pal-count'), 10));
             });
         }
         if (typeTabs) {
@@ -451,7 +500,7 @@
                             primary_hex: item.primary_hex,
                             accent_hex: item.accent_hex,
                             tertiary_hex: item.tertiary_hex || null,
-                            color_count: item.color_count === 3 ? 3 : 2,
+                            color_count: itemColorCount(item),
                             ratio_percents: item.ratio_percents || null,
                             ratio_preset: item.ratio_preset || null,
                             sort_order: item.sort_order
@@ -505,7 +554,7 @@
                     color_count: colorCount,
                     ratio_preset: cur.ratio_preset || null,
                     ratio_percents: ratioPercents,
-                    sort_order: nextMineSortForTypeText(typeTrim)
+                    sort_order: nextMineSortForTypeText(typeTrim, colorCount)
                 };
                 if (colorCount === 3) payload.tertiary_hex = tertiary;
                 else payload.tertiary_hex = null;
@@ -519,6 +568,7 @@
                 onStatus('已存成我的配色', true);
                 if (noteEl) noteEl.value = '';
                 state.scope = 'mine';
+                state.colorCount = colorCount;
                 await loadMine(true);
                 setScope('mine');
                 if (typeTrim) state.activeTypeKey = 't:' + typeTrim;

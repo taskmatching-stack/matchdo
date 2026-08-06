@@ -272,6 +272,10 @@
                             <button type="button" class="nav-link" data-pal-scope="mine">我的</button>
                         </li>
                     </ul>
+                    <div class="btn-group btn-group-sm mb-2" role="group" aria-label="色數篩選" id="mdcPalColorCountTabs">
+                        <button type="button" class="btn btn-outline-secondary active" data-pal-count="2">雙色</button>
+                        <button type="button" class="btn btn-outline-secondary" data-pal-count="3">三色</button>
+                    </div>
                     <div id="mdcPalMineToolbar" class="d-none mb-2">
                         <div class="d-flex flex-wrap align-items-end gap-2">
                             <div class="flex-grow-1" style="min-width:12rem;max-width:22rem;">
@@ -328,10 +332,10 @@
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
-    <script src="/js/material-color-palette-picker.js?v=20260806b"></script>
+    <script src="/js/material-color-palette-picker.js?v=20260806c"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-palette-i18n-20260806';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-pal-split-count-20260806';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -1027,6 +1031,7 @@
                         ratio_preset: getColorCount() === 3 ? 'tri_custom' : getDualPresetKey()
                     };
                 },
+                getColorCount: getColorCount,
                 onStatus: function (msg, ok) {
                     if (!statusEl) return;
                     statusEl.textContent = msg || '';
