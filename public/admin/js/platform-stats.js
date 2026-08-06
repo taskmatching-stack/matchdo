@@ -168,6 +168,17 @@
     return '<td class="col-num">' + (n != null ? n : 0) + '</td>';
   }
 
+  function subCell(sub) {
+    var html = esc(sub.subcategory_name);
+    if (sub.is_active === false) html += ' <span class="badge bg-secondary">停</span>';
+    return html;
+  }
+
+  function rowInactiveClass(isActive, isSub) {
+    if (isActive === false) return isSub ? ' row-sub-inactive' : ' row-inactive';
+    return '';
+  }
+
   function catMainCell(cat) {
     var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
     var html = esc(cat.category_name);
@@ -196,13 +207,13 @@
     }
     var html = [];
     categories.forEach(function (cat) {
-      var cls = cat.is_active === false ? ' row-inactive' : '';
+      var cls = rowInactiveClass(cat.is_active, false);
       var subs = visibleSubs(cat.subcategories, hasVendorRowData);
       var span = subs.length + 1;
       html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
         + vendorNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>' + vendorNumCells(sub) + '</tr>');
+        html.push('<tr class="row-sub' + cls + rowInactiveClass(sub.is_active, true) + '"><td class="col-sub">' + subCell(sub) + '</td>' + vendorNumCells(sub) + '</tr>');
       });
     });
     return html.join('');
@@ -214,13 +225,13 @@
     }
     var html = [];
     categories.forEach(function (cat) {
-      var cls = (cat.is_active === false ? ' row-inactive' : '') + (orphanMode ? ' row-orphan' : '');
+      var cls = rowInactiveClass(cat.is_active, false) + (orphanMode ? ' row-orphan' : '');
       var subs = visibleSubs(cat.subcategories, function (s) { return s.records || s.images; });
       var span = subs.length + 1;
       var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catMainCell(cat);
       html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
+        html.push('<tr class="row-sub' + cls + rowInactiveClass(sub.is_active, true) + '"><td class="col-sub">' + subCell(sub) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
       });
     });
     return html.join('');

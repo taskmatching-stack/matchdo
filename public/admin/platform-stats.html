@@ -43,8 +43,12 @@
     .col-num { text-align: right; white-space: nowrap; padding-left: 0.35rem !important; padding-right: 0.35rem !important; }
     .col-num-group { text-align: center; font-size: 0.75rem; border-bottom: 0 !important; }
     tr.row-total td { font-weight: 600; background: rgba(0,0,0,.025); }
+    tr.row-inactive td { background: #dfe3e8 !important; color: #5c636a; }
+    tr.row-inactive.row-total td { background: #d3d9e0 !important; color: #495057; }
     tr.row-sub td.col-sub { padding-left: 1rem; color: #495057; font-weight: 400; }
-    tr.row-inactive td { opacity: 0.65; }
+    tr.row-sub-inactive td { background: #e8ebef !important; color: #6c757d; }
+    tr.row-inactive tr.row-sub-inactive td,
+    tr.row-inactive + tr.row-sub-inactive td { background: #d8dde3 !important; }
     tr.row-orphan td { background: rgba(255, 193, 7, 0.08); }
     .orphan-block { margin-top: 0.75rem; font-size: 0.8125rem; }
     .overview-grid {
