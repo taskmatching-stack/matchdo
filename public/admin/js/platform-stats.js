@@ -164,8 +164,53 @@
     if (sec === 'combo') showSubPanel('combo', sub, comboPanels, '.tab-btn');
   }
 
-  function numCell(n) {
-    return '<td class="col-num">' + (n != null ? n : 0) + '</td>';
+  function numCell(n, extraClass) {
+    var cls = 'col-num' + (extraClass ? ' ' + extraClass : '');
+    return '<td class="' + cls + '">' + (n != null ? n : 0) + '</td>';
+  }
+
+  function catGroupKey(cat) {
+    return String(cat.category_key || 'cat').replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
+  function catHeadMainCell(cat) {
+    var gk = catGroupKey(cat);
+    var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
+    var label = esc(cat.category_name);
+    if (cat.is_active === false) label += ' <span class="badge bg-secondary">停</span>';
+    return '<button type="button" class="cat-toggle" data-cat="' + gk + '" aria-expanded="true" title="收合／展開子分類">▼</button>'
+      + '<span title="' + title + '">' + label + '</span>';
+  }
+
+  function toggleCatGroup(btn) {
+    var gk = btn.getAttribute('data-cat');
+    var expanded = btn.getAttribute('aria-expanded') !== 'false';
+    var next = !expanded;
+    btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+    btn.textContent = next ? '▼' : '▶';
+    var tbody = btn.closest('tbody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr.row-cat-body[data-cat="' + gk + '"]').forEach(function (tr) {
+      tr.classList.toggle('d-none', !next);
+    });
+  }
+
+  function bindCatGroupToggles(root) {
+    if (!root) return;
+    root.querySelectorAll('.cat-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCatGroup(btn);
+      });
+    });
+    root.querySelectorAll('tr.row-cat-head').forEach(function (tr) {
+      tr.addEventListener('click', function (e) {
+        if (e.target.closest('.cat-toggle')) return;
+        var btn = tr.querySelector('.cat-toggle');
+        if (btn) toggleCatGroup(btn);
+      });
+    });
   }
 
   function subCell(sub) {
@@ -179,22 +224,19 @@
     return '';
   }
 
-  function catMainCell(cat) {
-    var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
-    var html = esc(cat.category_name);
-    if (cat.is_active === false) html += ' <span class="badge bg-secondary">停</span>';
-    return '<span title="' + title + '">' + html + '</span>';
-  }
-
-  function visibleSubs(subs, pickFn) {
+  function subCell(sub) {
     return (subs || []).filter(function (sub) { return pickFn(sub); });
   }
 
   function vendorNumCells(row) {
-    return numCell(row.official_prototype_records) + numCell(row.vendor_prototype_records)
-      + numCell(row.official_prototype_images) + numCell(row.vendor_prototype_images)
-      + numCell(row.official_material_records) + numCell(row.vendor_material_records)
-      + numCell(row.official_material_images) + numCell(row.vendor_material_images);
+    return numCell(row.official_prototype_records, 'col-proto')
+      + numCell(row.vendor_prototype_records, 'col-proto')
+      + numCell(row.official_prototype_images, 'col-proto')
+      + numCell(row.vendor_prototype_images, 'col-proto col-group-end')
+      + numCell(row.official_material_records, 'col-mat')
+      + numCell(row.vendor_material_records, 'col-mat')
+      + numCell(row.official_material_images, 'col-mat')
+      + numCell(row.vendor_material_images, 'col-mat');
   }
 
   function hasVendorRowData(row) {
@@ -208,12 +250,12 @@
     var html = [];
     categories.forEach(function (cat) {
       var cls = rowInactiveClass(cat.is_active, false);
+      var gk = catGroupKey(cat);
       var subs = visibleSubs(cat.subcategories, hasVendorRowData);
-      var span = subs.length + 1;
-      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
+      html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + catHeadMainCell(cat) + '</td><td class="col-sub">合計</td>'
         + vendorNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub' + cls + rowInactiveClass(sub.is_active, true) + '"><td class="col-sub">' + subCell(sub) + '</td>' + vendorNumCells(sub) + '</tr>');
+        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + vendorNumCells(sub) + '</tr>');
       });
     });
     return html.join('');
@@ -226,15 +268,22 @@
     var html = [];
     categories.forEach(function (cat) {
       var cls = rowInactiveClass(cat.is_active, false) + (orphanMode ? ' row-orphan' : '');
+      var gk = catGroupKey(cat);
       var subs = visibleSubs(cat.subcategories, function (s) { return s.records || s.images; });
-      var span = subs.length + 1;
-      var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catMainCell(cat);
-      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
+      var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
+      html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub' + cls + rowInactiveClass(sub.is_active, true) + '"><td class="col-sub">' + subCell(sub) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
+        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
       });
     });
     return html.join('');
+  }
+
+  function fillCategoryTable(tbodyId, html) {
+    var tb = $(tbodyId);
+    if (!tb) return;
+    tb.innerHTML = html;
+    bindCatGroupToggles(tb);
   }
 
   function fillOrphan(wrapId, tbodyId, list, orphanMode) {
@@ -247,7 +296,7 @@
       return;
     }
     wrap.classList.remove('d-none');
-    tb.innerHTML = renderSimpleRows(list, orphanMode);
+    fillCategoryTable(tbodyId, renderSimpleRows(list, orphanMode));
   }
 
   function fillTable(tbodyId, rows, renderRow, colSpan) {
@@ -300,10 +349,10 @@
       '官原型 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
       + ' / 廠原型 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('scanMeta').textContent = '掃描：素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
-    $('tblVendor').innerHTML = renderVendorRows(va.categories);
+    fillCategoryTable('tblVendor', renderVendorRows(va.categories));
     if (va.orphan_categories && va.orphan_categories.length) {
       $('orphanVendorWrap').classList.remove('d-none');
-      $('tblOrphanVendor').innerHTML = renderVendorRows(va.orphan_categories.map(function (c) {
+      fillCategoryTable('tblOrphanVendor', renderVendorRows(va.orphan_categories.map(function (c) {
         return {
           category_key: c.category_key,
           category_name: c.category_key,
@@ -322,17 +371,17 @@
           vendor_material_images: c.vendor_material_images,
           subcategories: c.subcategories || []
         };
-      }));
+      })));
     } else {
       $('orphanVendorWrap').classList.add('d-none');
       $('tblOrphanVendor').innerHTML = '';
     }
-    $('tblDesign').innerHTML = renderSimpleRows(dd.categories, false);
+    fillCategoryTable('tblDesign', renderSimpleRows(dd.categories, false));
     fillOrphan('orphanDesignWrap', 'tblOrphanDesign', dd.orphan_categories, true);
     if (ps.promo_table_missing) {
       $('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted p-2">表不存在</td></tr>';
     } else {
-      $('tblPromo').innerHTML = renderSimpleRows(ps.categories, false);
+      fillCategoryTable('tblPromo', renderSimpleRows(ps.categories, false));
       fillOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, true);
     }
   }
