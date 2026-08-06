@@ -109,6 +109,7 @@ const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
 const materialComboAnalytics = require('./lib/material-combo-analytics');
 const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
+const categoryUsageStats = require('./lib/category-usage-stats');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
@@ -9692,9 +9693,9 @@ app.get('/api/admin/material-combo-analytics', async (req, res) => {
         if (!user) return;
         const fromDate = (req.query.from_date || '').trim() || null;
         const toDate = (req.query.to_date || '').trim() || null;
+        const toEnd = toDate && toDate.length <= 10 ? toDate + 'T23:59:59.999Z' : toDate;
         const topLimit = Math.min(50, Math.max(5, parseInt(req.query.top_limit, 10) || 30));
         const rowLimit = Math.min(10000, Math.max(100, parseInt(req.query.limit, 10) || 5000));
-        const toEnd = toDate && toDate.length <= 10 ? toDate + 'T23:59:59.999Z' : toDate;
 
         let genQ = supabase
             .from('user_material_combo_generations')
@@ -9757,13 +9758,15 @@ app.get('/api/admin/material-combo-analytics', async (req, res) => {
 
 async function fetchAllVendorAssetsForCategoryStats(opts) {
     const options = opts || {};
-    const select = 'category_key, subcategory_key, asset_kind, part_key, image_url, gallery_images, is_public';
+    const select = 'category_key, subcategory_key, asset_kind, part_key, image_url, gallery_images, is_public, created_at';
     const pageSize = 1000;
     let offset = 0;
     const all = [];
     while (true) {
-        let q = supabase.from('vendor_assets').select(select).order('id', { ascending: true }).range(offset, offset + pageSize - 1);
+        let q = supabase.from('vendor_assets').select(select).order('created_at', { ascending: true }).range(offset, offset + pageSize - 1);
         if (options.public_only) q = q.eq('is_public', true);
+        if (options.from_date) q = q.gte('created_at', options.from_date);
+        if (options.to_end) q = q.lte('created_at', options.to_end);
         const { data, error } = await q;
         if (error) throw error;
         const batch = data || [];
@@ -9802,7 +9805,122 @@ async function fetchCustomProductCategoriesForStats() {
     });
 }
 
-// GET /api/admin/vendor-asset-category-stats — 各訂製品分類：原型／材料筆數與圖數
+async function fetchAllCustomProductsForCategoryStats(opts) {
+    const options = opts || {};
+    const select = 'category, subcategory_key, ai_generated_image_url, reference_image_url, created_at';
+    const pageSize = 1000;
+    let offset = 0;
+    const all = [];
+    while (true) {
+        let q = supabase
+            .from('custom_products')
+            .select(select)
+            .order('created_at', { ascending: true })
+            .range(offset, offset + pageSize - 1);
+        if (options.from_date) q = q.gte('created_at', options.from_date);
+        if (options.to_end) q = q.lte('created_at', options.to_end);
+        const { data, error } = await q;
+        if (error) throw error;
+        const batch = data || [];
+        all.push.apply(all, batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+    }
+    return all;
+}
+
+async function fetchAllPromoGenerationsForCategoryStats(opts) {
+    const options = opts || {};
+    const select = 'source_type, source_id, result_image_url, status, created_at';
+    const pageSize = 1000;
+    let offset = 0;
+    const all = [];
+    while (true) {
+        let q = supabase
+            .from('product_promo_generations')
+            .select(select)
+            .eq('status', 'success')
+            .not('result_image_url', 'is', null)
+            .neq('result_image_url', '')
+            .order('created_at', { ascending: true })
+            .range(offset, offset + pageSize - 1);
+        if (options.from_date) q = q.gte('created_at', options.from_date);
+        if (options.to_end) q = q.lte('created_at', options.to_end);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
+                return { rows: [], table_missing: true };
+            }
+            throw error;
+        }
+        const batch = data || [];
+        all.push.apply(all, batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+    }
+    return { rows: all, table_missing: false };
+}
+
+function parseAdminStatsDateRange(query) {
+    const fromDate = (query && query.from_date ? String(query.from_date) : '').trim() || null;
+    const toDate = (query && query.to_date ? String(query.to_date) : '').trim() || null;
+    const toEnd = toDate && toDate.length <= 10 ? toDate + 'T23:59:59.999Z' : toDate;
+    return { fromDate, toDate, toEnd };
+}
+
+async function fetchIdMapInChunks(table, ids, selectCols) {
+    const map = {};
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    const chunkSize = 500;
+    for (let i = 0; i < list.length; i += chunkSize) {
+        const chunk = list.slice(i, i + chunkSize);
+        const { data, error } = await supabase.from(table).select(selectCols).in('id', chunk);
+        if (error) throw error;
+        (data || []).forEach(function (row) {
+            if (row && row.id) map[String(row.id)] = row;
+        });
+    }
+    return map;
+}
+
+async function buildPromoSourceCategoryMaps(promoRows) {
+    const cpIds = [];
+    const vaIds = [];
+    (promoRows || []).forEach(function (row) {
+        const sid = String(row && row.source_id || '').trim();
+        if (!sid) return;
+        if (String(row.source_type || '').trim() === 'custom_product') cpIds.push(sid);
+        if (String(row.source_type || '').trim() === 'vendor_asset') vaIds.push(sid);
+    });
+    const [cpMap, vaMap] = await Promise.all([
+        fetchIdMapInChunks('custom_products', [...new Set(cpIds)], 'id, category, subcategory_key'),
+        fetchIdMapInChunks('vendor_assets', [...new Set(vaIds)], 'id, category_key, subcategory_key')
+    ]);
+    return { cpMap, vaMap };
+}
+
+function mapPromoRowToUsageItem(row, maps, catIndex) {
+    const st = String(row && row.source_type || '').trim();
+    const sid = String(row && row.source_id || '').trim();
+    let category_key = '(上傳／其他)';
+    let subcategory_key = null;
+    if (st === 'custom_product' && sid && maps.cpMap[sid]) {
+        const keys = categoryUsageStats.resolveCustomProductCategory(maps.cpMap[sid], catIndex);
+        category_key = keys.category_key;
+        subcategory_key = keys.subcategory_key;
+    } else if (st === 'vendor_asset' && sid && maps.vaMap[sid]) {
+        category_key = String(maps.vaMap[sid].category_key || '').trim() || '(無分類)';
+        subcategory_key = maps.vaMap[sid].subcategory_key || null;
+    }
+    return {
+        category_key: category_key,
+        subcategory_key: subcategory_key,
+        records: 1,
+        images: categoryUsageStats.countPromoGenerationImages(row)
+    };
+}
+
+// GET /api/admin/vendor-asset-category-stats — 各訂製品分類：素材／設計稿／情境圖
 app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
@@ -9811,21 +9929,59 @@ app.get('/api/admin/vendor-asset-category-stats', async (req, res) => {
             || String(req.query.public_only || '').trim().toLowerCase() === 'true';
         const includeInactive = String(req.query.include_inactive || '').trim() === '1'
             || String(req.query.include_inactive || '').trim().toLowerCase() === 'true';
+        const dateRange = parseAdminStatsDateRange(req.query);
+        const fetchOpts = {
+            public_only: publicOnly,
+            from_date: dateRange.fromDate,
+            to_end: dateRange.toEnd
+        };
 
-        const [assets, categories] = await Promise.all([
-            fetchAllVendorAssetsForCategoryStats({ public_only: publicOnly }),
-            fetchCustomProductCategoriesForStats()
+        const categories = await fetchCustomProductCategoriesForStats();
+        const catIndex = categoryUsageStats.buildSubcategoryIndex(categories, includeInactive);
+
+        const [assets, designRows, promoPack] = await Promise.all([
+            fetchAllVendorAssetsForCategoryStats(fetchOpts),
+            fetchAllCustomProductsForCategoryStats(fetchOpts),
+            fetchAllPromoGenerationsForCategoryStats(fetchOpts)
         ]);
+        const promoRows = promoPack.rows || [];
 
-        const report = vendorAssetCategoryStats.aggregateVendorAssetCategoryStats(assets, categories, {
+        const vendorAssets = vendorAssetCategoryStats.aggregateVendorAssetCategoryStats(assets, categories, {
             include_inactive: includeInactive
         });
 
-        res.json(Object.assign({
-            ok: true,
-            public_only: publicOnly,
+        const designItems = (designRows || []).map(function (row) {
+            return categoryUsageStats.mapCustomProductToUsageItem(row, catIndex);
+        });
+        const designDrafts = categoryUsageStats.aggregateSimpleCategoryUsage(designItems, categories, {
             include_inactive: includeInactive
-        }, report));
+        });
+
+        let promoScenes = categoryUsageStats.aggregateSimpleCategoryUsage([], categories, {
+            include_inactive: includeInactive
+        });
+        promoScenes.promo_table_missing = !!promoPack.table_missing;
+        if (!promoPack.table_missing) {
+            const maps = await buildPromoSourceCategoryMaps(promoRows);
+            const promoItems = promoRows.map(function (row) {
+                return mapPromoRowToUsageItem(row, maps, catIndex);
+            });
+            promoScenes = categoryUsageStats.aggregateSimpleCategoryUsage(promoItems, categories, {
+                include_inactive: includeInactive
+            });
+            promoScenes.promo_table_missing = false;
+        }
+
+        res.json({
+            ok: true,
+            from_date: dateRange.fromDate,
+            to_date: dateRange.toDate,
+            public_only: publicOnly,
+            include_inactive: includeInactive,
+            vendor_assets: vendorAssets,
+            design_drafts: designDrafts,
+            promo_scenes: promoScenes
+        });
     } catch (e) {
         console.error('GET /api/admin/vendor-asset-category-stats 異常:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });

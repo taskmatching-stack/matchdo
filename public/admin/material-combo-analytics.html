@@ -37,10 +37,17 @@
                 <label class="form-label small mb-0">迄日</label>
                 <input type="date" class="form-control form-control-sm" id="toDate" />
               </div>
+              <div class="col-auto d-flex flex-wrap gap-1 align-items-end pb-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="all">全部</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="7">近 7 日</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-range="30">近 30 日</button>
+              </div>
               <div class="col-auto">
                 <button type="button" class="btn btn-sm btn-primary" id="btnLoad">重新載入</button>
               </div>
             </div>
+            <p class="text-muted small mb-0 mt-2">依各表 <code>created_at</code> 篩選；空白＝不限時間。</p>
+            <div class="small text-muted mt-1" id="rangeMeta"></div>
           </div>
         </div>
 
@@ -163,6 +170,35 @@
     }
     tb.innerHTML = rows.map(renderRow).join('');
   }
+  function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function setQuickRange(kind) {
+    var fromEl = document.getElementById('fromDate');
+    var toEl = document.getElementById('toDate');
+    var today = new Date();
+    toEl.value = fmtDate(today);
+    if (kind === 'all') {
+      fromEl.value = '';
+      toEl.value = '';
+      return;
+    }
+    var days = parseInt(kind, 10) || 7;
+    var from = new Date(today);
+    from.setDate(from.getDate() - (days - 1));
+    fromEl.value = fmtDate(from);
+  }
+  function showRangeMeta(data) {
+    var el = document.getElementById('rangeMeta');
+    if (!el) return;
+    var from = data && data.from_date;
+    var to = data && data.to_date;
+    if (!from && !to) {
+      el.textContent = '目前：全部時間';
+      return;
+    }
+    el.textContent = '目前：' + (from || '…') + ' ～ ' + (to || '…');
+  }
   async function load() {
     var headers = await getAuthHeaders();
     if (!headers.Authorization) {
@@ -183,6 +219,7 @@
         return;
       }
       document.getElementById('analyticsMsg').classList.add('d-none');
+      showRangeMeta(data);
       var s = data.summary || {};
       document.getElementById('sumTotal').textContent = s.total != null ? s.total : '—';
       document.getElementById('sumGen').textContent = s.from_generations != null ? s.from_generations : '—';
@@ -210,6 +247,12 @@
     }
   }
   document.getElementById('btnLoad').addEventListener('click', load);
+  document.querySelectorAll('[data-range]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setQuickRange(btn.getAttribute('data-range'));
+      load();
+    });
+  });
   load();
 })();
   </script>
