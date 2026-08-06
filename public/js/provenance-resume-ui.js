@@ -83,6 +83,14 @@
     if (prompts.final_prompt && prompts.final_prompt !== prompts.user_prompt) {
       html += '<div class="mb-1"><span class="text-muted">最終：</span>' + esc((prompts.final_prompt || '').slice(0, 1200)) + '</div>';
     }
+    if (prompts.composed_prompt) {
+      html += '<div class="mb-1"><span class="text-muted">完整模型：</span><pre class="small mb-0" style="white-space:pre-wrap;max-height:180px;overflow:auto">' + esc(prompts.composed_prompt.slice(0, 4000)) + '</pre></div>';
+    } else if (prompts.composed_prompt_note) {
+      html += '<div class="mb-1 text-muted"><span class="text-muted">完整模型：</span>' + esc(prompts.composed_prompt_note) + '</div>';
+    }
+    if (resume.parent_record && resume.parent_record.kind) {
+      html += '<div class="mb-1"><span class="text-muted">衍生自：</span>' + esc(resume.parent_record.kind + ' · ' + resume.parent_record.id) + '</div>';
+    }
     if (prompts.seed != null) html += '<div class="mb-1"><span class="text-muted">Seed：</span>' + esc(prompts.seed) + '</div>';
     if (ctx.camera_params && ctx.camera_params.length) {
       html += '<div class="fw-semibold mt-2 mb-1">商攝參數</div><ul class="mb-0 ps-3">';

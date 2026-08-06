@@ -129,6 +129,7 @@ const {
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const provenanceResume = require('./lib/provenance-resume');
 const provenanceResumePdf = require('./lib/provenance-resume-pdf');
+const provenanceResumeZip = require('./lib/provenance-resume-zip');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const embedSimulator = require('./lib/embed-simulator');
 const designDirectionMarketSignals = require('./lib/design-direction-market-signals');
@@ -13327,7 +13328,7 @@ function extractMissingColumnFromSupabaseError(err) {
 /** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
 async function insertProductPromoGenerationRow(payload) {
     let current = Object.assign({}, payload);
-    const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
+    const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at', 'credit_transaction_id', 'generation_meta_json', 'parent_record_kind', 'parent_record_id'];
     let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
         const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
@@ -13510,6 +13511,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
         }
         let balanceAfter = null;
+        let creditTransactionId = null;
         if (!isAdmin && pointsToDeduct > 0) {
             const consumed = await consumeUserCredits(
                 currentUser.id,
@@ -13522,6 +13524,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
             }
             balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
         }
         let generationId = null;
         let librarySaveWarning = null;
@@ -13530,6 +13533,8 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         if (!resultImageUrl) {
             librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
         } else {
+            const promoParentKind = String(body.parent_record_kind || body.parent_kind || '').trim();
+            const promoParentId = String(body.parent_record_id || body.parent_id || '').trim();
             const promoInsertBase = {
                 user_id: currentUser.id,
                 source_type: sourceType,
@@ -13547,9 +13552,23 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 result_image_url: resultImageUrl,
                 status: 'success',
                 points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                credit_transaction_id: creditTransactionId,
+                generation_meta_json: {
+                    reference_count: refBases.length,
+                    aspect_ratio: aspectRatio,
+                    theme_key: themeKey || null,
+                    scene_key: sceneKey || null
+                },
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage
             };
+            if (promoParentKind && promoParentId && provenanceResume.ASSET_KINDS.has(promoParentKind)) {
+                promoInsertBase.parent_record_kind = promoParentKind;
+                promoInsertBase.parent_record_id = promoParentId;
+            } else if (sourceType === 'custom_product' && sourceId) {
+                promoInsertBase.parent_record_kind = 'user_design';
+                promoInsertBase.parent_record_id = sourceId;
+            }
             const ins = await insertProductPromoGenerationRow(promoInsertBase);
             generationId = ins.id;
             if (!generationId) {
@@ -13814,6 +13833,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
         }
         let balanceAfter = null;
+        let creditTransactionId = null;
         if (!isAdmin && pointsToDeduct > 0) {
             const consumed = await consumeUserCredits(
                 currentUser.id,
@@ -13826,6 +13846,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
             }
             balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
         }
         let generationId = null;
         let librarySaveWarning = null;
@@ -13838,6 +13859,8 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
         if (!resultImageUrl) {
             librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
         } else {
+            const promoParentKind = String(body.parent_record_kind || body.parent_kind || '').trim();
+            const promoParentId = String(body.parent_record_id || body.parent_id || '').trim();
             const promoInsertBase = {
                 user_id: currentUser.id,
                 source_type: sourceType,
@@ -13855,12 +13878,28 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 result_image_url: resultImageUrl,
                 status: 'success',
                 points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                credit_transaction_id: creditTransactionId,
+                generation_meta_json: {
+                    reference_count: refBases.length,
+                    aspect_ratio: aspectRatio,
+                    theme_key: themeKey || null,
+                    scene_key: sceneKey || null,
+                    generation_mode: 'camera_advanced',
+                    client_channel: clientChannel
+                },
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage,
                 generation_mode: 'camera_advanced',
                 client_channel: clientChannel,
                 camera_params: cameraParamsSnapshot
             };
+            if (promoParentKind && promoParentId && provenanceResume.ASSET_KINDS.has(promoParentKind)) {
+                promoInsertBase.parent_record_kind = promoParentKind;
+                promoInsertBase.parent_record_id = promoParentId;
+            } else if (sourceType === 'custom_product' && sourceId) {
+                promoInsertBase.parent_record_kind = 'user_design';
+                promoInsertBase.parent_record_id = sourceId;
+            }
             const ins = await insertProductPromoGenerationRow(promoInsertBase);
             generationId = ins.id;
             if (!generationId) {
@@ -14661,30 +14700,28 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         let insertedProductId = null;
         if (currentUser) {
             try {
+                let creditTransactionId = null;
                 if (!isAdmin && pointsToDeduct > 0) {
-                    const newBalance = currentBalance - pointsToDeduct;
-                    const { error: updErr } = await supabase.from('user_credits')
-                        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-                        .eq('user_id', currentUser.id);
-                    if (updErr) {
-                        console.warn('扣點更新 user_credits 失敗（仍繼續寫入作品）:', updErr.message);
+                    const creditSource = hasRefs
+                        ? (referenceSourcesIncludeOfficial(referenceSources || []) ? 'official_image_to_image' : 'image_to_image')
+                        : 'text_to_image';
+                    const creditDesc = !hasRefs
+                        ? `文生圖（${pointsToDeduct} 點）`
+                        : (referenceSourcesIncludeOfficial(referenceSources || [])
+                            ? `官方版型圖生圖（${pointsToDeduct} 點）`
+                            : `圖生圖（${pointsToDeduct} 點）`);
+                    const consumed = await consumeUserCredits(
+                        currentUser.id,
+                        pointsToDeduct,
+                        creditSource,
+                        creditDesc,
+                        { category_keys: categoryKeys || [] }
+                    );
+                    if (!consumed.ok) {
+                        console.warn('生圖扣點失敗（仍繼續寫入作品）:', consumed.error || 'unknown');
                     } else {
-                        const { error: creditErr } = await supabase.from('credit_transactions').insert({
-                            user_id: currentUser.id,
-                            type: 'consumed',
-                            amount: -pointsToDeduct,
-                            balance_after: newBalance,
-                            source: hasRefs
-                                ? (referenceSourcesIncludeOfficial(referenceSources || []) ? 'official_image_to_image' : 'image_to_image')
-                                : 'text_to_image',
-                            description: !hasRefs
-                                ? `文生圖（${pointsToDeduct} 點）`
-                                : (referenceSourcesIncludeOfficial(referenceSources || [])
-                                    ? `官方版型圖生圖（${pointsToDeduct} 點）`
-                                    : `圖生圖（${pointsToDeduct} 點）`)
-                        });
-                        if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
-                        else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
+                        creditTransactionId = consumed.transaction_id || null;
+                        console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, consumed.balance_after);
                     }
                 }
                 const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
@@ -14702,6 +14739,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         supabase, currentUser.id, fluxReferenceSources
                     )
                     : null;
+                const parentKind = String(req.body.parent_record_kind || req.body.parent_kind || '').trim();
+                const parentId = String(req.body.parent_record_id || req.body.parent_id || '').trim();
                 const autoInsertPayload = {
                     owner_id: currentUser.id,
                     title, description,
@@ -14713,8 +14752,20 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     status: 'draft',
                     generation_prompt: generationPromptVal,
                     generation_seed: seedNum,
-                    show_on_homepage: showOnHomepage
+                    show_on_homepage: showOnHomepage,
+                    credit_transaction_id: creditTransactionId,
+                    composed_flux_prompt: fullPrompt || null,
+                    generation_meta_json: {
+                        reference_count: fluxReferenceImages ? fluxReferenceImages.length : 0,
+                        category_keys: categoryKeys || [],
+                        output_format: outputFormat || 'jpeg',
+                        used_flux: usedFlux
+                    }
                 };
+                if (parentKind && parentId && provenanceResume.ASSET_KINDS.has(parentKind)) {
+                    autoInsertPayload.parent_record_kind = parentKind;
+                    autoInsertPayload.parent_record_id = parentId;
+                }
                 if (autoLineage) {
                     autoInsertPayload.generator_manufacturer_id = autoLineage.generator_manufacturer_id;
                     autoInsertPayload.has_self_vendor_reference = autoLineage.has_self_vendor_reference;
@@ -24999,6 +25050,49 @@ app.get('/api/admin/provenance-resume/export.pdf', async (req, res) => {
     } catch (e) {
         console.error('GET /api/admin/provenance-resume/export.pdf:', e);
         return res.status(500).json({ error: 'PDF 產生失敗' });
+    }
+});
+
+// POST /api/admin/provenance-resume/export.zip — 管理員：批量履歷 ZIP（JSON + PDF）
+app.post('/api/admin/provenance-resume/export.zip', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+        if (!items.length) return res.status(400).json({ error: '請提供 items 陣列' });
+        if (items.length > provenanceResumeZip.MAX_BATCH_ITEMS) {
+            return res.status(400).json({ error: '單次最多 ' + provenanceResumeZip.MAX_BATCH_ITEMS + ' 筆' });
+        }
+        const baseUrl = requestPublicBaseUrl(req);
+        const resumes = [];
+        for (let i = 0; i < items.length; i++) {
+            const kind = String(items[i] && items[i].kind || '').trim();
+            const id = String(items[i] && items[i].id || '').trim();
+            if (!kind || !id) continue;
+            const result = await provenanceResume.buildProvenanceResume(supabase, {
+                kind: kind,
+                id: id,
+                audience: 'admin',
+                baseUrl: baseUrl
+            });
+            if (result.error || !result.resume) {
+                return res.status(404).json({ error: '履歷不存在或無法讀取：' + kind + ' ' + id });
+            }
+            resumes.push({ resume: result.resume });
+        }
+        if (!resumes.length) return res.status(400).json({ error: '無有效項目' });
+        const zipBuf = await provenanceResumeZip.buildProvenanceResumeZip(resumes, { audience: 'admin' });
+        const d = new Date().toISOString().slice(0, 10);
+        const fname = 'MatchDO-履歷批量-' + d + '.zip';
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader(
+            'Content-Disposition',
+            "attachment; filename=\"matchdo-provenance-batch.zip\"; filename*=UTF-8''" + encodeURIComponent(fname)
+        );
+        res.send(zipBuf);
+    } catch (e) {
+        console.error('POST /api/admin/provenance-resume/export.zip:', e);
+        return res.status(500).json({ error: 'ZIP 產生失敗' });
     }
 });
 

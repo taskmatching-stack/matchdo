@@ -109,6 +109,7 @@
             <table class="table table-sm table-hover mb-0 align-middle">
               <thead class="table-light">
                 <tr>
+                  <th style="width:36px"><input type="checkbox" class="form-check-input" id="chkAllPage" title="全選本頁"></th>
                   <th style="width:76px">成圖</th>
                   <th>來源</th>
                   <th>標題／描述</th>
@@ -117,13 +118,16 @@
                 </tr>
               </thead>
               <tbody id="recordsBody">
-                <tr><td colspan="5" class="text-center text-muted py-4">載入中…</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
             <button class="btn btn-outline-secondary btn-sm" id="btnPrev" disabled>上一頁</button>
-            <span class="small text-muted" id="pageInfo">第 1 頁</span>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-outline-primary btn-sm d-none" id="btnExportZip" disabled><i class="bi bi-file-zip me-1"></i>匯出選取 ZIP</button>
+              <span class="small text-muted" id="pageInfo">第 1 頁</span>
+            </div>
             <button class="btn btn-outline-secondary btn-sm" id="btnNext" disabled>下一頁</button>
           </div>
         </div>
@@ -162,6 +166,28 @@
     var hasMore = false;
     var items = [];
     var detailModal = null;
+    var selectedIdx = {};
+
+    function mapRowToResumeItem(row) {
+      if (!window.ProvenanceResumeUI || !row || !row.id) return null;
+      var kind = ProvenanceResumeUI.mapRecordSourceToKind(row.source);
+      return kind ? { kind: kind, id: row.id } : null;
+    }
+
+    function updateExportZipButton() {
+      var btn = document.getElementById('btnExportZip');
+      if (!btn) return;
+      var n = Object.keys(selectedIdx).length;
+      btn.classList.remove('d-none');
+      btn.disabled = n <= 0;
+      btn.textContent = n > 0 ? ('匯出選取 ZIP（' + n + '）') : '匯出選取 ZIP';
+    }
+
+    function toggleRowSelect(idx, on) {
+      if (on) selectedIdx[String(idx)] = true;
+      else delete selectedIdx[String(idx)];
+      updateExportZipButton();
+    }
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -243,8 +269,12 @@
 
     function renderRows() {
       var body = document.getElementById('recordsBody');
+      selectedIdx = {};
+      updateExportZipButton();
+      var chkAll = document.getElementById('chkAllPage');
+      if (chkAll) chkAll.checked = false;
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">無符合紀錄</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">無符合紀錄</td></tr>';
         return;
       }
       body.innerHTML = items.map(function (row, idx) {
@@ -254,12 +284,25 @@
           ? esc(row.manufacturer_name || row.manufacturer_id || '—')
           : esc(row.owner_name || row.owner_email || row.owner_id || '—');
         var cap = esc((row.title || row.prompt || '').slice(0, 80));
-        return '<tr class="rec-row" data-idx="' + idx + '"><td>' + img + '</td><td>' + sourceBadge(row) + '</td>' +
+        var canResume = !!mapRowToResumeItem(row);
+        var chk = canResume
+          ? '<input type="checkbox" class="form-check-input rec-chk" data-idx="' + idx + '">'
+          : '<span class="text-muted">—</span>';
+        return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + sourceBadge(row) + '</td>' +
           '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
           '<td class="small">' + who + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
       }).join('');
+      body.querySelectorAll('.rec-chk').forEach(function (el) {
+        el.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          toggleRowSelect(parseInt(el.dataset.idx, 10), el.checked);
+        });
+      });
       body.querySelectorAll('.rec-row').forEach(function (tr) {
-        tr.addEventListener('click', function () { openDetail(parseInt(tr.dataset.idx, 10)); });
+        tr.addEventListener('click', function (ev) {
+          if (ev.target && ev.target.classList && ev.target.classList.contains('rec-chk')) return;
+          openDetail(parseInt(tr.dataset.idx, 10));
+        });
       });
     }
 
@@ -328,7 +371,7 @@
     async function loadPage() {
       var tok = await getToken();
       if (!tok) return;
-      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">載入中…</td></tr>';
+      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>';
       var qs = new URLSearchParams({
         limit: String(perPage),
         offset: String(page * perPage),
@@ -345,7 +388,7 @@
       });
       var data = await r.json().catch(function () { return {}; });
       if (!r.ok) {
-        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="5" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
+        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="6" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
         return;
       }
       items = data.items || [];
@@ -371,6 +414,49 @@
       document.getElementById('btnNext').addEventListener('click', function () { if (hasMore) { page++; loadPage(); } });
       document.getElementById('filterQ').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { page = 0; loadPage(); }
+      });
+      var chkAll = document.getElementById('chkAllPage');
+      if (chkAll) {
+        chkAll.addEventListener('change', function () {
+          items.forEach(function (row, idx) {
+            if (!mapRowToResumeItem(row)) return;
+            var el = document.querySelector('.rec-chk[data-idx="' + idx + '"]');
+            if (el) el.checked = chkAll.checked;
+            toggleRowSelect(idx, chkAll.checked);
+          });
+        });
+      }
+      document.getElementById('btnExportZip').addEventListener('click', async function () {
+        var keys = Object.keys(selectedIdx);
+        if (!keys.length) return;
+        var tok = await getToken();
+        if (!tok) return;
+        var payload = keys.map(function (k) {
+          return mapRowToResumeItem(items[parseInt(k, 10)]);
+        }).filter(Boolean);
+        if (!payload.length) { alert('所選項目無法匯出履歷'); return; }
+        var btn = document.getElementById('btnExportZip');
+        btn.disabled = true;
+        try {
+          var r = await fetch('/api/admin/provenance-resume/export.zip', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: payload })
+          });
+          if (!r.ok) {
+            var err = await r.json().catch(function () { return {}; });
+            alert(err.error || 'ZIP 匯出失敗');
+            return;
+          }
+          var blob = await r.blob();
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'matchdo-provenance-batch.zip';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        } finally {
+          updateExportZipButton();
+        }
       });
       setTimeout(loadPage, 400);
     });

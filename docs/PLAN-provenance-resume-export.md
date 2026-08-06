@@ -27,9 +27,9 @@
 
 | 期 | 範圍 | 狀態 |
 |----|------|------|
-| **P1** | `user_design` + `promo_scene`；API；PDF；後台生圖紀錄 + 資產庫（設計稿／情境圖） | 進行中 |
-| **P2** | `material_combo`、`print`、`embed_visitor`；批量 ZIP；扣點 FK | 待做 |
-| **P3** | 衍生鏈 `parent_record`、composed prompt 持久化 | 待做 |
+| **P1** | `user_design` + `promo_scene`；API；PDF；後台生圖紀錄 + 資產庫（設計稿／情境圖） | 完成 |
+| **P2** | `material_combo`、`print`、`embed_visitor` | 完成 |
+| **P3** | 衍生鏈 `parent_record`、composed prompt 持久化、批量 ZIP | 完成（migration 需手動跑） |
 
 ## API
 
