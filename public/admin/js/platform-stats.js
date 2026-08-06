@@ -1,0 +1,445 @@
+(function () {
+  'use strict';
+
+  var SECTIONS = { category: 1, combo: 1, points: 1, actions: 1 };
+  var loadedKey = '';
+
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function showMsg(text, isErr) {
+    var el = $('statsMsg');
+    if (!el) return;
+    el.className = 'alert mb-2 py-2 small ' + (isErr ? 'alert-danger' : 'alert-info');
+    el.textContent = text;
+    el.classList.remove('d-none');
+  }
+
+  function hideMsg() {
+    var el = $('statsMsg');
+    if (el) el.classList.add('d-none');
+  }
+
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    var session = await AuthService.getSession();
+    var token = session && session.access_token;
+    if (!token) return {};
+    return { Authorization: 'Bearer ' + token };
+  }
+
+  function getDateRange() {
+    return {
+      from: ($('fromDate') && $('fromDate').value) || '',
+      to: ($('toDate') && $('toDate').value) || ''
+    };
+  }
+
+  function setQuickRange(kind) {
+    var fromEl = $('fromDate');
+    var toEl = $('toDate');
+    if (!fromEl || !toEl) return;
+    var today = new Date();
+    toEl.value = fmtDate(today);
+    if (kind === 'all') {
+      fromEl.value = '';
+      toEl.value = '';
+      return;
+    }
+    var days = parseInt(kind, 10) || 7;
+    var from = new Date(today);
+    from.setDate(from.getDate() - (days - 1));
+    fromEl.value = fmtDate(from);
+  }
+
+  function showRangeMeta(from, to) {
+    var el = $('rangeMeta');
+    if (!el) return;
+    if (!from && !to) {
+      el.textContent = '全部時間';
+      return;
+    }
+    el.textContent = (from || '…') + ' ～ ' + (to || '…');
+  }
+
+  function updateUrl(section, subTab) {
+    if (!window.history || !window.history.replaceState) return;
+    var u = new URL(window.location.href);
+    u.searchParams.set('section', section);
+    if (subTab) u.searchParams.set('tab', subTab);
+    window.history.replaceState(null, '', u.pathname + u.search);
+  }
+
+  function getCurrentSection() {
+    var s = (new URLSearchParams(window.location.search).get('section') || 'category').trim();
+    return SECTIONS[s] ? s : 'category';
+  }
+
+  function toggleCategoryFilters(show) {
+    var el = $('categoryFilters');
+    if (el) el.classList.toggle('d-none', !show);
+  }
+
+  function showSection(name) {
+    var key = SECTIONS[name] ? name : 'category';
+    ['category', 'combo', 'points', 'actions'].forEach(function (k) {
+      var panel = $('section' + k.charAt(0).toUpperCase() + k.slice(1));
+      if (panel) panel.classList.toggle('d-none', k !== key);
+    });
+    document.querySelectorAll('[data-section]').forEach(function (el) {
+      el.classList.toggle('active', el.getAttribute('data-section') === key);
+    });
+    toggleCategoryFilters(key === 'category');
+    updateUrl(key, getSubTab(key));
+  }
+
+  function getSubTab(section) {
+    var tab = (new URLSearchParams(window.location.search).get('tab') || '').trim();
+    if (section === 'category') {
+      return tab === 'design' || tab === 'promo' ? tab : 'vendor';
+    }
+    if (section === 'combo') {
+      return { overview: 1, materials: 1, pairs: 1, palette: 1 }[tab] ? tab : 'overview';
+    }
+    return '';
+  }
+
+  function showSubPanel(section, name, panelMap, tabSelector) {
+    var key = panelMap[name] ? name : Object.keys(panelMap)[0];
+    Object.keys(panelMap).forEach(function (k) {
+      if (panelMap[k]) panelMap[k].classList.toggle('d-none', k !== key);
+    });
+    var prefix = section === 'category' ? '#subTabCategory ' : '#subTabCombo ';
+    document.querySelectorAll(prefix + tabSelector).forEach(function (el) {
+      el.classList.toggle('active', el.getAttribute('data-panel') === key);
+    });
+    updateUrl(section, key);
+  }
+
+  var categoryPanels = {
+    vendor: $('panelVendor'),
+    design: $('panelDesign'),
+    promo: $('panelPromo')
+  };
+
+  var comboPanels = {
+    overview: $('panelComboOverview'),
+    materials: $('panelComboMaterials'),
+    pairs: $('panelComboPairs'),
+    palette: $('panelComboPalette')
+  };
+
+  function initSectionTabs() {
+    document.querySelectorAll('[data-section]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var sec = el.getAttribute('data-section');
+        showSection(sec);
+        loadCurrentSection(true);
+      });
+    });
+    showSection(getCurrentSection());
+  }
+
+  function initSubTabs() {
+    document.querySelectorAll('#subTabCategory .tab-btn').forEach(function (el) {
+      el.addEventListener('click', function () {
+        showSubPanel('category', el.getAttribute('data-panel'), categoryPanels, '.tab-btn');
+      });
+    });
+    document.querySelectorAll('#subTabCombo .tab-btn').forEach(function (el) {
+      el.addEventListener('click', function () {
+        showSubPanel('combo', el.getAttribute('data-panel'), comboPanels, '.tab-btn');
+      });
+    });
+    var sec = getCurrentSection();
+    var sub = getSubTab(sec);
+    if (sec === 'category') showSubPanel('category', sub, categoryPanels, '.tab-btn');
+    if (sec === 'combo') showSubPanel('combo', sub, comboPanels, '.tab-btn');
+  }
+
+  function numCell(n) {
+    return '<td class="col-num">' + (n != null ? n : 0) + '</td>';
+  }
+
+  function catMainCell(cat) {
+    var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
+    var html = esc(cat.category_name);
+    if (cat.is_active === false) html += ' <span class="badge bg-secondary">停</span>';
+    return '<span title="' + title + '">' + html + '</span>';
+  }
+
+  function visibleSubs(subs, pickFn) {
+    return (subs || []).filter(function (sub) { return pickFn(sub); });
+  }
+
+  function renderVendorRows(categories) {
+    if (!categories || !categories.length) {
+      return '<tr><td colspan="6" class="text-muted p-2">尚無分類或資料</td></tr>';
+    }
+    var html = [];
+    categories.forEach(function (cat) {
+      var cls = cat.is_active === false ? ' row-inactive' : '';
+      var subs = visibleSubs(cat.subcategories, function (s) {
+        return s.prototype_records || s.prototype_images || s.material_records || s.material_images;
+      });
+      var span = subs.length + 1;
+      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + catMainCell(cat) + '</td><td class="col-sub">合計</td>'
+        + numCell(cat.prototype_records) + numCell(cat.prototype_images) + numCell(cat.material_records) + numCell(cat.material_images) + '</tr>');
+      subs.forEach(function (sub) {
+        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>'
+          + numCell(sub.prototype_records) + numCell(sub.prototype_images) + numCell(sub.material_records) + numCell(sub.material_images) + '</tr>');
+      });
+    });
+    return html.join('');
+  }
+
+  function renderSimpleRows(categories, orphanMode) {
+    if (!categories || !categories.length) {
+      return '<tr><td colspan="4" class="text-muted p-2">尚無分類或資料</td></tr>';
+    }
+    var html = [];
+    categories.forEach(function (cat) {
+      var cls = (cat.is_active === false ? ' row-inactive' : '') + (orphanMode ? ' row-orphan' : '');
+      var subs = visibleSubs(cat.subcategories, function (s) { return s.records || s.images; });
+      var span = subs.length + 1;
+      var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catMainCell(cat);
+      html.push('<tr class="row-total' + cls + '"><td class="col-main" rowspan="' + span + '">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
+      subs.forEach(function (sub) {
+        html.push('<tr class="row-sub' + cls + '"><td class="col-sub">' + esc(sub.subcategory_name) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
+      });
+    });
+    return html.join('');
+  }
+
+  function fillOrphan(wrapId, tbodyId, list, orphanMode) {
+    var wrap = $(wrapId);
+    var tb = $(tbodyId);
+    if (!wrap || !tb) return;
+    if (!list || !list.length) {
+      wrap.classList.add('d-none');
+      tb.innerHTML = '';
+      return;
+    }
+    wrap.classList.remove('d-none');
+    tb.innerHTML = renderSimpleRows(list, orphanMode);
+  }
+
+  function fillTable(tbodyId, rows, renderRow, colSpan) {
+    var tb = $(tbodyId);
+    if (!tb) return;
+    var cs = colSpan || 4;
+    if (!rows || !rows.length) {
+      tb.innerHTML = '<tr><td colspan="' + cs + '" class="text-muted p-2">尚無資料</td></tr>';
+      return;
+    }
+    tb.innerHTML = rows.map(renderRow).join('');
+  }
+
+  function cacheKey() {
+    var r = getDateRange();
+    var catExtra = '';
+    if ($('chkPublicOnly') && $('chkPublicOnly').checked) catExtra += 'p';
+    if ($('chkIncludeInactive') && $('chkIncludeInactive').checked) catExtra += 'i';
+    return r.from + '|' + r.to + '|' + catExtra;
+  }
+
+  async function loadCategory(headers, range) {
+    var qs = new URLSearchParams();
+    if (range.from) qs.set('from_date', range.from);
+    if (range.to) qs.set('to_date', range.to);
+    if ($('chkPublicOnly') && $('chkPublicOnly').checked) qs.set('public_only', '1');
+    if ($('chkIncludeInactive') && $('chkIncludeInactive').checked) qs.set('include_inactive', '1');
+    var res = await fetch('/api/admin/vendor-asset-category-stats?' + qs.toString(), { headers: headers });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || '分類統計載入失敗');
+    showRangeMeta(data.from_date, data.to_date);
+    var va = data.vendor_assets || {};
+    var dd = data.design_drafts || {};
+    var ps = data.promo_scenes || {};
+    var vs = va.summary || {};
+    $('vaProtoRec').textContent = vs.prototype_records != null ? vs.prototype_records : '—';
+    $('vaProtoImg').textContent = vs.prototype_images != null ? vs.prototype_images : '—';
+    $('vaMatRec').textContent = vs.material_records != null ? vs.material_records : '—';
+    $('vaMatImg').textContent = vs.material_images != null ? vs.material_images : '—';
+    $('ddRec').textContent = (dd.summary && dd.summary.records != null) ? dd.summary.records : '—';
+    $('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
+    $('psRec').textContent = (ps.summary && ps.summary.records != null) ? ps.summary.records : '—';
+    $('psImg').textContent = (ps.summary && ps.summary.images != null) ? ps.summary.images : '—';
+    $('tabMetaVendor').textContent = '· 原型 ' + (vs.prototype_records != null ? vs.prototype_records : '—') + ' / 材料 ' + (vs.material_records != null ? vs.material_records : '—');
+    $('tabMetaDesign').textContent = '· ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—') + ' 筆';
+    $('tabMetaPromo').textContent = '· ' + ((ps.summary && ps.summary.records != null) ? ps.summary.records : '—') + ' 筆';
+    $('secMetaCategory').textContent = '素材 ' + (vs.prototype_records != null ? vs.prototype_records : '—') + ' / 設計 ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—');
+    $('scanMeta').textContent = '掃描：素材 ' + (vs.asset_rows_scanned || 0) + '｜設計稿 ' + ((dd.summary && dd.summary.rows_scanned) || 0) + '｜情境圖 ' + ((ps.summary && ps.summary.rows_scanned) || 0);
+    $('tblVendor').innerHTML = renderVendorRows(va.categories);
+    if (va.orphan_categories && va.orphan_categories.length) {
+      $('orphanVendorWrap').classList.remove('d-none');
+      $('tblOrphanVendor').innerHTML = renderVendorRows(va.orphan_categories.map(function (c) {
+        return {
+          category_key: c.category_key,
+          category_name: c.category_key,
+          is_active: true,
+          prototype_records: c.prototype_records,
+          prototype_images: c.prototype_images,
+          material_records: c.material_records,
+          material_images: c.material_images,
+          subcategories: c.subcategories || []
+        };
+      }));
+    } else {
+      $('orphanVendorWrap').classList.add('d-none');
+      $('tblOrphanVendor').innerHTML = '';
+    }
+    $('tblDesign').innerHTML = renderSimpleRows(dd.categories, false);
+    fillOrphan('orphanDesignWrap', 'tblOrphanDesign', dd.orphan_categories, true);
+    if (ps.promo_table_missing) {
+      $('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted p-2">表不存在</td></tr>';
+    } else {
+      $('tblPromo').innerHTML = renderSimpleRows(ps.categories, false);
+      fillOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, true);
+    }
+  }
+
+  async function loadCombo(headers, range) {
+    var qs = new URLSearchParams();
+    if (range.from) qs.set('from_date', range.from);
+    if (range.to) qs.set('to_date', range.to);
+    var res = await fetch('/api/admin/material-combo-analytics?' + qs.toString(), { headers: headers });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || '材料組合載入失敗');
+    showRangeMeta(data.from_date, data.to_date);
+    var s = data.summary || {};
+    $('sumTotal').textContent = s.total != null ? s.total : '—';
+    $('sumGen').textContent = s.from_generations != null ? s.from_generations : '—';
+    $('sumDesign').textContent = s.from_design_references != null ? s.from_design_references : '—';
+    $('sumDual').textContent = s.dual_count != null ? s.dual_count : '—';
+    $('sumTri').textContent = s.tri_count != null ? s.tri_count : '—';
+    $('sumPalette').textContent = s.with_palette_source != null ? s.with_palette_source : '—';
+    $('tabMetaComboOverview').textContent = '· 總 ' + (s.total != null ? s.total : '—');
+    $('secMetaCombo').textContent = '總 ' + (s.total != null ? s.total : '—');
+    var topMain = (data.top_main_materials && data.top_main_materials[0]) ? data.top_main_materials[0] : null;
+    var topPair = (data.top_material_combinations && data.top_material_combinations[0]) ? data.top_material_combinations[0] : null;
+    $('tabMetaComboMaterials').textContent = topMain ? ('· ' + topMain.label + ' ' + topMain.count) : '· —';
+    $('tabMetaComboPairs').textContent = topPair ? ('· ' + topPair.count) : '· —';
+    $('tabMetaComboPalette').textContent = '· ' + (s.with_palette_source != null ? s.with_palette_source : '—');
+    if (data.generations_table_missing) {
+      showMsg('材料組合生成表尚未建立；設計稿引用仍會統計。', false);
+    }
+    fillTable('tblMain', data.top_main_materials, function (r) {
+      return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
+    }, 2);
+    fillTable('tblAccent', data.top_accent_materials, function (r) {
+      return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
+    }, 2);
+    fillTable('tblPairs', data.top_material_combinations, function (r) {
+      return '<tr><td class="col-label">' + esc(r.label) + '</td><td class="col-num">' + r.count + '</td></tr>';
+    }, 2);
+    fillTable('tblPalette', data.top_palette_sources, function (r) {
+      return '<tr><td>' + esc(r.type_name) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.scope) + '</td><td class="col-num">' + r.count + '</td></tr>';
+    }, 4);
+  }
+
+  async function loadPoints(headers, range) {
+    var qs = new URLSearchParams();
+    if (range.from) qs.set('from_date', range.from);
+    if (range.to) qs.set('to_date', range.to);
+    var res = await fetch('/api/admin/points-usage-stats?' + qs.toString(), { headers: headers });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || '點數統計載入失敗');
+    showRangeMeta(range.from, range.to);
+    var stats = data.stats || [];
+    var byLevel = data.by_level || [];
+    var daily = data.daily_totals || [];
+    $('pointsSummary').textContent = '共 ' + (data.total_count || 0).toLocaleString() + ' 筆、' + (data.total_points || 0).toLocaleString() + ' 點';
+    $('secMetaPoints').textContent = (data.total_points || 0).toLocaleString() + ' 點';
+    fillTable('tblPointsFunc', stats, function (s) {
+      return '<tr><td>' + esc(s.description || '其他') + '</td><td class="col-num">' + (s.times || 0).toLocaleString() + '</td><td class="col-num">' + (s.total_points || 0).toLocaleString() + '</td><td class="col-num">' + (s.avg_points != null ? s.avg_points.toLocaleString() : '—') + '</td></tr>';
+    }, 4);
+    fillTable('tblPointsLevel', byLevel, function (b) {
+      return '<tr><td>' + esc(b.member_level || '一般') + '</td><td class="col-num">' + (b.user_count || 0).toLocaleString() + '</td><td class="col-num">' + (b.count || 0).toLocaleString() + '</td><td class="col-num">' + (b.total_points || 0).toLocaleString() + '</td><td class="col-num">' + (b.avg_per_user != null ? b.avg_per_user.toLocaleString() : '—') + '</td></tr>';
+    }, 5);
+    fillTable('tblPointsDaily', daily, function (d) {
+      return '<tr><td>' + esc(d.date) + '</td><td class="col-num">' + (d.total_points || 0).toLocaleString() + '</td></tr>';
+    }, 2);
+  }
+
+  async function loadActions(headers, range) {
+    var qs = new URLSearchParams();
+    if (range.from) qs.set('from_date', range.from);
+    if (range.to) qs.set('to_date', range.to);
+    var res = await fetch('/api/admin/design-action-stats?' + qs.toString(), { headers: headers });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || '設計行為載入失敗');
+    showRangeMeta(range.from, range.to);
+    var items = [
+      ['找廠商訂製', data.find_vendor_count],
+      ['再設計並生圖成功', data.redesign_generate_ok_count],
+      ['IG 分享', data.share_instagram_count],
+      ['Pinterest 分享', data.share_pinterest_count],
+      ['FB 分享', data.share_facebook_count],
+      ['Line 分享', data.share_line_count],
+      ['複製連結', data.share_copy_link_count]
+    ];
+    var total = items.reduce(function (n, row) { return n + (row[1] || 0); }, 0);
+    $('secMetaActions').textContent = total.toLocaleString() + ' 次';
+    $('tblActions').innerHTML = items.map(function (row) {
+      return '<tr><td>' + esc(row[0]) + '</td><td class="col-num">' + (row[1] != null ? row[1].toLocaleString() : '0') + '</td></tr>';
+    }).join('');
+  }
+
+  async function loadCurrentSection(force) {
+    var section = getCurrentSection();
+    var key = section + ':' + cacheKey();
+    if (!force && loadedKey === key) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      showMsg('請先登入管理員帳號', true);
+      return;
+    }
+    var range = getDateRange();
+    showMsg('載入中…', false);
+    try {
+      if (section === 'category') await loadCategory(headers, range);
+      else if (section === 'combo') await loadCombo(headers, range);
+      else if (section === 'points') await loadPoints(headers, range);
+      else if (section === 'actions') await loadActions(headers, range);
+      loadedKey = key;
+      hideMsg();
+    } catch (e) {
+      showMsg(e.message || '載入失敗', true);
+    }
+  }
+
+  function init() {
+    initSectionTabs();
+    initSubTabs();
+    $('btnLoad').addEventListener('click', function () {
+      loadedKey = '';
+      loadCurrentSection(true);
+    });
+    document.querySelectorAll('[data-range]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setQuickRange(btn.getAttribute('data-range'));
+        loadedKey = '';
+        loadCurrentSection(true);
+      });
+    });
+    ['chkPublicOnly', 'chkIncludeInactive'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.addEventListener('change', function () { loadedKey = ''; loadCurrentSection(true); });
+    });
+    loadCurrentSection(true);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
