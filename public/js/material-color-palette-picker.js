@@ -1,6 +1,7 @@
 /**
  * 材料組合「配色範例」：官方｜我的 × 類型 Tab × 表格一鍵套用
- * 依賴頁面提供 applyHex(primary, accent) 與 auth headers。
+ * 依賴頁面提供 applyPalette（或舊版 applyHex）與 auth headers。
+ * 套用＝填表單（色數／HEX／比重），不自動存、不自動生圖。
  */
 (function (global) {
     'use strict';
@@ -25,10 +26,19 @@
         return '<span class="mdc-pal-swatch" style="background:' + h + '" title="' + h + '"></span><code class="small">' + h + '</code>';
     }
 
+    function ratioLabel(it) {
+        var percents = Array.isArray(it.ratio_percents) ? it.ratio_percents : null;
+        if (percents && percents.length) return percents.join('/');
+        if (it.ratio_preset === 'dual_50_50') return '50/50';
+        if (it.color_count === 3) return '三色';
+        return '75/25';
+    }
+
     function createPicker(opts) {
         var getHeaders = opts.getHeaders;
-        var applyHex = opts.applyHex;
-        var getCurrentHex = opts.getCurrentHex;
+        var applyPalette = opts.applyPalette || null;
+        var applyHex = opts.applyHex || null;
+        var getCurrentPalette = opts.getCurrentPalette || opts.getCurrentHex;
         var onStatus = opts.onStatus || function () {};
         var modalEl = document.getElementById('mdcPaletteModal');
         if (!modalEl) return null;
@@ -55,6 +65,26 @@
         var tableBody = document.getElementById('mdcPalTableBody');
         var emptyEl = document.getElementById('mdcPalEmpty');
         var mineToolbar = document.getElementById('mdcPalMineToolbar');
+        var theadRow = modalEl.querySelector('thead tr');
+
+        function applyItem(it) {
+            if (!it) return;
+            var payload = {
+                primary_hex: it.primary_hex,
+                accent_hex: it.accent_hex,
+                tertiary_hex: it.tertiary_hex || null,
+                color_count: it.color_count === 3 ? 3 : 2,
+                ratio_percents: Array.isArray(it.ratio_percents) ? it.ratio_percents.slice() : null,
+                ratio_preset: it.ratio_preset || null
+            };
+            if (typeof applyPalette === 'function') {
+                applyPalette(payload);
+                return;
+            }
+            if (typeof applyHex === 'function') {
+                applyHex(payload.primary_hex, payload.accent_hex);
+            }
+        }
 
         function setScope(scope) {
             state.scope = scope === 'mine' ? 'mine' : 'platform';
@@ -138,6 +168,10 @@
         function renderTable() {
             if (!tableBody) return;
             var rows = itemsForActiveType();
+            if (theadRow) {
+                theadRow.innerHTML =
+                    '<th>名稱</th><th>主色</th><th>配色</th><th>輔色</th><th>比重</th><th style="width:9rem">操作</th>';
+            }
             if (!rows.length) {
                 tableBody.innerHTML = '';
                 if (emptyEl) {
@@ -156,10 +190,17 @@
                     actions += ' <button type="button" class="btn btn-sm btn-outline-secondary btn-pal-edit" data-id="' + esc(it.id) + '">編輯</button>' +
                         ' <button type="button" class="btn btn-sm btn-outline-danger btn-pal-del" data-id="' + esc(it.id) + '">刪</button>';
                 }
+                var tertiaryCell = it.color_count === 3 && it.tertiary_hex
+                    ? swatchHtml(it.tertiary_hex)
+                    : '<span class="text-muted small">—</span>';
                 return '<tr>' +
-                    '<td>' + esc(it.name || '') + '</td>' +
+                    '<td>' + esc(it.name || '') +
+                    (it.color_count === 3 ? ' <span class="badge bg-secondary">三色</span>' : '') +
+                    '</td>' +
                     '<td>' + swatchHtml(it.primary_hex) + '</td>' +
                     '<td>' + swatchHtml(it.accent_hex) + '</td>' +
+                    '<td>' + tertiaryCell + '</td>' +
+                    '<td class="small text-nowrap">' + esc(ratioLabel(it)) + '</td>' +
                     '<td class="text-nowrap">' + actions + '</td>' +
                     '</tr>';
             }).join('');
@@ -229,7 +270,7 @@
                 if (applyBtn) {
                     var it = findItem(applyBtn.getAttribute('data-id'));
                     if (!it) return;
-                    applyHex(it.primary_hex, it.accent_hex);
+                    applyItem(it);
                     onStatus('已套用「' + (it.name || '') + '」', true);
                     if (modal) modal.hide();
                     return;
@@ -269,7 +310,11 @@
                             name: name,
                             type_text: String(typeText).trim() || null,
                             primary_hex: item.primary_hex,
-                            accent_hex: item.accent_hex
+                            accent_hex: item.accent_hex,
+                            tertiary_hex: item.tertiary_hex || null,
+                            color_count: item.color_count === 3 ? 3 : 2,
+                            ratio_percents: item.ratio_percents || null,
+                            ratio_preset: item.ratio_preset || null
                         })
                     });
                     var j2 = await r2.json().catch(function () { return {}; });
@@ -285,11 +330,22 @@
         var saveBtn = document.getElementById('mdcPalSaveCurrent');
         if (saveBtn) {
             saveBtn.addEventListener('click', async function () {
-                var cur = getCurrentHex ? getCurrentHex() : null;
-                if (!cur || !normHex(cur.primary) || !normHex(cur.accent)) {
+                var cur = getCurrentPalette ? getCurrentPalette() : null;
+                if (!cur || !normHex(cur.primary || cur.primary_hex) || !normHex(cur.accent || cur.accent_hex)) {
                     return onStatus('請先設定有效的主色／配色', false);
                 }
-                var name = prompt('為此配色命名', (cur.primary + ' / ' + cur.accent));
+                var primary = normHex(cur.primary || cur.primary_hex);
+                var accent = normHex(cur.accent || cur.accent_hex);
+                var colorCount = cur.color_count === 3 ? 3 : 2;
+                var tertiary = colorCount === 3 ? normHex(cur.tertiary || cur.tertiary_hex) : null;
+                if (colorCount === 3 && !tertiary) {
+                    return onStatus('三色模式請先設定輔色', false);
+                }
+                var ratioPercents = Array.isArray(cur.ratio_percents) ? cur.ratio_percents : null;
+                var defaultName = colorCount === 3
+                    ? (primary + ' / ' + accent + ' / ' + tertiary)
+                    : (primary + ' / ' + accent);
+                var name = prompt('為此配色命名', defaultName);
                 if (name == null) return;
                 name = String(name).trim();
                 if (!name) return onStatus('名稱不可空白', false);
@@ -297,15 +353,21 @@
                 if (typeText == null) return;
                 var headers = await getHeaders();
                 headers['Content-Type'] = 'application/json';
+                var payload = {
+                    name: name,
+                    type_text: String(typeText).trim() || null,
+                    primary_hex: primary,
+                    accent_hex: accent,
+                    color_count: colorCount,
+                    ratio_preset: cur.ratio_preset || null,
+                    ratio_percents: ratioPercents
+                };
+                if (colorCount === 3) payload.tertiary_hex = tertiary;
+                else payload.tertiary_hex = null;
                 var r = await fetch('/api/me/material-color-palettes', {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({
-                        name: name,
-                        type_text: String(typeText).trim() || null,
-                        primary_hex: normHex(cur.primary),
-                        accent_hex: normHex(cur.accent)
-                    })
+                    body: JSON.stringify(payload)
                 });
                 var j = await r.json().catch(function () { return {}; });
                 if (!r.ok) return onStatus(j.error || '儲存失敗', false);

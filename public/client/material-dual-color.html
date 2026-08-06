@@ -94,32 +94,75 @@
 
         <div id="main-content">
             <div class="card mdc-step-card shadow-sm mb-4">
-                <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepColors">選色</div>
+                <div class="card-header bg-white fw-semibold d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <span data-i18n="materialCombo.stepColors">選色</span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="色數">
+                        <input type="radio" class="btn-check" name="mdc-color-count" id="mdc-count-2" value="2" checked>
+                        <label class="btn btn-outline-secondary" for="mdc-count-2">雙色</label>
+                        <input type="radio" class="btn-check" name="mdc-color-count" id="mdc-count-3" value="3">
+                        <label class="btn btn-outline-secondary" for="mdc-count-3">三色</label>
+                    </div>
+                </div>
                 <div class="card-body">
+                    <div class="mb-3" id="mdc-dual-ratio-wrap">
+                        <span class="small text-muted me-2">雙色比重</span>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="雙色比重">
+                            <input type="radio" class="btn-check" name="mdc-dual-ratio" id="mdc-dual-75" value="dual_75_25" checked>
+                            <label class="btn btn-outline-secondary" for="mdc-dual-75">75 / 25</label>
+                            <input type="radio" class="btn-check" name="mdc-dual-ratio" id="mdc-dual-50" value="dual_50_50">
+                            <label class="btn btn-outline-secondary" for="mdc-dual-50">50 / 50</label>
+                        </div>
+                    </div>
+                    <div class="mb-3 d-none" id="mdc-tri-ratio-wrap">
+                        <div class="d-flex flex-wrap align-items-end gap-2 mb-1">
+                            <div>
+                                <label class="form-label small mb-0" for="mdc-pct-main">主色 %</label>
+                                <input type="number" class="form-control form-control-sm" id="mdc-pct-main" min="1" max="98" value="50" style="width:4.5rem">
+                            </div>
+                            <div>
+                                <label class="form-label small mb-0" for="mdc-pct-accent">配色 %</label>
+                                <input type="number" class="form-control form-control-sm" id="mdc-pct-accent" min="1" max="98" value="30" style="width:4.5rem">
+                            </div>
+                            <div>
+                                <label class="form-label small mb-0" for="mdc-pct-third">輔色 %</label>
+                                <input type="number" class="form-control form-control-sm" id="mdc-pct-third" min="1" max="98" value="20" style="width:4.5rem">
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-pct-equalize">均分</button>
+                            <span class="small" id="mdc-pct-sum">合計 100%</span>
+                        </div>
+                        <p class="small text-muted mb-0" id="mdc-pct-hint">三色比重合計須為 100%；色卡依比例重畫。</p>
+                    </div>
                     <div class="row g-3 align-items-end mb-3">
-                        <div class="col-md-5">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.mainColorLabel">主色（上方 75%）</label>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1" id="mdc-main-color-label">主色（上方）</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-main-color" value="#3B82C4" aria-label="主色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-main-hex" value="#3B82C4" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
-                        <div class="col-md-5">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.accentColorLabel">配色（下方 25%）</label>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1" id="mdc-accent-color-label">配色</label>
                             <div class="d-flex gap-2 mdc-color-row">
                                 <input type="color" id="mdc-accent-color" value="#F5F0E8" aria-label="配色選色">
                                 <input type="text" class="form-control form-control-sm" id="mdc-accent-hex" value="#F5F0E8" maxlength="7" placeholder="#RRGGBB">
                             </div>
                         </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-outline-primary btn-sm w-100" id="mdc-open-palette-btn" title="官方／我的配色範例">
+                        <div class="col-md-4 d-none" id="mdc-third-color-col">
+                            <label class="form-label small mb-1" id="mdc-third-color-label">輔色（下方）</label>
+                            <div class="d-flex gap-2 mdc-color-row">
+                                <input type="color" id="mdc-third-color" value="#8B7355" aria-label="輔色選色">
+                                <input type="text" class="form-control form-control-sm" id="mdc-third-hex" value="#8B7355" maxlength="7" placeholder="#RRGGBB">
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-auto ms-md-auto">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="mdc-open-palette-btn" title="官方／我的配色範例">
                                 <i class="bi bi-palette2 me-1"></i>配色範例
                             </button>
                         </div>
                     </div>
-                    <p class="small text-muted mb-2" data-i18n="materialCombo.swatchHint">色卡固定為上方主色 75%、下方配色 25%。</p>
+                    <p class="small text-muted mb-2" id="mdc-swatch-hint">色卡依上方比重繪製（垂直無縫）。</p>
                     <div class="mdc-preview-wrap mb-0">
-                        <canvas id="mdc-swatch-canvas" width="1024" height="1024" aria-label="雙色色卡預覽"></canvas>
+                        <canvas id="mdc-swatch-canvas" width="1024" height="1024" aria-label="色卡預覽"></canvas>
                     </div>
                 </div>
             </div>
@@ -127,9 +170,9 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepGenerate">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3" data-i18n="materialCombo.printOneZoneHint">印花只能上或下擇一。</p>
+                    <p class="small text-muted mb-3" id="mdc-print-one-hint">印花只能擇一區使用。</p>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="mdc-main-mat-col">
                             <label class="form-label small mb-1" data-i18n="materialCombo.mainMaterialLabel">主色區材質</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" data-i18n-placeholder="materialCombo.mainMaterialPh" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -142,7 +185,7 @@
                                 <img id="mdc-main-pattern-img" alt="主色區印花">
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="mdc-accent-mat-col">
                             <label class="form-label small mb-1" data-i18n="materialCombo.accentMaterialLabel">配色區材質</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -153,6 +196,19 @@
                             <input type="file" id="mdc-accent-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-accent-pattern-wrap">
                                 <img id="mdc-accent-pattern-img" alt="配色區印花">
+                            </div>
+                        </div>
+                        <div class="col-md-6 d-none" id="mdc-third-mat-col">
+                            <label class="form-label small mb-1">輔色區材質</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-third-material" placeholder="例：麂皮" maxlength="64">
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-pick-print"><i class="bi bi-flower1 me-1"></i>輔色區印花</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-third-clear-print">清除</button>
+                            </div>
+                            <input type="file" id="mdc-third-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
+                            <div class="mdc-pattern-preview d-none" id="mdc-third-pattern-wrap">
+                                <img id="mdc-third-pattern-img" alt="輔色區印花">
                             </div>
                         </div>
                         <div class="col-12 d-none" id="mdc-print-kind-wrap">
@@ -210,7 +266,7 @@
                     </ul>
                     <div id="mdcPalMineToolbar" class="d-none mb-2">
                         <button type="button" class="btn btn-sm btn-outline-success" id="mdcPalSaveCurrent">
-                            <i class="bi bi-bookmark-plus me-1"></i>把目前兩色存成我的
+                            <i class="bi bi-bookmark-plus me-1"></i>把目前配色存成我的
                         </button>
                     </div>
                     <ul class="nav nav-pills flex-wrap gap-1 mb-2" id="mdcPalTypeTabs" role="tablist"></ul>
@@ -221,6 +277,8 @@
                                     <th>名稱</th>
                                     <th>主色</th>
                                     <th>配色</th>
+                                    <th>輔色</th>
+                                    <th>比重</th>
                                     <th style="width:9rem">操作</th>
                                 </tr>
                             </thead>
@@ -253,11 +311,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260805c"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
     <script src="/js/material-color-palette-picker.js?v=20260806a"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-palette-20260806';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-ratio-t2-20260806';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -286,7 +344,8 @@
         var canUploadAssets = true;
         var zonePatterns = {
             main: { url: null, file: null, objectUrl: null },
-            accent: { url: null, file: null, objectUrl: null }
+            accent: { url: null, file: null, objectUrl: null },
+            third: { url: null, file: null, objectUrl: null }
         };
         var printPickTarget = null;
         var printPickerModal = null;
@@ -317,9 +376,12 @@
         var mainHex = document.getElementById('mdc-main-hex');
         var accentColor = document.getElementById('mdc-accent-color');
         var accentHex = document.getElementById('mdc-accent-hex');
+        var thirdColor = document.getElementById('mdc-third-color');
+        var thirdHex = document.getElementById('mdc-third-hex');
         var swatchCanvas = document.getElementById('mdc-swatch-canvas');
         var mainMaterial = document.getElementById('mdc-main-material');
         var accentMaterial = document.getElementById('mdc-accent-material');
+        var thirdMaterial = document.getElementById('mdc-third-material');
         var boundary = document.getElementById('mdc-boundary');
         var printKindWrap = document.getElementById('mdc-print-kind-wrap');
         var generateBtn = document.getElementById('mdc-generate-btn');
@@ -330,6 +392,81 @@
         var downloadBtn = document.getElementById('mdc-download-btn');
         var addPendingBtn = document.getElementById('mdc-add-pending-btn');
         var backLink = document.getElementById('mdc-back-link');
+        var dualRatioWrap = document.getElementById('mdc-dual-ratio-wrap');
+        var triRatioWrap = document.getElementById('mdc-tri-ratio-wrap');
+        var thirdColorCol = document.getElementById('mdc-third-color-col');
+        var thirdMatCol = document.getElementById('mdc-third-mat-col');
+        var pctMain = document.getElementById('mdc-pct-main');
+        var pctAccent = document.getElementById('mdc-pct-accent');
+        var pctThird = document.getElementById('mdc-pct-third');
+        var pctSumEl = document.getElementById('mdc-pct-sum');
+        var swatchHint = document.getElementById('mdc-swatch-hint');
+
+        function getColorCount() {
+            var el = document.querySelector('input[name="mdc-color-count"]:checked');
+            return (el && el.value === '3') ? 3 : 2;
+        }
+
+        function getDualPresetKey() {
+            var el = document.querySelector('input[name="mdc-dual-ratio"]:checked');
+            return (el && el.value === 'dual_50_50') ? 'dual_50_50' : 'dual_75_25';
+        }
+
+        function getRatioPercents() {
+            if (getColorCount() === 2) {
+                var preset = Compose.DUAL_PRESETS[getDualPresetKey()] || Compose.DUAL_PRESETS.dual_75_25;
+                return preset.percents.slice();
+            }
+            return [
+                parseInt(pctMain && pctMain.value, 10) || 0,
+                parseInt(pctAccent && pctAccent.value, 10) || 0,
+                parseInt(pctThird && pctThird.value, 10) || 0
+            ];
+        }
+
+        function syncTriPctSum() {
+            if (!pctSumEl) return true;
+            var checked = Compose.validatePercents(getRatioPercents());
+            if (getColorCount() !== 3) {
+                pctSumEl.textContent = '';
+                pctSumEl.className = 'small';
+                return true;
+            }
+            if (checked.ok) {
+                pctSumEl.textContent = '合計 100%';
+                pctSumEl.className = 'small text-success';
+                return true;
+            }
+            pctSumEl.textContent = checked.error || '比重無效';
+            pctSumEl.className = 'small text-danger';
+            return false;
+        }
+
+        function syncModeUi() {
+            var tri = getColorCount() === 3;
+            if (dualRatioWrap) dualRatioWrap.classList.toggle('d-none', tri);
+            if (triRatioWrap) triRatioWrap.classList.toggle('d-none', !tri);
+            if (thirdColorCol) thirdColorCol.classList.toggle('d-none', !tri);
+            if (thirdMatCol) thirdMatCol.classList.toggle('d-none', !tri);
+            if (!tri && zoneHasPattern('third')) clearZonePattern('third', true);
+            var percents = getRatioPercents();
+            var mainLab = document.getElementById('mdc-main-color-label');
+            var accentLab = document.getElementById('mdc-accent-color-label');
+            var thirdLab = document.getElementById('mdc-third-color-label');
+            if (tri) {
+                if (mainLab) mainLab.textContent = '主色（上方 ' + percents[0] + '%）';
+                if (accentLab) accentLab.textContent = '配色（中間 ' + percents[1] + '%）';
+                if (thirdLab) thirdLab.textContent = '輔色（下方 ' + percents[2] + '%）';
+                if (swatchHint) swatchHint.textContent = '三色色卡依自訂比重繪製（垂直無縫）。';
+            } else {
+                if (mainLab) mainLab.textContent = '主色（上方 ' + percents[0] + '%）';
+                if (accentLab) accentLab.textContent = '配色（下方 ' + percents[1] + '%）';
+                if (swatchHint) swatchHint.textContent = '雙色色卡：' + percents[0] + '% / ' + percents[1] + '%（垂直無縫）。';
+            }
+            syncTriPctSum();
+            refreshSwatch();
+            updateGenerateEnabled();
+        }
 
         function zoneHasPattern(zone) {
             var p = zonePatterns[zone];
@@ -343,7 +480,7 @@
 
         function syncPrintKindVisibility() {
             if (!printKindWrap) return;
-            if (zoneHasPattern('main') || zoneHasPattern('accent')) {
+            if (zoneHasPattern('main') || zoneHasPattern('accent') || zoneHasPattern('third')) {
                 printKindWrap.classList.remove('d-none');
             } else {
                 printKindWrap.classList.add('d-none');
@@ -351,10 +488,14 @@
         }
 
         function updateGenerateEnabled() {
+            var tri = getColorCount() === 3;
             var mainOk = !!(mainMaterial.value || '').trim() || zoneHasPattern('main');
             var accentOk = !!(accentMaterial.value || '').trim() || zoneHasPattern('accent');
+            var thirdOk = !tri || !!(thirdMaterial && String(thirdMaterial.value || '').trim()) || zoneHasPattern('third');
             var hexOk = !!(Compose.normalizeHex(mainHex.value) && Compose.normalizeHex(accentHex.value));
-            generateBtn.disabled = !mainOk || !accentOk || !hexOk;
+            if (tri) hexOk = hexOk && !!Compose.normalizeHex(thirdHex.value);
+            var ratioOk = getColorCount() === 2 ? true : syncTriPctSum();
+            generateBtn.disabled = !mainOk || !accentOk || !thirdOk || !hexOk || !ratioOk;
             syncPrintKindVisibility();
         }
 
@@ -396,29 +537,31 @@
         }
 
         function setZonePatternFromUrl(zone, url) {
-            var other = zone === 'main' ? 'accent' : 'main';
-            if (zoneHasPattern(other)) clearZonePattern(other, true);
+            ['main', 'accent', 'third'].forEach(function (z) {
+                if (z !== zone && zoneHasPattern(z)) clearZonePattern(z, true);
+            });
             clearZonePattern(zone, true);
             zonePatterns[zone] = { url: url, file: null, objectUrl: null };
-            renderZonePattern(zone);
-            renderZonePattern(other);
+            ['main', 'accent', 'third'].forEach(renderZonePattern);
             if (statusEl) {
-                statusEl.textContent = '印花僅能一區：已套用至' + (zone === 'main' ? '主色區' : '配色區') + '（另一區若有圖樣已清除）';
+                var label = zone === 'main' ? '主色區' : (zone === 'accent' ? '配色區' : '輔色區');
+                statusEl.textContent = '印花僅能一區：已套用至' + label + '（其他區若有圖樣已清除）';
                 statusEl.className = 'small mt-2 text-muted';
             }
         }
 
         function setZonePatternFromFile(zone, file) {
             if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
-            var other = zone === 'main' ? 'accent' : 'main';
-            if (zoneHasPattern(other)) clearZonePattern(other, true);
+            ['main', 'accent', 'third'].forEach(function (z) {
+                if (z !== zone && zoneHasPattern(z)) clearZonePattern(z, true);
+            });
             clearZonePattern(zone, true);
             var objectUrl = URL.createObjectURL(file);
             zonePatterns[zone] = { url: null, file: file, objectUrl: objectUrl };
-            renderZonePattern(zone);
-            renderZonePattern(other);
+            ['main', 'accent', 'third'].forEach(renderZonePattern);
             if (statusEl) {
-                statusEl.textContent = '印花僅能一區：已套用至' + (zone === 'main' ? '主色區' : '配色區') + '（另一區若有圖樣已清除）';
+                var label = zone === 'main' ? '主色區' : (zone === 'accent' ? '配色區' : '輔色區');
+                statusEl.textContent = '印花僅能一區：已套用至' + label + '（其他區若有圖樣已清除）';
                 statusEl.className = 'small mt-2 text-muted';
             }
         }
@@ -461,19 +604,31 @@
 
         document.getElementById('mdc-main-pick-print').addEventListener('click', function () { openPrintPicker('main'); });
         document.getElementById('mdc-accent-pick-print').addEventListener('click', function () { openPrintPicker('accent'); });
+        var thirdPick = document.getElementById('mdc-third-pick-print');
+        if (thirdPick) thirdPick.addEventListener('click', function () { openPrintPicker('third'); });
         document.getElementById('mdc-main-upload-print').addEventListener('click', function () {
             document.getElementById('mdc-main-pattern-file').click();
         });
         document.getElementById('mdc-accent-upload-print').addEventListener('click', function () {
             document.getElementById('mdc-accent-pattern-file').click();
         });
+        var thirdUpload = document.getElementById('mdc-third-upload-print');
+        if (thirdUpload) thirdUpload.addEventListener('click', function () {
+            document.getElementById('mdc-third-pattern-file').click();
+        });
         document.getElementById('mdc-main-clear-print').addEventListener('click', function () { clearZonePattern('main'); });
         document.getElementById('mdc-accent-clear-print').addEventListener('click', function () { clearZonePattern('accent'); });
+        var thirdClear = document.getElementById('mdc-third-clear-print');
+        if (thirdClear) thirdClear.addEventListener('click', function () { clearZonePattern('third'); });
         document.getElementById('mdc-main-pattern-file').addEventListener('change', function () {
             if (this.files && this.files[0]) setZonePatternFromFile('main', this.files[0]);
         });
         document.getElementById('mdc-accent-pattern-file').addEventListener('change', function () {
             if (this.files && this.files[0]) setZonePatternFromFile('accent', this.files[0]);
+        });
+        var thirdFile = document.getElementById('mdc-third-pattern-file');
+        if (thirdFile) thirdFile.addEventListener('change', function () {
+            if (this.files && this.files[0]) setZonePatternFromFile('third', this.files[0]);
         });
 
         function materialsReturnHref() {
@@ -510,23 +665,26 @@
 
         function paintSwatchPreview() {
             try {
-                var main = Compose.normalizeHex(mainHex.value);
-                var accent = Compose.normalizeHex(accentHex.value);
-                if (!main || !accent) {
+                var percents = getRatioPercents();
+                var bands = [
+                    { hex: mainHex.value, pct: percents[0] },
+                    { hex: accentHex.value, pct: percents[1] }
+                ];
+                if (getColorCount() === 3) {
+                    bands.push({ hex: thirdHex.value, pct: percents[2] });
+                }
+                var checked = Compose.validatePercents(percents.slice(0, bands.length));
+                if (!checked.ok) {
                     swatchBlob = null;
                     swatchDirty = true;
                     updateGenerateEnabled();
                     return;
                 }
-                var size = 256;
-                var topH = Math.floor(size * 0.75);
-                swatchCanvas.width = size;
-                swatchCanvas.height = size;
+                var preview = Compose.composeVerticalSwatch(bands, 256);
                 var ctx = swatchCanvas.getContext('2d');
-                ctx.fillStyle = main;
-                ctx.fillRect(0, 0, size, topH);
-                ctx.fillStyle = accent;
-                ctx.fillRect(0, topH, size, size - topH);
+                swatchCanvas.width = 256;
+                swatchCanvas.height = 256;
+                ctx.drawImage(preview, 0, 0);
                 swatchDirty = true;
                 updateGenerateEnabled();
             } catch (e) {
@@ -538,7 +696,15 @@
 
         async function ensureSwatchBlob() {
             if (!swatchDirty && swatchBlob) return swatchBlob;
-            var canvas = Compose.composeDualColorSwatch(mainHex.value, accentHex.value);
+            var percents = getRatioPercents();
+            var bands = [
+                { hex: mainHex.value, pct: percents[0] },
+                { hex: accentHex.value, pct: percents[1] }
+            ];
+            if (getColorCount() === 3) {
+                bands.push({ hex: thirdHex.value, pct: percents[2] });
+            }
+            var canvas = Compose.composeVerticalSwatch(bands, Compose.CANVAS_SIZE);
             swatchBlob = await Compose.canvasToBlob(canvas, 'image/png');
             swatchDirty = false;
             return swatchBlob;
@@ -654,11 +820,15 @@
         }
 
         generateBtn.addEventListener('click', async function () {
+            var tri = getColorCount() === 3;
             var main = (mainMaterial.value || '').trim();
             var accent = (accentMaterial.value || '').trim();
+            var third = thirdMaterial ? String(thirdMaterial.value || '').trim() : '';
             var mainOk = main || zoneHasPattern('main');
             var accentOk = accent || zoneHasPattern('accent');
-            if (!mainOk || !accentOk) return;
+            var thirdOk = !tri || third || zoneHasPattern('third');
+            if (!mainOk || !accentOk || !thirdOk) return;
+            if (tri && !Compose.validatePercents(getRatioPercents()).ok) return;
             var tok = await getToken();
             if (!tok) {
                 statusEl.textContent = t('materialCombo.loginExpired', '登入已過期，請重新登入');
@@ -671,13 +841,19 @@
             try {
                 var blob = await ensureSwatchBlob();
                 if (!blob) throw new Error('swatch');
+                var percents = getRatioPercents();
                 var fd = new FormData();
                 fd.append('image', blob, 'material-combination-swatch.png');
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
+                if (tri) fd.append('third_material', third);
                 if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
                 fd.append('main_hex', mainHex.value || '');
                 fd.append('accent_hex', accentHex.value || '');
+                if (tri) fd.append('third_hex', thirdHex.value || '');
+                fd.append('color_count', String(getColorCount()));
+                fd.append('ratio_percents', JSON.stringify(percents));
+                fd.append('ratio_preset', tri ? 'tri_custom' : getDualPresetKey());
                 if (zonePatterns.main.file) {
                     fd.append('main_pattern', zonePatterns.main.file, zonePatterns.main.file.name || 'main-pattern.png');
                 } else if (zonePatterns.main.url) {
@@ -686,8 +862,12 @@
                     fd.append('accent_pattern', zonePatterns.accent.file, zonePatterns.accent.file.name || 'accent-pattern.png');
                 } else if (zonePatterns.accent.url) {
                     fd.append('accent_pattern_url', zonePatterns.accent.url);
+                } else if (zonePatterns.third.file) {
+                    fd.append('third_pattern', zonePatterns.third.file, zonePatterns.third.file.name || 'third-pattern.png');
+                } else if (zonePatterns.third.url) {
+                    fd.append('third_pattern_url', zonePatterns.third.url);
                 }
-                if (zoneHasPattern('main') || zoneHasPattern('accent')) {
+                if (zoneHasPattern('main') || zoneHasPattern('accent') || zoneHasPattern('third')) {
                     fd.append('print_kind', getPrintKind());
                 }
                 var libTitle = document.getElementById('mdc-library-title');
@@ -748,14 +928,38 @@
         });
 
         [mainMaterial, accentMaterial, boundary].forEach(function (el) {
-            el.addEventListener('input', function () { updateGenerateEnabled(); });
+            if (el) el.addEventListener('input', function () { updateGenerateEnabled(); });
         });
+        if (thirdMaterial) thirdMaterial.addEventListener('input', function () { updateGenerateEnabled(); });
         document.querySelectorAll('input[name="mdc-print-kind"]').forEach(function (el) {
             el.addEventListener('change', function () { syncPrintKindVisibility(); });
         });
+        document.querySelectorAll('input[name="mdc-color-count"]').forEach(function (el) {
+            el.addEventListener('change', function () { syncModeUi(); });
+        });
+        document.querySelectorAll('input[name="mdc-dual-ratio"]').forEach(function (el) {
+            el.addEventListener('change', function () { syncModeUi(); });
+        });
+        [pctMain, pctAccent, pctThird].forEach(function (el) {
+            if (!el) return;
+            el.addEventListener('input', function () { syncModeUi(); });
+            el.addEventListener('change', function () { syncModeUi(); });
+        });
+        var equalizeBtn = document.getElementById('mdc-pct-equalize');
+        if (equalizeBtn) {
+            equalizeBtn.addEventListener('click', function () {
+                if (pctMain) pctMain.value = '34';
+                if (pctAccent) pctAccent.value = '33';
+                if (pctThird) pctThird.value = '33';
+                syncModeUi();
+            });
+        }
 
         bindColorSync(mainColor, mainHex);
         bindColorSync(accentColor, accentHex);
+        if (thirdColor && thirdHex) bindColorSync(thirdColor, thirdHex);
+
+        syncModeUi();
 
         var palettePicker = null;
         if (window.MatchdoMaterialColorPalettePicker) {
@@ -764,18 +968,48 @@
                     await getToken();
                     return authHeaders();
                 },
-                applyHex: function (primary, accent) {
-                    var p = Compose.normalizeHex(primary);
-                    var a = Compose.normalizeHex(accent);
+                applyPalette: function (payload) {
+                    var p = Compose.normalizeHex(payload && payload.primary_hex);
+                    var a = Compose.normalizeHex(payload && payload.accent_hex);
                     if (!p || !a) return;
+                    var count = (payload && payload.color_count === 3) ? 3 : 2;
+                    var countEl = document.getElementById(count === 3 ? 'mdc-count-3' : 'mdc-count-2');
+                    if (countEl) countEl.checked = true;
                     mainHex.value = p;
                     mainColor.value = p;
                     accentHex.value = a;
                     accentColor.value = a;
-                    refreshSwatch();
+                    if (count === 3) {
+                        var t = Compose.normalizeHex(payload.tertiary_hex);
+                        if (t && thirdHex && thirdColor) {
+                            thirdHex.value = t;
+                            thirdColor.value = t;
+                        }
+                        var percents = Array.isArray(payload.ratio_percents) ? payload.ratio_percents : [50, 30, 20];
+                        if (pctMain) pctMain.value = String(percents[0] || 50);
+                        if (pctAccent) pctAccent.value = String(percents[1] || 30);
+                        if (pctThird) pctThird.value = String(percents[2] || 20);
+                    } else {
+                        var preset = (payload && payload.ratio_preset === 'dual_50_50')
+                            || (Array.isArray(payload.ratio_percents)
+                                && payload.ratio_percents[0] === 50
+                                && payload.ratio_percents[1] === 50)
+                            ? 'dual_50_50'
+                            : 'dual_75_25';
+                        var presetEl = document.querySelector('input[name="mdc-dual-ratio"][value="' + preset + '"]');
+                        if (presetEl) presetEl.checked = true;
+                    }
+                    syncModeUi();
                 },
-                getCurrentHex: function () {
-                    return { primary: mainHex.value, accent: accentHex.value };
+                getCurrentPalette: function () {
+                    return {
+                        primary: mainHex.value,
+                        accent: accentHex.value,
+                        tertiary: thirdHex ? thirdHex.value : null,
+                        color_count: getColorCount(),
+                        ratio_percents: getRatioPercents(),
+                        ratio_preset: getColorCount() === 3 ? 'tri_custom' : getDualPresetKey()
+                    };
                 },
                 onStatus: function (msg, ok) {
                     if (!statusEl) return;

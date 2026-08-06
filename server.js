@@ -3901,31 +3901,63 @@ function normalizeDualColorPrintKind(raw) {
 }
 
 /**
- * 雙色卡短中文（保持簡單）：
- * - 印花圖樣 →「上方／下方印花圖樣{材質}材質」（結構跟圖、色跟色卡）
- * - 印花色 →「上方／下方印花色{材質}材質」（色跟印花圖）
- * - 印花最多一張（上下擇一）；用法由使用者選擇，不自動判斷
+ * 材料組合生圖提示（短中文）：
+ * - 印花圖樣 →「上方／中間／下方印花圖樣{材質}材質」
+ * - 印花色 →「上方／中間／下方印花色{材質}材質」
+ * - 印花最多一張（各區擇一）；用法由使用者選擇
+ * - ratioPercents：雙色 [p1,p2] 或三色 [p1,p2,p3]，合計 100
  */
+function normalizeMaterialComboRatioPercents(raw, colorCount) {
+    const want = colorCount === 3 ? 3 : 2;
+    let arr = raw;
+    if (typeof raw === 'string') {
+        try { arr = JSON.parse(raw); } catch (_) { arr = null; }
+    }
+    if (!Array.isArray(arr) || arr.length !== want) {
+        return want === 3 ? [50, 30, 20] : [75, 25];
+    }
+    const nums = arr.map(function (n) { return parseInt(n, 10); });
+    if (nums.some(function (n) { return !Number.isFinite(n) || n < 1; })) {
+        return want === 3 ? [50, 30, 20] : [75, 25];
+    }
+    const sum = nums.reduce(function (a, b) { return a + b; }, 0);
+    if (sum !== 100) return want === 3 ? [50, 30, 20] : [75, 25];
+    return nums;
+}
+
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
     const hasMainPat = !!opts.hasMainPattern;
     const hasAccentPat = !!opts.hasAccentPattern;
-    if (hasMainPat && hasAccentPat) {
-        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
+    const hasThirdPat = !!opts.hasThirdPattern;
+    const patCount = (hasMainPat ? 1 : 0) + (hasAccentPat ? 1 : 0) + (hasThirdPat ? 1 : 0);
+    if (patCount > 1) {
+        throw new Error('印花圖樣只能用於其中一區');
     }
     const main = normalizeDualColorMaterialField(mainMaterial);
     const accent = normalizeDualColorMaterialField(accentMaterial);
+    const third = normalizeDualColorMaterialField(opts.thirdMaterial);
+    const colorCount = opts.colorCount === 3 || (Array.isArray(opts.ratioPercents) && opts.ratioPercents.length === 3) ? 3 : 2;
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
+    if (colorCount === 3 && !hasThirdPat && !third) throw new Error('請填輔色區材質或選擇印花圖樣');
 
     const printKind = normalizeDualColorPrintKind(opts.printKind);
     const printWord = printKind === 'color' ? '印花色' : '印花圖樣';
+    const percents = normalizeMaterialComboRatioPercents(opts.ratioPercents, colorCount);
     const mainPhrase = hasMainPat ? (`上方${printWord}${main || ''}材質`) : (`${main}材質`);
-    const accentPhrase = hasAccentPat ? (`下方${printWord}${accent || ''}材質`) : (`${accent}材質`);
+    const accentPhrase = hasAccentPat
+        ? (`${colorCount === 3 ? '中間' : '下方'}${printWord}${accent || ''}材質`)
+        : (`${accent}材質`);
     const stitch = normalizeDualColorMaterialField(stitchMaterial);
-    let prompt = `依原圖上方色塊75%改為${mainPhrase}，下方色塊25%改為${accentPhrase}`;
+    let prompt;
+    if (colorCount === 3) {
+        const thirdPhrase = hasThirdPat ? (`下方${printWord}${third || ''}材質`) : (`${third}材質`);
+        prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，中間色塊${percents[1]}%改為${accentPhrase}，下方色塊${percents[2]}%改為${thirdPhrase}`;
+    } else {
+        prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，下方色塊${percents[1]}%改為${accentPhrase}`;
+    }
     if (stitch) prompt += `，分界處改為${stitch}`;
-    // 結尾只留官網正向短句；勿加「不需要／禁止／不要改成各半」等反向詞（FLUX 不擅長）
     prompt += '，解析度1024x1024，請維持原圖色塊比例';
     return prompt;
 }
@@ -3951,18 +3983,24 @@ function dualColorPatternRefToImageParam(ref) {
 /**
  * 單次 img2img：圖1＝色卡，圖2＝印花（有傳才附）。送圖一律走 resolveImageToBase64（全站同一套）。
  */
-async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
+async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extraOpts) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
-    if (refs.main && refs.accent) {
-        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
-    }
+    const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
     const hasMainPat = !!refs.main;
     const hasAccentPat = !!refs.accent;
+    const hasThirdPat = !!refs.third;
+    if ((hasMainPat ? 1 : 0) + (hasAccentPat ? 1 : 0) + (hasThirdPat ? 1 : 0) > 1) {
+        throw new Error('印花圖樣只能用於其中一區');
+    }
     const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
         hasMainPattern: hasMainPat,
         hasAccentPattern: hasAccentPat,
-        printKind: (hasMainPat || hasAccentPat) ? printKind : 'pattern'
+        hasThirdPattern: hasThirdPat,
+        printKind: (hasMainPat || hasAccentPat || hasThirdPat) ? printKind : 'pattern',
+        thirdMaterial: extras.thirdMaterial || '',
+        colorCount: extras.colorCount || 2,
+        ratioPercents: extras.ratioPercents
     });
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
@@ -3970,7 +4008,7 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         height: 1024,
         skipPromptTranslation: true,
         safetyTolerance: 2,
-        promptUpsampling: !!(hasMainPat || hasAccentPat)
+        promptUpsampling: !!(hasMainPat || hasAccentPat || hasThirdPat)
     };
 
     let swatchMime = 'image/png';
@@ -3981,7 +4019,7 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
     if (!swatchB64) throw new Error('色卡圖片無效');
 
     const fluxImages = [swatchB64];
-    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || null);
+    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || refs.third || null);
     if (printParam) {
         const printB64 = await resolveImageToBase64(printParam);
         if (!printB64) throw new Error('印花圖樣讀取失敗，請改上傳圖檔或重選資產');
@@ -4072,20 +4110,26 @@ async function dualColorGeminiModelForRefs(hasPrint) {
  * 材料組合 Gemini img2img：無印花→Lite；有印花→Flash（model id 可後台設定）。只回圖。
  * 參考圖：inlineData base64（等同 type/mime_type/data）。
  */
-async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
+async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extraOpts) {
     if (!process.env.GEMINI_API_KEY) throw new Error('未設定 GEMINI_API_KEY');
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const refs = patternRefs && typeof patternRefs === 'object' ? patternRefs : {};
-    if (refs.main && refs.accent) {
-        throw new Error('印花圖樣只能用於主色區或配色區其中一區');
-    }
+    const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
     const hasMainPat = !!refs.main;
     const hasAccentPat = !!refs.accent;
-    const hasPrint = !!(hasMainPat || hasAccentPat);
+    const hasThirdPat = !!refs.third;
+    if ((hasMainPat ? 1 : 0) + (hasAccentPat ? 1 : 0) + (hasThirdPat ? 1 : 0) > 1) {
+        throw new Error('印花圖樣只能用於其中一區');
+    }
+    const hasPrint = !!(hasMainPat || hasAccentPat || hasThirdPat);
     const prompt = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, {
         hasMainPattern: hasMainPat,
         hasAccentPattern: hasAccentPat,
-        printKind: hasPrint ? printKind : 'pattern'
+        hasThirdPattern: hasThirdPat,
+        printKind: hasPrint ? printKind : 'pattern',
+        thirdMaterial: extras.thirdMaterial || '',
+        colorCount: extras.colorCount || 2,
+        ratioPercents: extras.ratioPercents
     });
     const model = await dualColorGeminiModelForRefs(hasPrint);
 
@@ -4099,7 +4143,7 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
         { text: prompt },
         { inlineData: { mimeType: swatchMime, data: swatchB64 } }
     ];
-    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || null);
+    const printParam = dualColorPatternRefToImageParam(refs.main || refs.accent || refs.third || null);
     if (printParam) {
         const printB64 = await resolveImageToBase64(printParam);
         if (!printB64) throw new Error('印花圖樣讀取失敗，請改上傳圖檔或重選資產');
@@ -4118,7 +4162,7 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
     }));
     const extracted = extractGeminiResponseImageBuffer(result);
     if (!extracted || !extracted.buffer || !extracted.buffer.length) {
-        throw new Error('Gemini 未回傳材料組合圖，請稍後重試');
+        throw new Error('未回傳材料組合圖，請稍後重試');
     }
     const sharp = require('sharp');
     const buf = await sharp(extracted.buffer, { failOn: 'none' })
@@ -4138,11 +4182,12 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
  * 優先 Gemini（Lite／Flash）→ 本站軟上限或 API 429 則 FLUX；額度恢復後自動切回 Gemini。
  * MATERIAL_DUAL_COLOR_ENGINE=flux 強制 FLUX；=gemini 強制 Gemini（不 fallback）。
  */
-async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind) {
+async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extraOpts) {
     const pref = String(process.env.MATERIAL_DUAL_COLOR_ENGINE || 'auto').trim().toLowerCase();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
     const hasKey = !!process.env.GEMINI_API_KEY;
+    const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
 
     if (!forceFlux && hasKey) {
         const quota = checkDualColorGeminiQuota();
@@ -4150,14 +4195,14 @@ async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMateria
             try {
                 recordDualColorGeminiAttempt();
                 return await optimizeMaterialDualColorWithGemini(
-                    fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+                    fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
                 );
             } catch (gemErr) {
                 if (forceGemini) throw gemErr;
                 if (isGeminiImageRateLimitError(gemErr)) {
                     console.warn('material-dual-color Gemini rate-limited → FLUX:', gemErr.message || gemErr);
                     const fluxResult = await optimizeMaterialDualColorWithFlux(
-                        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+                        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
                     );
                     return Object.assign({}, fluxResult, {
                         fallback: true,
@@ -4168,7 +4213,7 @@ async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMateria
             }
         }
         if (forceGemini) {
-            const err = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            const err = new Error('生圖次數已達上限，請稍後再試');
             err.status = 429;
             err.retry_after_sec = quota.retry_after_sec;
             err.quota_reason = quota.reason;
@@ -4176,7 +4221,7 @@ async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMateria
         }
         console.warn('material-dual-color Gemini soft-quota → FLUX:', quota.reason);
         const fluxResult = await optimizeMaterialDualColorWithFlux(
-            fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+            fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
         );
         return Object.assign({}, fluxResult, {
             fallback: true,
@@ -4185,7 +4230,7 @@ async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMateria
     }
 
     return optimizeMaterialDualColorWithFlux(
-        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind
+        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
     );
 }
 
@@ -4548,7 +4593,7 @@ function normalizeMaterialComboHex(raw) {
     return '';
 }
 
-/** 材料組合結構（主色／配色 HEX+材料、分界選填） */
+/** 材料組合結構（主色／配色／可選輔色 HEX+材料、比重、分界選填） */
 function normalizeMaterialCombo(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const mainHex = normalizeMaterialComboHex(raw.main && raw.main.hex);
@@ -4556,12 +4601,25 @@ function normalizeMaterialCombo(raw) {
     const mainMat = String((raw.main && raw.main.material) || '').trim();
     const accentMat = String((raw.accent && raw.accent.material) || '').trim();
     if (!mainHex || !accentHex || !mainMat || !accentMat) return null;
+    const colorCount = parseInt(raw.color_count, 10) === 3 || (raw.third && raw.third.hex) ? 3 : 2;
+    const ratioPercents = normalizeMaterialComboRatioPercents(raw.ratio_percents, colorCount);
     const out = {
-        version: 1,
-        layout: 'top_75_bottom_25',
+        version: colorCount === 3 ? 2 : 1,
+        layout: colorCount === 3
+            ? ('top_' + ratioPercents[0] + '_mid_' + ratioPercents[1] + '_bottom_' + ratioPercents[2])
+            : ('top_' + ratioPercents[0] + '_bottom_' + ratioPercents[1]),
+        color_count: colorCount,
+        ratio_percents: ratioPercents,
+        ratio_preset: raw.ratio_preset ? String(raw.ratio_preset).trim().slice(0, 32) : null,
         main: { hex: mainHex, material: mainMat },
         accent: { hex: accentHex, material: accentMat }
     };
+    if (colorCount === 3) {
+        const thirdHex = normalizeMaterialComboHex(raw.third && raw.third.hex);
+        const thirdMat = String((raw.third && raw.third.material) || '').trim();
+        if (!thirdHex || !thirdMat) return null;
+        out.third = { hex: thirdHex, material: thirdMat };
+    }
     const boundary = String(raw.boundary || '').trim();
     if (boundary) out.boundary = boundary;
     return out;
@@ -25072,9 +25130,88 @@ function normalizeMaterialPaletteHex(raw) {
     return null;
 }
 
+function deriveMaterialPaletteRatioPreset(colorCount, percents) {
+    if (colorCount === 3) return 'tri_custom';
+    if (Array.isArray(percents) && percents[0] === 50 && percents[1] === 50) return 'dual_50_50';
+    return 'dual_75_25';
+}
+
+/** 解析配色範例色數／比重；invalid 時回傳 { error } */
+function resolveMaterialPaletteRatioFields(body, opts) {
+    const raw = body && typeof body === 'object' ? body : {};
+    const options = opts && typeof opts === 'object' ? opts : {};
+    let tertiary = null;
+    if (raw.tertiary_hex !== undefined) {
+        if (raw.tertiary_hex != null && String(raw.tertiary_hex).trim()) {
+            tertiary = normalizeMaterialPaletteHex(raw.tertiary_hex);
+            if (!tertiary) return { error: '第三色須為 #RRGGBB' };
+        }
+    } else if (options.existingTertiary) {
+        tertiary = normalizeMaterialPaletteHex(options.existingTertiary);
+    }
+    let colorCount = parseInt(raw.color_count, 10);
+    if (colorCount !== 2 && colorCount !== 3) {
+        if (tertiary) colorCount = 3;
+        else if (options.existingColorCount === 3) colorCount = 3;
+        else colorCount = 2;
+    }
+    if (colorCount === 3 && !tertiary) {
+        return { error: '三色配色須填輔色' };
+    }
+    if (colorCount === 2) tertiary = null;
+
+    let ratioPercents = null;
+    if (raw.ratio_percents != null) {
+        ratioPercents = normalizeMaterialComboRatioPercents(raw.ratio_percents, colorCount);
+        // normalize always returns defaults if invalid — validate strictly when client sent values
+        let arr = raw.ratio_percents;
+        if (typeof arr === 'string') {
+            try { arr = JSON.parse(arr); } catch (_) { arr = null; }
+        }
+        if (!Array.isArray(arr) || arr.length !== colorCount) {
+            return { error: '比重須為 ' + colorCount + ' 個整數％且合計 100' };
+        }
+        const nums = arr.map(function (n) { return parseInt(n, 10); });
+        if (nums.some(function (n) { return !Number.isFinite(n) || n < 1; })) {
+            return { error: '每一段比重至少 1%' };
+        }
+        const sum = nums.reduce(function (a, b) { return a + b; }, 0);
+        if (sum !== 100) return { error: '比重合計須為 100%' };
+        ratioPercents = nums;
+    } else if (Array.isArray(options.existingPercents) && options.existingPercents.length === colorCount) {
+        ratioPercents = normalizeMaterialComboRatioPercents(options.existingPercents, colorCount);
+    } else {
+        ratioPercents = colorCount === 3 ? [50, 30, 20] : [75, 25];
+        if (raw.ratio_preset === 'dual_50_50' && colorCount === 2) ratioPercents = [50, 50];
+    }
+
+    let ratioPreset = String(raw.ratio_preset || '').trim();
+    if (colorCount === 3) {
+        ratioPreset = 'tri_custom';
+    } else if (ratioPreset === 'dual_50_50' || ratioPreset === 'dual_75_25') {
+        // keep
+    } else {
+        ratioPreset = deriveMaterialPaletteRatioPreset(colorCount, ratioPercents);
+    }
+    if (colorCount === 2 && ratioPreset === 'dual_50_50') ratioPercents = [50, 50];
+    if (colorCount === 2 && ratioPreset === 'dual_75_25') ratioPercents = [75, 25];
+
+    return {
+        color_count: colorCount,
+        tertiary_hex: tertiary,
+        ratio_percents: ratioPercents,
+        ratio_preset: ratioPreset
+    };
+}
+
 function mapMaterialColorPaletteRow(row, typeNameById) {
     if (!row) return null;
     const typeId = row.type_id || null;
+    const colorCount = row.color_count === 3 ? 3 : 2;
+    const ratioPercents = normalizeMaterialComboRatioPercents(row.ratio_percents, colorCount);
+    const ratioPreset = row.ratio_preset
+        ? String(row.ratio_preset)
+        : deriveMaterialPaletteRatioPreset(colorCount, ratioPercents);
     return {
         id: row.id,
         owner_scope: row.owner_scope,
@@ -25082,10 +25219,12 @@ function mapMaterialColorPaletteRow(row, typeNameById) {
         type_name: typeId && typeNameById ? (typeNameById[typeId] || null) : null,
         type_text: row.type_text ? String(row.type_text).trim() : null,
         name: row.name,
-        color_count: row.color_count || 2,
+        color_count: colorCount,
         primary_hex: row.primary_hex,
         accent_hex: row.accent_hex,
-        tertiary_hex: row.tertiary_hex || null,
+        tertiary_hex: colorCount === 3 ? (row.tertiary_hex || null) : null,
+        ratio_preset: ratioPreset,
+        ratio_percents: ratioPercents,
         sort_order: row.sort_order != null ? row.sort_order : 0,
         is_active: row.is_active !== false,
         created_at: row.created_at || null,
@@ -25111,7 +25250,7 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
         const { rows: types, map } = await loadMaterialPaletteTypeNameMap(false);
         const { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, sort_order, is_active, created_at, updated_at')
+            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
             .eq('owner_scope', 'platform')
             .eq('is_active', true)
             .order('sort_order', { ascending: true })
@@ -25119,6 +25258,9 @@ app.get('/api/material-color-palettes/platform', async (req, res) => {
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', types: [], items: [] });
+            }
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', types: [], items: [] });
             }
             console.error('GET platform palettes:', error);
             return res.status(500).json({ error: error.message || '載入失敗' });
@@ -25141,7 +25283,7 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
         if (!user) return;
         const { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, sort_order, is_active, created_at, updated_at')
+            .select('id, owner_scope, type_id, type_text, name, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
             .eq('owner_scope', 'user')
             .eq('owner_user_id', user.id)
             .order('sort_order', { ascending: true })
@@ -25149,6 +25291,9 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', items: [] });
+            }
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', items: [] });
             }
             return res.status(500).json({ error: error.message || '載入失敗' });
         }
@@ -25167,25 +25312,23 @@ app.post('/api/me/material-color-palettes', express.json(), async (req, res) => 
         const name = String(body.name || '').trim().slice(0, 80);
         const primary = normalizeMaterialPaletteHex(body.primary_hex);
         const accent = normalizeMaterialPaletteHex(body.accent_hex);
-        const tertiary = body.tertiary_hex != null && String(body.tertiary_hex).trim()
-            ? normalizeMaterialPaletteHex(body.tertiary_hex)
-            : null;
         const typeText = String(body.type_text || '').trim().slice(0, 64) || null;
         if (!name) return res.status(400).json({ error: '請填名稱' });
         if (!primary || !accent) return res.status(400).json({ error: '主色／配色須為 #RRGGBB' });
-        if (body.tertiary_hex != null && String(body.tertiary_hex).trim() && !tertiary) {
-            return res.status(400).json({ error: '第三色須為 #RRGGBB' });
-        }
+        const ratioFields = resolveMaterialPaletteRatioFields(body, {});
+        if (ratioFields.error) return res.status(400).json({ error: ratioFields.error });
         const insert = {
             owner_scope: 'user',
             owner_user_id: user.id,
             type_id: null,
             type_text: typeText,
             name: name,
-            color_count: tertiary ? 3 : 2,
+            color_count: ratioFields.color_count,
             primary_hex: primary,
             accent_hex: accent,
-            tertiary_hex: tertiary,
+            tertiary_hex: ratioFields.tertiary_hex,
+            ratio_preset: ratioFields.ratio_preset,
+            ratio_percents: ratioFields.ratio_percents,
             sort_order: parseInt(body.sort_order, 10) || 0,
             is_active: true,
             updated_at: new Date().toISOString()
@@ -25194,6 +25337,9 @@ app.post('/api/me/material-color-palettes', express.json(), async (req, res) => 
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
             }
             return res.status(500).json({ error: error.message || '儲存失敗' });
         }
@@ -25230,16 +25376,30 @@ app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res
             if (!accent) return res.status(400).json({ error: '配色須為 #RRGGBB' });
             updates.accent_hex = accent;
         }
-        if (body.tertiary_hex !== undefined) {
-            if (body.tertiary_hex == null || !String(body.tertiary_hex).trim()) {
-                updates.tertiary_hex = null;
-                updates.color_count = 2;
-            } else {
-                const tertiary = normalizeMaterialPaletteHex(body.tertiary_hex);
-                if (!tertiary) return res.status(400).json({ error: '第三色須為 #RRGGBB' });
-                updates.tertiary_hex = tertiary;
-                updates.color_count = 3;
-            }
+        const touchesRatio = body.tertiary_hex !== undefined
+            || body.color_count != null
+            || body.ratio_percents != null
+            || body.ratio_preset != null;
+        if (touchesRatio) {
+            const { data: existing, error: exErr } = await supabase
+                .from('material_color_palettes')
+                .select('color_count, tertiary_hex, ratio_percents, ratio_preset')
+                .eq('id', id)
+                .eq('owner_scope', 'user')
+                .eq('owner_user_id', user.id)
+                .maybeSingle();
+            if (exErr) return res.status(500).json({ error: exErr.message || '讀取失敗' });
+            if (!existing) return res.status(404).json({ error: '找不到配色' });
+            const ratioFields = resolveMaterialPaletteRatioFields(body, {
+                existingColorCount: existing.color_count,
+                existingTertiary: existing.tertiary_hex,
+                existingPercents: existing.ratio_percents
+            });
+            if (ratioFields.error) return res.status(400).json({ error: ratioFields.error });
+            updates.color_count = ratioFields.color_count;
+            updates.tertiary_hex = ratioFields.tertiary_hex;
+            updates.ratio_preset = ratioFields.ratio_preset;
+            updates.ratio_percents = ratioFields.ratio_percents;
         }
         if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
         const { data, error } = await supabase
@@ -25250,7 +25410,12 @@ app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res
             .eq('owner_user_id', user.id)
             .select('*')
             .maybeSingle();
-        if (error) return res.status(500).json({ error: error.message || '更新失敗' });
+        if (error) {
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
+            }
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
         if (!data) return res.status(404).json({ error: '找不到配色' });
         res.json({ success: true, item: mapMaterialColorPaletteRow(data, null) });
     } catch (e) {
@@ -25415,22 +25580,23 @@ app.post('/api/admin/material-color-palettes', express.json(), async (req, res) 
         const typeId = String(body.type_id || '').trim();
         const primary = normalizeMaterialPaletteHex(body.primary_hex);
         const accent = normalizeMaterialPaletteHex(body.accent_hex);
-        const tertiary = body.tertiary_hex != null && String(body.tertiary_hex).trim()
-            ? normalizeMaterialPaletteHex(body.tertiary_hex)
-            : null;
         if (!name) return res.status(400).json({ error: '請填名稱' });
         if (!typeId) return res.status(400).json({ error: '請選類型' });
         if (!primary || !accent) return res.status(400).json({ error: '主色／配色須為 #RRGGBB' });
+        const ratioFields = resolveMaterialPaletteRatioFields(body, {});
+        if (ratioFields.error) return res.status(400).json({ error: ratioFields.error });
         const insert = {
             owner_scope: 'platform',
             owner_user_id: null,
             type_id: typeId,
             type_text: null,
             name: name,
-            color_count: tertiary ? 3 : 2,
+            color_count: ratioFields.color_count,
             primary_hex: primary,
             accent_hex: accent,
-            tertiary_hex: tertiary,
+            tertiary_hex: ratioFields.tertiary_hex,
+            ratio_preset: ratioFields.ratio_preset,
+            ratio_percents: ratioFields.ratio_percents,
             sort_order: parseInt(body.sort_order, 10) || 0,
             is_active: body.is_active === false ? false : true,
             updated_at: new Date().toISOString()
@@ -25439,6 +25605,9 @@ app.post('/api/admin/material-color-palettes', express.json(), async (req, res) 
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql' });
+            }
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
             }
             return res.status(500).json({ error: error.message });
         }
@@ -25477,16 +25646,29 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
             if (!accent) return res.status(400).json({ error: '配色須為 #RRGGBB' });
             updates.accent_hex = accent;
         }
-        if (body.tertiary_hex !== undefined) {
-            if (body.tertiary_hex == null || !String(body.tertiary_hex).trim()) {
-                updates.tertiary_hex = null;
-                updates.color_count = 2;
-            } else {
-                const tertiary = normalizeMaterialPaletteHex(body.tertiary_hex);
-                if (!tertiary) return res.status(400).json({ error: '第三色須為 #RRGGBB' });
-                updates.tertiary_hex = tertiary;
-                updates.color_count = 3;
-            }
+        const touchesRatio = body.tertiary_hex !== undefined
+            || body.color_count != null
+            || body.ratio_percents != null
+            || body.ratio_preset != null;
+        if (touchesRatio) {
+            const { data: existing, error: exErr } = await supabase
+                .from('material_color_palettes')
+                .select('color_count, tertiary_hex, ratio_percents, ratio_preset')
+                .eq('id', id)
+                .eq('owner_scope', 'platform')
+                .maybeSingle();
+            if (exErr) return res.status(500).json({ error: exErr.message || '讀取失敗' });
+            if (!existing) return res.status(404).json({ error: '找不到配色' });
+            const ratioFields = resolveMaterialPaletteRatioFields(body, {
+                existingColorCount: existing.color_count,
+                existingTertiary: existing.tertiary_hex,
+                existingPercents: existing.ratio_percents
+            });
+            if (ratioFields.error) return res.status(400).json({ error: ratioFields.error });
+            updates.color_count = ratioFields.color_count;
+            updates.tertiary_hex = ratioFields.tertiary_hex;
+            updates.ratio_preset = ratioFields.ratio_preset;
+            updates.ratio_percents = ratioFields.ratio_percents;
         }
         if (body.sort_order != null) updates.sort_order = parseInt(body.sort_order, 10) || 0;
         if (body.is_active != null) updates.is_active = !!body.is_active;
@@ -25497,7 +25679,12 @@ app.patch('/api/admin/material-color-palettes/:id', express.json(), async (req, 
             .eq('owner_scope', 'platform')
             .select('*')
             .maybeSingle();
-        if (error) return res.status(500).json({ error: error.message });
+        if (error) {
+            if (/ratio_percents|ratio_preset/i.test(error.message || '') || error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql' });
+            }
+            return res.status(500).json({ error: error.message });
+        }
         if (!data) return res.status(404).json({ error: '找不到配色' });
         const { map } = await loadMaterialPaletteTypeNameMap(true);
         res.json({ success: true, item: mapMaterialColorPaletteRow(data, map) });
@@ -25787,7 +25974,8 @@ app.delete('/api/me/material-combo-generations/:id', async (req, res) => {
 app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'main_pattern', maxCount: 1 },
-    { name: 'accent_pattern', maxCount: 1 }
+    { name: 'accent_pattern', maxCount: 1 },
+    { name: 'third_pattern', maxCount: 1 }
 ]), async (req, res) => {
     try {
         const seedUser = await getRequestUserFromAuthHeader(req);
@@ -25835,34 +26023,52 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
 
         const mainMaterial = body.main_material || body.mainMaterial || '';
         const accentMaterial = body.accent_material || body.accentMaterial || '';
+        const thirdMaterial = body.third_material || body.thirdMaterial || '';
         const boundary = body.boundary || body.stitch_material || body.stitchMaterial || '';
+        const colorCount = parseInt(body.color_count || body.colorCount, 10) === 3 ? 3 : 2;
+        const ratioPercents = normalizeMaterialComboRatioPercents(body.ratio_percents || body.ratioPercents, colorCount);
         const mainPatternFile = Array.isArray(files.main_pattern) ? files.main_pattern[0] : null;
         const accentPatternFile = Array.isArray(files.accent_pattern) ? files.accent_pattern[0] : null;
+        const thirdPatternFile = Array.isArray(files.third_pattern) ? files.third_pattern[0] : null;
         const mainPatternUrl = String(body.main_pattern_url || body.mainPatternUrl || '').trim();
         const accentPatternUrl = String(body.accent_pattern_url || body.accentPatternUrl || '').trim();
+        const thirdPatternUrl = String(body.third_pattern_url || body.thirdPatternUrl || '').trim();
         const patternRefs = {
             main: mainPatternFile && mainPatternFile.buffer && mainPatternFile.buffer.length
                 ? { buffer: mainPatternFile.buffer, mimetype: mainPatternFile.mimetype }
                 : (mainPatternUrl || null),
             accent: accentPatternFile && accentPatternFile.buffer && accentPatternFile.buffer.length
                 ? { buffer: accentPatternFile.buffer, mimetype: accentPatternFile.mimetype }
-                : (accentPatternUrl || null)
+                : (accentPatternUrl || null),
+            third: thirdPatternFile && thirdPatternFile.buffer && thirdPatternFile.buffer.length
+                ? { buffer: thirdPatternFile.buffer, mimetype: thirdPatternFile.mimetype }
+                : (thirdPatternUrl || null)
         };
-        if (patternRefs.main && patternRefs.accent) {
-            return res.status(400).json({ error: '印花圖樣只能用於主色區或配色區其中一區，不可同時兩張' });
+        const patCount = (patternRefs.main ? 1 : 0) + (patternRefs.accent ? 1 : 0) + (patternRefs.third ? 1 : 0);
+        if (patCount > 1) {
+            return res.status(400).json({ error: '印花圖樣只能用於其中一區，不可同時多張' });
         }
-        const printKind = (patternRefs.main || patternRefs.accent)
+        const printKind = patCount
             ? normalizeDualColorPrintKind(body.print_kind || body.printKind)
             : 'pattern';
+        const comboExtras = {
+            thirdMaterial: thirdMaterial,
+            colorCount: colorCount,
+            ratioPercents: ratioPercents
+        };
         let aiPromptUsed;
         try {
             aiPromptUsed = buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, boundary, {
                 hasMainPattern: !!(patternRefs.main),
                 hasAccentPattern: !!(patternRefs.accent),
-                printKind
+                hasThirdPattern: !!(patternRefs.third),
+                printKind,
+                thirdMaterial: thirdMaterial,
+                colorCount: colorCount,
+                ratioPercents: ratioPercents
             });
         } catch (promptErr) {
-            return res.status(400).json({ error: promptErr.message || '請填主色區與配色區材質或選擇印花圖樣' });
+            return res.status(400).json({ error: promptErr.message || '請填各區材質或選擇印花圖樣' });
         }
         const pointsRequired = await getPointsMaterialDualColorFlux();
         const ownerId = seedUser.id;
@@ -25881,7 +26087,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         let dualFallbackReason = null;
         try {
             const result = await optimizeMaterialDualColor(
-                swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs, printKind
+                swatchBuffer, mainMaterial, accentMaterial, boundary, patternRefs, printKind, comboExtras
             );
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
@@ -25894,7 +26100,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             console.error('material-dual-color-flux optimize:', optErr);
             if (optErr && optErr.status === 429) {
                 return res.status(429).json({
-                    error: optErr.message || 'Gemini 生圖次數已達上限，請稍後再試',
+                    error: optErr.message || '生圖次數已達上限，請稍後再試',
                     retry_after_sec: optErr.retry_after_sec || null,
                     quota_reason: optErr.quota_reason || null
                 });
@@ -25925,7 +26131,13 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         const comboForLibrary = normalizeMaterialCombo({
             main: { hex: body.main_hex || body.mainHex, material: mainMaterial },
             accent: { hex: body.accent_hex || body.accentHex, material: accentMaterial },
-            boundary: boundary
+            third: colorCount === 3
+                ? { hex: body.third_hex || body.thirdHex, material: thirdMaterial }
+                : null,
+            boundary: boundary,
+            ratio_percents: ratioPercents,
+            ratio_preset: body.ratio_preset || body.ratioPreset || null,
+            color_count: colorCount
         });
         let librarySaved = false;
         let librarySaveError = null;
