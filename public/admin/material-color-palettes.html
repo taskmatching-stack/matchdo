@@ -18,16 +18,16 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">材料組合 · 配色範例</h4>
         <p class="text-muted small mb-3">
-          維護<strong>類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。前台材料組合「配色範例 → 官方」以類型分 Tab、表格綜覽一鍵套用。
+          維護<strong>風格類型字典</strong>與<strong>官方配色表</strong>（雙色／三色＋比重）。類型是配色風格分類（與材質無關）。前台材料組合「配色範例 → 官方」以類型分 Tab、表格綜覽一鍵套用。
           請先執行 <code>docs/add-material-color-palettes.sql</code>，若表已存在再執行 <code>docs/add-material-color-palette-ratios.sql</code>（或後台資料庫維護）。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-4">
-          <div class="card-header fw-semibold">類型字典</div>
+          <div class="card-header fw-semibold">風格類型字典</div>
           <div class="card-body">
             <div class="row g-2 align-items-end mb-3">
-              <div class="col-md-4"><label class="form-label small mb-0">名稱</label><input id="typeName" class="form-control form-control-sm" placeholder="例：皮革、布料"></div>
+              <div class="col-md-4"><label class="form-label small mb-0">名稱</label><input id="typeName" class="form-control form-control-sm" placeholder="例：經典、休閒、春夏"></div>
               <div class="col-md-2"><label class="form-label small mb-0">排序</label><input id="typeSort" type="number" class="form-control form-control-sm" value="10"></div>
               <div class="col-md-2"><button type="button" class="btn btn-primary btn-sm" id="btnAddType">新增類型</button></div>
               <div class="col-md-4 text-md-end">

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.material_color_palette_types (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE public.material_color_palette_types IS '材料組合官方配色範例的類型字典（管理區維護）';
+COMMENT ON TABLE public.material_color_palette_types IS '材料組合官方配色範例的風格類型字典（與材質無關；管理區維護）';
 
 CREATE TABLE IF NOT EXISTS public.material_color_palettes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
