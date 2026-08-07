@@ -72,7 +72,7 @@
     <link href="/css/theme-custom.css?v=4" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet">
-    <link href="/css/custom-product-ios-surface.css?v=5" rel="stylesheet">
+    <link href="/css/custom-product-ios-surface.css?v=6" rel="stylesheet">
     <!-- Bootstrap JS 必須在 head 先掛名（defer），讓 mid-body 的 site-header.js 看見 #bs-bundle-js，勿再自行注入第二份 -->
     <script id="bs-bundle-js" src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <!-- JSON-LD Structured Data -->
@@ -1405,17 +1405,19 @@
         #custom-product .cp-tab-strip {
             display: flex;
             flex-wrap: nowrap;
-            align-items: stretch;
-            border-bottom: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
+            align-items: flex-end;
+            border-bottom: none;
             margin-bottom: 0;
-            padding: 0;
+            padding: 0 0 2px;
             min-width: min-content;
+            gap: 2px;
         }
         #custom-product .cp-tab-strip .cp-tab-divider {
-            flex: 0 0 1px;
+            flex: 0 0 2px;
             align-self: stretch;
-            margin: 0.45rem 0.2rem;
-            background: rgba(88, 100, 112, 0.22);
+            margin: 0.35rem 0.15rem 0.2rem;
+            background: rgba(88, 100, 112, 0.18);
+            border-radius: 1px;
             list-style: none;
             padding: 0;
         }
@@ -1423,26 +1425,69 @@
         #custom-product .cp-tab-strip .nav-link {
             border: none;
             border-bottom: 3px solid transparent;
-            margin-bottom: -1px;
-            padding: 0.55rem 0.85rem;
+            margin-bottom: 0;
+            padding: 0.5rem 0.8rem;
             font-weight: 500;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             white-space: nowrap;
-            background: transparent;
-            border-radius: 0;
+            border-radius: 8px 8px 0 0;
         }
-        #custom-product .cp-tab-g-design .nav-link { color: var(--md-text-muted, #8A96A3); }
-        #custom-product .cp-tab-g-design .nav-link:hover { color: var(--md-primary, #7A8FA3); }
-        #custom-product .cp-tab-g-design .nav-link.active { color: var(--md-primary, #7A8FA3); border-bottom-color: var(--md-primary, #7A8FA3); }
-        #custom-product .cp-tab-g-style .nav-link { color: var(--md-sage-text, #5A7268); opacity: 0.82; }
-        #custom-product .cp-tab-g-style .nav-link:hover { opacity: 1; color: var(--md-sage-text, #5A7268); }
-        #custom-product .cp-tab-g-style .nav-link.active { opacity: 1; color: var(--md-sage-text, #5A7268); border-bottom-color: var(--md-sage, #8FA89E); }
-        #custom-product .cp-tab-g-assist .nav-link { color: var(--md-clay-text, #5E6B78); opacity: 0.82; }
-        #custom-product .cp-tab-g-assist .nav-link:hover { opacity: 1; color: var(--md-clay-text, #5E6B78); }
-        #custom-product .cp-tab-g-assist .nav-link.active { opacity: 1; color: var(--md-clay-text, #5E6B78); border-bottom-color: var(--md-clay, #A8B5C4); }
-        #custom-product .cp-tab-g-marketing .nav-link { color: var(--md-rose-text, #5E6875); opacity: 0.82; }
-        #custom-product .cp-tab-g-marketing .nav-link:hover { opacity: 1; color: var(--md-rose-text, #5E6875); }
-        #custom-product .cp-tab-g-marketing .nav-link.active { opacity: 1; color: var(--md-rose-text, #5E6875); border-bottom-color: var(--md-rose, #9BA8B5); }
+        #custom-product .cp-tab-g-design .nav-link {
+            color: var(--md-primary-dark, #657A8E);
+            background: var(--md-primary-softer, rgba(122, 143, 163, 0.08));
+        }
+        #custom-product .cp-tab-g-design .nav-link:hover {
+            color: var(--md-primary, #7A8FA3);
+            background: var(--md-primary-soft, rgba(122, 143, 163, 0.14));
+        }
+        #custom-product .cp-tab-g-design .nav-link.active {
+            color: var(--md-primary-dark, #657A8E);
+            background: var(--md-primary-soft, rgba(122, 143, 163, 0.14));
+            border-bottom-color: var(--md-primary, #7A8FA3);
+            font-weight: 600;
+        }
+        #custom-product .cp-tab-g-style .nav-link {
+            color: var(--md-sage-text, #5A7268);
+            background: rgba(143, 168, 158, 0.12);
+        }
+        #custom-product .cp-tab-g-style .nav-link:hover {
+            background: var(--md-sage-bg, rgba(143, 168, 158, 0.2));
+        }
+        #custom-product .cp-tab-g-style .nav-link.active {
+            color: var(--md-sage-text, #5A7268);
+            background: var(--md-sage-bg, rgba(143, 168, 158, 0.2));
+            border-bottom-color: var(--md-sage, #8FA89E);
+            font-weight: 600;
+        }
+        #custom-product .cp-tab-g-marketing .nav-link {
+            color: var(--md-rose-text, #5E6875);
+            background: rgba(155, 168, 181, 0.12);
+        }
+        #custom-product .cp-tab-g-marketing .nav-link:hover {
+            background: var(--md-rose-bg, rgba(155, 168, 181, 0.2));
+        }
+        #custom-product .cp-tab-g-marketing .nav-link.active {
+            color: var(--md-rose-text, #5E6875);
+            background: var(--md-rose-bg, rgba(155, 168, 181, 0.2));
+            border-bottom-color: var(--md-rose, #9BA8B5);
+            font-weight: 600;
+        }
+        #custom-product .cp-tab-g-assist .nav-link {
+            color: var(--md-clay-text, #5E6B78);
+            background: rgba(168, 181, 196, 0.14);
+        }
+        #custom-product .cp-tab-g-assist .nav-link:hover {
+            background: var(--md-clay-bg, rgba(168, 181, 196, 0.22));
+        }
+        #custom-product .cp-tab-g-assist .nav-link.active {
+            color: var(--md-clay-text, #5E6B78);
+            background: var(--md-clay-bg, rgba(168, 181, 196, 0.22));
+            border-bottom-color: var(--md-clay, #A8B5C4);
+            font-weight: 600;
+        }
+        #custom-product .cp-tab-strip-wrap {
+            border-bottom: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
+        }
         @media (max-width: 767px) {
             #custom-product .cp-tab-strip-wrap {
                 overflow-x: visible;
@@ -1451,7 +1496,7 @@
             #custom-product .cp-tab-strip {
                 flex-wrap: wrap;
                 min-width: 0;
-                row-gap: 0;
+                row-gap: 0.2rem;
             }
             #custom-product .cp-tab-strip .cp-tab-divider {
                 flex: 0 0 100%;

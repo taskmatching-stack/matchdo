@@ -250,3 +250,49 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
     background: var(--md-primary-softer) !important;
     border-color: rgba(122, 143, 163, 0.35) !important;
 }
+
+/* 客製產品 dropdown：莫蘭迪色組 */
+.nav-hover-menu.nav-cp-menu {
+    min-width: 13.5rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+.nav-cp-menu .nav-cp-h {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.35rem 1rem 0.25rem;
+}
+.nav-cp-menu .nav-cp-h--structure { color: var(--md-primary); background: var(--md-primary-softer); }
+.nav-cp-menu .nav-cp-h--marketing { color: var(--md-rose-text); background: rgba(155, 168, 181, 0.14); }
+.nav-cp-menu .nav-cp-h--style { color: var(--md-sage-text); background: rgba(143, 168, 158, 0.14); }
+.nav-cp-menu .nav-cp-h--assist { color: var(--md-clay-text); background: rgba(168, 181, 196, 0.16); }
+.nav-cp-menu .nav-cp-item {
+    font-size: 0.9rem;
+    padding-left: 0.85rem;
+    border-left: 3px solid transparent;
+}
+.nav-cp-menu .nav-cp-item i { opacity: 0.88; }
+.nav-cp-menu .nav-cp-item--design {
+    color: var(--md-primary-dark);
+    background: var(--md-primary-softer);
+    border-left-color: var(--md-primary);
+    font-weight: 600;
+}
+.nav-cp-menu .nav-cp-item--design:hover { background: var(--md-primary-soft); color: var(--md-primary-dark); }
+.nav-cp-menu .nav-cp-item--structure { border-left-color: rgba(122, 143, 163, 0.45); }
+.nav-cp-menu .nav-cp-item--structure:hover { background: var(--md-primary-softer); }
+.nav-cp-menu .nav-cp-item--structure i { color: var(--md-primary); }
+.nav-cp-menu .nav-cp-item--marketing { border-left-color: rgba(155, 168, 181, 0.55); }
+.nav-cp-menu .nav-cp-item--marketing:hover { background: rgba(155, 168, 181, 0.12); }
+.nav-cp-menu .nav-cp-item--marketing i { color: var(--md-rose); }
+.nav-cp-menu .nav-cp-item--style { border-left-color: rgba(143, 168, 158, 0.55); }
+.nav-cp-menu .nav-cp-item--style:hover { background: rgba(143, 168, 158, 0.12); }
+.nav-cp-menu .nav-cp-item--style i { color: var(--md-sage); }
+.nav-cp-menu .nav-cp-item--assist { border-left-color: rgba(168, 181, 196, 0.65); }
+.nav-cp-menu .nav-cp-item--assist:hover { background: rgba(168, 181, 196, 0.14); }
+.nav-cp-menu .nav-cp-item--assist i { color: var(--md-clay); }
+.nav-cp-menu .nav-cp-divider {
+    margin: 0.35rem 0.75rem;
+    border-top-color: var(--md-border);
+}

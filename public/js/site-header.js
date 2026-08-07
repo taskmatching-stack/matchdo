@@ -8,7 +8,7 @@
         var _m = document.createElement('link');
         _m.id = 'morandi-global-css';
         _m.rel = 'stylesheet';
-        _m.href = '/css/morandi-global.css?v=4';
+        _m.href = '/css/morandi-global.css?v=5';
         document.head.appendChild(_m);
     }
     // Bootstrap：禁止在 mid-body 同步注入（長頁雙載入會沖掉頭像 Dropdown）。
@@ -494,24 +494,24 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
                     <div class="nav-item dropdown nav-has-hover">
                         <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
-                        <div class="dropdown-menu nav-hover-menu">
-                            <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '設計稿') + `</a>
-                            <h6 class="dropdown-header text-muted small py-1 mb-0">` + (t('nav.sectionStructure') || '以結構') + `</h6>
-                            <a href="/vendor-styles/" class="dropdown-item"><i class="bi bi-grid"></i>` + t('nav.browseVendorStyles') + `</a>
-                            <a href="/official-templates/" class="dropdown-item"><i class="bi bi-collection"></i>` + t('nav.browseOfficialTemplates') + `</a>
-                            <h6 class="dropdown-header text-muted small py-1 mb-0">` + (t('nav.marketingVisuals') || '行銷影像') + `</h6>
-                            <a href="/promo-image/" class="dropdown-item"><i class="bi bi-megaphone"></i>` + t('nav.promoImage') + `</a>
-                            <a href="/promo-camera" class="dropdown-item"><i class="bi bi-camera"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a>
-                            <div class="dropdown-divider"></div>
-                            <h6 class="dropdown-header text-muted small py-1 mb-0">` + (t('nav.sectionStyle') || '以風格') + `</h6>
-                            <a href="/client/material-dual-color.html?return=design" class="dropdown-item"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
-                            <a href="/client/print-asset.html" class="dropdown-item"><i class="bi bi-flower1"></i>` + (t('nav.printAsset') || '印花') + `</a>
-                            <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
-                            <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
-                            <h6 class="dropdown-header text-muted small py-1 mb-0">` + (t('nav.sectionAssistTools') || '輔助工具') + `</h6>
-                            <a href="/pattern-extract/" class="dropdown-item"><i class="bi bi-bounding-box"></i>` + t('nav.patternExtract') + `</a>
-                            <a href="/design-to-physical/" class="dropdown-item"><i class="bi bi-box"></i>` + t('nav.designToPhysical') + `</a>
-                            <a href="/scene-sim/" class="dropdown-item"><i class="bi bi-image"></i>` + t('nav.sceneSim') + `</a>
+                        <div class="dropdown-menu nav-hover-menu nav-cp-menu">
+                            <a href="/custom-product.html" class="dropdown-item nav-cp-item nav-cp-item--design"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '設計稿') + `</a>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--structure py-1 mb-0">` + (t('nav.sectionStructure') || '以結構') + `</h6>
+                            <a href="/vendor-styles/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-grid"></i>` + t('nav.browseVendorStyles') + `</a>
+                            <a href="/official-templates/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-collection"></i>` + t('nav.browseOfficialTemplates') + `</a>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--marketing py-1 mb-0">` + (t('nav.marketingVisuals') || '行銷影像') + `</h6>
+                            <a href="/promo-image/" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-megaphone"></i>` + t('nav.promoImage') + `</a>
+                            <a href="/promo-camera" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-camera"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a>
+                            <div class="dropdown-divider nav-cp-divider"></div>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--style py-1 mb-0">` + (t('nav.sectionStyle') || '以風格') + `</h6>
+                            <a href="/client/material-dual-color.html?return=design" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
+                            <a href="/client/print-asset.html" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-flower1"></i>` + (t('nav.printAsset') || '印花') + `</a>
+                            <a href="/custom/gallery.html" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
+                            <a href="/client/my-custom-products.html" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--assist py-1 mb-0">` + (t('nav.sectionAssistTools') || '輔助工具') + `</h6>
+                            <a href="/pattern-extract/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-bounding-box"></i>` + t('nav.patternExtract') + `</a>
+                            <a href="/design-to-physical/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-box"></i>` + t('nav.designToPhysical') + `</a>
+                            <a href="/scene-sim/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-image"></i>` + t('nav.sceneSim') + `</a>
                         </div>
                     </div>
                     <div class="nav-item dropdown nav-has-hover">

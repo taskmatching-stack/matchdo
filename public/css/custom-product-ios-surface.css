@@ -66,19 +66,17 @@
 }
 
 #custom-product #designTabs,
-#custom-product #designTabGroups .cp-tab-strip {
+#custom-product #designTabGroups .cp-tab-strip-wrap {
   border-bottom: 1px solid var(--md-border);
 }
 
-#custom-product #designTabs .nav-link,
-#custom-product #designTabGroups .cp-tab-strip .nav-link {
+#custom-product #designTabs .nav-link {
   color: var(--md-text-muted);
   border-bottom-width: 2px;
   font-weight: 500;
 }
 
-#custom-product #designTabs .nav-link.active,
-#custom-product #designTabGroups .cp-tab-g-design .nav-link.active {
+#custom-product #designTabs .nav-link.active {
   color: var(--md-primary);
   border-bottom-color: var(--md-primary);
 }
