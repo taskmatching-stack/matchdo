@@ -1,6 +1,6 @@
 /**
  * 客製產品選單 — 獨立元件，不用 Bootstrap dropdown-item／dropdown-header
- * 色組以 .nav-cp-section 整塊底色呈現（標題列 + 項目同一色帶）
+ * 色組以 .nav-cp-section 整塊底色呈現（標題列 + 項目同一色帶，對齊「以風格」組）
  */
 .nav-hover-menu.nav-cp-menu {
     min-width: 13.5rem;

@@ -1,6 +1,19 @@
 .vendor-design-flow .vendor-flow-steps {
     letter-spacing: 0.02em;
 }
+.dw-browse-filters-block {
+    margin-bottom: 1.25rem;
+}
+.dw-browse-filters-toggle {
+    display: none;
+}
+.dw-browse-filters,
+.vs-filters,
+.ot-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
 .bs-filters {
     background: #F5F7FA;
     border: 1px solid rgba(88, 100, 112, 0.14);
@@ -118,7 +131,61 @@
     font-size: 0.9rem;
     color: #5A7268;
 }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
+    .dw-browse-filters-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid rgba(88, 100, 112, 0.14);
+        border-radius: 10px;
+        background: #F5F7FA;
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #5C6670;
+        cursor: pointer;
+        text-align: left;
+    }
+    .dw-browse-filters-toggle-text {
+        display: flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        min-width: 0;
+    }
+    .dw-browse-filters-toggle-prefix {
+        flex: 0 0 auto;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #8A96A3;
+    }
+    .dw-browse-filters-toggle-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .dw-browse-filters-toggle-icon {
+        flex: 0 0 auto;
+        font-size: 0.9rem;
+        color: #8A96A3;
+        transition: transform 0.15s ease;
+    }
+    .dw-browse-filters-block.is-expanded .dw-browse-filters-toggle-icon {
+        transform: rotate(180deg);
+    }
+    .dw-browse-filters-block .dw-browse-filters,
+    .vs-filters-block .vs-filters,
+    .ot-filters-block .ot-filters {
+        display: none;
+        margin-top: 0.5rem;
+    }
+    .dw-browse-filters-block.is-expanded .dw-browse-filters,
+    .vs-filters-block.is-expanded .vs-filters,
+    .ot-filters-block.is-expanded .ot-filters {
+        display: flex;
+    }
     .bs-filters {
         padding: 0.75rem 1rem;
     }

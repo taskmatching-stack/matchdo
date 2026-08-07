@@ -229,7 +229,7 @@ $(document).ready(function () {
         var targetSel = tabEl.getAttribute('data-bs-target') || panelMap[tabId] || '';
         var groups = document.getElementById('designTabGroups');
         if (groups) {
-            groups.querySelectorAll('.cp-tab-link.active').forEach(function (link) {
+            groups.querySelectorAll('.nav-link.active').forEach(function (link) {
                 link.classList.remove('active');
                 link.setAttribute('aria-selected', 'false');
             });
@@ -6268,7 +6268,7 @@ $(document).ready(function () {
         if (camLink) camLink.setAttribute('href', buildIndependentUrlForTab('promo-camera'));
     }
     function syncDesignTabActiveUi(tabParam) {
-        $('#designTabGroups .cp-tab-link').removeClass('active').attr('aria-selected', 'false');
+        $('#designTabGroups .nav-link').removeClass('active').attr('aria-selected', 'false');
         var tabId = getTabButtonIdFromParam(tabParam);
         var tabEl = document.getElementById(tabId);
         if (tabEl) {

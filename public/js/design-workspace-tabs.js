@@ -48,12 +48,44 @@ function escapeAttr(s) {
         .replace(/</g, '&lt;');
 }
 
+function findTabByTool(tool) {
+    var found = null;
+    TAB_GROUPS.forEach(function (group) {
+        group.tabs.forEach(function (tab) {
+            if (tab.tool === tool) found = tab;
+        });
+    });
+    return found;
+}
+
+function getActiveTabLabel(root) {
+    if (!root) return '工作區';
+    var active = root.querySelector('.cp-tab-strip .nav-link.active');
+    if (active && active.textContent) return active.textContent.trim();
+    return '工作區';
+}
+
+function buildMobileToggleHtml(activeTool) {
+    var tab = findTabByTool(activeTool);
+    var label = tab ? tab.label : '工作區';
+    return (
+        '<button type="button" class="cp-tab-mobile-toggle" aria-expanded="false" aria-controls="cp-tab-strip-panel">' +
+        '<span class="cp-tab-mobile-toggle-text">' +
+        '<span class="cp-tab-mobile-toggle-prefix">工作區</span>' +
+        '<span class="cp-tab-mobile-toggle-label">' + label + '</span>' +
+        '</span>' +
+        '<i class="bi bi-chevron-down cp-tab-mobile-toggle-icon" aria-hidden="true"></i>' +
+        '</button>'
+    );
+}
+
 function buildDesignWorkspaceTabsHtml(activeTool) {
     activeTool = String(activeTool || 'product-design').trim();
     var parts = [
         '<div class="design-workspace-tabs cp-tab-groups cp-tab-groups--single">',
-        '<div class="cp-tab-strip-wrap">',
-        '<ul class="cp-tab-strip" role="tablist">'
+        buildMobileToggleHtml(activeTool),
+        '<div class="cp-tab-strip-wrap" id="cp-tab-strip-panel">',
+        '<ul class="nav nav-tabs cp-tab-strip" role="tablist">'
     ];
     TAB_GROUPS.forEach(function (group, gi) {
         if (gi > 0) {
@@ -62,8 +94,8 @@ function buildDesignWorkspaceTabsHtml(activeTool) {
         group.tabs.forEach(function (tab) {
             var isActive = tab.tool === activeTool;
             parts.push(
-                '<li class="cp-tab-item ' + group.css + '" role="presentation">',
-                '<a class="cp-tab-link' + (isActive ? ' active' : '') + '"',
+                '<li class="nav-item ' + group.css + '" role="presentation">',
+                '<a class="nav-link' + (isActive ? ' active' : '') + '"',
                 ' href="' + escapeAttr(tab.href) + '"',
                 ' role="tab"',
                 ' aria-selected="' + (isActive ? 'true' : 'false') + '"',
@@ -93,6 +125,166 @@ function detectActiveToolFromPath(pathname) {
     return 'product-design';
 }
 
+function refreshMobileToggleLabel(root) {
+    if (!root) return;
+    var labelEl = root.querySelector('.cp-tab-mobile-toggle-label');
+    if (labelEl) labelEl.textContent = getActiveTabLabel(root);
+}
+
+function ensureMobileToggle(root) {
+    if (!root || root.querySelector('.cp-tab-mobile-toggle')) return;
+    var wrap = root.querySelector('.cp-tab-strip-wrap');
+    if (!wrap) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cp-tab-mobile-toggle';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', wrap.id || 'cp-tab-strip-panel');
+    if (!wrap.id) wrap.id = 'cp-tab-strip-panel';
+    btn.innerHTML =
+        '<span class="cp-tab-mobile-toggle-text">' +
+        '<span class="cp-tab-mobile-toggle-prefix">工作區</span>' +
+        '<span class="cp-tab-mobile-toggle-label">' + getActiveTabLabel(root) + '</span>' +
+        '</span>' +
+        '<i class="bi bi-chevron-down cp-tab-mobile-toggle-icon" aria-hidden="true"></i>';
+    root.insertBefore(btn, wrap);
+}
+
+function setMobileTabsExpanded(root, expanded) {
+    if (!root) return;
+    var btn = root.querySelector('.cp-tab-mobile-toggle');
+    if (expanded) {
+        root.classList.add('is-expanded');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+    } else {
+        root.classList.remove('is-expanded');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+}
+
+function bindMobileToggle(root) {
+    if (!root || root.getAttribute('data-cp-tab-mobile-bound') === '1') return;
+    ensureMobileToggle(root);
+    refreshMobileToggleLabel(root);
+    var btn = root.querySelector('.cp-tab-mobile-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setMobileTabsExpanded(root, !root.classList.contains('is-expanded'));
+    });
+    root.querySelectorAll('.cp-tab-strip .nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+            setMobileTabsExpanded(root, false);
+        });
+    });
+    root.setAttribute('data-cp-tab-mobile-bound', '1');
+}
+
+function initDesignWorkspaceTabsMobile() {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('.design-workspace-tabs').forEach(bindMobileToggle);
+    if (!document.documentElement.getAttribute('data-cp-tab-mobile-doc-bound')) {
+        document.documentElement.setAttribute('data-cp-tab-mobile-doc-bound', '1');
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('.design-workspace-tabs.is-expanded').forEach(function (root) {
+                if (!root.contains(e.target)) setMobileTabsExpanded(root, false);
+            });
+            document.querySelectorAll('.dw-browse-filters-block.is-expanded, .vs-filters-block.is-expanded, .ot-filters-block.is-expanded').forEach(function (block) {
+                if (!block.contains(e.target)) setBrowseFiltersExpanded(block, false);
+            });
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            document.querySelectorAll('.design-workspace-tabs.is-expanded').forEach(function (root) {
+                setMobileTabsExpanded(root, false);
+            });
+            document.querySelectorAll('.dw-browse-filters-block.is-expanded, .vs-filters-block.is-expanded, .ot-filters-block.is-expanded').forEach(function (block) {
+                setBrowseFiltersExpanded(block, false);
+            });
+        });
+    }
+    if (window.i18n && window.i18n.ready) {
+        window.i18n.ready.then(function () {
+            document.querySelectorAll('.design-workspace-tabs').forEach(refreshMobileToggleLabel);
+        }).catch(function () {});
+    }
+}
+
+function getBrowseFilterLabel(block) {
+    if (!block) return '全部';
+    var active = block.querySelector('.btn-secondary');
+    if (active && active.textContent) return active.textContent.trim();
+    return '全部';
+}
+
+function buildBrowseFiltersToggleHtml(label) {
+    return (
+        '<button type="button" class="dw-browse-filters-toggle" aria-expanded="false">' +
+        '<span class="dw-browse-filters-toggle-text">' +
+        '<span class="dw-browse-filters-toggle-prefix">分類</span>' +
+        '<span class="dw-browse-filters-toggle-label">' + label + '</span>' +
+        '</span>' +
+        '<i class="bi bi-chevron-down dw-browse-filters-toggle-icon" aria-hidden="true"></i>' +
+        '</button>'
+    );
+}
+
+function setBrowseFiltersExpanded(block, expanded) {
+    if (!block) return;
+    var btn = block.querySelector('.dw-browse-filters-toggle');
+    if (expanded) {
+        block.classList.add('is-expanded');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+    } else {
+        block.classList.remove('is-expanded');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+}
+
+function ensureBrowseFiltersBlock(filtersEl) {
+    if (!filtersEl || filtersEl.closest('.dw-browse-filters-block, .vs-filters-block, .ot-filters-block')) return null;
+    var blockClass = 'dw-browse-filters-block';
+    if (filtersEl.classList.contains('vs-filters')) blockClass = 'vs-filters-block';
+    if (filtersEl.classList.contains('ot-filters')) blockClass = 'ot-filters-block';
+    var block = document.createElement('div');
+    block.className = blockClass;
+    var active = filtersEl.querySelector('.btn-secondary');
+    var label = active && active.textContent ? active.textContent.trim() : '全部';
+    block.innerHTML = buildBrowseFiltersToggleHtml(label);
+    var panel = filtersEl;
+    filtersEl.parentNode.insertBefore(block, filtersEl);
+    block.appendChild(panel);
+    return block;
+}
+
+function bindBrowseFiltersBlock(block) {
+    if (!block || block.getAttribute('data-browse-filters-bound') === '1') return;
+    var btn = block.querySelector('.dw-browse-filters-toggle');
+    if (!btn) return;
+    var labelEl = block.querySelector('.dw-browse-filters-toggle-label');
+    if (labelEl) labelEl.textContent = getBrowseFilterLabel(block);
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setBrowseFiltersExpanded(block, !block.classList.contains('is-expanded'));
+    });
+    block.querySelectorAll('a.btn').forEach(function (link) {
+        link.addEventListener('click', function () {
+            setBrowseFiltersExpanded(block, false);
+        });
+    });
+    block.setAttribute('data-browse-filters-bound', '1');
+}
+
+function initBrowseFiltersMobile() {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('.dw-browse-filters-block, .vs-filters-block, .ot-filters-block').forEach(bindBrowseFiltersBlock);
+    document.querySelectorAll('.dw-browse-filters, .vs-filters, .ot-filters').forEach(function (el) {
+        if (el.closest('.dw-browse-filters-block, .vs-filters-block, .ot-filters-block')) return;
+        var block = ensureBrowseFiltersBlock(el);
+        if (block) bindBrowseFiltersBlock(block);
+    });
+}
+
 function mountDesignWorkspaceTabs() {
     if (typeof document === 'undefined') return;
     document.querySelectorAll('[data-design-workspace-tabs]').forEach(function (el) {
@@ -106,14 +298,21 @@ if (typeof module !== 'undefined' && module.exports) {
         TAB_GROUPS: TAB_GROUPS,
         buildDesignWorkspaceTabsHtml: buildDesignWorkspaceTabsHtml,
         detectActiveToolFromPath: detectActiveToolFromPath,
-        mountDesignWorkspaceTabs: mountDesignWorkspaceTabs
+        mountDesignWorkspaceTabs: mountDesignWorkspaceTabs,
+        initDesignWorkspaceTabsMobile: initDesignWorkspaceTabsMobile,
+        initBrowseFiltersMobile: initBrowseFiltersMobile
     };
 }
 
 if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', mountDesignWorkspaceTabs);
-    } else {
+    function bootDesignWorkspaceTabs() {
         mountDesignWorkspaceTabs();
+        initDesignWorkspaceTabsMobile();
+        initBrowseFiltersMobile();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootDesignWorkspaceTabs);
+    } else {
+        bootDesignWorkspaceTabs();
     }
 }

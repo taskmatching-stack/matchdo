@@ -1,4 +1,4 @@
-/* 設計工作區 — 全站統一：標題在上 → Tab → 內容 */
+/* 設計工作區 — 標題在上 → 大框（Tab + 內容） */
 .design-workspace-shell {
     background: #E4E9EF;
     min-height: calc(100vh - 60px);
@@ -31,12 +31,21 @@
     line-height: 1.3;
     color: var(--md-text, #5C6670);
 }
+/* Bootstrap reboot h1 — 設計工作區標題字級統一 */
+.design-workspace-shell h1.design-workspace-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--md-text, #5C6670);
+    margin: 0 0 0.25rem;
+}
 .design-workspace-sub {
     margin: 0;
     font-size: 0.875rem;
     line-height: 1.45;
     color: var(--md-text-muted, #8A96A3);
 }
+/* 舊 class 對齊（設計頁 inline 仍可能引用） */
 .design-workspace-head .page-title,
 .design-workspace-layout .page-title {
     margin: 0 0 0.25rem;
@@ -53,6 +62,7 @@
     color: var(--md-text-muted, #8A96A3);
 }
 
+/* 工作區大框：Tab + 內容 */
 .design-workspace-frame {
     background: var(--md-white, #F5F7FA);
     border: 1px solid rgba(88, 100, 112, 0.14);
@@ -64,128 +74,116 @@
     padding: 1.25rem 1.5rem 1.5rem;
 }
 
-/* Tab 列：不用 Bootstrap .nav-tabs / .nav-link，避免被全域樣式洗掉底色 */
+/* Tab 列：卡片頂部 */
 .design-workspace-tabs {
     margin: 0;
     background: #F0F3F7;
     border-bottom: 1px solid rgba(88, 100, 112, 0.14);
 }
+.cp-tab-mobile-toggle {
+    display: none;
+}
 .design-workspace-tabs .cp-tab-strip-wrap {
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding: 0 0.5rem;
+    scrollbar-width: none;
+    border-bottom: none;
+    padding: 0 0.75rem;
 }
-.design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar { height: 4px; }
-.design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar-thumb {
-    background: rgba(122, 143, 163, 0.35);
-    border-radius: 4px;
+.design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 .design-workspace-tabs .cp-tab-strip {
     display: flex;
     flex-wrap: nowrap;
     align-items: stretch;
-    list-style: none;
-    margin: 0;
+    border-bottom: none;
+    margin-bottom: 0;
     padding: 0;
     min-width: min-content;
-    gap: 2px;
+    gap: 0;
 }
 .design-workspace-tabs .cp-tab-strip .cp-tab-divider {
     flex: 0 0 1px;
     align-self: stretch;
-    margin: 0.55rem 0.2rem;
+    margin: 0.55rem 0.3rem;
     background: rgba(88, 100, 112, 0.22);
+    border-radius: 0;
+    list-style: none;
     padding: 0;
 }
-.design-workspace-tabs .cp-tab-item {
+.design-workspace-tabs .cp-tab-strip .nav-item {
     flex: 0 0 auto;
     display: flex;
     align-items: stretch;
-    margin: 0;
-    padding: 0;
 }
-.design-workspace-tabs .cp-tab-link {
+.design-workspace-tabs .cp-tab-strip .nav-link {
     display: flex;
     align-items: center;
-    box-sizing: border-box;
+    border: none;
     margin-bottom: -1px;
-    padding: 0.65rem 0.85rem;
+    padding: 0.7rem 0.85rem;
     min-height: 2.75rem;
+    box-sizing: border-box;
     font-weight: 500;
     font-size: 0.875rem;
     white-space: nowrap;
-    text-decoration: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
     border-radius: 0;
-    cursor: pointer;
+    text-decoration: none;
+    background: transparent;
+    color: var(--md-text-muted, #8A96A3);
+    border-bottom: 2px solid transparent;
+    box-shadow: none;
 }
-
-/* 以結構 — 灰藍 */
-.design-workspace-tabs .cp-tab-g-design .cp-tab-link {
-    color: #657A8E;
-    background: rgba(122, 143, 163, 0.34);
+.design-workspace-tabs .cp-tab-strip .nav-link:hover {
+    color: var(--md-text, #5C6670);
+    background: rgba(255, 255, 255, 0.42);
 }
-.design-workspace-tabs .cp-tab-g-design .cp-tab-link:hover {
-    color: #fff;
-    background: rgba(122, 143, 163, 0.58);
+.design-workspace-tabs .cp-tab-g-design .nav-link.active {
+    color: var(--md-primary-dark, #657A8E);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-primary, #7A8FA3);
+    font-weight: 600;
 }
-.design-workspace-tabs .cp-tab-g-design .cp-tab-link.active {
-    color: #fff;
-    background: #7A8FA3;
-    border-bottom-color: #657A8E;
+.design-workspace-tabs .cp-tab-g-style .nav-link.active {
+    color: var(--md-sage-text, #5A7268);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-sage, #8FA89E);
+    font-weight: 600;
+}
+.design-workspace-tabs .cp-tab-g-marketing .nav-link.active {
+    color: var(--md-rose-text, #5E6875);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-rose, #9BA8B5);
+    font-weight: 600;
+}
+.design-workspace-tabs .cp-tab-g-assist .nav-link.active {
+    color: var(--md-clay-text, #5E6B78);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-clay, #A8B5C4);
     font-weight: 600;
 }
 
-/* 以風格 — 鼠尾草 */
-.design-workspace-tabs .cp-tab-g-style .cp-tab-link {
-    color: #5A7268;
-    background: rgba(143, 168, 158, 0.38);
+/* Bootstrap 5 .nav-tabs 預設上框／白底 — 五頁對齊 24c9864 */
+.design-workspace-tabs .nav-tabs.cp-tab-strip {
+    border-bottom: none;
 }
-.design-workspace-tabs .cp-tab-g-style .cp-tab-link:hover {
-    color: #fff;
-    background: rgba(111, 141, 128, 0.72);
+.design-workspace-tabs .nav-tabs.cp-tab-strip .nav-link {
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    margin-bottom: -1px;
 }
-.design-workspace-tabs .cp-tab-g-style .cp-tab-link.active {
-    color: #fff;
-    background: #8FA89E;
-    border-bottom-color: #6E8A7E;
-    font-weight: 600;
-}
-
-/* 行銷影像 — 玫瑰灰 */
-.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link {
-    color: #5E6875;
-    background: rgba(155, 168, 181, 0.38);
-}
-.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link:hover {
-    color: #fff;
-    background: rgba(130, 145, 158, 0.72);
-}
-.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link.active {
-    color: #fff;
-    background: #9BA8B5;
-    border-bottom-color: #7A8794;
-    font-weight: 600;
+.design-workspace-tabs .nav-tabs.cp-tab-strip .nav-link.active {
+    border-top: none;
+    border-left: none;
+    border-right: none;
 }
 
-/* 輔助工具 — 灰紫 */
-.design-workspace-tabs .cp-tab-g-assist .cp-tab-link {
-    color: #5E6B78;
-    background: rgba(168, 181, 196, 0.42);
-}
-.design-workspace-tabs .cp-tab-g-assist .cp-tab-link:hover {
-    color: #fff;
-    background: rgba(142, 158, 175, 0.78);
-}
-.design-workspace-tabs .cp-tab-g-assist .cp-tab-link.active {
-    color: #fff;
-    background: #A8B5C4;
-    border-bottom-color: #8A97A8;
-    font-weight: 600;
-}
-
+/* 列表頁內文 */
 .design-workspace-lead {
     margin: 0 0 1rem;
     font-size: 0.875rem;
@@ -220,27 +218,86 @@
     .design-workspace-body {
         padding: 0.85rem 1rem 1.25rem;
     }
+    .cp-tab-mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: none;
+        border-bottom: 1px solid rgba(88, 100, 112, 0.14);
+        background: var(--md-white, #F5F7FA);
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--md-text, #5C6670);
+        cursor: pointer;
+        text-align: left;
+    }
+    .cp-tab-mobile-toggle-text {
+        display: flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        min-width: 0;
+    }
+    .cp-tab-mobile-toggle-prefix {
+        flex: 0 0 auto;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--md-text-muted, #8A96A3);
+    }
+    .cp-tab-mobile-toggle-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .cp-tab-mobile-toggle-icon {
+        flex: 0 0 auto;
+        font-size: 0.95rem;
+        color: var(--md-text-muted, #8A96A3);
+        transition: transform 0.15s ease;
+    }
+    .design-workspace-tabs.is-expanded .cp-tab-mobile-toggle-icon {
+        transform: rotate(180deg);
+    }
     .design-workspace-tabs .cp-tab-strip-wrap {
+        display: none;
         overflow-x: visible;
-        padding: 0 0.25rem;
+        padding: 0.25rem 0.25rem 0.35rem;
+        border-bottom: 1px solid rgba(88, 100, 112, 0.1);
+    }
+    .design-workspace-tabs.is-expanded .cp-tab-strip-wrap {
+        display: block;
     }
     .design-workspace-tabs .cp-tab-strip {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         min-width: 0;
     }
     .design-workspace-tabs .cp-tab-strip .cp-tab-divider {
-        flex: 0 0 100%;
-        width: 100%;
-        height: 0;
-        margin: 0;
-        background: transparent;
+        display: none;
     }
-    .design-workspace-tabs .cp-tab-link {
-        padding: 0.55rem 0.65rem;
-        font-size: 0.8125rem;
+    .design-workspace-tabs .cp-tab-strip .nav-item {
+        flex: unset;
+        min-width: 0;
+    }
+    .design-workspace-tabs .cp-tab-strip .nav-link {
+        justify-content: center;
+        width: 100%;
+        padding: 0.5rem 0.15rem;
+        font-size: 0.75rem;
         min-height: 2.35rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     #custom-product .design-workspace-head {
         display: none;
+    }
+}
+
+@media (min-width: 768px) {
+    .cp-tab-mobile-toggle {
+        display: none !important;
     }
 }

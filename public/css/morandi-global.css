@@ -120,8 +120,8 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
     color: var(--md-primary) !important;
     border-top-color: var(--md-primary) !important;
 }
-.navbar .dropdown-menu .dropdown-item:hover,
-.navbar .dropdown-menu .dropdown-item.active,
+.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item:hover,
+.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item.active,
 .nav-hover-menu:not(.nav-cp-menu) .dropdown-item:hover {
     background-color: var(--md-primary) !important;
     color: #fff !important;
@@ -249,4 +249,137 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
 .quick-link:hover {
     background: var(--md-primary-softer) !important;
     border-color: rgba(122, 143, 163, 0.35) !important;
+}
+
+/* 客製產品 dropdown：莫蘭迪色組 */
+.nav-hover-menu.nav-cp-menu {
+    min-width: 13.5rem;
+    padding: 0;
+    overflow: hidden;
+}
+.nav-cp-menu .nav-cp-h {
+    display: block;
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.5rem 1rem;
+    line-height: 1.3;
+}
+.nav-cp-menu .dropdown-header.nav-cp-h {
+    width: 100%;
+    box-sizing: border-box;
+}
+.nav-cp-menu .nav-cp-h--structure { color: #fff; background: var(--md-primary); }
+.nav-cp-menu .nav-cp-h--style { color: #fff; background: var(--md-sage); }
+.nav-cp-menu .nav-cp-h--marketing { color: #fff; background: var(--md-rose); }
+.nav-cp-menu .nav-cp-h--assist { color: #fff; background: var(--md-clay); }
+.nav-cp-menu .dropdown-item.nav-cp-item {
+    display: block;
+    width: 100%;
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem 0.5rem 0.85rem;
+    margin: 0;
+    border-left: none;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.nav-cp-menu .dropdown-item.nav-cp-item i { opacity: 1; }
+/* 以 style 組為基準：實色 header + rgba 淡底 item + 同組 hover */
+.nav-cp-menu .dropdown-item.nav-cp-item--design {
+    color: #fff;
+    background: var(--md-primary);
+    font-weight: 600;
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--design:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--design:focus {
+    background: var(--md-primary-dark);
+    color: #fff;
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--design i { color: #fff; }
+.nav-cp-menu .dropdown-item.nav-cp-item--structure {
+    color: var(--md-primary-dark);
+    background: rgba(122, 143, 163, 0.3);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--structure:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--structure:focus {
+    background: rgba(122, 143, 163, 0.42);
+    color: var(--md-primary-dark);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--structure i { color: var(--md-primary); }
+.nav-cp-menu .dropdown-item.nav-cp-item--marketing {
+    color: var(--md-rose-text);
+    background: rgba(155, 168, 181, 0.3);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--marketing:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--marketing:focus {
+    background: rgba(155, 168, 181, 0.42);
+    color: var(--md-rose-text);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--marketing i { color: #7A8794; }
+.nav-cp-menu .dropdown-item.nav-cp-item--style {
+    color: var(--md-sage-text);
+    background: rgba(143, 168, 158, 0.3);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--style:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--style:focus {
+    background: rgba(143, 168, 158, 0.42);
+    color: var(--md-sage-text);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--style i { color: #6E8A7E; }
+.nav-cp-menu .dropdown-item.nav-cp-item--assist {
+    color: var(--md-clay-text);
+    background: rgba(168, 181, 196, 0.3);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--assist:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--assist:focus {
+    background: rgba(168, 181, 196, 0.42);
+    color: var(--md-clay-text);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--assist i { color: #8A97A8; }
+.nav-cp-menu .dropdown-item.nav-cp-item--utility {
+    color: var(--md-text);
+    background: transparent;
+    font-weight: 500;
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--utility:hover,
+.nav-cp-menu .dropdown-item.nav-cp-item--utility:focus {
+    background: var(--md-surface-alt);
+    color: var(--md-text);
+}
+.nav-cp-menu .dropdown-item.nav-cp-item--utility i { color: var(--md-text-muted); }
+/* 蓋過 theme-custom [data-theme="custom"] 的全域 dropdown hover */
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--design:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--design:focus {
+    background: var(--md-primary-dark);
+    color: #fff;
+}
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--structure:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--structure:focus {
+    background: rgba(122, 143, 163, 0.42);
+    color: var(--md-primary-dark);
+}
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--marketing:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--marketing:focus {
+    background: rgba(155, 168, 181, 0.42);
+    color: var(--md-rose-text);
+}
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--style:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--style:focus {
+    background: rgba(143, 168, 158, 0.42);
+    color: var(--md-sage-text);
+}
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--assist:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--assist:focus {
+    background: rgba(168, 181, 196, 0.42);
+    color: var(--md-clay-text);
+}
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--utility:hover,
+[data-theme="custom"] .nav-hover-menu.nav-cp-menu .dropdown-item.nav-cp-item--utility:focus {
+    background: var(--md-surface-alt);
+    color: var(--md-text);
+}
+.nav-cp-menu .nav-cp-divider {
+    margin: 0.35rem 0.75rem;
+    border-top-color: var(--md-border);
 }

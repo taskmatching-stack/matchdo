@@ -6126,7 +6126,7 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
             limit: 72,
             offset: 0
         });
-        const { buildOfficialTemplatesHtml } = require('./lib/official-templates-page');
+        const { buildOfficialTemplatesHtml } = require('./lib/official-templates-browse-page');
         const html = buildOfficialTemplatesHtml({
             base: String(base).replace(/\/$/, ''),
             items: catalog.items || [],
@@ -6158,7 +6158,7 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
             limit: 72,
             offset: 0
         });
-        const { buildVendorStylesHtml } = require('./lib/vendor-styles-page');
+        const { buildVendorStylesHtml } = require('./lib/vendor-styles-browse-page');
         const html = buildVendorStylesHtml({
             base: String(base).replace(/\/$/, ''),
             items: catalog.items || [],

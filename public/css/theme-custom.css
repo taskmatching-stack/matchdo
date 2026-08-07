@@ -126,8 +126,10 @@
     background-color: var(--md-primary) !important;
 }
 
-[data-theme="custom"], [data-theme="remake"] .dropdown-menu .dropdown-item:hover,
-[data-theme="custom"], [data-theme="remake"] .dropdown-menu .dropdown-item.active {
+[data-theme="custom"] .dropdown-menu:not(.nav-cp-menu) .dropdown-item:hover,
+[data-theme="custom"] .dropdown-menu:not(.nav-cp-menu) .dropdown-item.active,
+[data-theme="remake"] .dropdown-menu:not(.nav-cp-menu) .dropdown-item:hover,
+[data-theme="remake"] .dropdown-menu:not(.nav-cp-menu) .dropdown-item.active {
     background-color: var(--md-primary);
     color: #fff;
 }
