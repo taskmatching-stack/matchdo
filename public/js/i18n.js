@@ -67,7 +67,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260807-browse';
+    var LOCALE_CACHE_V = '20260807-resume-i18n';
 
     function loadLocale(lang) {
         lang = lang || getLang();

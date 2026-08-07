@@ -73,11 +73,50 @@
         #mdcPalTableBody tr.mdc-pal-dragging { opacity: 0.45; }
         #mdcPalTableBody tr.mdc-pal-drag-over > td { box-shadow: inset 0 2px 0 #0d6efd; }
         .mdc-pal-drag-hint { font-size: 0.8rem; color: #6c757d; }
-        .mdc-mat-preset-chip { font-size: 0.8125rem; line-height: 1.2; padding: 0.2rem 0.55rem; border-radius: 999px; }
-        .mdc-mat-preset-del { opacity: 0.55; margin-left: 0.15rem; font-weight: 600; }
-        .mdc-mat-preset-del:hover { opacity: 1; }
-        .mdc-preset-quick-bar { border: 1px solid rgba(122,143,161,0.35); background: #f8fafb; }
-        .mdc-field-preset-save { font-size: 0.8125rem; white-space: nowrap; }
+        .mdc-field-preset-save {
+            font-size: 1.125rem;
+            line-height: 1;
+            white-space: nowrap;
+            color: var(--md-sage-text) !important;
+            background: var(--md-sage-bg);
+            border: 1px solid rgba(143, 168, 158, 0.5);
+            border-radius: 0.375rem;
+            padding: 0.28rem 0.42rem !important;
+            min-width: 2rem;
+            min-height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+        .mdc-field-preset-save:hover,
+        .mdc-field-preset-save:focus {
+            color: #fff !important;
+            background: var(--md-sage) !important;
+            border-color: var(--md-sage) !important;
+        }
+        .mdc-preset-manage .mdc-preset-del-btn {
+            font-size: 1rem;
+            line-height: 1;
+            color: var(--md-rose-text) !important;
+            background: var(--md-rose-bg);
+            border: 1px solid var(--md-clay-border);
+            border-radius: 0.375rem;
+            padding: 0.28rem 0.42rem !important;
+            min-width: 2rem;
+            min-height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+        .mdc-preset-manage .mdc-preset-del-btn:hover,
+        .mdc-preset-manage .mdc-preset-del-btn:focus {
+            color: #fff !important;
+            background: var(--md-rose) !important;
+            border-color: var(--md-rose) !important;
+        }
+        .mdc-preset-select { width: auto; min-width: 5.5rem; max-width: 11rem; flex: 0 0 auto; font-size: 0.8125rem; padding-top: 0.15rem; padding-bottom: 0.15rem; height: auto; }
     </style>
 </head>
 <body>
@@ -188,32 +227,17 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepGenerate">材質生成</div>
                 <div class="card-body">
-                    <div class="mdc-preset-quick-bar rounded p-3 mb-3 d-none" id="mdc-preset-quick-bar">
-                        <div class="fw-semibold small mb-1" data-i18n="materialCombo.quickPresetsTitle">常用快速填入</div>
-                        <p class="small text-muted mb-2 mb-md-2" data-i18n="materialCombo.quickPresetsHelp">在各材質／分界處欄位輸入文字後，按右側「存此欄」；下次點下方 chip 即可一鍵帶入。</p>
-                        <div class="mb-2" id="mdc-mat-presets-wrap">
-                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                <span class="small fw-medium" data-i18n="materialCombo.matPresetsLabel">常用材質</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary" id="mdc-mat-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.matPresetSave">存目前材質欄位</button>
-                            </div>
-                            <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-mat-presets-chips"></div>
-                            <div class="small mt-1 d-none" id="mdc-mat-preset-hint"></div>
-                        </div>
-                        <div id="mdc-boundary-presets-wrap">
-                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                <span class="small fw-medium" data-i18n="materialCombo.boundaryPresetsLabel">常用分界處</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary" id="mdc-boundary-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.boundaryPresetSave">存分界處</button>
-                            </div>
-                            <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-boundary-presets-chips"></div>
-                            <div class="small mt-1 d-none" id="mdc-boundary-preset-hint"></div>
-                        </div>
-                    </div>
                     <p class="small text-muted mb-3" id="mdc-print-one-hint" data-i18n="materialCombo.printOneZoneHint">印花只能擇一區使用。</p>
                     <div class="row g-3">
                         <div class="col-md-6" id="mdc-main-mat-col">
-                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                            <label class="form-label small mb-1 d-flex flex-wrap align-items-center gap-2">
                                 <span data-i18n="materialCombo.mainMaterialLabel">主色區材質</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-main-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                                <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-main-mat-preset-select" data-i18n-aria-label="materialCombo.presetSelectMaterial" aria-label="選常用材質"><option value="" data-i18n="materialCombo.presetSelectMaterial">選常用材質</option></select>
+                                <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-main-material" data-i18n-title="materialCombo.presetSaveMaterial" data-i18n-aria-label="materialCombo.presetSaveMaterial" title="存常用" aria-label="存常用"><i class="bi bi-bookmark-plus"></i></button>
+                                <div class="dropdown d-none mdc-preset-manage" id="mdc-mat-preset-manage">
+                                    <button type="button" class="btn btn-sm mdc-preset-del-btn" data-bs-toggle="dropdown" data-bs-auto-close="true" data-i18n-title="materialCombo.presetDeleteMaterial" data-i18n-aria-label="materialCombo.presetDeleteMaterial" title="刪除常用材質" aria-label="刪除常用材質"><i class="bi bi-trash"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-sm py-1" id="mdc-mat-preset-del-menu" style="min-width:9rem;max-width:14rem"></ul>
+                                </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" data-i18n-placeholder="materialCombo.mainMaterialPh" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -227,9 +251,10 @@
                             </div>
                         </div>
                         <div class="col-md-6" id="mdc-accent-mat-col">
-                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                            <label class="form-label small mb-1 d-flex flex-wrap align-items-center gap-2">
                                 <span data-i18n="materialCombo.accentMaterialLabel">配色區材質</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-accent-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                                <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-accent-mat-preset-select" data-i18n-aria-label="materialCombo.presetSelectMaterial" aria-label="選常用材質"><option value="" data-i18n="materialCombo.presetSelectMaterial">選常用材質</option></select>
+                                <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-accent-material" data-i18n-title="materialCombo.presetSaveMaterial" data-i18n-aria-label="materialCombo.presetSaveMaterial" title="存常用" aria-label="存常用"><i class="bi bi-bookmark-plus"></i></button>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -243,9 +268,10 @@
                             </div>
                         </div>
                         <div class="col-md-6 d-none" id="mdc-third-mat-col">
-                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                            <label class="form-label small mb-1 d-flex flex-wrap align-items-center gap-2">
                                 <span data-i18n="materialCombo.thirdMaterialLabel">輔色區材質</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-third-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                                <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-third-mat-preset-select" data-i18n-aria-label="materialCombo.presetSelectMaterial" aria-label="選常用材質"><option value="" data-i18n="materialCombo.presetSelectMaterial">選常用材質</option></select>
+                                <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-third-material" data-i18n-title="materialCombo.presetSaveMaterial" data-i18n-aria-label="materialCombo.presetSaveMaterial" title="存常用" aria-label="存常用"><i class="bi bi-bookmark-plus"></i></button>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-third-material" data-i18n-placeholder="materialCombo.thirdMaterialPh" placeholder="例：麂皮" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -265,9 +291,14 @@
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                            <label class="form-label small mb-1 d-flex flex-wrap align-items-center gap-2">
                                 <span data-i18n="materialCombo.boundaryLabel">分界處（選填）</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="boundary" data-preset-target="mdc-boundary"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                                <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-boundary-preset-select" data-i18n-aria-label="materialCombo.presetSelectBoundary" aria-label="選常用分界"><option value="" data-i18n="materialCombo.presetSelectBoundary">選常用分界</option></select>
+                                <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="boundary" data-preset-target="mdc-boundary" data-i18n-title="materialCombo.presetSaveBoundary" data-i18n-aria-label="materialCombo.presetSaveBoundary" title="存常用分界" aria-label="存常用分界"><i class="bi bi-bookmark-plus"></i></button>
+                                <div class="dropdown d-none mdc-preset-manage" id="mdc-boundary-preset-manage">
+                                    <button type="button" class="btn btn-sm mdc-preset-del-btn" data-bs-toggle="dropdown" data-bs-auto-close="true" data-i18n-title="materialCombo.presetDeleteBoundary" data-i18n-aria-label="materialCombo.presetDeleteBoundary" title="刪除常用分界" aria-label="刪除常用分界"><i class="bi bi-trash"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-sm py-1" id="mdc-boundary-preset-del-menu" style="min-width:9rem;max-width:14rem"></ul>
+                                </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" data-i18n-placeholder="materialCombo.boundaryPh" placeholder="例：同色明線車縫" maxlength="64">
                         </div>
@@ -379,10 +410,10 @@
     <script src="/js/site-header.js?v=20260807-i18n2"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
-    <script src="/js/material-preset-chips.js?v=20260807d"></script>
+    <script src="/js/material-preset-chips.js?v=20260807m"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-quickbar-20260807d';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-i18n-20260807m';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -816,14 +847,20 @@
             updateGenerateEnabled();
         }
 
-        function initMaterialPresets() {
-            if (!window.MaterialPresetChips) return;
-            var quickBar = document.getElementById('mdc-preset-quick-bar');
-            if (quickBar) quickBar.classList.remove('d-none');
-            document.querySelectorAll('.mdc-field-preset-save').forEach(function (btn) {
-                btn.classList.remove('d-none');
+        var mdcPresetInstances = [];
+
+        function refreshMaterialPresetI18n() {
+            mdcPresetInstances.forEach(function (inst) {
+                if (inst && inst.reloadI18n) inst.reloadI18n();
             });
-            var statusEl = document.getElementById('mdc-status');
+        }
+
+        function initMaterialPresets() {
+            if (!window.MaterialPresetChips || window.__mdcPresetsInited) return;
+            window.__mdcPresetsInited = true;
+            document.querySelectorAll('.mdc-field-preset-save, .mdc-preset-select, .mdc-preset-manage').forEach(function (el) {
+                el.classList.remove('d-none');
+            });
             var headersFn = async function () {
                 var tok = await getToken();
                 return tok ? { Authorization: 'Bearer ' + tok } : {};
@@ -834,41 +871,37 @@
                 var input = id ? document.getElementById(id) : null;
                 if (input) matFieldBtns.push({ btn: btn, input: input });
             });
-            MaterialPresetChips.init({
+            mdcPresetInstances.push(MaterialPresetChips.init({
                 kind: 'material',
                 getHeaders: headersFn,
                 inputs: [mainMaterial, accentMaterial, thirdMaterial],
-                wrapEl: document.getElementById('mdc-mat-presets-wrap'),
-                chipsEl: document.getElementById('mdc-mat-presets-chips'),
-                saveBtn: document.getElementById('mdc-mat-preset-save'),
-                hintEl: document.getElementById('mdc-mat-preset-hint'),
-                statusEl: statusEl,
+                getSelectPlaceholder: function () { return t('materialCombo.presetSelectMaterial', '選常用材質'); },
+                getEmptyManageLabel: function () { return t('materialCombo.presetManageEmpty', '尚無常用'); },
+                getRemoveTitle: function () { return t('materialCombo.presetRemove', '刪除'); },
+                renderTargets: [
+                    { selectEl: document.getElementById('mdc-main-mat-preset-select'), input: mainMaterial },
+                    { selectEl: document.getElementById('mdc-accent-mat-preset-select'), input: accentMaterial },
+                    { selectEl: document.getElementById('mdc-third-mat-preset-select'), input: thirdMaterial }
+                ],
                 fieldSaveBtns: matFieldBtns,
-                emptyLabel: t('materialCombo.presetEmptyMaterial', '尚無常用材質，輸入後按「存此欄」'),
-                hintFocus: t('materialCombo.presetHintFocusMaterial', '請先點一下要填入的材質欄位'),
-                hintEmpty: t('materialCombo.presetHintEmptyMaterial', '欄位是空的，無法存為常用'),
-                fillTitle: t('materialCombo.presetFillField', '填入欄位'),
-                fillOkLabel: t('materialCombo.presetFilled', '已填入'),
-                removeTitle: t('materialCombo.presetRemove', '移除')
-            });
+                manageWrapEl: document.getElementById('mdc-mat-preset-manage'),
+                manageMenuEl: document.getElementById('mdc-mat-preset-del-menu')
+            }));
             var bndBtn = document.querySelector('.mdc-field-preset-save[data-preset-kind="boundary"]');
-            MaterialPresetChips.init({
+            mdcPresetInstances.push(MaterialPresetChips.init({
                 kind: 'boundary',
                 getHeaders: headersFn,
                 inputs: [boundary],
-                wrapEl: document.getElementById('mdc-boundary-presets-wrap'),
-                chipsEl: document.getElementById('mdc-boundary-presets-chips'),
-                saveBtn: document.getElementById('mdc-boundary-preset-save'),
-                hintEl: document.getElementById('mdc-boundary-preset-hint'),
-                statusEl: statusEl,
+                getSelectPlaceholder: function () { return t('materialCombo.presetSelectBoundary', '選常用分界'); },
+                getEmptyManageLabel: function () { return t('materialCombo.presetManageEmpty', '尚無常用'); },
+                getRemoveTitle: function () { return t('materialCombo.presetRemove', '刪除'); },
+                renderTargets: [
+                    { selectEl: document.getElementById('mdc-boundary-preset-select'), input: boundary }
+                ],
                 fieldSaveBtns: bndBtn ? [{ btn: bndBtn, input: boundary }] : [],
-                emptyLabel: t('materialCombo.presetEmptyBoundary', '尚無常用分界處，輸入後按「存此欄」'),
-                hintFocus: t('materialCombo.presetHintFocusBoundary', '請先點一下分界處欄位'),
-                hintEmpty: t('materialCombo.presetHintEmptyBoundary', '分界處是空的，無法存為常用'),
-                fillTitle: t('materialCombo.presetFillField', '填入欄位'),
-                fillOkLabel: t('materialCombo.presetFilled', '已填入'),
-                removeTitle: t('materialCombo.presetRemove', '移除')
-            });
+                manageWrapEl: document.getElementById('mdc-boundary-preset-manage'),
+                manageMenuEl: document.getElementById('mdc-boundary-preset-del-menu')
+            }));
         }
 
         async function initAuth() {
@@ -881,12 +914,15 @@
             } catch (_) { user = null; }
             if (!user || !(await getToken())) {
                 document.getElementById('auth-alert').classList.remove('d-none');
-                var quickBar = document.getElementById('mdc-preset-quick-bar');
-                if (quickBar) quickBar.classList.add('d-none');
                 return;
             }
             document.getElementById('auth-alert').classList.add('d-none');
+            if (window.i18n && window.i18n.ready) {
+                try { await window.i18n.ready; } catch (_) {}
+            }
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             initMaterialPresets();
+            refreshMaterialPresetI18n();
 
             var isOfficial = !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB;
 
@@ -1205,6 +1241,7 @@
                 if (window.i18n.applyPage) window.i18n.applyPage();
                 syncModeUi();
                 updateAddPendingBtnLabel();
+                refreshMaterialPresetI18n();
                 if (pointsLabel) pointsLabel.textContent = tf('materialCombo.pointsCharged', '成功後扣 {n} 點', { n: pointsFlux });
                 document.documentElement.lang = window.i18n.getLang() === 'en' ? 'en' : 'zh-TW';
             }).catch(function () {});

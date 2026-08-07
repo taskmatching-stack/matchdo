@@ -6284,14 +6284,15 @@ $(document).ready(function () {
             $(tabEl).addClass('active').attr('aria-selected', 'true');
         }
         var titles = {
-            'product-design': '設計稿',
-            'pattern-extract': '圖樣提取',
-            'design-to-physical': '寫實化',
-            'scene-sim': '實境模擬',
-            'promo-image': '情境圖'
+            'product-design': t('customProduct.pageTitle'),
+            'pattern-extract': t('customProduct.patternExtractTab'),
+            'design-to-physical': t('customProduct.designToPhysicalTab'),
+            'scene-sim': t('home.sceneSim'),
+            'promo-image': t('customProduct.promoImageTab')
         };
         if (titles[tabParam] && document.title) {
-            document.title = titles[tabParam] + ' - MATCHDO 合做';
+            var suffix = (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') ? ' - MATCHDO' : ' - MATCHDO 合做';
+            document.title = titles[tabParam] + suffix;
         }
     }
     var suppressTabHistoryWrite = false;
@@ -6334,6 +6335,13 @@ $(document).ready(function () {
     }
     // 初次載入：依獨立 path／舊 ?tab= 顯示對應面板
     applyTabFromUrl();
+    function refreshDesignShellI18n() {
+        if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+        syncDesignTabActiveUi(getTabParamFromPathname());
+    }
+    if (window.i18n && window.i18n.ready) {
+        window.i18n.ready.then(refreshDesignShellI18n);
+    }
     $(document).on('change', '#imageCategoryMainSelect, #imageCategorySubSelect', function () {
         syncDesignTabLinkHrefs();
     });
@@ -6833,14 +6841,9 @@ $(document).ready(function () {
     function renderDesignToPhysicalResult(imageDataUrl, aiPrompt) {
         if (!imageDataUrl) return;
         var wrap = $('#designToPhysicalResultWrap');
-        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
-            (t('customProduct.designToPhysicalResultNote') || '此圖不會自動存入數位資產，請自行下載；亦可加入「數位原型」參考圖。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
         $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.designToPhysicalTab') || '寫實化')
-            .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
-        if (aiPrompt) {
-            $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text((t('customProduct.designToPhysicalUsedPrompt') || '本次提示詞：') + aiPrompt));
-        }
+            .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', t('customProduct.clickToEnlarge') || '點擊放大'));
         var $btnRow = $('<div class="d-flex flex-wrap gap-2 mt-2"></div>');
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
         $btn.on('click', function (e) {
@@ -6871,7 +6874,7 @@ $(document).ready(function () {
                 if (typeof addRefImageToSlot === 'function') {
                     var ok = addRefImageToSlot('prototype', imageDataUrl, { asset_kind: 'prototype', from: 'design_to_physical' });
                     if (ok) {
-                        alert(t('customProduct.designToPhysicalAddedRef') || '已加入數位原型參考圖，可切回「設計稿」繼續生圖。');
+                        alert(t('customProduct.designToPhysicalAddedRef') || '已加入數位原型參考');
                         var tabEl = document.getElementById('tab-product-design');
                         if (tabEl && typeof showBootstrapTab === 'function') showBootstrapTab(tabEl);
                     } else {
@@ -6881,7 +6884,7 @@ $(document).ready(function () {
             } catch (err) { console.warn(err); }
         });
         $btnRow.append($btn).append($addRef);
-        $inner.append($btnRow).append(note);
+        $inner.append($btnRow);
         wrap.html('').append($inner);
     }
     $('#designToPhysicalPickLocalBtn').on('click', function () {
@@ -6914,10 +6917,8 @@ $(document).ready(function () {
         var $btn = $('#designToPhysicalApplyBtn');
         var $wrap = $('#designToPhysicalResultWrap');
         var prompt = ($('#designToPhysicalPrompt').val() || '').trim();
-        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
-            (t('customProduct.designToPhysicalResultNote') || '此圖不會自動存入數位資產，請自行下載；亦可加入「數位原型」參考圖。') + '</p>';
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.designToPhysicalLoading') || '材質套用中…') + '</p>' + noteHtml);
+        $wrap.html('<p class="text-muted small mb-0">' + (t('customProduct.designToPhysicalLoading') || '寫實化中…') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -6941,22 +6942,22 @@ $(document).ready(function () {
                 $btn.prop('disabled', false);
                 var data = result.data;
                 if (result.status === 401) {
-                    $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>');
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('baseModels.insufficientPoints') || '點數不足') + '</p>');
                     return;
                 }
                 if (data.success && data.imageData) {
                     renderDesignToPhysicalResult(data.imageData, data.ai_prompt);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>');
                 }
             })
             .catch(function (err) {
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>' + noteHtml);
+                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>');
                 console.warn('design-to-physical:', err);
             });
     });
