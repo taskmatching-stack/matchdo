@@ -83,6 +83,10 @@
     <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert"></div>
 
     <div class="container py-4">
+        <div id="page-loading" class="text-center text-muted py-5" aria-live="polite">
+            <div class="spinner-border spinner-border-sm text-secondary mb-2" role="status"></div>
+            <div class="small" data-i18n="portfolio.loading">載入中…</div>
+        </div>
         <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="portfolio.authRequired">請先</span><a href="/index.html" class="alert-link" data-i18n="portfolio.login">登入</a><span data-i18n="portfolio.authSuffix">。</span></div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">
             <i class="bi bi-exclamation-triangle me-2"></i><span data-i18n="portfolio.noMfrYet">您尚未建立廠商資料。</span>
@@ -90,17 +94,6 @@
         </div>
 
         <div id="main-content" class="d-none">
-            <div class="alert alert-light border mb-3 py-2 small" role="note">
-                <i class="bi bi-info-circle text-primary me-1"></i>
-                <span data-i18n="portfolio.pageRoleHint">此頁上傳的是<strong>對外展示案例</strong>（系列圖／對照圖），會出現在公開廠商頁「作品集」與靈感牆；<strong>不是</strong>訂製者在「產品設計」頁的 AI 設計稿。</span>
-                <span class="d-block mt-1">
-                    <a href="#" id="link-public-vendor-page" class="alert-link" target="_blank" rel="noopener noreferrer" data-i18n="portfolio.viewPublicPage">開啟我的廠商首頁</a>
-                    ·
-                    <a href="/client/manufacturer-materials.html" class="alert-link" data-i18n="portfolio.goBaseModels">上傳數位版型（素材庫）</a>
-                    ·
-                    <a href="/client/manufacturer-dashboard.html" class="alert-link" data-i18n="portfolio.backToDashboard">返回控制台</a>
-                </span>
-            </div>
             <!-- 新增作品表單 (折疊式) -->
             <div id="add-form-panel" class="card border-0 shadow-sm mb-4 d-none">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -186,7 +179,7 @@
                                     <i class="bi bi-card-text me-1"></i><span data-i18n="portfolio.generateDescription">AI 產生說明</span>
                                     — <span id="add-points-description" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
-                                <p class="text-muted small mb-0 mt-1"><span data-i18n="portfolio.uploadAiTagsHint">上傳成功後會自動產生 AI 標籤與描述（扣</span> <strong id="add-points-upload">5</strong> <span data-i18n="baseModels.pointsUnit">點</span>）；<span data-i18n="portfolio.uploadAiTagsHintManual">亦可手動填寫下方標籤。</span></p>
+                                <p class="text-muted small mb-0 mt-1"><span data-i18n="portfolio.createPointsHint">新建系列圖扣</span> <strong id="add-points-series-create">30</strong> <span data-i18n="baseModels.pointsUnit">點</span>、<span data-i18n="portfolio.createComparisonPointsHint">對照圖扣</span> <strong id="add-points-comparison-create">20</strong> <span data-i18n="baseModels.pointsUnit">點</span>；<span data-i18n="portfolio.editNoPointsHint">編輯不扣點。</span> <span data-i18n="portfolio.optionalAiHint">AI 產生說明／重生標籤為選用，須自行按鈕觸發。</span></p>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
@@ -290,8 +283,8 @@
                                     <i class="bi bi-tags me-1"></i><span data-i18n="portfolio.regenerateTags">AI 重生標籤</span>
                                     — <span id="edit-points-regenerate-tags" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsEditHint">上傳時已含 AI 標籤；換圖後可手動重生標籤或填寫上方標籤。</p>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.aiPointsDescriptionHint">上傳含 AI 標籤 5 點；AI 產生說明與重生標籤各 1 點。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.editNoPointsHint">編輯作品不扣點；換圖、改文案皆免費。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.optionalAiEditHint">AI 產生說明／重生標籤為選用，須自行按鈕觸發。</p>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
@@ -372,15 +365,63 @@
         }
         var customCategories = [];
         var portfolioItems = [];
-        var canUploadSeries = false;
+        var canUploadSeries = true;
         var seriesPayPoints = 0;
         var canUploadBefore = true;
         var beforePayPoints = 0;
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
+        var canUploadFlagsLoaded = false;
+        var secondaryDataLoaded = false;
+
+        async function loadCanUploadFlags() {
+            try {
+                var cr = await fetchWithAuth('/api/me/can-upload-portfolio-series');
+                var cd = await cr.json().catch(function () { return {}; });
+                canUploadSeries = !!cd.allowed;
+                seriesPayPoints = cd.payPoints != null ? cd.payPoints : 0;
+            } catch (e) { canUploadSeries = false; seriesPayPoints = 0; }
+            try {
+                var br = await fetchWithAuth('/api/me/can-upload-portfolio-before');
+                var bd = await br.json().catch(function () { return {}; });
+                canUploadBefore = !!bd.allowed;
+                beforePayPoints = bd.payPoints != null ? bd.payPoints : 0;
+                beforeQuotaLimit = bd.quotaLimit != null ? bd.quotaLimit : 0;
+                beforeQuotaUsed = bd.quotaUsed != null ? bd.quotaUsed : 0;
+            } catch (e) {
+                canUploadBefore = true; beforePayPoints = 0; beforeQuotaLimit = 0; beforeQuotaUsed = 0;
+            }
+            canUploadFlagsLoaded = true;
+            applyUploadModeLocks();
+        }
+
+        function loadSecondaryData() {
+            if (secondaryDataLoaded) return Promise.resolve();
+            secondaryDataLoaded = true;
+            return Promise.all([
+                loadCanUploadFlags(),
+                loadUploadPricing(),
+                loadCategories()
+            ]).catch(function () {});
+        }
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'seed-media-wall-toggle-20260807';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-no-role-hint-20260807b';
+
+        function hidePageLoading() {
+            var el = document.getElementById('page-loading');
+            if (el) el.classList.add('d-none');
+        }
+
+        function getTokenSync() {
+            if (token) return token;
+            if (typeof getSessionFromStorage === 'function') {
+                var s = getSessionFromStorage();
+                var tok = s && (s.access_token || (s.session && s.session.access_token));
+                if (tok) { token = tok; return tok; }
+            }
+            return null;
+        }
         var editSeriesOrderUrls = [];
         var editSeriesDragUrl = null;
 
@@ -436,15 +477,20 @@
         function applyUploadPricingToForms() {
             var addDesc = document.getElementById('add-points-description');
             var editDesc = document.getElementById('edit-points-description');
-            var addUpload = document.getElementById('add-points-upload');
             var editRegen = document.getElementById('edit-points-regenerate-tags');
             var descPts = uploadPricing.points_description != null ? uploadPricing.points_description : 1;
-            var uploadPts = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
             var regenPts = uploadPricing.points_regenerate_tags != null ? uploadPricing.points_regenerate_tags : 1;
             if (addDesc) addDesc.textContent = String(descPts);
             if (editDesc) editDesc.textContent = String(descPts);
-            if (addUpload) addUpload.textContent = String(uploadPts);
             if (editRegen) editRegen.textContent = String(regenPts);
+            updatePortfolioCreatePointsHints();
+        }
+
+        function updatePortfolioCreatePointsHints() {
+            var elS = document.getElementById('add-points-series-create');
+            var elC = document.getElementById('add-points-comparison-create');
+            if (elS) elS.textContent = String(seriesPayPoints > 0 ? seriesPayPoints : 30);
+            if (elC) elC.textContent = String(beforePayPoints > 0 ? beforePayPoints : 20);
         }
 
         async function loadUploadPricing() {
@@ -536,9 +582,11 @@
         }
 
         async function getToken() {
+            var sync = getTokenSync();
+            if (sync) return sync;
             if (typeof AuthService === 'undefined') return token || null;
             try {
-                var getter = AuthService.getSessionForApi || AuthService.getSession;
+                var getter = AuthService.getSession || AuthService.getSessionForApi;
                 var s = await getter.call(AuthService);
                 var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
                 if (tok) token = tok;
@@ -549,12 +597,11 @@
         async function fetchWithAuth(url, options) {
             options = options || {};
             var headers = Object.assign({}, options.headers || {});
-            var tok = await getToken();
+            var tok = token || await getToken();
             if (!tok) throw new Error('no_token');
             headers.Authorization = 'Bearer ' + tok;
             var r = await fetch(url, Object.assign({}, options, { headers: headers }));
             if (r.status !== 401) return r;
-            await new Promise(function (resolve) { setTimeout(resolve, 400); });
             tok = await getToken();
             if (!tok) return r;
             headers.Authorization = 'Bearer ' + tok;
@@ -576,52 +623,49 @@
             if (initInProgress) return;
             initInProgress = true;
             try {
-            // 先等 i18n 載入再套用頁面語系，確保 data-i18n 與 t() 都用到正確語系
-            await (window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve());
-            if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-            var isEn = getPageLang() === 'en';
-            if (isEn) document.documentElement.lang = 'en';
-            token = await getToken();
-            if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            var i18nReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            token = getTokenSync() || await getToken();
+            if (!token) {
+                hidePageLoading();
+                await i18nReady;
+                if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+                document.getElementById('auth-alert').classList.remove('d-none');
+                return;
+            }
             try {
                 const r = await fetchWithAuth('/api/me/manufacturer');
-                if (r.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
+                if (r.status === 404) {
+                    hidePageLoading();
+                    await i18nReady;
+                    if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+                    document.getElementById('no-mfr-alert').classList.remove('d-none');
+                    return;
+                }
                 if (!r.ok) {
                     var errBody = await r.json().catch(function () { return {}; });
-                    throw new Error(errBody.error || (isEn ? 'Failed to load manufacturer' : '載入廠商資料失敗'));
+                    throw new Error(errBody.error || '載入廠商資料失敗');
                 }
                 const mfr = await r.json();
                 mfrId = mfr.id;
-                var linkPub = document.getElementById('link-public-vendor-page');
-                if (linkPub && mfrId) linkPub.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                await applySeedVendorInfoBanner(mfr.vendor_source);
+                hidePageLoading();
                 document.getElementById('main-content').classList.remove('d-none');
-                document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
-                try {
-                    var cr = await fetchWithAuth('/api/me/can-upload-portfolio-series');
-                    var cd = await cr.json();
-                    canUploadSeries = !!cd.allowed;
-                    seriesPayPoints = (cd.payPoints === 600) ? 600 : 0;
-                } catch (e) { canUploadSeries = false; seriesPayPoints = 0; }
-                try {
-                    var br = await fetchWithAuth('/api/me/can-upload-portfolio-before');
-                    var bd = await br.json();
-                    canUploadBefore = !!bd.allowed;
-                    beforePayPoints = (bd.payPoints === 400) ? 400 : 0;
-                    beforeQuotaLimit = bd.quotaLimit != null ? bd.quotaLimit : 0;
-                    beforeQuotaUsed = bd.quotaUsed != null ? bd.quotaUsed : 0;
-                } catch (e) { canUploadBefore = true; beforePayPoints = 0; beforeQuotaLimit = 0; beforeQuotaUsed = 0; }
-                applyUploadModeLocks();
-                await loadUploadPricing();
-                await loadCategories();
+                i18nReady.then(function () {
+                    if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+                    var isEn = getPageLang() === 'en';
+                    if (isEn) document.documentElement.lang = 'en';
+                    document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
+                });
                 if (window.MatchdoCustomizationLevelsUi) {
                     window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('add-customization-levels'), []);
                     window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('edit-customization-levels'), []);
                 }
-                await loadPortfolio();
                 bindEvents();
                 initDone = true;
+                loadPortfolio();
+                applySeedVendorInfoBanner(mfr.vendor_source);
+                loadSecondaryData();
             } catch (e) {
+                hidePageLoading();
                 showToast(e.message, 'danger');
             }
             } finally {
@@ -852,13 +896,18 @@
         }
 
         function openAddForm() {
-            fillMainCategorySelect('add-category');
-            fillSubcategorySelect('add-subcategory', '');
-            document.getElementById('add-form-panel').classList.remove('d-none');
-            document.getElementById('add-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            loadSecondaryData().then(function () {
+                fillMainCategorySelect('add-category');
+                fillSubcategorySelect('add-subcategory', '');
+                document.getElementById('add-form-panel').classList.remove('d-none');
+                document.getElementById('add-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
         }
 
+        var eventsBound = false;
         function bindEvents() {
+            if (eventsBound) return;
+            eventsBound = true;
             var btnOpen = document.getElementById('btn-add-open');
             if (btnOpen) btnOpen.addEventListener('click', openAddForm);
             var btnClose = document.getElementById('btn-add-close');
@@ -981,10 +1030,8 @@
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
-                    if (d.ai_applied) {
-                        toastWithPoints('portfolio.addedWithAi', '作品已儲存，AI 標籤與描述已產生', d.points_deducted || 0);
-                    } else if (d.ai_skip_reason === 'insufficient_points') {
-                        showToast(tr('portfolio.aiSkippedInsufficientPoints') || '作品已儲存，但點數不足未產生 AI 內容', 'warning');
+                    if (d.points_deducted > 0) {
+                        toastWithPoints('portfolio.added', '作品已儲存', d.points_deducted);
                     } else {
                         showToast(tr('portfolio.added'));
                     }
@@ -1002,7 +1049,12 @@
                     var addMoq = document.getElementById('add-moq');
                     if (addMoq) addMoq.value = '';
                     document.getElementById('add-form-panel').classList.add('d-none');
-                    await loadPortfolio();
+                    if (d && d.id) {
+                        portfolioItems.unshift(d);
+                        renderGrid();
+                    } else {
+                        loadPortfolio();
+                    }
                 } catch (e) { showToast(e.message, 'danger'); }
                 finally { addFormSubmitting = false; btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); }
             });
@@ -1074,7 +1126,7 @@
                     }
                     showToast(tr('portfolio.saved'));
                     editModal.hide();
-                    await loadPortfolio();
+                    renderGrid();
                 } catch (e) { showToast(e.message, 'danger'); }
                 finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); }
             });
@@ -1119,7 +1171,8 @@
                     if (!r.ok) { var d = await r.json(); throw new Error(d.error || tr('portfolio.deleteFailed')); }
                     showToast(tr('portfolio.deleted'));
                     deleteModal.hide();
-                    await loadPortfolio();
+                    portfolioItems = portfolioItems.filter(function (x) { return x.id !== deleteTargetId; });
+                    renderGrid();
                 } catch (e) { showToast(e.message, 'danger'); }
                 finally { btn.disabled = false; btn.textContent = tr('portfolio.delete'); }
             });
@@ -1128,7 +1181,7 @@
         window._editPortfolio = async function (pid) {
             var p = portfolioItems.find(function (x) { return x.id == pid; });
             if (!p) return;
-            if (!customCategories.length) await loadCategories();
+            await loadSecondaryData();
             document.getElementById('edit-id').value = p.id;
             document.getElementById('edit-title').value = p.title || '';
             document.getElementById('edit-highlight').value = p.design_highlight || '';
