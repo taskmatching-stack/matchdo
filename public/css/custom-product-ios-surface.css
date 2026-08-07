@@ -66,28 +66,21 @@
 }
 
 #custom-product #designTabs,
-#custom-product #designTabGroups .cp-tab-group-tabs {
+#custom-product #designTabGroups .cp-tab-strip {
   border-bottom: 1px solid var(--md-border);
 }
 
 #custom-product #designTabs .nav-link,
-#custom-product #designTabGroups .cp-tab-group-tabs .nav-link {
+#custom-product #designTabGroups .cp-tab-strip .nav-link {
   color: var(--md-text-muted);
   border-bottom-width: 2px;
   font-weight: 500;
 }
 
 #custom-product #designTabs .nav-link.active,
-#custom-product #designTabGroups .cp-tab-group-tabs .nav-link.active {
+#custom-product #designTabGroups .cp-tab-g-design .nav-link.active {
   color: var(--md-primary);
   border-bottom-color: var(--md-primary);
-}
-
-#custom-product .cp-tab-group-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--md-text-muted);
-  margin-bottom: 0.25rem;
 }
 
 #custom-product .btn-generate,

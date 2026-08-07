@@ -10,6 +10,7 @@
   "nav.printAsset": "印花",
   "nav.sectionStructure": "以結構",
   "nav.sectionStyle": "以風格",
+  "nav.sectionAssistTools": "輔助工具",
   "nav.browseOfficialTemplates": "官方版型",
   "nav.marketingVisuals": "行銷影像",
   "nav.browseVendorStyles": "廠商版型訂製",
@@ -1647,6 +1648,7 @@
 
   "materialCombo.pageTitle": "材料組合",
   "materialCombo.pageTitleEn": "Material Combination",
+  "materialCombo.noPrototypeBadge": "無需版型",
   "materialCombo.backMaterials": "返回材料/顏色",
   "materialCombo.authPrefix": "請先",
   "materialCombo.authSuffix": "。",

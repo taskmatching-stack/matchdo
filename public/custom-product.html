@@ -1395,15 +1395,78 @@
         #custom-product #generatedImagePreview .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
         #custom-product #generatedImagePreview img { max-width: 100%; height: auto; display: block; }
         #custom-product #designTabGroups { margin-bottom: 0.75rem; }
-        #custom-product .cp-tab-group + .cp-tab-group { margin-top: 0.35rem; }
-        #custom-product .cp-tab-group-label {
-            font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em;
-            color: #8A96A3; text-transform: none; margin-bottom: 0.25rem; padding-left: 0.15rem;
+        #custom-product .cp-tab-strip-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
-        #custom-product .cp-tab-group-tabs { border-bottom: 2px solid #D8DEE6; flex-wrap: wrap; }
-        #custom-product .cp-tab-group-tabs .nav-link { color: #8A96A3; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 0.6rem 1rem; font-weight: 500; }
-        #custom-product .cp-tab-group-tabs .nav-link:hover { color: var(--md-text, #5C6670); }
-        #custom-product .cp-tab-group-tabs .nav-link.active { color: #7A8FA3; background: transparent; border-bottom-color: #7A8FA3; }
+        #custom-product .cp-tab-strip-wrap::-webkit-scrollbar { height: 4px; }
+        #custom-product .cp-tab-strip-wrap::-webkit-scrollbar-thumb { background: rgba(122, 143, 163, 0.35); border-radius: 4px; }
+        #custom-product .cp-tab-strip {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            border-bottom: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
+            margin-bottom: 0;
+            padding: 0;
+            min-width: min-content;
+        }
+        #custom-product .cp-tab-strip .cp-tab-divider {
+            flex: 0 0 1px;
+            align-self: stretch;
+            margin: 0.45rem 0.2rem;
+            background: rgba(88, 100, 112, 0.22);
+            list-style: none;
+            padding: 0;
+        }
+        #custom-product .cp-tab-strip .nav-item { flex: 0 0 auto; }
+        #custom-product .cp-tab-strip .nav-link {
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -1px;
+            padding: 0.55rem 0.85rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            background: transparent;
+            border-radius: 0;
+        }
+        #custom-product .cp-tab-g-design .nav-link { color: var(--md-text-muted, #8A96A3); }
+        #custom-product .cp-tab-g-design .nav-link:hover { color: var(--md-primary, #7A8FA3); }
+        #custom-product .cp-tab-g-design .nav-link.active { color: var(--md-primary, #7A8FA3); border-bottom-color: var(--md-primary, #7A8FA3); }
+        #custom-product .cp-tab-g-style .nav-link { color: var(--md-sage-text, #5A7268); opacity: 0.82; }
+        #custom-product .cp-tab-g-style .nav-link:hover { opacity: 1; color: var(--md-sage-text, #5A7268); }
+        #custom-product .cp-tab-g-style .nav-link.active { opacity: 1; color: var(--md-sage-text, #5A7268); border-bottom-color: var(--md-sage, #8FA89E); }
+        #custom-product .cp-tab-g-assist .nav-link { color: var(--md-clay-text, #5E6B78); opacity: 0.82; }
+        #custom-product .cp-tab-g-assist .nav-link:hover { opacity: 1; color: var(--md-clay-text, #5E6B78); }
+        #custom-product .cp-tab-g-assist .nav-link.active { opacity: 1; color: var(--md-clay-text, #5E6B78); border-bottom-color: var(--md-clay, #A8B5C4); }
+        #custom-product .cp-tab-g-marketing .nav-link { color: var(--md-rose-text, #5E6875); opacity: 0.82; }
+        #custom-product .cp-tab-g-marketing .nav-link:hover { opacity: 1; color: var(--md-rose-text, #5E6875); }
+        #custom-product .cp-tab-g-marketing .nav-link.active { opacity: 1; color: var(--md-rose-text, #5E6875); border-bottom-color: var(--md-rose, #9BA8B5); }
+        @media (max-width: 767px) {
+            #custom-product .cp-tab-strip-wrap {
+                overflow-x: visible;
+                -webkit-overflow-scrolling: auto;
+            }
+            #custom-product .cp-tab-strip {
+                flex-wrap: wrap;
+                min-width: 0;
+                row-gap: 0;
+            }
+            #custom-product .cp-tab-strip .cp-tab-divider {
+                flex: 0 0 100%;
+                width: 100%;
+                height: 0;
+                margin: 0;
+                padding: 0;
+                border: none;
+                background: transparent;
+            }
+            #custom-product .cp-tab-strip .nav-link {
+                padding: 0.42rem 0.6rem;
+                font-size: 0.8125rem;
+            }
+        }
         #custom-product .past-gallery-tabs { margin-bottom: 0.5rem; }
         #custom-product .past-gallery-inner.is-promo-tab .past-item,
         #custom-product .past-gallery-inner.is-favorites-tab .past-item,
@@ -1499,49 +1562,41 @@
                     <p class="page-sub mb-0" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，輔助您快速打樣設計稿</p>
                 </div>
 
-                <div id="designTabGroups" class="cp-tab-groups">
-                    <div class="cp-tab-group">
-                        <div class="cp-tab-group-label" data-i18n="customProduct.tabGroupDesign">設計稿</div>
-                        <ul class="nav nav-tabs cp-tab-group-tabs" role="tablist">
-                            <li class="nav-item" role="presentation">
+                <div id="designTabGroups" class="cp-tab-groups cp-tab-groups--single">
+                    <div class="cp-tab-strip-wrap">
+                        <ul class="nav nav-tabs cp-tab-strip" role="tablist">
+                            <li class="nav-item cp-tab-g-design" role="presentation">
                                 <a class="nav-link active" id="tab-product-design" href="/custom-product.html" role="tab" aria-controls="panel-product-design" aria-selected="true" data-design-tool="product-design" data-i18n="customProduct.productDesignTab">設計稿</a>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item cp-tab-g-design" role="presentation">
                                 <a class="nav-link" id="tab-vendor-styles" href="/vendor-styles/" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-design-tool="vendor-styles" data-i18n="customProduct.vendorStylesTab">廠商版型</a>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item cp-tab-g-design" role="presentation">
                                 <a class="nav-link" id="tab-official-templates" href="/official-templates/" role="tab" aria-selected="false" data-design-tool="official-templates" data-i18n="customProduct.officialStylesTab">官方版型</a>
                             </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="tab-pattern-extract" href="/pattern-extract/" role="tab" aria-controls="panel-pattern-extract" aria-selected="false" data-design-tool="pattern-extract" data-i18n="customProduct.patternExtractTab">圖樣提取</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="tab-design-to-physical" href="/design-to-physical/" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-design-tool="design-to-physical" data-i18n="customProduct.designToPhysicalTab">寫實化</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="tab-scene-sim" href="/scene-sim/" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-design-tool="scene-sim" data-i18n="home.sceneSim">實境模擬</a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="cp-tab-group">
-                        <div class="cp-tab-group-label" data-i18n="customProduct.tabGroupStyle">風格</div>
-                        <ul class="nav nav-tabs cp-tab-group-tabs" role="tablist">
-                            <li class="nav-item" role="presentation">
+                            <li class="cp-tab-divider" aria-hidden="true"></li>
+                            <li class="nav-item cp-tab-g-style" role="presentation">
                                 <a class="nav-link" id="tab-material-combo" href="/client/material-dual-color.html?return=design" role="tab" aria-selected="false" data-design-tool="material-combo" data-i18n="nav.materialCombination">材料組合</a>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item cp-tab-g-style" role="presentation">
                                 <a class="nav-link" id="tab-print-asset" href="/client/print-asset.html" role="tab" aria-selected="false" data-design-tool="print-asset" data-i18n="nav.printAsset">印花</a>
                             </li>
-                        </ul>
-                    </div>
-                    <div class="cp-tab-group">
-                        <div class="cp-tab-group-label" data-i18n="customProduct.tabGroupMarketing">行銷影像</div>
-                        <ul class="nav nav-tabs cp-tab-group-tabs" role="tablist">
-                            <li class="nav-item" role="presentation">
+                            <li class="cp-tab-divider" aria-hidden="true"></li>
+                            <li class="nav-item cp-tab-g-marketing" role="presentation">
                                 <a class="nav-link" id="tab-promo-image" href="/promo-image/" role="tab" aria-controls="panel-promo-image" aria-selected="false" data-design-tool="promo-image" data-i18n="customProduct.promoImageTab">情境圖</a>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item cp-tab-g-marketing" role="presentation">
                                 <a class="nav-link" id="tab-promo-camera" href="/promo-camera" role="tab" aria-controls="panel-promo-camera" aria-selected="false" data-design-tool="promo-camera" data-i18n="customProduct.promoCameraTab">商攝導演</a>
+                            </li>
+                            <li class="cp-tab-divider" aria-hidden="true"></li>
+                            <li class="nav-item cp-tab-g-assist" role="presentation">
+                                <a class="nav-link" id="tab-pattern-extract" href="/pattern-extract/" role="tab" aria-controls="panel-pattern-extract" aria-selected="false" data-design-tool="pattern-extract" data-i18n="customProduct.patternExtractTab">圖樣提取</a>
+                            </li>
+                            <li class="nav-item cp-tab-g-assist" role="presentation">
+                                <a class="nav-link" id="tab-design-to-physical" href="/design-to-physical/" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-design-tool="design-to-physical" data-i18n="customProduct.designToPhysicalTab">寫實化</a>
+                            </li>
+                            <li class="nav-item cp-tab-g-assist" role="presentation">
+                                <a class="nav-link" id="tab-scene-sim" href="/scene-sim/" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-design-tool="scene-sim" data-i18n="home.sceneSim">實境模擬</a>
                             </li>
                         </ul>
                     </div>

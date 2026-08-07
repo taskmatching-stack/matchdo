@@ -10,6 +10,7 @@
   "nav.printAsset": "Print",
   "nav.sectionStructure": "Structure",
   "nav.sectionStyle": "Style",
+  "nav.sectionAssistTools": "Assist tools",
   "nav.browseOfficialTemplates": "Official templates",
   "nav.marketingVisuals": "Marketing visuals",
   "nav.browseVendorStyles": "Vendor style customize",
@@ -1621,6 +1622,7 @@
 
   "materialCombo.pageTitle": "Material combo",
   "materialCombo.pageTitleEn": "Material Combination",
+  "materialCombo.noPrototypeBadge": "No template",
   "materialCombo.backMaterials": "Back to materials / colors",
   "materialCombo.authPrefix": "Please",
   "materialCombo.authSuffix": " first.",
