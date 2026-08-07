@@ -1,12 +1,83 @@
-/* 設計工作區 Tab 列 — 設計稿／版型／材料／行銷／輔助 */
-.design-workspace-tabs {
+/* 設計工作區 — 全站統一：標題在上 → Tab → 內容 */
+.design-workspace-shell {
+    background: #E4E9EF;
+    min-height: calc(100vh - 60px);
+}
+.design-workspace-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 2.5rem;
+}
+.design-workspace-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
     margin-bottom: 0.75rem;
+}
+.design-workspace-head-main {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+.design-workspace-head-actions {
+    flex: 0 0 auto;
+    align-self: center;
+}
+.design-workspace-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--md-text, #5C6670);
+}
+.design-workspace-sub {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+/* 舊 class 對齊（設計頁 inline 仍可能引用） */
+.design-workspace-head .page-title,
+.design-workspace-layout .page-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--md-text, #5C6670);
+}
+.design-workspace-head .page-sub,
+.design-workspace-layout .page-sub {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+
+/* 工作區卡片：Tab + 內容 */
+.design-workspace-frame {
+    background: var(--md-white, #F5F7FA);
+    border: 1px solid rgba(88, 100, 112, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(88, 100, 112, 0.06);
+    overflow: hidden;
+}
+.design-workspace-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+/* Tab 列：卡片頂部 */
+.design-workspace-tabs {
+    margin: 0;
+    background: #F0F3F7;
+    border-bottom: 1px solid rgba(88, 100, 112, 0.14);
 }
 .design-workspace-tabs .cp-tab-strip-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
-    border-bottom: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
+    border-bottom: none;
+    padding: 0 0.75rem;
 }
 .design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar { height: 4px; }
 .design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar-thumb {
@@ -21,14 +92,14 @@
     margin-bottom: 0;
     padding: 0;
     min-width: min-content;
-    gap: 2px;
+    gap: 0;
 }
 .design-workspace-tabs .cp-tab-strip .cp-tab-divider {
-    flex: 0 0 2px;
+    flex: 0 0 1px;
     align-self: stretch;
-    margin: 0.15rem 0.15rem;
-    background: rgba(88, 100, 112, 0.18);
-    border-radius: 1px;
+    margin: 0.55rem 0.3rem;
+    background: rgba(88, 100, 112, 0.22);
+    border-radius: 0;
     list-style: none;
     padding: 0;
 }
@@ -41,94 +112,105 @@
     display: flex;
     align-items: center;
     border: none;
-    margin-bottom: 0;
-    padding: 0.5rem 0.8rem;
-    min-height: 2.35rem;
+    margin-bottom: -1px;
+    padding: 0.7rem 0.85rem;
+    min-height: 2.75rem;
     box-sizing: border-box;
     font-weight: 500;
     font-size: 0.875rem;
     white-space: nowrap;
-    border-radius: 8px 8px 0 0;
+    border-radius: 0;
     text-decoration: none;
+    background: transparent;
+    color: var(--md-text-muted, #8A96A3);
+    border-bottom: 2px solid transparent;
+    box-shadow: none;
 }
-.design-workspace-tabs .cp-tab-g-design .nav-link {
-    color: var(--md-primary-dark, #657A8E);
-    background: rgba(122, 143, 163, 0.28);
-}
-.design-workspace-tabs .cp-tab-g-design .nav-link:hover {
-    color: #fff;
-    background: rgba(122, 143, 163, 0.55);
+.design-workspace-tabs .cp-tab-strip .nav-link:hover {
+    color: var(--md-text, #5C6670);
+    background: rgba(255, 255, 255, 0.42);
 }
 .design-workspace-tabs .cp-tab-g-design .nav-link.active {
-    color: #fff;
-    background: var(--md-primary, #7A8FA3);
-    box-shadow: inset 0 -3px 0 var(--md-primary-dark, #657A8E);
+    color: var(--md-primary-dark, #657A8E);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-primary, #7A8FA3);
     font-weight: 600;
-}
-.design-workspace-tabs .cp-tab-g-style .nav-link {
-    color: var(--md-sage-text, #5A7268);
-    background: rgba(143, 168, 158, 0.32);
-}
-.design-workspace-tabs .cp-tab-g-style .nav-link:hover {
-    color: #fff;
-    background: rgba(111, 141, 128, 0.72);
 }
 .design-workspace-tabs .cp-tab-g-style .nav-link.active {
-    color: #fff;
-    background: var(--md-sage, #8FA89E);
-    box-shadow: inset 0 -3px 0 #6E8A7E;
+    color: var(--md-sage-text, #5A7268);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-sage, #8FA89E);
     font-weight: 600;
-}
-.design-workspace-tabs .cp-tab-g-marketing .nav-link {
-    color: var(--md-rose-text, #5E6875);
-    background: rgba(155, 168, 181, 0.32);
-}
-.design-workspace-tabs .cp-tab-g-marketing .nav-link:hover {
-    color: #fff;
-    background: rgba(130, 145, 158, 0.72);
 }
 .design-workspace-tabs .cp-tab-g-marketing .nav-link.active {
-    color: #fff;
-    background: var(--md-rose, #9BA8B5);
-    box-shadow: inset 0 -3px 0 #7A8794;
+    color: var(--md-rose-text, #5E6875);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-rose, #9BA8B5);
     font-weight: 600;
-}
-.design-workspace-tabs .cp-tab-g-assist .nav-link {
-    color: var(--md-clay-text, #5E6B78);
-    background: rgba(168, 181, 196, 0.36);
-}
-.design-workspace-tabs .cp-tab-g-assist .nav-link:hover {
-    color: #fff;
-    background: rgba(142, 158, 175, 0.78);
 }
 .design-workspace-tabs .cp-tab-g-assist .nav-link.active {
-    color: #fff;
-    background: var(--md-clay, #A8B5C4);
-    box-shadow: inset 0 -3px 0 #8A97A8;
+    color: var(--md-clay-text, #5E6B78);
+    background: var(--md-white, #F5F7FA);
+    border-bottom-color: var(--md-clay, #A8B5C4);
     font-weight: 600;
 }
+
+/* 列表頁內文 */
+.design-workspace-lead {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+.design-workspace-meta {
+    margin: 0 0 1rem;
+    font-size: 0.8125rem;
+    color: var(--md-text-muted, #8A96A3);
+}
+
+#custom-product .design-workspace-frame .create-panel {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+}
+
 @media (max-width: 767px) {
+    .design-workspace-layout {
+        padding: 0.85rem 0.75rem 2rem;
+    }
+    .design-workspace-title,
+    .design-workspace-head .page-title {
+        font-size: 1.25rem;
+    }
+    .design-workspace-head {
+        margin-bottom: 0.5rem;
+    }
+    .design-workspace-body {
+        padding: 0.85rem 1rem 1.25rem;
+    }
     .design-workspace-tabs .cp-tab-strip-wrap {
         overflow-x: visible;
-        -webkit-overflow-scrolling: auto;
+        padding: 0 0.35rem;
     }
     .design-workspace-tabs .cp-tab-strip {
         flex-wrap: wrap;
         min-width: 0;
-        row-gap: 0.2rem;
     }
     .design-workspace-tabs .cp-tab-strip .cp-tab-divider {
         flex: 0 0 100%;
         width: 100%;
         height: 0;
         margin: 0;
-        padding: 0;
-        border: none;
         background: transparent;
     }
     .design-workspace-tabs .cp-tab-strip .nav-link {
-        padding: 0.42rem 0.6rem;
+        padding: 0.55rem 0.65rem;
         font-size: 0.8125rem;
-        min-height: 2.1rem;
+        min-height: 2.35rem;
+    }
+    #custom-product .design-workspace-head {
+        display: none;
     }
 }

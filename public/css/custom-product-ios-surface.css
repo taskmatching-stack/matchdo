@@ -55,8 +55,8 @@
   font-weight: 600;
 }
 
+#custom-product .design-workspace-sub,
 #custom-product .form-text,
-#custom-product .page-sub,
 #custom-product .design-flow-steps {
   color: var(--md-text-muted);
 }
@@ -66,8 +66,8 @@
 }
 
 #custom-product #designTabs,
-#custom-product #designTabGroups .cp-tab-strip-wrap {
-  border-bottom: 1px solid var(--md-border);
+#custom-product .design-workspace-tabs {
+  border-bottom: none;
 }
 
 #custom-product #designTabs .nav-link {

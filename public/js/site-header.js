@@ -8,7 +8,7 @@
         var _m = document.createElement('link');
         _m.id = 'morandi-global-css';
         _m.rel = 'stylesheet';
-        _m.href = '/css/morandi-global.css?v=7';
+        _m.href = '/css/morandi-global.css?v=8';
         document.head.appendChild(_m);
     }
     // Bootstrap：禁止在 mid-body 同步注入（長頁雙載入會沖掉頭像 Dropdown）。
@@ -34,11 +34,15 @@
             '.navbar .navbar-nav .nav-link:hover .nav-hover-caret,.navbar .navbar-nav .nav-link.active .nav-hover-caret{opacity:1;}',
             '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:var(--bs-primary,#7A8FA3)!important;}',
             '.navbar .dropdown-toggle::after{display:none!important;}',
-            '.navbar .dropdown-menu .dropdown-item:hover,.navbar .dropdown-menu .dropdown-item.active{background:var(--bs-primary,#7A8FA3)!important;color:#fff!important;}',
+            '.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item:hover,.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item.active{background:var(--bs-primary,#7A8FA3)!important;color:#fff!important;}',
             '@keyframes nbDropIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}',
-            '.nav-hover-menu{min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
-            '.nav-hover-menu .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
-            '.nav-hover-menu .dropdown-item:hover{background:var(--bs-primary,#7A8FA3)!important;color:#fff!important;}',
+            '.nav-hover-menu:not(.nav-cp-menu){min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
+            '.nav-hover-menu:not(.nav-cp-menu) .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
+            '.nav-hover-menu:not(.nav-cp-menu) .dropdown-item:hover{background:var(--bs-primary,#7A8FA3)!important;color:#fff!important;}',
+            '.nav-hover-menu.nav-cp-menu{min-width:13.5rem;padding:0!important;overflow:hidden;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
+            '.nav-cp-menu .dropdown-header.nav-cp-h{display:block;width:100%;margin:0!important;padding:.5rem 1rem!important;line-height:1.35;box-sizing:border-box;white-space:nowrap;}',
+            '.nav-cp-menu .dropdown-item.nav-cp-item{display:block!important;width:100%!important;padding:.5rem 1rem .5rem .85rem!important;margin:0!important;border-radius:0;box-sizing:border-box;font-size:.9rem;}',
+            '.nav-cp-menu .dropdown-item.nav-cp-item i{display:inline-block;margin-right:.35rem;vertical-align:-0.1em;}',
             '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
             '@media(min-width:992px){',
             '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
@@ -496,16 +500,16 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                         <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
                         <div class="dropdown-menu nav-hover-menu nav-cp-menu">
                             <a href="/custom-product.html" class="dropdown-item nav-cp-item nav-cp-item--design"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '設計稿') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--structure py-1 mb-0">` + (t('nav.sectionStructure') || '以結構') + `</h6>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--structure">` + (t('nav.sectionStructure') || '以結構') + `</h6>
                             <a href="/vendor-styles/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-grid"></i>` + t('nav.browseVendorStyles') + `</a>
                             <a href="/official-templates/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-collection"></i>` + t('nav.browseOfficialTemplates') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--style py-1 mb-0">` + (t('nav.sectionStyle') || '以風格') + `</h6>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--style">` + (t('nav.sectionStyle') || '以風格') + `</h6>
                             <a href="/client/material-dual-color.html?return=design" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
                             <a href="/client/print-asset.html" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-flower1"></i>` + (t('nav.printAsset') || '印花') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--marketing py-1 mb-0">` + (t('nav.marketingVisuals') || '行銷影像') + `</h6>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--marketing">` + (t('nav.marketingVisuals') || '行銷影像') + `</h6>
                             <a href="/promo-image/" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-megaphone"></i>` + t('nav.promoImage') + `</a>
                             <a href="/promo-camera" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-camera"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--assist py-1 mb-0">` + (t('nav.sectionAssistTools') || '輔助工具') + `</h6>
+                            <h6 class="dropdown-header nav-cp-h nav-cp-h--assist">` + (t('nav.sectionAssistTools') || '輔助工具') + `</h6>
                             <a href="/pattern-extract/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-bounding-box"></i>` + t('nav.patternExtract') + `</a>
                             <a href="/design-to-physical/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-box"></i>` + t('nav.designToPhysical') + `</a>
                             <a href="/scene-sim/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-image"></i>` + t('nav.sceneSim') + `</a>
