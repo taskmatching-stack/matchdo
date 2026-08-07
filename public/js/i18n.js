@@ -67,6 +67,8 @@
         } catch (e) { /* ignore */ }
     }
 
+    var LOCALE_CACHE_V = '20260807-browse';
+
     function loadLocale(lang) {
         lang = lang || getLang();
         syncDocumentLang(lang);
@@ -74,7 +76,7 @@
         var localeUrl = '/locales/' + lang + '.json';
         try {
             var verMeta = document.querySelector('meta[name="matchdo-asset-version"]');
-            var ver = verMeta && verMeta.content ? String(verMeta.content).trim() : '';
+            var ver = verMeta && verMeta.content ? String(verMeta.content).trim() : LOCALE_CACHE_V;
             if (ver) localeUrl += (localeUrl.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(ver);
         } catch (e) { /* ignore */ }
         readyPromise = fetch(localeUrl)

@@ -1,18 +1,11 @@
 /**
- * Browse SSR 頁（廠商／官方版型）— i18n 套用與動態字串
+ * Browse SSR 頁（廠商／官方版型）— i18n 套用、分類 API（對齊首頁 custom-product-cat-picker）
  */
 (function () {
+    var categoriesByKey = null;
+
     function currentLang() {
         return (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
-    }
-
-    function pickCatLabel(zh, en, lang) {
-        lang = lang || currentLang();
-        if (lang === 'en') {
-            var e = en != null ? String(en).trim() : '';
-            if (e) return e;
-        }
-        return zh != null ? String(zh).trim() : (en != null ? String(en).trim() : '');
     }
 
     function tf(key, fb, map) {
@@ -26,13 +19,43 @@
         return s;
     }
 
+    function categoryDisplayName(key, apiName, lang) {
+        lang = lang || currentLang();
+        var name = apiName != null ? String(apiName).trim() : '';
+        if (lang === 'en') {
+            if (name) return name;
+            var locKey = 'category.' + String(key || '');
+            var localized = tf(locKey, '', {});
+            if (localized && localized !== locKey) return localized;
+        }
+        return name || String(key || '');
+    }
+
+    function pickCatLabel(zh, en, lang, key) {
+        lang = lang || currentLang();
+        key = key || '';
+        if (categoriesByKey && categoriesByKey[key]) {
+            return categoryDisplayName(key, categoriesByKey[key].name, lang);
+        }
+        if (lang === 'en') {
+            var e = en != null ? String(en).trim() : '';
+            if (e) return e;
+            var locKey = 'category.' + String(key);
+            var localized = tf(locKey, '', {});
+            if (localized && localized !== locKey) return localized;
+        }
+        return zh != null ? String(zh).trim() : (en != null ? String(en).trim() : '');
+    }
+
     function applyBrowseCategoryI18n() {
         var lang = currentLang();
         document.querySelectorAll('.bs-cat-filter-label').forEach(function (el) {
+            var key = el.getAttribute('data-cat-key') || '';
             el.textContent = pickCatLabel(
                 el.getAttribute('data-name-zh') || '',
                 el.getAttribute('data-name-en') || '',
-                lang
+                lang,
+                key
             );
         });
         document.querySelectorAll('.dw-browse-filters-toggle-label').forEach(function (el) {
@@ -46,9 +69,15 @@
                 el.textContent = pickCatLabel(
                     catEl.getAttribute('data-name-zh') || '',
                     catEl.getAttribute('data-name-en') || '',
-                    lang
+                    lang,
+                    key
                 );
             }
+        });
+        document.querySelectorAll('.dw-browse-filters-toggle-prefix').forEach(function (el) {
+            if (el.getAttribute('data-i18n')) return;
+            el.setAttribute('data-i18n', 'browseStyles.filterCategory');
+            el.textContent = tf('browseStyles.filterCategory', '分類', {});
         });
     }
 
@@ -72,7 +101,8 @@
             if (!key) return;
             var catZh = el.getAttribute('data-cat-name-zh') || '';
             var catEn = el.getAttribute('data-cat-name-en') || '';
-            var cat = pickCatLabel(catZh, catEn, lang);
+            var catKey = el.getAttribute('data-cat-key') || '';
+            var cat = pickCatLabel(catZh, catEn, lang, catKey);
             var title = tf(key, document.title, cat ? { cat: cat } : {});
             if (title && title !== key) document.title = title;
         });
@@ -83,20 +113,49 @@
             if (desc && desc !== key) el.setAttribute('content', desc);
         });
         applyBrowseCategoryI18n();
-        if (lang === 'en') {
-            document.documentElement.lang = 'en';
-        } else {
-            document.documentElement.lang = 'zh-TW';
-        }
+        document.documentElement.lang = (lang === 'en') ? 'en' : 'zh-TW';
+    }
+
+    function loadCategoriesFromApi(lang) {
+        lang = lang || currentLang();
+        var url = '/api/custom-product-categories';
+        if (lang === 'en') url += '?lang=en';
+        return fetch(url, { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : { categories: [] }; })
+            .then(function (res) {
+                var map = {};
+                (Array.isArray(res && res.categories) ? res.categories : []).forEach(function (c) {
+                    if (c && c.key) map[String(c.key)] = c;
+                });
+                categoriesByKey = map;
+                applyBrowseCategoryI18n();
+            })
+            .catch(function () {
+                categoriesByKey = null;
+            });
+    }
+
+    function applyAll() {
+        if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+        applyBrowseDynamicI18n();
+        return loadCategoriesFromApi(currentLang());
     }
 
     function bootBrowseI18n() {
-        if (!window.i18n || !window.i18n.ready) return;
+        if (!window.i18n || !window.i18n.ready) {
+            setTimeout(bootBrowseI18n, 16);
+            return;
+        }
         window.i18n.ready.then(function () {
-            if (window.i18n.applyPage) window.i18n.applyPage();
-            applyBrowseDynamicI18n();
+            applyAll();
         }).catch(function () {});
     }
+
+    window.matchdoBrowseI18n = {
+        applyAll: applyAll,
+        applyBrowseCategoryI18n: applyBrowseCategoryI18n,
+        applyBrowseDynamicI18n: applyBrowseDynamicI18n
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bootBrowseI18n);

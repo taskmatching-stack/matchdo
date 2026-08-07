@@ -239,7 +239,11 @@ function initDesignWorkspaceTabsMobile() {
         if (window.i18n && window.i18n.ready) {
         window.i18n.ready.then(function () {
             document.querySelectorAll('.design-workspace-tabs').forEach(refreshMobileToggleLabel);
-            if (window.i18n.applyPage) window.i18n.applyPage();
+            if (window.matchdoBrowseI18n && window.matchdoBrowseI18n.applyAll) {
+                window.matchdoBrowseI18n.applyAll();
+            } else if (window.i18n.applyPage) {
+                window.i18n.applyPage();
+            }
         }).catch(function () {});
     }
 }
@@ -255,7 +259,7 @@ function buildBrowseFiltersToggleHtml(label) {
     return (
         '<button type="button" class="dw-browse-filters-toggle" aria-expanded="false">' +
         '<span class="dw-browse-filters-toggle-text">' +
-        '<span class="dw-browse-filters-toggle-prefix">分類</span>' +
+        '<span class="dw-browse-filters-toggle-prefix" data-i18n="browseStyles.filterCategory">分類</span>' +
         '<span class="dw-browse-filters-toggle-label">' + label + '</span>' +
         '</span>' +
         '<i class="bi bi-chevron-down dw-browse-filters-toggle-icon" aria-hidden="true"></i>' +
@@ -343,6 +347,11 @@ if (typeof document !== 'undefined') {
         mountDesignWorkspaceTabs();
         initDesignWorkspaceTabsMobile();
         initBrowseFiltersMobile();
+        if (window.matchdoBrowseI18n && window.matchdoBrowseI18n.applyAll && window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function () {
+                window.matchdoBrowseI18n.applyAll();
+            }).catch(function () {});
+        }
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bootDesignWorkspaceTabs);
