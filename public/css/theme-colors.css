@@ -67,8 +67,8 @@ a:not(.btn):hover {
 .navbar .navbar-nav .nav-link.active {
     color: #7A8FA3 !important;
 }
-.navbar .dropdown-menu .dropdown-item:hover,
-.navbar .dropdown-menu .dropdown-item.active {
+.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item:hover,
+.navbar .dropdown-menu:not(.nav-cp-menu) .dropdown-item.active {
     background-color: #7A8FA3 !important;
     color: #fff !important;
 }

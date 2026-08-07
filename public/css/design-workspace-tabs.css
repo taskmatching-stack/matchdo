@@ -1,0 +1,246 @@
+/* 設計工作區 — 全站統一：標題在上 → Tab → 內容 */
+.design-workspace-shell {
+    background: #E4E9EF;
+    min-height: calc(100vh - 60px);
+}
+.design-workspace-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 2.5rem;
+}
+.design-workspace-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+.design-workspace-head-main {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+.design-workspace-head-actions {
+    flex: 0 0 auto;
+    align-self: center;
+}
+.design-workspace-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--md-text, #5C6670);
+}
+.design-workspace-sub {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+.design-workspace-head .page-title,
+.design-workspace-layout .page-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--md-text, #5C6670);
+}
+.design-workspace-head .page-sub,
+.design-workspace-layout .page-sub {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+
+.design-workspace-frame {
+    background: var(--md-white, #F5F7FA);
+    border: 1px solid rgba(88, 100, 112, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(88, 100, 112, 0.06);
+    overflow: hidden;
+}
+.design-workspace-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+/* Tab 列：不用 Bootstrap .nav-tabs / .nav-link，避免被全域樣式洗掉底色 */
+.design-workspace-tabs {
+    margin: 0;
+    background: #F0F3F7;
+    border-bottom: 1px solid rgba(88, 100, 112, 0.14);
+}
+.design-workspace-tabs .cp-tab-strip-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 0 0.5rem;
+}
+.design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar { height: 4px; }
+.design-workspace-tabs .cp-tab-strip-wrap::-webkit-scrollbar-thumb {
+    background: rgba(122, 143, 163, 0.35);
+    border-radius: 4px;
+}
+.design-workspace-tabs .cp-tab-strip {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    min-width: min-content;
+    gap: 2px;
+}
+.design-workspace-tabs .cp-tab-strip .cp-tab-divider {
+    flex: 0 0 1px;
+    align-self: stretch;
+    margin: 0.55rem 0.2rem;
+    background: rgba(88, 100, 112, 0.22);
+    padding: 0;
+}
+.design-workspace-tabs .cp-tab-item {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    margin: 0;
+    padding: 0;
+}
+.design-workspace-tabs .cp-tab-link {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    margin-bottom: -1px;
+    padding: 0.65rem 0.85rem;
+    min-height: 2.75rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    cursor: pointer;
+}
+
+/* 以結構 — 灰藍 */
+.design-workspace-tabs .cp-tab-g-design .cp-tab-link {
+    color: #657A8E;
+    background: rgba(122, 143, 163, 0.34);
+}
+.design-workspace-tabs .cp-tab-g-design .cp-tab-link:hover {
+    color: #fff;
+    background: rgba(122, 143, 163, 0.58);
+}
+.design-workspace-tabs .cp-tab-g-design .cp-tab-link.active {
+    color: #fff;
+    background: #7A8FA3;
+    border-bottom-color: #657A8E;
+    font-weight: 600;
+}
+
+/* 以風格 — 鼠尾草 */
+.design-workspace-tabs .cp-tab-g-style .cp-tab-link {
+    color: #5A7268;
+    background: rgba(143, 168, 158, 0.38);
+}
+.design-workspace-tabs .cp-tab-g-style .cp-tab-link:hover {
+    color: #fff;
+    background: rgba(111, 141, 128, 0.72);
+}
+.design-workspace-tabs .cp-tab-g-style .cp-tab-link.active {
+    color: #fff;
+    background: #8FA89E;
+    border-bottom-color: #6E8A7E;
+    font-weight: 600;
+}
+
+/* 行銷影像 — 玫瑰灰 */
+.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link {
+    color: #5E6875;
+    background: rgba(155, 168, 181, 0.38);
+}
+.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link:hover {
+    color: #fff;
+    background: rgba(130, 145, 158, 0.72);
+}
+.design-workspace-tabs .cp-tab-g-marketing .cp-tab-link.active {
+    color: #fff;
+    background: #9BA8B5;
+    border-bottom-color: #7A8794;
+    font-weight: 600;
+}
+
+/* 輔助工具 — 灰紫 */
+.design-workspace-tabs .cp-tab-g-assist .cp-tab-link {
+    color: #5E6B78;
+    background: rgba(168, 181, 196, 0.42);
+}
+.design-workspace-tabs .cp-tab-g-assist .cp-tab-link:hover {
+    color: #fff;
+    background: rgba(142, 158, 175, 0.78);
+}
+.design-workspace-tabs .cp-tab-g-assist .cp-tab-link.active {
+    color: #fff;
+    background: #A8B5C4;
+    border-bottom-color: #8A97A8;
+    font-weight: 600;
+}
+
+.design-workspace-lead {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-text-muted, #8A96A3);
+}
+.design-workspace-meta {
+    margin: 0 0 1rem;
+    font-size: 0.8125rem;
+    color: var(--md-text-muted, #8A96A3);
+}
+
+#custom-product .design-workspace-frame .create-panel {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+}
+
+@media (max-width: 767px) {
+    .design-workspace-layout {
+        padding: 0.85rem 0.75rem 2rem;
+    }
+    .design-workspace-title,
+    .design-workspace-head .page-title {
+        font-size: 1.25rem;
+    }
+    .design-workspace-head {
+        margin-bottom: 0.5rem;
+    }
+    .design-workspace-body {
+        padding: 0.85rem 1rem 1.25rem;
+    }
+    .design-workspace-tabs .cp-tab-strip-wrap {
+        overflow-x: visible;
+        padding: 0 0.25rem;
+    }
+    .design-workspace-tabs .cp-tab-strip {
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    .design-workspace-tabs .cp-tab-strip .cp-tab-divider {
+        flex: 0 0 100%;
+        width: 100%;
+        height: 0;
+        margin: 0;
+        background: transparent;
+    }
+    .design-workspace-tabs .cp-tab-link {
+        padding: 0.55rem 0.65rem;
+        font-size: 0.8125rem;
+        min-height: 2.35rem;
+    }
+    #custom-product .design-workspace-head {
+        display: none;
+    }
+}

@@ -122,7 +122,7 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
 }
 .navbar .dropdown-menu .dropdown-item:hover,
 .navbar .dropdown-menu .dropdown-item.active,
-.nav-hover-menu .dropdown-item:hover {
+.nav-hover-menu:not(.nav-cp-menu) .dropdown-item:hover {
     background-color: var(--md-primary) !important;
     color: #fff !important;
 }
