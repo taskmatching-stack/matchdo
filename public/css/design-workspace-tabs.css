@@ -120,6 +120,12 @@
     display: flex;
     align-items: stretch;
 }
+/* Tab 列 — 莫蘭迪四色組（對齊 nav-cp-menu.css） */
+.design-workspace-tabs {
+    margin: 0;
+    background: #F0F3F7;
+    border-bottom: 1px solid rgba(88, 100, 112, 0.14);
+}
 .design-workspace-tabs .cp-tab-strip .nav-link {
     display: flex;
     align-items: center;
@@ -133,37 +139,74 @@
     white-space: nowrap;
     border-radius: 0;
     text-decoration: none;
-    background: transparent;
-    color: var(--md-text-muted, #8A96A3);
     border-bottom: 2px solid transparent;
     box-shadow: none;
 }
 .design-workspace-tabs .cp-tab-strip .nav-link:hover {
-    color: var(--md-text, #5C6670);
-    background: rgba(255, 255, 255, 0.42);
+    text-decoration: none;
+}
+
+/* 以結構／設計稿組 — 灰藍 */
+.design-workspace-tabs .cp-tab-g-design .nav-link {
+    color: #5A7286;
+    background: transparent;
+}
+.design-workspace-tabs .cp-tab-g-design .nav-link:hover {
+    color: #3D5163;
+    background: rgba(107, 132, 152, 0.12);
 }
 .design-workspace-tabs .cp-tab-g-design .nav-link.active {
-    color: var(--md-primary-dark, #657A8E);
-    background: var(--md-white, #F5F7FA);
-    border-bottom-color: var(--md-primary, #7A8FA3);
+    color: #3D5163;
+    background: rgba(107, 132, 152, 0.16);
+    border-bottom-color: #6B8498;
     font-weight: 600;
+}
+
+/* 以風格組 — 鼠尾草綠 */
+.design-workspace-tabs .cp-tab-g-style .nav-link {
+    color: #5E7568;
+    background: transparent;
+}
+.design-workspace-tabs .cp-tab-g-style .nav-link:hover {
+    color: #3F5248;
+    background: rgba(122, 148, 136, 0.12);
 }
 .design-workspace-tabs .cp-tab-g-style .nav-link.active {
-    color: var(--md-sage-text, #5A7268);
-    background: var(--md-white, #F5F7FA);
-    border-bottom-color: var(--md-sage, #8FA89E);
+    color: #3F5248;
+    background: rgba(122, 148, 136, 0.16);
+    border-bottom-color: #7A9488;
     font-weight: 600;
+}
+
+/* 行銷影像組 — 灰紫 */
+.design-workspace-tabs .cp-tab-g-marketing .nav-link {
+    color: #6E6878;
+    background: transparent;
+}
+.design-workspace-tabs .cp-tab-g-marketing .nav-link:hover {
+    color: #4A4654;
+    background: rgba(138, 132, 152, 0.12);
 }
 .design-workspace-tabs .cp-tab-g-marketing .nav-link.active {
-    color: var(--md-rose-text, #5E6875);
-    background: var(--md-white, #F5F7FA);
-    border-bottom-color: var(--md-rose, #9BA8B5);
+    color: #4A4654;
+    background: rgba(138, 132, 152, 0.16);
+    border-bottom-color: #8A8498;
     font-weight: 600;
 }
+
+/* 輔助工具組 — 灰陶 */
+.design-workspace-tabs .cp-tab-g-assist .nav-link {
+    color: #6E7888;
+    background: transparent;
+}
+.design-workspace-tabs .cp-tab-g-assist .nav-link:hover {
+    color: #444E5C;
+    background: rgba(142, 154, 173, 0.12);
+}
 .design-workspace-tabs .cp-tab-g-assist .nav-link.active {
-    color: var(--md-clay-text, #5E6B78);
-    background: var(--md-white, #F5F7FA);
-    border-bottom-color: var(--md-clay, #A8B5C4);
+    color: #444E5C;
+    background: rgba(142, 154, 173, 0.16);
+    border-bottom-color: #8E9AAD;
     font-weight: 600;
 }
 
@@ -227,13 +270,27 @@
         padding: 0.65rem 0.85rem;
         border: none;
         border-bottom: 1px solid rgba(88, 100, 112, 0.14);
-        background: var(--md-white, #F5F7FA);
         font: inherit;
         font-size: 0.875rem;
         font-weight: 600;
-        color: var(--md-text, #5C6670);
         cursor: pointer;
         text-align: left;
+    }
+    .cp-tab-mobile-toggle.cp-tab-g-design {
+        background: rgba(107, 132, 152, 0.16);
+        color: #3D5163;
+    }
+    .cp-tab-mobile-toggle.cp-tab-g-style {
+        background: rgba(122, 148, 136, 0.16);
+        color: #3F5248;
+    }
+    .cp-tab-mobile-toggle.cp-tab-g-marketing {
+        background: rgba(138, 132, 152, 0.16);
+        color: #4A4654;
+    }
+    .cp-tab-mobile-toggle.cp-tab-g-assist {
+        background: rgba(142, 154, 173, 0.16);
+        color: #444E5C;
     }
     .cp-tab-mobile-toggle-text {
         display: flex;
@@ -245,7 +302,7 @@
         flex: 0 0 auto;
         font-size: 0.75rem;
         font-weight: 500;
-        color: var(--md-text-muted, #8A96A3);
+        opacity: 0.72;
     }
     .cp-tab-mobile-toggle-label {
         overflow: hidden;
@@ -255,7 +312,7 @@
     .cp-tab-mobile-toggle-icon {
         flex: 0 0 auto;
         font-size: 0.95rem;
-        color: var(--md-text-muted, #8A96A3);
+        opacity: 0.72;
         transition: transform 0.15s ease;
     }
     .design-workspace-tabs.is-expanded .cp-tab-mobile-toggle-icon {

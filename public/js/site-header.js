@@ -8,16 +8,10 @@
         var _m = document.createElement('link');
         _m.id = 'morandi-global-css';
         _m.rel = 'stylesheet';
-        _m.href = '/css/morandi-global.css?v=10';
+        _m.href = '/css/morandi-global.css?v=11';
         document.head.appendChild(_m);
     }
-    if (!document.getElementById('nav-cp-menu-css')) {
-        var _cp = document.createElement('link');
-        _cp.id = 'nav-cp-menu-css';
-        _cp.rel = 'stylesheet';
-        _cp.href = '/css/nav-cp-menu.css?v=2';
-        document.head.appendChild(_cp);
-    }
+    // nav-cp-menu.css 由 style.css @import 載入（勿在此重複注入）
     // Bootstrap：禁止在 mid-body 同步注入（長頁雙載入會沖掉頭像 Dropdown）。
     // 保底改由 ensureBootstrapScriptPresent（window.load）處理。
     // Space Grotesk 字型保底載入
@@ -410,6 +404,43 @@ function isRemakeSection() {
  * - 本 function 內勿重複宣告同一變數（例如已有 const path 就不要再 var path），否則整支腳本報錯、選單與登入會壞。
  * - loginHref 必須帶 returnUrl 或使用 AuthService.getLoginUrl(path)，不可只寫 '/login.html'。
  */
+/** 客製產品 dropdown 內容 — 須與 lib/nav-cp-menu-html.js 同步 */
+function buildNavCpMenuInnerHtml(t) {
+    t = typeof t === 'function' ? t : function (k) { return k; };
+    return (
+        '<a href="/custom-product.html" class="nav-cp-link nav-cp-link--design"><i class="bi bi-pencil-square"></i>' +
+        (t('nav.productDesign') || '設計稿') + '</a>' +
+        '<div class="nav-cp-section nav-cp-section--structure">' +
+        '<span class="nav-cp-section-label">' + (t('nav.sectionStructure') || '以結構') + '</span>' +
+        '<a href="/vendor-styles/" class="nav-cp-link"><i class="bi bi-grid"></i>' + t('nav.browseVendorStyles') + '</a>' +
+        '<a href="/official-templates/" class="nav-cp-link"><i class="bi bi-collection"></i>' + t('nav.browseOfficialTemplates') + '</a>' +
+        '</div>' +
+        '<div class="nav-cp-section nav-cp-section--style">' +
+        '<span class="nav-cp-section-label">' + (t('nav.sectionStyle') || '以風格') + '</span>' +
+        '<a href="/client/material-dual-color.html?return=design" class="nav-cp-link"><i class="bi bi-layout-split"></i>' +
+        (t('nav.materialCombination') || '材料組合') + '</a>' +
+        '<a href="/client/print-asset.html" class="nav-cp-link"><i class="bi bi-flower1"></i>' + (t('nav.printAsset') || '印花') + '</a>' +
+        '</div>' +
+        '<div class="nav-cp-section nav-cp-section--marketing">' +
+        '<span class="nav-cp-section-label">' + (t('nav.marketingVisuals') || '行銷影像') + '</span>' +
+        '<a href="/promo-image/" class="nav-cp-link"><i class="bi bi-megaphone"></i>' + t('nav.promoImage') + '</a>' +
+        '<a href="/promo-camera" class="nav-cp-link"><i class="bi bi-camera"></i>' + (t('nav.promoCamera') || '商攝導演') + '</a>' +
+        '</div>' +
+        '<div class="nav-cp-section nav-cp-section--assist">' +
+        '<span class="nav-cp-section-label">' + (t('nav.sectionAssistTools') || '輔助工具') + '</span>' +
+        '<a href="/pattern-extract/" class="nav-cp-link"><i class="bi bi-bounding-box"></i>' + t('nav.patternExtract') + '</a>' +
+        '<a href="/design-to-physical/" class="nav-cp-link"><i class="bi bi-box"></i>' + t('nav.designToPhysical') + '</a>' +
+        '<a href="/scene-sim/" class="nav-cp-link"><i class="bi bi-image"></i>' + t('nav.sceneSim') + '</a>' +
+        '</div>' +
+        '<div class="nav-cp-section nav-cp-section--utility">' +
+        '<a href="/client/my-custom-products.html" class="nav-cp-link"><i class="bi bi-box-seam"></i>' +
+        (t('nav.myCustomProducts') || '我的數位資產') + '</a>' +
+        '<a href="/custom/gallery.html" class="nav-cp-link"><i class="bi bi-images"></i>' +
+        (t('gallery.title') || '圖庫找廠商') + '</a>' +
+        '</div>'
+    );
+}
+
 function siteBrandTaglinesHtml(t) {
     var cat = t('site.taglineCategory') || '數位合作市集';
     var slo = t('site.taglineSlogan') || '創意與工藝，直接合做';
@@ -501,24 +532,8 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
                     <div class="nav-item dropdown nav-has-hover">
                         <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
-                        <div class="dropdown-menu nav-hover-menu nav-cp-menu">
-                            <a href="/custom-product.html" class="dropdown-item nav-cp-item nav-cp-item--design"><i class="bi bi-pencil-square"></i>` + (t('nav.productDesign') || '設計稿') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--structure py-1 mb-0">` + (t('nav.sectionStructure') || '以結構') + `</h6>
-                            <a href="/vendor-styles/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-grid"></i>` + t('nav.browseVendorStyles') + `</a>
-                            <a href="/official-templates/" class="dropdown-item nav-cp-item nav-cp-item--structure"><i class="bi bi-collection"></i>` + t('nav.browseOfficialTemplates') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--style py-1 mb-0">` + (t('nav.sectionStyle') || '以風格') + `</h6>
-                            <a href="/client/material-dual-color.html?return=design" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-layout-split"></i>` + (t('nav.materialCombination') || '材料組合') + `</a>
-                            <a href="/client/print-asset.html" class="dropdown-item nav-cp-item nav-cp-item--style"><i class="bi bi-flower1"></i>` + (t('nav.printAsset') || '印花') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--marketing py-1 mb-0">` + (t('nav.marketingVisuals') || '行銷影像') + `</h6>
-                            <a href="/promo-image/" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-megaphone"></i>` + t('nav.promoImage') + `</a>
-                            <a href="/promo-camera" class="dropdown-item nav-cp-item nav-cp-item--marketing"><i class="bi bi-camera"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a>
-                            <h6 class="dropdown-header nav-cp-h nav-cp-h--assist py-1 mb-0">` + (t('nav.sectionAssistTools') || '輔助工具') + `</h6>
-                            <a href="/pattern-extract/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-bounding-box"></i>` + t('nav.patternExtract') + `</a>
-                            <a href="/design-to-physical/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-box"></i>` + t('nav.designToPhysical') + `</a>
-                            <a href="/scene-sim/" class="dropdown-item nav-cp-item nav-cp-item--assist"><i class="bi bi-image"></i>` + t('nav.sceneSim') + `</a>
-                            <div class="dropdown-divider nav-cp-divider"></div>
-                            <a href="/client/my-custom-products.html" class="dropdown-item nav-cp-item nav-cp-item--utility"><i class="bi bi-box-seam"></i>` + (t('nav.myCustomProducts') || '我的數位資產') + `</a>
-                            <a href="/custom/gallery.html" class="dropdown-item nav-cp-item nav-cp-item--utility"><i class="bi bi-images"></i>` + (t('gallery.title') || '圖庫找廠商') + `</a>
+                        <div class="dropdown-menu nav-hover-menu nav-cp-menu">` +
+                        buildNavCpMenuInnerHtml(t) + `
                         </div>
                     </div>
                     <div class="nav-item dropdown nav-has-hover">

@@ -73,7 +73,7 @@
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet">
     <link href="/css/custom-product-ios-surface.css?v=6" rel="stylesheet">
-    <link href="/css/design-workspace-tabs.css?v=11" rel="stylesheet">
+    <link href="/css/design-workspace-tabs.css?v=12" rel="stylesheet">
     <!-- Bootstrap JS 必須在 head 先掛名（defer），讓 mid-body 的 site-header.js 看見 #bs-bundle-js，勿再自行注入第二份 -->
     <script id="bs-bundle-js" src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <!-- JSON-LD Structured Data -->
@@ -101,7 +101,7 @@
     <!-- 須先於 site-header：獨立路徑（/pattern-extract/ 等）若晚載 auth，會一直顯示登出 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
-    <script src="/js/site-header.js?v=20260806-auth-first"></script>
+    <script src="/js/site-header.js?v=20260807-nav-cp2"></script>
 
     <!-- 放大 modal：Bootstrap 於頁尾 defer 載入 -->
     <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
@@ -1996,7 +1996,7 @@
     <script src="/js/digital-asset-picker.js?v=6" defer></script>
     <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
-    <script src="/js/design-workspace-tabs.js?v=5"></script>
+    <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/custom-product.js?v=153" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>

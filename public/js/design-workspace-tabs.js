@@ -65,11 +65,23 @@ function getActiveTabLabel(root) {
     return '工作區';
 }
 
+function findGroupByTool(tool) {
+    var found = null;
+    TAB_GROUPS.forEach(function (group) {
+        group.tabs.forEach(function (tab) {
+            if (tab.tool === tool) found = group;
+        });
+    });
+    return found;
+}
+
 function buildMobileToggleHtml(activeTool) {
     var tab = findTabByTool(activeTool);
+    var group = findGroupByTool(activeTool);
     var label = tab ? tab.label : '工作區';
+    var groupCss = group ? group.css : 'cp-tab-g-design';
     return (
-        '<button type="button" class="cp-tab-mobile-toggle" aria-expanded="false" aria-controls="cp-tab-strip-panel">' +
+        '<button type="button" class="cp-tab-mobile-toggle ' + groupCss + '" aria-expanded="false" aria-controls="cp-tab-strip-panel">' +
         '<span class="cp-tab-mobile-toggle-text">' +
         '<span class="cp-tab-mobile-toggle-prefix">工作區</span>' +
         '<span class="cp-tab-mobile-toggle-label">' + label + '</span>' +
@@ -129,15 +141,36 @@ function refreshMobileToggleLabel(root) {
     if (!root) return;
     var labelEl = root.querySelector('.cp-tab-mobile-toggle-label');
     if (labelEl) labelEl.textContent = getActiveTabLabel(root);
+    var btn = root.querySelector('.cp-tab-mobile-toggle');
+    var activeItem = root.querySelector('.cp-tab-strip .nav-link.active');
+    if (btn && activeItem) {
+        var groupItem = activeItem.closest('.nav-item');
+        TAB_GROUPS.forEach(function (group) {
+            btn.classList.remove(group.css);
+        });
+        if (groupItem) {
+            TAB_GROUPS.forEach(function (group) {
+                if (groupItem.classList.contains(group.css)) btn.classList.add(group.css);
+            });
+        }
+    }
 }
 
 function ensureMobileToggle(root) {
     if (!root || root.querySelector('.cp-tab-mobile-toggle')) return;
     var wrap = root.querySelector('.cp-tab-strip-wrap');
     if (!wrap) return;
+    var activeItem = root.querySelector('.cp-tab-strip .nav-link.active');
+    var groupCss = 'cp-tab-g-design';
+    if (activeItem) {
+        var groupItem = activeItem.closest('.nav-item');
+        TAB_GROUPS.forEach(function (group) {
+            if (groupItem && groupItem.classList.contains(group.css)) groupCss = group.css;
+        });
+    }
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'cp-tab-mobile-toggle';
+    btn.className = 'cp-tab-mobile-toggle ' + groupCss;
     btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('aria-controls', wrap.id || 'cp-tab-strip-panel');
     if (!wrap.id) wrap.id = 'cp-tab-strip-panel';

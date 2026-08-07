@@ -34,7 +34,7 @@ function checkPage(h, name) {
     assertOrder(h, name, 'design-workspace-head', 'design-workspace-frame');
     assertOrder(h, name, 'design-workspace-frame', 'data-design-workspace-tabs');
     assertOrder(h, name, 'data-design-workspace-tabs', 'design-workspace-body');
-    if (!h.includes('design-workspace-tabs.js?v=6')) {
+    if (!h.includes('design-workspace-tabs.js?v=7')) {
         throw new Error(name + ': missing design-workspace-tabs.js mount script');
     }
     if (!h.includes('nav-link')) {
