@@ -1838,35 +1838,35 @@
                     <div class="tab-pane fade" id="panel-promo-image" role="tabpanel" aria-labelledby="tab-promo-image">
                         <div class="create-panel scene-sim-panel promo-image-panel">
                             <div class="create-panel-left promo-image-left">
-                                <p class="promo-image-intro" id="promoImagePricingHint">把產品圖做成可當 DM、廣告、宣傳用的主視覺。載入點數規則中…；可多選參考圖（最多 8 張）。</p>
+                                <p class="promo-image-intro" id="promoImagePricingHint" data-i18n="customProduct.promoImageIntroLoading">把產品圖做成可當 DM、廣告、宣傳用的主視覺。載入點數規則中…；可多選參考圖（最多 8 張）。</p>
 
                                 <section class="promo-block">
                                     <div class="promo-block-head">
-                                        <span class="promo-block-title">來源圖</span>
-                                        <span class="promo-block-meta">從數位資產 · 最多 8 張</span>
+                                        <span class="promo-block-title" data-i18n="customProduct.promoImageSourceTitle">來源圖</span>
+                                        <span class="promo-block-meta" data-i18n="customProduct.promoImageSourceMeta">從數位資產 · 最多 8 張</span>
                                     </div>
                                     <div id="promoImageSelectedThumbs" class="promo-thumb-row"></div>
-                                    <p id="promoImageSelectedHint" class="promo-thumb-hint">尚未選圖</p>
+                                    <p id="promoImageSelectedHint" class="promo-thumb-hint" data-i18n="customProduct.promoImageNoSelection">尚未選圖</p>
                                     <div class="promo-thumb-actions">
-                                        <button type="button" class="promo-link-btn" id="promoImagePickAssetBtn">＋ 從數位資產選擇</button>
-                                        <button type="button" class="promo-link-btn promo-link-btn--muted d-none" id="promoImageClearBtn">清除</button>
+                                        <button type="button" class="promo-link-btn" id="promoImagePickAssetBtn" data-i18n="customProduct.promoImagePickAsset">＋ 從數位資產選擇</button>
+                                        <button type="button" class="promo-link-btn promo-link-btn--muted d-none" id="promoImageClearBtn" data-i18n="customProduct.promoImageClear">清除</button>
                                     </div>
                                 </section>
 
                                 <section class="promo-block">
                                     <div class="promo-field-grid">
                                         <div class="promo-field">
-                                            <label class="promo-label" for="promoImageThemeSelect">主題</label>
+                                            <label class="promo-label" for="promoImageThemeSelect" data-i18n="customProduct.promoImageTheme">主題</label>
                                             <select id="promoImageThemeSelect" class="form-select form-select-sm promo-input"></select>
                                             <p class="promo-field-hint" id="promoImageThemeHint"></p>
                                         </div>
                                         <div class="promo-field">
-                                            <label class="promo-label" for="promoImageEnvSelect">場景（選填）</label>
+                                            <label class="promo-label" for="promoImageEnvSelect" data-i18n="customProduct.promoImageSceneOptional">場景（選填）</label>
                                             <select id="promoImageEnvSelect" class="form-select form-select-sm promo-input"></select>
                                             <p class="promo-field-hint" id="promoImageEnvHint"></p>
                                         </div>
                                         <div class="promo-field promo-field--compact">
-                                            <label class="promo-label" for="promoImageRatioSelect">長寬比</label>
+                                            <label class="promo-label" for="promoImageRatioSelect" data-i18n="customProduct.promoImageAspectRatio">長寬比</label>
                                             <select id="promoImageRatioSelect" class="form-select form-select-sm promo-input">
                                                 <option value="1:1" selected>1:1</option>
                                                 <option value="4:3">4:3</option>
@@ -1882,9 +1882,9 @@
                                             </select>
                                         </div>
                                         <div class="promo-field promo-field--compact">
-                                            <label class="promo-label" for="promoImageMpSelect">解析度</label>
+                                            <label class="promo-label" for="promoImageMpSelect" data-i18n="customProduct.promoImageResolution">解析度</label>
                                             <select id="promoImageMpSelect" class="form-select form-select-sm promo-input">
-                                                <option value="1" selected>1 MP（標準）</option>
+                                                <option value="1" selected data-i18n="customProduct.promoImageMpStandard">1 MP（標準）</option>
                                                 <option value="2">2 MP</option>
                                                 <option value="3">3 MP</option>
                                                 <option value="4">4 MP</option>
@@ -1892,26 +1892,26 @@
                                             <p class="promo-field-hint" id="promoImageDimsHint">1024×1024</p>
                                         </div>
                                         <div class="promo-field promo-field--full">
-                                            <label class="promo-label" for="promoImagePhotoSelect">攝影參數（選填）</label>
+                                            <label class="promo-label" for="promoImagePhotoSelect" data-i18n="customProduct.promoImagePhotoOptional">攝影參數（選填）</label>
                                             <select id="promoImagePhotoSelect" class="form-select form-select-sm promo-input"></select>
                                         </div>
                                         <div class="promo-field promo-field--full">
-                                            <label class="promo-label" for="promoImagePrompt">額外描述（選填）</label>
-                                            <input type="text" id="promoImagePrompt" class="form-control form-control-sm promo-input" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影" />
-                                            <p class="promo-field-hint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免誤判品項。</p>
+                                            <label class="promo-label" for="promoImagePrompt" data-i18n="customProduct.promoImageExtraDesc">額外描述（選填）</label>
+                                            <input type="text" id="promoImagePrompt" class="form-control form-control-sm promo-input" data-i18n-placeholder="customProduct.promoImageExtraDescPlaceholder" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影" />
+                                            <p class="promo-field-hint" data-i18n="customProduct.promoImageExtraDescHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免誤判品項。</p>
                                         </div>
                                     </div>
                                 </section>
 
                                 <div class="promo-action-bar">
-                                    <span class="promo-points" id="promoImagePointsDisplay">每張 20 點</span>
+                                    <span class="promo-points" id="promoImagePointsDisplay" data-i18n="customProduct.promoImagePointsPerRun">每張 20 點</span>
                                     <div class="form-check form-switch mb-0">
                                         <input class="form-check-input" type="checkbox" role="switch" id="promoImageShowOnHomepage" checked disabled>
                                         <label class="form-check-label small" for="promoImageShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
                                     </div>
                                     <p class="promo-field-hint mb-0" id="promoImageShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
                                     <button type="button" class="btn btn-primary promo-generate-btn" id="promoImageApplyBtn">
-                                        <i class="fas fa-bullhorn me-2"></i>生成情境圖
+                                        <i class="fas fa-bullhorn me-2"></i><span data-i18n="customProduct.promoImageGenerateBtn">生成情境圖</span>
                                     </button>
                                     <p class="promo-camera-link mb-0">
                                         <span data-i18n="customProduct.promoCameraLinkPrefix">需要更細的光學／畫質控制？</span>

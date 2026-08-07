@@ -1,6 +1,8 @@
 /**
  * 全站莫蘭迪配色 — 冷調灰藍（載於 style.css 之後）
  */
+@import url('/css/i18n-en-compact.css?v=1');
+
 :root {
     --md-primary: #7A8FA3;
     --md-primary-dark: #657A8E;

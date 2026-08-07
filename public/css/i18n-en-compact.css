@@ -1,0 +1,55 @@
+/**
+ * English UI compact — nav / tabs / workspace chrome (zh-TW unchanged)
+ */
+html[lang="en"] #site-header .navbar {
+    font-size: 16px;
+}
+html[lang="en"] #site-header .navbar .navbar-nav > .nav-link {
+    font-size: 0.9375rem;
+}
+html[lang="en"] #site-header .nav-cp-menu .nav-cp-link {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    padding: 0.42rem 0.85rem 0.42rem 0.75rem;
+}
+html[lang="en"] #site-header .nav-cp-menu .nav-cp-section-label {
+    font-size: 0.6875rem;
+    padding: 0.4rem 0.85rem;
+}
+html[lang="en"] #site-header .nav-hover-menu:not(.nav-cp-menu) .dropdown-item,
+html[lang="en"] #site-header .nav-hover-menu:not(.nav-cp-menu) .dropdown-header {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+html[lang="en"] #site-header .nav-link-subscription {
+    font-size: 0.875rem;
+}
+
+html[lang="en"] .design-workspace-tabs .cp-tab-strip .nav-link {
+    font-size: 0.8125rem;
+    padding: 0.62rem 0.62rem;
+}
+html[lang="en"] .cp-tab-mobile-toggle {
+    font-size: 0.8125rem;
+}
+html[lang="en"] .design-workspace-sub,
+html[lang="en"] .design-workspace-head .page-sub {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+html[lang="en"] .dw-browse-filters .btn-sm,
+html[lang="en"] .dw-browse-filters-toggle {
+    font-size: 0.8125rem;
+}
+html[lang="en"] .dw-browse-also {
+    font-size: 0.8125rem;
+}
+
+html[lang="en"] #custom-product .nav-tabs.cp-tab-strip .nav-link,
+html[lang="en"] #custom-product .design-workspace-tabs .nav-link {
+    font-size: 0.8125rem;
+}
+
+html[lang="en"] .design-workspace-head-actions .btn-sm {
+    font-size: 0.8125rem;
+}

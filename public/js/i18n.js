@@ -1,7 +1,7 @@
 /**
  * 前台多語系（僅前台，/admin/ 不納入）
  * 使用方式：頁面載入後 loadLocale → applyPage；導覽由 site-header 用 t() 輸出。
- * 語系：URL ?lang=en 優先，其次 localStorage 'lang'，預設 zh-TW。
+ * 語系優先序：URL ?lang= → localStorage（使用者手動切換）→ 瀏覽器語系（非中文/簡中→en）→ zh-TW。
  */
 (function () {
     var STORAGE_KEY = 'lang';
@@ -9,12 +9,31 @@
     var messages = {};
     var readyPromise = null;
 
+    function isChineseLocale(tag) {
+        if (!tag || typeof tag !== 'string') return false;
+        var l = tag.trim().toLowerCase().replace(/_/g, '-');
+        if (l === 'zh') return true;
+        return l.indexOf('zh-') === 0;
+    }
+
+    function detectBrowserLang() {
+        try {
+            var list = (navigator.languages && navigator.languages.length)
+                ? navigator.languages
+                : [navigator.language || navigator.userLanguage || ''];
+            for (var i = 0; i < list.length; i++) {
+                if (isChineseLocale(list[i])) return DEFAULT_LANG;
+            }
+        } catch (e) { /* ignore */ }
+        return 'en';
+    }
+
     function normalizeLang(lang) {
         if (!lang || typeof lang !== 'string') return DEFAULT_LANG;
-        var l = lang.trim().toLowerCase();
-        if (l === 'zh' || l === 'zh-tw' || l === 'zh_tw') return 'zh-TW';
-        if (l === 'en') return 'en';
-        return lang;
+        var l = lang.trim().toLowerCase().replace(/_/g, '-');
+        if (l === 'en' || l.indexOf('en-') === 0) return 'en';
+        if (isChineseLocale(l)) return DEFAULT_LANG;
+        return 'en';
     }
 
     function getLang() {
@@ -27,7 +46,7 @@
             var stored = localStorage.getItem(STORAGE_KEY);
             if (stored) return normalizeLang(stored);
         } catch (e) {}
-        return DEFAULT_LANG;
+        return detectBrowserLang();
     }
 
     function setLang(lang) {
@@ -41,8 +60,16 @@
         window.location.href = url;
     }
 
+    function syncDocumentLang(lang) {
+        if (typeof document === 'undefined') return;
+        try {
+            document.documentElement.lang = (normalizeLang(lang) === 'en') ? 'en' : 'zh-TW';
+        } catch (e) { /* ignore */ }
+    }
+
     function loadLocale(lang) {
         lang = lang || getLang();
+        syncDocumentLang(lang);
         if (readyPromise && window.__I18N__ && window.__I18N__.lang === lang) return readyPromise;
         var localeUrl = '/locales/' + lang + '.json';
         try {
@@ -58,6 +85,7 @@
             .then(function (data) {
                 messages = data;
                 window.__I18N__ = { lang: lang, messages: messages };
+                syncDocumentLang(lang);
                 return messages;
             })
             .catch(function () {
@@ -96,7 +124,25 @@
             var key = el.getAttribute('data-i18n-aria-label');
             if (m[key]) el.setAttribute('aria-label', m[key]);
         });
+        document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-html');
+            if (m[key]) el.innerHTML = m[key];
+        });
+        document.querySelectorAll('[data-i18n-meta-desc]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-meta-desc');
+            if (m[key]) el.setAttribute('content', m[key]);
+        });
+        document.querySelectorAll('[data-i18n-doc-title]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-doc-title');
+            if (m[key]) document.title = m[key];
+        });
     }
+
+    window.__matchdoLangDetect = {
+        isChineseLocale: isChineseLocale,
+        detectBrowserLang: detectBrowserLang,
+        normalizeLang: normalizeLang
+    };
 
     window.i18n = {
         getLang: getLang,

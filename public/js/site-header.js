@@ -3,6 +3,49 @@
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 
+function matchdoIsChineseLocale(tag) {
+    if (!tag || typeof tag !== 'string') return false;
+    var l = tag.trim().toLowerCase().replace(/_/g, '-');
+    if (l === 'zh') return true;
+    return l.indexOf('zh-') === 0;
+}
+
+function matchdoDetectBrowserLang() {
+    if (window.__matchdoLangDetect && window.__matchdoLangDetect.detectBrowserLang) {
+        return window.__matchdoLangDetect.detectBrowserLang();
+    }
+    try {
+        var list = (navigator.languages && navigator.languages.length)
+            ? navigator.languages
+            : [navigator.language || navigator.userLanguage || ''];
+        for (var i = 0; i < list.length; i++) {
+            if (matchdoIsChineseLocale(list[i])) return 'zh-TW';
+        }
+    } catch (e) { /* ignore */ }
+    return 'en';
+}
+
+function matchdoNormalizeLang(lang) {
+    if (window.__matchdoLangDetect && window.__matchdoLangDetect.normalizeLang) {
+        return window.__matchdoLangDetect.normalizeLang(lang);
+    }
+    if (!lang || typeof lang !== 'string') return 'zh-TW';
+    var l = lang.trim().toLowerCase().replace(/_/g, '-');
+    if (l === 'en' || l.indexOf('en-') === 0) return 'en';
+    if (matchdoIsChineseLocale(l)) return 'zh-TW';
+    return 'en';
+}
+
+function matchdoResolvePublicLang() {
+    try {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.get('lang')) return matchdoNormalizeLang(params.get('lang'));
+        var stored = localStorage.getItem('lang');
+        if (stored) return matchdoNormalizeLang(stored);
+    } catch (e) { /* ignore */ }
+    return matchdoDetectBrowserLang();
+}
+
 (function injectSiteHeaderStyles() {
     if (!document.getElementById('morandi-global-css')) {
         var _m = document.createElement('link');
@@ -133,13 +176,7 @@ function initSiteHeaderDropdowns(root) {
 function getNavLang() {
     if (window.i18n && window.i18n.getLang) return window.i18n.getLang();
     if (window.__I18N__ && window.__I18N__.lang) return window.__I18N__.lang;
-    try {
-        var params = new URLSearchParams(window.location.search || '');
-        if (params.get('lang')) return params.get('lang').toLowerCase() === 'en' ? 'en' : 'zh-TW';
-        var stored = localStorage.getItem('lang');
-        if (stored && String(stored).toLowerCase() === 'en') return 'en';
-    } catch (e) {}
-    return 'zh-TW';
+    return matchdoResolvePublicLang();
 }
 
 function getPublicConfig() {
@@ -192,15 +229,7 @@ function ensureNavLocaleReady() {
             return {};
         });
     }
-    var lang = 'zh-TW';
-    try {
-        var params = new URLSearchParams(window.location.search || '');
-        if (params.get('lang')) lang = params.get('lang').toLowerCase() === 'en' ? 'en' : 'zh-TW';
-        else {
-            var stored = localStorage.getItem('lang');
-            if (stored && stored.toLowerCase() === 'en') lang = 'en';
-        }
-    } catch (e) {}
+    var lang = matchdoResolvePublicLang();
     return fetch('/locales/' + lang + '.json')
         .then(function (r) { return r.ok ? r.json() : {}; })
         .then(function (data) {
@@ -513,8 +542,8 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     }
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
     var navLang = getNavLang();
-    var navFallbackZh = { 'site.taglineCategory': '數位合作市集', 'site.taglineSlogan': '創意與工藝，直接合做', 'remake.badgeTesting': '測試中', 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.productDesign': '設計稿', 'nav.marketingVisuals': '行銷影像', 'nav.promoImage': '情境圖', 'nav.patternExtract': '圖樣提取', 'nav.designToPhysical': '寫實化', 'nav.sceneSim': '實境模擬', 'nav.browseVendorStyles': '廠商版型', 'nav.browseOfficialTemplates': '官方版型', 'nav.sectionStructure': '以結構', 'nav.sectionStyle': '以風格', 'nav.sectionAssistTools': '輔助工具', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '同一帳號・工作入口', 'nav.customizerSection': '① 訂製／設計', 'nav.manufacturerSection': '② 製造商', 'nav.supplierSection': '③ 產業供應商', 'nav.mfrUpstreamSection': '上游採購（B 線）', 'nav.mfrBrowseUpstream': '瀏覽產業供應商目錄', 'nav.mfrMyImports': '已匯入上游品項', 'nav.mySupplierPublicPage': '我的供應商首頁（公開）', 'nav.supplierManufacturerRefs': '製造商引用紀錄', 'nav.supplierCatalogManage': '上架數位產品庫', 'nav.myVendorPublicPage': '我的廠商首頁（公開）', 'nav.supplierPortal': '產業供應商說明', 'nav.supplierDashboard': '供應商控制台', 'nav.industrySuppliersList': '產業供應商目錄', 'nav.mySupplierReferences': '供應商引用管理', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '上傳展示案例', 'nav.vendorBaseModels': '我的數位版型', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式', 'nav.myCredits': '我的點數', 'nav.promoCamera': '商攝導演', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '設計者控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
-    var navFallbackEn = { 'site.taglineCategory': 'Digital collaboration marketplace', 'site.taglineSlogan': 'Creativity and craft, collaborate directly', 'remake.badgeTesting': 'Testing', 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.productDesign': 'Product design', 'nav.marketingVisuals': 'Marketing visuals', 'nav.promoImage': 'Scene image', 'nav.patternExtract': 'Pattern extract', 'nav.designToPhysical': 'Photorealistic', 'nav.sceneSim': 'Scene sim', 'nav.browseVendorStyles': 'Vendor styles', 'nav.browseOfficialTemplates': 'Official templates', 'nav.sectionStructure': 'Structure', 'nav.sectionStyle': 'Style', 'nav.sectionAssistTools': 'Assist tools', 'nav.promoCamera': 'Promo camera', 'nav.remake': 'Design Direction', 'nav.remakeSection': 'Design Direction', 'nav.remakeHome': 'Design Direction home', 'nav.remakeAnalysis': 'Design intent analysis', 'nav.remakeDesign': 'Design intent analysis', 'nav.remakeMyDesigns': 'My design directions', 'nav.remakeGallery': 'Gallery & inspiration', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'One account · workspace', 'nav.customizerSection': '① Design', 'nav.manufacturerSection': '② Manufacturer', 'nav.supplierSection': '③ Industry supplier', 'nav.mfrUpstreamSection': 'Upstream (B-line)', 'nav.mfrBrowseUpstream': 'Browse industry suppliers', 'nav.mfrMyImports': 'My upstream imports', 'nav.mySupplierPublicPage': 'My supplier page (public)', 'nav.supplierManufacturerRefs': 'Manufacturer references', 'nav.supplierCatalogManage': 'Publish catalog', 'nav.myVendorPublicPage': 'My vendor page (public)', 'nav.industrySuppliersList': 'Industry suppliers', 'nav.mySupplierReferences': 'Imported items', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.promoCamera': 'Commercial Photography Director', 'nav.aiEditArea': 'My AI edit area', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Designer dashboard', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
+    var navFallbackZh = { 'site.taglineCategory': '數位合作市集', 'site.taglineSlogan': '創意與工藝，直接合做', 'remake.badgeTesting': '測試中', 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.productDesign': '設計稿', 'nav.marketingVisuals': '行銷影像', 'nav.promoImage': '情境圖', 'nav.patternExtract': '圖樣提取', 'nav.designToPhysical': '寫實化', 'nav.sceneSim': '實境模擬', 'nav.browseVendorStyles': '廠商版型', 'nav.browseOfficialTemplates': '官方版型', 'nav.sectionStructure': '以結構', 'nav.sectionStyle': '以風格', 'nav.sectionAssistTools': '輔助工具', 'nav.materialCombination': '材料組合', 'nav.printAsset': '印花', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '同一帳號・工作入口', 'nav.customizerSection': '① 訂製／設計', 'nav.manufacturerSection': '② 製造商', 'nav.supplierSection': '③ 產業供應商', 'nav.mfrUpstreamSection': '上游採購（B 線）', 'nav.mfrBrowseUpstream': '瀏覽產業供應商目錄', 'nav.mfrMyImports': '已匯入上游品項', 'nav.mySupplierPublicPage': '我的供應商首頁（公開）', 'nav.supplierManufacturerRefs': '製造商引用紀錄', 'nav.supplierCatalogManage': '上架數位產品庫', 'nav.myVendorPublicPage': '我的廠商首頁（公開）', 'nav.supplierPortal': '產業供應商說明', 'nav.supplierDashboard': '供應商控制台', 'nav.industrySuppliersList': '產業供應商目錄', 'nav.mySupplierReferences': '供應商引用管理', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '上傳展示案例', 'nav.vendorBaseModels': '我的數位版型', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式', 'nav.myCredits': '我的點數', 'nav.promoCamera': '商攝導演', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '設計者控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.testerSection': '測試員功能', 'nav.aiTools': 'AI 工具', 'nav.paymentSettings': '金流設定', 'nav.officialTemplateLibrary': '官方版型庫', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區', 'nav.pointsUnit': '點', 'nav.back': '返回' };
+    var navFallbackEn = { 'site.taglineCategory': 'Digital marketplace', 'site.taglineSlogan': 'Creativity meets craft', 'remake.badgeTesting': 'Beta', 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.serviceMatching': 'Services', 'nav.customProduct': 'Custom', 'nav.productDesign': 'Design', 'nav.marketingVisuals': 'Marketing', 'nav.promoImage': 'Scenes', 'nav.patternExtract': 'Extract', 'nav.designToPhysical': 'Realistic', 'nav.sceneSim': 'Scene sim', 'nav.browseVendorStyles': 'Vendor', 'nav.browseOfficialTemplates': 'Official', 'nav.sectionStructure': 'Structure', 'nav.sectionStyle': 'Style', 'nav.sectionAssistTools': 'Tools', 'nav.materialCombination': 'Materials', 'nav.printAsset': 'Print', 'nav.promoCamera': 'Promo cam', 'nav.remake': 'Direction', 'nav.remakeSection': 'Design direction', 'nav.remakeHome': 'Direction home', 'nav.remakeAnalysis': 'Intent analysis', 'nav.remakeDesign': 'Intent analysis', 'nav.remakeMyDesigns': 'My directions', 'nav.remakeGallery': 'Gallery', 'nav.subscriptionPlans': 'Plans', 'nav.login': 'Log in', 'nav.myFeatures': 'My menu', 'nav.myFeaturesTitle': 'Workspace', 'nav.accountInfo': 'Account', 'nav.dropdownRoles': 'One account', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownCustomClient': 'Custom client', 'nav.dropdownVendor': 'Custom vendor', 'nav.dropdownWork': 'Work', 'nav.customizerSection': '① Design', 'nav.manufacturerSection': '② Manufacturer', 'nav.supplierSection': '③ Supplier', 'nav.mfrUpstreamSection': 'Upstream (B)', 'nav.mfrBrowseUpstream': 'Browse suppliers', 'nav.mfrMyImports': 'My imports', 'nav.mySupplierPublicPage': 'My supplier page', 'nav.supplierManufacturerRefs': 'Mfr references', 'nav.supplierCatalogManage': 'Publish catalog', 'nav.myVendorPublicPage': 'My vendor page', 'nav.supplierPortal': 'Supplier guide', 'nav.supplierDashboard': 'Supplier dashboard', 'nav.industrySuppliersList': 'Industry suppliers', 'nav.mySupplierReferences': 'References', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.designSection': 'Design / vendors', 'nav.vendorSection': 'Manufacturer', 'nav.customHome': 'Custom home', 'nav.createProduct': 'New product', 'nav.myCustomProducts': 'Digital assets', 'nav.galleryFindVendor': 'Gallery', 'nav.createVendor': 'Create vendor', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'Portfolio', 'nav.vendorBaseModels': 'Base models', 'nav.vendorInquiries': 'Inquiries', 'nav.vendorContact': 'Contact info', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'Messages', 'nav.makerSection': 'Makers', 'nav.demands': 'Demands', 'nav.expertSection': 'Expert', 'nav.expertDashboard': 'Expert dashboard', 'nav.myListings': 'My listings', 'nav.matchedProjects': 'Matched', 'nav.browseProjects': 'Browse projects', 'nav.myPortfolio': 'Portfolio', 'nav.clientSection': 'Client', 'nav.clientDashboard': 'Dashboard', 'nav.myProjects': 'My projects', 'nav.myCredits': 'Credits', 'nav.accountSettings': 'Account', 'nav.loading': 'Loading…', 'nav.settings': 'Settings', 'nav.contactSettings': 'Contact', 'nav.adminSection': 'Admin', 'nav.testerSection': 'Tester', 'nav.aiTools': 'AI tools', 'nav.paymentSettings': 'Payments', 'nav.officialTemplateLibrary': 'Official library', 'nav.userManagement': 'Users', 'nav.categoryManagement': 'Categories', 'nav.categoryImages': 'Category images', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI upscale', 'nav.aiEditArea': 'AI edit area', 'nav.pointsUnit': 'pts', 'nav.back': 'Back' };
     var navFallback = (navLang === 'en') ? navFallbackEn : navFallbackZh;
     var t = function (k) { var v = rawT(k); return (v && v !== k) ? v : (navFallback[k] || k); };
     var showLangSwitch = path.indexOf('/admin/') === -1;
@@ -524,7 +553,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
             <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5 ${user ? 'd-lg-none' : ''}">
                 <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
             </a>
-            ${user ? `<div id="navPointsMobile" class="d-lg-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> 點</a></div>` : ''}
+            ${user ? `<div id="navPointsMobile" class="d-lg-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> ` + t('nav.pointsUnit') + `</a></div>` : ''}
             <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -604,15 +633,15 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>` + t('nav.contactSettings') + `</a></li>
                                 ${isTesterOrAdmin ? `
                                 <li><hr class="dropdown-divider"></li>
-                                <li class="dropdown-header"><i class="bi bi-shield-lock me-2"></i>` + (isAdmin ? t('nav.adminSection') : '測試員功能') + `</li>
+                                <li class="dropdown-header"><i class="bi bi-shield-lock me-2"></i>` + (isAdmin ? t('nav.adminSection') : t('nav.testerSection')) + `</li>
                                 <li><a class="dropdown-item" href="/admin/playground.html"><i class="bi bi-brush me-2"></i>Playground</a></li>
-                                <li><a class="dropdown-item" href="/admin/ai-tools.html"><i class="bi bi-magic me-2"></i>AI 工具</a></li>
+                                <li><a class="dropdown-item" href="/admin/ai-tools.html"><i class="bi bi-magic me-2"></i>` + t('nav.aiTools') + `</a></li>
                                 ` + (isAdmin ? `
                                 <li><a class="dropdown-item" href="/admin/user-management.html"><i class="bi bi-people me-2"></i>` + t('nav.userManagement') + `</a></li>
-                                <li><a class="dropdown-item" href="/admin/payment-settings.html"><i class="bi bi-currency-exchange me-2"></i>金流設定</a></li>
+                                <li><a class="dropdown-item" href="/admin/payment-settings.html"><i class="bi bi-currency-exchange me-2"></i>` + t('nav.paymentSettings') + `</a></li>
                                 <li><a class="dropdown-item" href="/admin/categories.html"><i class="bi bi-tag me-2"></i>` + t('nav.categoryManagement') + `</a></li>
                                 <li><a class="dropdown-item" href="/admin/category-images.html"><i class="bi bi-images me-2"></i>` + t('nav.categoryImages') + `</a></li>
-                                <li><a class="dropdown-item" href="/client/manufacturer-materials.html?official_platform=1&manage=1"><i class="bi bi-collection me-2"></i>官方版型庫</a></li>
+                                <li><a class="dropdown-item" href="/client/manufacturer-materials.html?official_platform=1&manage=1"><i class="bi bi-collection me-2"></i>` + t('nav.officialTemplateLibrary') + `</a></li>
                                 ` : '') + `
                                 ` : ''}
                                 <li><hr class="dropdown-divider"></li>
@@ -638,7 +667,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>` + (t('nav.myCredits') || '我的點數') + `</a></li>
                                 <li><a class="dropdown-item" href="/promo-camera"><i class="bi bi-camera me-2"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a></li>
                                 <li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>` + t('nav.contactSettings') + `</a></li>
-                                ${isTesterOrAdmin ? '<li><a class="dropdown-item" href="/admin/playground.html"><i class="bi bi-brush me-2"></i>Playground</a></li><li><a class="dropdown-item" href="/admin/ai-tools.html"><i class="bi bi-magic me-2"></i>AI 工具</a></li>' + (isAdmin ? '<li><a class="dropdown-item" href="/admin/user-management.html"><i class="bi bi-people me-2"></i>' + t('nav.userManagement') + '</a></li><li><a class="dropdown-item" href="/admin/payment-settings.html"><i class="bi bi-currency-exchange me-2"></i>金流設定</a></li><li><a class="dropdown-item" href="/admin/categories.html"><i class="bi bi-tag me-2"></i>' + t('nav.categoryManagement') + '</a></li><li><a class="dropdown-item" href="/admin/category-images.html"><i class="bi bi-images me-2"></i>' + t('nav.categoryImages') + '</a></li><li><a class="dropdown-item" href="/client/manufacturer-materials.html?official_platform=1&manage=1"><i class="bi bi-collection me-2"></i>官方版型庫</a></li>' : '') : ''}
+                                ${isTesterOrAdmin ? '<li><a class="dropdown-item" href="/admin/playground.html"><i class="bi bi-brush me-2"></i>Playground</a></li><li><a class="dropdown-item" href="/admin/ai-tools.html"><i class="bi bi-magic me-2"></i>' + t('nav.aiTools') + '</a></li>' + (isAdmin ? '<li><a class="dropdown-item" href="/admin/user-management.html"><i class="bi bi-people me-2"></i>' + t('nav.userManagement') + '</a></li><li><a class="dropdown-item" href="/admin/payment-settings.html"><i class="bi bi-currency-exchange me-2"></i>' + t('nav.paymentSettings') + '</a></li><li><a class="dropdown-item" href="/admin/categories.html"><i class="bi bi-tag me-2"></i>' + t('nav.categoryManagement') + '</a></li><li><a class="dropdown-item" href="/admin/category-images.html"><i class="bi bi-images me-2"></i>' + t('nav.categoryImages') + '</a></li><li><a class="dropdown-item" href="/client/manufacturer-materials.html?official_platform=1&manage=1"><i class="bi bi-collection me-2"></i>' + t('nav.officialTemplateLibrary') + '</a></li>' : '') : ''}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>` + t('nav.logout') + `</a></li>
                             </ul>
@@ -648,13 +677,13 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                     `}
                 </div>
             </div>
-            ${user ? `<div class="nav-second-row-wrap d-none d-lg-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits') || '我的點數'}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> 點</a></div></div>` : ''}
+            ${user ? `<div class="nav-second-row-wrap d-none d-lg-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits')}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> ` + t('nav.pointsUnit') + `</a></div></div>` : ''}
         </nav>
         <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true">
             <div class="nav-mobile-drawer-backdrop"></div>
             <div class="nav-mobile-drawer-panel">
                 <div class="nav-mobile-drawer-header">
-                    <button type="button" class="nav-mobile-drawer-back" aria-label="返回">&#8592; 返回</button>
+                    <button type="button" class="nav-mobile-drawer-back" aria-label="` + t('nav.back') + `">&#8592; ` + t('nav.back') + `</button>
                     <span class="nav-mobile-drawer-title"></span>
                 </div>
                 <div class="nav-mobile-drawer-body"></div>

@@ -6120,6 +6120,11 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
         const base = origin || BASE_URL || 'https://matchdo.cc';
         const categoryKey = String((req.query && req.query.category_key) || '').trim();
         const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const { resolvePublicLang } = require('./lib/public-lang');
+        const lang = resolvePublicLang({
+            queryLang: req.query && req.query.lang,
+            acceptLanguage: req.get('accept-language')
+        });
         const catalog = await listOfficialPublicCatalogForPage({
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
@@ -6134,7 +6139,8 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
             categoryKey,
             subcategoryKey,
             total: catalog.total != null ? catalog.total : (catalog.items || []).length,
-            proxyImage: proxyPublicImageUrl
+            proxyImage: proxyPublicImageUrl,
+            lang
         });
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=120');
@@ -6152,6 +6158,11 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
         const base = origin || BASE_URL || 'https://matchdo.cc';
         const categoryKey = String((req.query && req.query.category_key) || '').trim();
         const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const { resolvePublicLang } = require('./lib/public-lang');
+        const lang = resolvePublicLang({
+            queryLang: req.query && req.query.lang,
+            acceptLanguage: req.get('accept-language')
+        });
         const catalog = await listVendorPublicCatalogForPage({
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
@@ -6166,7 +6177,8 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
             categoryKey,
             subcategoryKey,
             total: catalog.total != null ? catalog.total : (catalog.items || []).length,
-            proxyImage: proxyPublicImageUrl
+            proxyImage: proxyPublicImageUrl,
+            lang
         });
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=120');
@@ -6860,14 +6872,22 @@ async function listOfficialPublicCatalogForPage(opts) {
     const mfrIds = await listOfficialPlatformManufacturerIds();
     let categories = [];
     try {
-        const { data: catRows } = await supabase
+        let { data: catRows, error: catErr } = await supabase
             .from('custom_product_categories')
-            .select('key, name, sort_order')
+            .select('key, name, name_en, sort_order')
             .eq('is_active', true)
             .order('sort_order', { ascending: true });
+        if (catErr && catErr.code === '42703') {
+            ({ data: catRows } = await supabase
+                .from('custom_product_categories')
+                .select('key, name, sort_order')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true }));
+        }
         categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
             key: c.key,
-            name: c.name || c.key
+            name: c.name || c.key,
+            name_en: c.name_en || ''
         }));
     } catch (_) { categories = []; }
     if (!mfrIds.length) return { items: [], total: 0, categories };
@@ -6941,14 +6961,22 @@ async function listVendorPublicCatalogForPage(opts) {
     const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
     let categories = [];
     try {
-        const { data: catRows } = await supabase
+        let { data: catRows, error: catErr } = await supabase
             .from('custom_product_categories')
-            .select('key, name, sort_order')
+            .select('key, name, name_en, sort_order')
             .eq('is_active', true)
             .order('sort_order', { ascending: true });
+        if (catErr && catErr.code === '42703') {
+            ({ data: catRows } = await supabase
+                .from('custom_product_categories')
+                .select('key, name, sort_order')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true }));
+        }
         categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
             key: c.key,
-            name: c.name || c.key
+            name: c.name || c.key,
+            name_en: c.name_en || ''
         }));
     } catch (_) { categories = []; }
     const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));

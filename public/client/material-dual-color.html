@@ -2,10 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>材料組合 Material Combination - MatchDO 合做</title>
+    <title>材料組合 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="index, follow">
-    <meta name="description" content="雙色材料組合：上傳主色與配色色卡，輔助快速產出材質樣張，可存入數位資產並用於設計稿。">
+    <meta name="description" content="雙色材料組合：上傳主色與配色色卡，輔助快速產出材質樣張，可存入數位資產並用於設計稿。" data-i18n-meta-desc="materialCombo.metaDesc">
+    <meta name="matchdo-i18n-doc-title" data-i18n-doc-title="materialCombo.docTitle">
     <link rel="canonical" href="https://matchdo.cc/client/material-dual-color.html">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -85,7 +86,7 @@
             <div class="design-workspace-head">
                 <div class="design-workspace-head-main">
                     <h1 class="design-workspace-title" data-i18n="materialCombo.pageTitle">材料組合</h1>
-                    <p class="design-workspace-sub" data-i18n="materialCombo.pageTitleEn">Material Combination</p>
+                    <p class="design-workspace-sub" data-i18n="materialCombo.pageSub">雙色／三色材料組合，快速產出材質樣張</p>
                 </div>
                 <div class="design-workspace-head-actions">
                     <a href="#" class="btn btn-sm btn-outline-secondary" id="mdc-back-link"><i class="bi bi-arrow-left me-1"></i><span data-i18n="materialCombo.backMaterials">返回材料/顏色</span></a>
@@ -96,14 +97,14 @@
                 <div data-design-workspace-tabs data-active-tool="material-combo"></div>
                 <div class="design-workspace-body">
         <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="materialCombo.authPrefix">請先</span> <a href="/index.html" class="alert-link" data-i18n="credits.loginRequiredLink">登入</a><span data-i18n="materialCombo.authSuffix">。</span></div>
-        <div id="no-mfr-alert" class="alert alert-warning d-none">您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台</a></div>
+        <div id="no-mfr-alert" class="alert alert-warning d-none"><span data-i18n="materialCombo.noMfrText">您尚未建立廠商資料。</span><a href="/client/manufacturer-dashboard.html" class="alert-link" data-i18n="materialCombo.noMfrLink">前往控制台</a></div>
         <div id="admin-official-hint" class="alert alert-info d-none">
-            <i class="bi bi-info-circle me-2"></i>管理員編輯<strong>官方版型</strong>請從
+            <i class="bi bi-info-circle me-2"></i><span data-i18n-html="materialCombo.adminOfficialHintHtml">管理員編輯<strong>官方版型</strong>請從
             <a href="/client/manufacturer-materials.html?official_platform=1&manage=1" class="alert-link">官方版型庫</a>
-            進入「材料/顏色」→「材料組合」（需帶 <code>official_platform=1</code>，勿用個人廠商入口）。
+            進入「材料/顏色」→「材料組合」（需帶 <code>official_platform=1</code>，勿用個人廠商入口）。</span>
         </div>
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
-            <i class="bi bi-collection me-2"></i><strong>官方版型庫（管理員）</strong> — 材料組合結果寫入 MATCHDO 官方版型材料庫。
+            <i class="bi bi-collection me-2"></i><strong data-i18n="materialCombo.officialBannerTitle">官方版型庫（管理員）</strong> — <span data-i18n="materialCombo.officialBannerText">材料組合結果寫入 MATCHDO 官方版型材料庫。</span>
         </div>
         <div id="upload-block-alert" class="alert alert-warning d-none"></div>
 
@@ -113,14 +114,14 @@
                     <span data-i18n="materialCombo.stepColors">選色</span>
                     <div class="btn-group btn-group-sm" role="group" aria-label="色數">
                         <input type="radio" class="btn-check" name="mdc-color-count" id="mdc-count-2" value="2" checked>
-                        <label class="btn btn-outline-secondary" for="mdc-count-2">雙色</label>
+                        <label class="btn btn-outline-secondary" for="mdc-count-2" data-i18n="materialCombo.colorCount2">雙色</label>
                         <input type="radio" class="btn-check" name="mdc-color-count" id="mdc-count-3" value="3">
-                        <label class="btn btn-outline-secondary" for="mdc-count-3">三色</label>
+                        <label class="btn btn-outline-secondary" for="mdc-count-3" data-i18n="materialCombo.colorCount3">三色</label>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="mb-3" id="mdc-dual-ratio-wrap">
-                        <span class="small text-muted me-2">雙色比重</span>
+                        <span class="small text-muted me-2" data-i18n="materialCombo.dualRatioLabel">雙色比重</span>
                         <div class="btn-group btn-group-sm" role="group" aria-label="雙色比重">
                             <input type="radio" class="btn-check" name="mdc-dual-ratio" id="mdc-dual-75" value="dual_75_25" checked>
                             <label class="btn btn-outline-secondary" for="mdc-dual-75">75 / 25</label>
@@ -131,21 +132,21 @@
                     <div class="mb-3 d-none" id="mdc-tri-ratio-wrap">
                         <div class="d-flex flex-wrap align-items-end gap-2 mb-1">
                             <div>
-                                <label class="form-label small mb-0" for="mdc-pct-main">主色 %</label>
+                                <label class="form-label small mb-0" for="mdc-pct-main" data-i18n="materialCombo.pctMain">主色 %</label>
                                 <input type="number" class="form-control form-control-sm" id="mdc-pct-main" min="1" max="98" value="50" style="width:4.5rem">
                             </div>
                             <div>
-                                <label class="form-label small mb-0" for="mdc-pct-accent">配色 %</label>
+                                <label class="form-label small mb-0" for="mdc-pct-accent" data-i18n="materialCombo.pctAccent">配色 %</label>
                                 <input type="number" class="form-control form-control-sm" id="mdc-pct-accent" min="1" max="98" value="30" style="width:4.5rem">
                             </div>
                             <div>
-                                <label class="form-label small mb-0" for="mdc-pct-third">輔色 %</label>
+                                <label class="form-label small mb-0" for="mdc-pct-third" data-i18n="materialCombo.pctThird">輔色 %</label>
                                 <input type="number" class="form-control form-control-sm" id="mdc-pct-third" min="1" max="98" value="20" style="width:4.5rem">
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-pct-equalize">均分</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-pct-equalize" data-i18n="materialCombo.pctEqualize">均分</button>
                             <span class="small" id="mdc-pct-sum">合計 100%</span>
                         </div>
-                        <p class="small text-muted mb-0" id="mdc-pct-hint">三色比重合計須為 100%；色卡依比例重畫。</p>
+                        <p class="small text-muted mb-0" id="mdc-pct-hint" data-i18n="materialCombo.pctHint">三色比重合計須為 100%；色卡依比例重畫。</p>
                     </div>
                     <div class="row g-3 align-items-end mb-3">
                         <div class="col-md-4">
@@ -171,7 +172,7 @@
                         </div>
                         <div class="col-12 col-md-auto ms-md-auto">
                             <button type="button" class="btn btn-outline-primary btn-sm" id="mdc-open-palette-btn" title="官方／我的配色範例">
-                                <i class="bi bi-palette2 me-1"></i>配色範例
+                                <i class="bi bi-palette2 me-1"></i><span data-i18n="materialCombo.paletteBtn">配色範例</span>
                             </button>
                         </div>
                     </div>
@@ -185,7 +186,7 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepGenerate">材質生成</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3" id="mdc-print-one-hint">印花只能擇一區使用。</p>
+                    <p class="small text-muted mb-3" id="mdc-print-one-hint" data-i18n="materialCombo.printOneZoneHint">印花只能擇一區使用。</p>
                     <div class="row g-3">
                         <div class="col-md-6" id="mdc-main-mat-col">
                             <label class="form-label small mb-1" data-i18n="materialCombo.mainMaterialLabel">主色區材質</label>
@@ -214,12 +215,12 @@
                             </div>
                         </div>
                         <div class="col-md-6 d-none" id="mdc-third-mat-col">
-                            <label class="form-label small mb-1">輔色區材質</label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-third-material" placeholder="例：麂皮" maxlength="64">
+                            <label class="form-label small mb-1" data-i18n="materialCombo.thirdMaterialLabel">輔色區材質</label>
+                            <input type="text" class="form-control form-control-sm" id="mdc-third-material" data-i18n-placeholder="materialCombo.thirdMaterialPh" placeholder="例：麂皮" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-pick-print"><i class="bi bi-flower1 me-1"></i>輔色區印花</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-upload-print"><i class="bi bi-upload me-1"></i>上傳</button>
-                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-third-clear-print">清除</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.thirdPrintBtn">輔色區印花</span></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-upload-print"><i class="bi bi-upload me-1"></i><span data-i18n="materialCombo.upload">上傳</span></button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-third-clear-print" data-i18n="materialCombo.clear">清除</button>
                             </div>
                             <input type="file" id="mdc-third-pattern-file" class="d-none" accept="image/jpeg,image/png,image/webp,image/*">
                             <div class="mdc-pattern-preview d-none" id="mdc-third-pattern-wrap">
@@ -228,8 +229,8 @@
                         </div>
                         <div class="col-12 d-none" id="mdc-mat-presets-wrap">
                             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                <span class="small text-muted">常用材質（先點欄位，再點選填入）</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-mat-preset-save" style="font-size:0.8125rem">存目前欄位</button>
+                                <span class="small text-muted" data-i18n="materialCombo.matPresetsLabel">常用材質（先點欄位，再點選填入）</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-mat-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.matPresetSave">存目前欄位</button>
                             </div>
                             <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-mat-presets-chips"></div>
                             <div class="small text-muted mt-1 d-none" id="mdc-mat-preset-hint"></div>
@@ -245,8 +246,8 @@
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" data-i18n-placeholder="materialCombo.boundaryPh" placeholder="例：同色明線車縫" maxlength="64">
                             <div class="d-none mt-2" id="mdc-boundary-presets-wrap">
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                    <span class="small text-muted">常用分界處（先點欄位，再點選填入）</span>
-                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-boundary-preset-save" style="font-size:0.8125rem">存目前欄位</button>
+                                    <span class="small text-muted" data-i18n="materialCombo.boundaryPresetsLabel">常用分界處（先點欄位，再點選填入）</span>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-boundary-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.boundaryPresetSave">存目前欄位</button>
                                 </div>
                                 <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-boundary-presets-chips"></div>
                                 <div class="small text-muted mt-1 d-none" id="mdc-boundary-preset-hint"></div>
@@ -286,33 +287,33 @@
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h6 class="modal-title" id="mdcPaletteLabel">配色範例</h6>
+                    <h6 class="modal-title" id="mdcPaletteLabel" data-i18n="materialCombo.pal.title">配色範例</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
                     <ul class="nav nav-tabs mb-2" id="mdcPalScopeTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button type="button" class="nav-link active" data-pal-scope="platform">官方</button>
+                            <button type="button" class="nav-link active" data-pal-scope="platform" data-i18n="materialCombo.pal.scopePlatform">官方</button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button type="button" class="nav-link" data-pal-scope="mine">我的</button>
+                            <button type="button" class="nav-link" data-pal-scope="mine" data-i18n="materialCombo.pal.scopeMine">我的</button>
                         </li>
                     </ul>
                     <div class="btn-group btn-group-sm mb-2" role="group" aria-label="色數篩選" id="mdcPalColorCountTabs">
-                        <button type="button" class="btn btn-outline-secondary active" data-pal-count="2">雙色</button>
-                        <button type="button" class="btn btn-outline-secondary" data-pal-count="3">三色</button>
+                        <button type="button" class="btn btn-outline-secondary active" data-pal-count="2" data-i18n="materialCombo.colorCount2">雙色</button>
+                        <button type="button" class="btn btn-outline-secondary" data-pal-count="3" data-i18n="materialCombo.colorCount3">三色</button>
                     </div>
                     <div id="mdcPalMineToolbar" class="d-none mb-2">
                         <div class="d-flex flex-wrap align-items-end gap-2">
                             <div class="flex-grow-1" style="min-width:12rem;max-width:22rem;">
-                                <label class="form-label small mb-0" for="mdcPalSaveNote">備註描述（選填）</label>
-                                <input type="text" class="form-control form-control-sm" id="mdcPalSaveNote" maxlength="200" placeholder="例：適合春夏、對比鮮明">
+                                <label class="form-label small mb-0" for="mdcPalSaveNote" data-i18n="materialCombo.pal.saveNoteLabel">備註描述（選填）</label>
+                                <input type="text" class="form-control form-control-sm" id="mdcPalSaveNote" maxlength="200" data-i18n-placeholder="materialCombo.pal.saveNotePh" placeholder="例：適合春夏、對比鮮明">
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-success" id="mdcPalSaveCurrent">
-                                <i class="bi bi-bookmark-plus me-1"></i>把目前配色存成我的
+                                <i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.pal.saveCurrent">把目前配色存成我的</span>
                             </button>
                         </div>
-                        <p class="mdc-pal-drag-hint mb-0 mt-1">同一類型內可拖曳左側把手調整排序。</p>
+                        <p class="mdc-pal-drag-hint mb-0 mt-1" data-i18n="materialCombo.pal.dragHint">同一類型內可拖曳左側把手調整排序。</p>
                     </div>
                     <ul class="nav nav-pills flex-wrap gap-1 mb-2" id="mdcPalTypeTabs" role="tablist"></ul>
                     <div class="table-responsive">
@@ -357,9 +358,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/i18n.js"></script>
-    <script src="/js/site-header.js"></script>
+    <script src="/js/site-header.js?v=20260807-i18n2"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
-    <script src="/js/material-color-palette-picker.js?v=20260806c"></script>
+    <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
     <script src="/js/material-preset-chips.js?v=20260807b"></script>
     <script>
     (function () {
@@ -375,10 +376,18 @@
             });
             return s;
         }
-        if (window.i18n && window.i18n.ready) {
-            window.i18n.ready.then(function () {
-                if (window.i18n.applyPage) window.i18n.applyPage();
-            });
+        function zoneLabel(zone) {
+            if (zone === 'main') return t('materialCombo.zoneMain', '主色區');
+            if (zone === 'accent') return t('materialCombo.zoneAccent', '配色區');
+            return t('materialCombo.zoneThird', '輔色區');
+        }
+        function updateAddPendingBtnLabel() {
+            if (!addPendingBtn) return;
+            if (returnTarget === 'design') {
+                addPendingBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>' + t('materialCombo.addDesignSlot', '加入設計材料槽');
+            } else if (returnTarget !== 'supplier') {
+                addPendingBtn.innerHTML = '<i class="bi bi-inbox me-1"></i>' + t('materialCombo.addPendingCombo', '加入材料組合待傳');
+            }
         }
         var Compose = window.MatchdoMaterialDualColorCompose;
         var returnTarget = window.__MATCHDO_MATERIAL_COMBO_RETURN || 'manufacturer';
@@ -482,11 +491,11 @@
                 return true;
             }
             if (checked.ok) {
-                pctSumEl.textContent = '合計 100%';
+                pctSumEl.textContent = t('materialCombo.pctSumOk', '合計 100%');
                 pctSumEl.className = 'small text-success';
                 return true;
             }
-            pctSumEl.textContent = checked.error || '比重無效';
+            pctSumEl.textContent = checked.error || t('materialCombo.pctInvalid', '比重無效');
             pctSumEl.className = 'small text-danger';
             return false;
         }
@@ -503,14 +512,14 @@
             var accentLab = document.getElementById('mdc-accent-color-label');
             var thirdLab = document.getElementById('mdc-third-color-label');
             if (tri) {
-                if (mainLab) mainLab.textContent = '主色（上方 ' + percents[0] + '%）';
-                if (accentLab) accentLab.textContent = '配色（中間 ' + percents[1] + '%）';
-                if (thirdLab) thirdLab.textContent = '輔色（下方 ' + percents[2] + '%）';
-                if (swatchHint) swatchHint.textContent = '三色色卡依自訂比重繪製。';
+                if (mainLab) mainLab.textContent = tf('materialCombo.mainColorTopPct', '主色（上方 {pct}%）', { pct: percents[0] });
+                if (accentLab) accentLab.textContent = tf('materialCombo.accentColorMidPct', '配色（中間 {pct}%）', { pct: percents[1] });
+                if (thirdLab) thirdLab.textContent = tf('materialCombo.thirdColorBottomPct', '輔色（下方 {pct}%）', { pct: percents[2] });
+                if (swatchHint) swatchHint.textContent = t('materialCombo.swatchHintTri', '三色色卡依自訂比重繪製。');
             } else {
-                if (mainLab) mainLab.textContent = '主色（上方 ' + percents[0] + '%）';
-                if (accentLab) accentLab.textContent = '配色（下方 ' + percents[1] + '%）';
-                if (swatchHint) swatchHint.textContent = '雙色色卡：' + percents[0] + '% / ' + percents[1] + '%。';
+                if (mainLab) mainLab.textContent = tf('materialCombo.mainColorTopPct', '主色（上方 {pct}%）', { pct: percents[0] });
+                if (accentLab) accentLab.textContent = tf('materialCombo.accentColorBottomPct', '配色（下方 {pct}%）', { pct: percents[1] });
+                if (swatchHint) swatchHint.textContent = tf('materialCombo.swatchHintDual', '雙色色卡：{main}% / {accent}%。', { main: percents[0], accent: percents[1] });
             }
             syncTriPctSum();
             refreshSwatch();
@@ -593,8 +602,7 @@
             zonePatterns[zone] = { url: url, file: null, objectUrl: null };
             ['main', 'accent', 'third'].forEach(renderZonePattern);
             if (statusEl) {
-                var label = zone === 'main' ? '主色區' : (zone === 'accent' ? '配色區' : '輔色區');
-                statusEl.textContent = '印花僅能一區：已套用至' + label + '（其他區若有圖樣已清除）';
+                statusEl.textContent = tf('materialCombo.printAppliedOneZone', '印花僅能一區：已套用至{zone}（其他區若有圖樣已清除）', { zone: zoneLabel(zone) });
                 statusEl.className = 'small mt-2 text-muted';
             }
         }
@@ -609,8 +617,7 @@
             zonePatterns[zone] = { url: null, file: file, objectUrl: objectUrl };
             ['main', 'accent', 'third'].forEach(renderZonePattern);
             if (statusEl) {
-                var label = zone === 'main' ? '主色區' : (zone === 'accent' ? '配色區' : '輔色區');
-                statusEl.textContent = '印花僅能一區：已套用至' + label + '（其他區若有圖樣已清除）';
+                statusEl.textContent = tf('materialCombo.printAppliedOneZone', '印花僅能一區：已套用至{zone}（其他區若有圖樣已清除）', { zone: zoneLabel(zone) });
                 statusEl.className = 'small mt-2 text-muted';
             }
         }
@@ -619,7 +626,7 @@
             printPickTarget = zone;
             loadScriptOnce('/js/digital-asset-picker.js?v=8').then(function () {
                 if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
-                    statusEl.textContent = '資產選擇器未載入，請重新整理頁面';
+                    statusEl.textContent = t('materialCombo.pickerNotLoaded', '資產選擇器未載入，請重新整理頁面');
                     statusEl.className = 'small mt-2 text-danger';
                     return;
                 }
@@ -646,7 +653,7 @@
                     modalEl.style.display = 'block';
                 }
             }).catch(function () {
-                statusEl.textContent = '資產選擇器未載入，請重新整理頁面';
+                statusEl.textContent = t('materialCombo.pickerNotLoaded', '資產選擇器未載入，請重新整理頁面');
                 statusEl.className = 'small mt-2 text-danger';
             });
         }
@@ -688,11 +695,7 @@
             return base;
         }
 
-        if (addPendingBtn && returnTarget === 'design') {
-            addPendingBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>加入設計材料槽';
-        } else if (addPendingBtn && returnTarget !== 'supplier') {
-            addPendingBtn.innerHTML = '<i class="bi bi-inbox me-1"></i>加入材料組合待傳';
-        }
+        updateAddPendingBtnLabel();
 
         if (backLink) backLink.href = materialsReturnHref();
 
@@ -809,8 +812,10 @@
                 chipsEl: document.getElementById('mdc-mat-presets-chips'),
                 saveBtn: document.getElementById('mdc-mat-preset-save'),
                 hintEl: document.getElementById('mdc-mat-preset-hint'),
-                hintFocus: '請先點一下要填入的材質欄位',
-                hintEmpty: '欄位是空的，無法存為常用'
+                hintFocus: t('materialCombo.presetHintFocusMaterial', '請先點一下要填入的材質欄位'),
+                hintEmpty: t('materialCombo.presetHintEmptyMaterial', '欄位是空的，無法存為常用'),
+                fillTitle: t('materialCombo.presetFillField', '填入欄位'),
+                removeTitle: t('materialCombo.presetRemove', '移除')
             });
             MaterialPresetChips.init({
                 kind: 'boundary',
@@ -820,8 +825,10 @@
                 chipsEl: document.getElementById('mdc-boundary-presets-chips'),
                 saveBtn: document.getElementById('mdc-boundary-preset-save'),
                 hintEl: document.getElementById('mdc-boundary-preset-hint'),
-                hintFocus: '請先點一下分界處欄位',
-                hintEmpty: '分界處是空的，無法存為常用'
+                hintFocus: t('materialCombo.presetHintFocusBoundary', '請先點一下分界處欄位'),
+                hintEmpty: t('materialCombo.presetHintEmptyBoundary', '分界處是空的，無法存為常用'),
+                fillTitle: t('materialCombo.presetFillField', '填入欄位'),
+                removeTitle: t('materialCombo.presetRemove', '移除')
             });
         }
 
@@ -856,13 +863,13 @@
             if (isOfficial) {
                 if (!isAdmin) {
                     document.getElementById('auth-alert').classList.remove('d-none');
-                    document.getElementById('auth-alert').innerHTML = '請以<strong>管理員</strong>帳號登入後再使用官方版型材料組合。請先 <a href="/index.html" class="alert-link">登入</a>。';
+                    document.getElementById('auth-alert').innerHTML = t('materialCombo.adminAuthHtml', '請以<strong>管理員</strong>帳號登入後再使用官方版型材料組合。請先 <a href="/index.html" class="alert-link">登入</a>。');
                     return;
                 }
                 var offBanner = document.getElementById('official-platform-banner');
                 if (offBanner) offBanner.classList.remove('d-none');
                 var titleH4 = document.querySelector('.page-title-bar h4');
-                if (titleH4) titleH4.innerHTML = t('materialCombo.pageTitle', '材料組合') + ' <span class="text-muted fw-normal fs-6">' + t('materialCombo.pageTitleEn', 'Material Combination') + '</span> <span class="badge bg-secondary ms-1">' + t('materialCombo.officialLibraryBadge', '官方版型庫') + '</span>';
+                if (titleH4) titleH4.innerHTML = t('materialCombo.pageTitle', '材料組合') + ' <span class="text-muted fw-normal fs-6">' + t('materialCombo.pageSub', '') + '</span> <span class="badge bg-secondary ms-1">' + t('materialCombo.officialLibraryBadge', '官方版型庫') + '</span>';
             }
 
             if (returnTarget === 'supplier') {
@@ -870,7 +877,7 @@
                 var supCapData = await supCap.json().catch(function () { return {}; });
                 if (!supCap.ok || !supCapData.industry_supplier_id) {
                     document.getElementById('no-mfr-alert').classList.remove('d-none');
-                    document.getElementById('no-mfr-alert').innerHTML = '您尚未綁定產業供應商。<a href="/client/industry-supplier-dashboard.html" class="alert-link">前往供應商控制台</a>';
+                    document.getElementById('no-mfr-alert').innerHTML = t('materialCombo.noSupplierText', '您尚未綁定產業供應商。') + ' <a href="/client/industry-supplier-dashboard.html" class="alert-link">' + t('materialCombo.noSupplierLink', '前往供應商控制台') + '</a>';
                     loadPricing();
                     return;
                 }
@@ -889,11 +896,11 @@
             canUploadAssets = cap.can_upload_products_and_assets !== false || isOfficial || isAdmin;
             if (returnTarget === 'manufacturer' && !hasManufacturer && !isOfficial && !isAdmin) {
                 var pendingHint = document.getElementById('upload-block-alert');
-                pendingHint.textContent = '尚無廠商資料，仍可生成材質圖；若要加入材料待傳清單請先建立廠商資料。';
+                pendingHint.textContent = t('materialCombo.pendingNoMfr', '尚無廠商資料，仍可生成材質圖；若要加入材料待傳清單請先建立廠商資料。');
                 pendingHint.classList.remove('d-none');
             } else if (returnTarget === 'manufacturer' && !canUploadAssets && !isOfficial && !isAdmin) {
                 var uploadHint = document.getElementById('upload-block-alert');
-                uploadHint.textContent = '仍可生成材質圖；加入材料待傳清單需付費方案。';
+                uploadHint.textContent = t('materialCombo.pendingNeedPlan', '仍可生成材質圖；加入材料待傳清單需付費方案。');
                 uploadHint.classList.remove('d-none');
             }
             loadPricing();
@@ -1135,7 +1142,7 @@
                         boundary: (boundary.value || '').trim(),
                         mainHex: mainHex.value,
                         accentHex: accentHex.value,
-                        label: (main && accent) ? (main + '／' + accent) : '材料組合',
+                        label: (main && accent) ? (main + '／' + accent) : t('materialCombo.defaultLabel', '材料組合'),
                         redrawChargedPts: lastFluxResponse.points_deducted || 0,
                         previewCreditTxId: lastFluxResponse.credit_transaction_id || null,
                         redrawPreviewStorageUrl: lastFluxResponse.preview_url || ''
@@ -1151,6 +1158,17 @@
 
         paintUiNow();
         initAuth();
+        function bootMaterialComboI18n() {
+            if (!window.i18n || !window.i18n.ready) return;
+            window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+                syncModeUi();
+                updateAddPendingBtnLabel();
+                if (pointsLabel) pointsLabel.textContent = tf('materialCombo.pointsCharged', '成功後扣 {n} 點', { n: pointsFlux });
+                document.documentElement.lang = window.i18n.getLang() === 'en' ? 'en' : 'zh-TW';
+            }).catch(function () {});
+        }
+        bootMaterialComboI18n();
     })();
     </script>
 </body>

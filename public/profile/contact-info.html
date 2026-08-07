@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>聯絡資訊設定 - MatchDO 合做</title>
+    <title data-i18n="profile.contactTitle">聯絡資訊設定 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="../img/favicon.ico" rel="icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,11 +22,11 @@
     <div class="container-fluid page-title-bar">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
-                <h3 class="mb-0 text-dark">聯絡資訊設定</h3>
+                <h3 class="mb-0 text-dark" data-i18n="profile.contactTitle">聯絡資訊設定</h3>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
-                        <li class="breadcrumb-item active">聯絡資訊</li>
+                        <li class="breadcrumb-item"><a href="/index.html" data-i18n="profile.breadcrumbHome">首頁</a></li>
+                        <li class="breadcrumb-item active" data-i18n="profile.breadcrumbContact">聯絡資訊</li>
                     </ol>
                 </nav>
             </div>
@@ -39,27 +39,27 @@
                 <div class="col-lg-10">
                     <!-- 說明區塊 -->
                     <div class="alert alert-info mb-3">
-                        <h5><i class="fas fa-info-circle me-2"></i>聯絡資訊說明</h5>
+                        <h5><i class="fas fa-info-circle me-2"></i><span data-i18n="profile.privacyTitle">聯絡資訊說明</span></h5>
                         <ul class="mb-0">
-                            <li>勾選「公開顯示」的欄位，會在您的廠商頁面上對所有訪客顯示</li>
-                            <li>官網、Email 及社群帳號建議公開，有助於客戶直接聯繫</li>
-                            <li>您可以隨時調整哪些資訊要公開、哪些要隱藏</li>
+                            <li data-i18n="profile.privacyItem2">勾選「公開顯示」的欄位，會在您的廠商頁面上對所有訪客顯示</li>
+                            <li data-i18n="profile.privacyItem4">官網、Email 及社群帳號建議公開，有助於客戶直接聯繫</li>
+                            <li data-i18n="profile.privacyItem3">您可以隨時調整哪些資訊要公開、哪些要隱藏</li>
                         </ul>
                     </div>
 
                     <!-- 聯絡資訊表單 -->
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="fas fa-address-card me-2"></i>我的聯絡資訊</h5>
+                            <h5 class="mb-0"><i class="fas fa-address-card me-2"></i><span data-i18n="profile.myContact">我的聯絡資訊</span></h5>
                         </div>
                         <div class="card-body p-4">
                             <form id="contactInfoForm">
                                 <!-- 基本資訊 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-building me-2"></i>基本資訊</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-building me-2"></i><span data-i18n="profile.basicInfo">基本資訊</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
-                                        <label class="form-label">公司/工作室名稱</label>
-                                        <input type="text" class="form-control" id="companyName" placeholder="選填">
+                                        <label class="form-label" data-i18n="profile.companyName">公司/工作室名稱</label>
+                                        <input type="text" class="form-control" id="companyName" data-i18n-placeholder="profile.optional" placeholder="選填">
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label">服務地區 <small class="text-muted">（可複選）</small></label>
@@ -313,7 +313,16 @@
     <script src="../js/main.js"></script>
     <script src="/js/area-codes.js"></script>
     <script src="/js/i18n.js"></script>
-    <script src="../js/site-header.js"></script>
+    <script src="/js/site-header.js?v=20260807-i18n1"></script>
+    <script>
+    if (window.i18n && window.i18n.ready) {
+        window.i18n.ready.then(function () {
+            if (window.i18n.applyPage) window.i18n.applyPage();
+            var titleEl = document.querySelector('title[data-i18n]');
+            if (titleEl && window.i18n.t) document.title = window.i18n.t(titleEl.getAttribute('data-i18n')) || titleEl.textContent;
+        });
+    }
+    </script>
 
     <style>
         /* 基本地區標籤 */

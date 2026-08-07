@@ -10,6 +10,15 @@ $(document).ready(function () {
         var v = t(key);
         return (v && v !== key) ? v : (fallback || key);
     }
+    function tf(key, fallback, map) {
+        var s = tr(key, fallback);
+        if (map) {
+            Object.keys(map).forEach(function (k) {
+                s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(map[k]));
+            });
+        }
+        return s;
+    }
 
     var _pageModalInstances = {};
 
@@ -6986,10 +6995,13 @@ $(document).ready(function () {
             $wrap.append($chip);
         });
         if (urls.length) {
-            $hint.text('已選 ' + urls.length + ' 張（最多 ' + PROMO_IMAGE_MAX_REFS + '；第一張為主體，可再加入）');
+            $hint.text(tf('customProduct.promoImageSelectedCount', '已選 {count} 張（最多 {max}；第一張為主體，可再加入）', {
+                count: urls.length,
+                max: PROMO_IMAGE_MAX_REFS
+            }));
             $clear.removeClass('d-none');
         } else {
-            $hint.text('尚未選圖 — 可多次從數位資產加入');
+            $hint.text(t('customProduct.promoImageNoSelectionAdd') || '尚未選圖 — 可多次從數位資產加入');
             $clear.addClass('d-none');
         }
     }
@@ -7006,7 +7018,7 @@ $(document).ready(function () {
             return;
         }
         if (window.promoImageImageUrls.length >= PROMO_IMAGE_MAX_REFS) {
-            alert('最多選 ' + PROMO_IMAGE_MAX_REFS + ' 張參考圖');
+            alert(tf('customProduct.promoImageMaxRefs', '最多選 {max} 張參考圖', { max: PROMO_IMAGE_MAX_REFS }));
             return;
         }
         window.promoImageImageUrls.push(url);
@@ -7025,10 +7037,10 @@ $(document).ready(function () {
         var dims = getPromoImageDims();
         var hint = dims.w + '×' + dims.h;
         if (dims.mp && dims.mp < (parseInt($('#promoImageMpSelect').val(), 10) || 1)) {
-            hint += '（此比例最高約 ' + dims.mp + ' MP）';
+            hint += tf('customProduct.promoImageMpCapHint', '（此比例最高約 {mp} MP）', { mp: dims.mp });
         }
         $('#promoImageDimsHint').text(hint);
-        var fallback = '每張 20 點';
+        var fallback = t('customProduct.promoImagePointsPerRun', '每張 {points} 點').replace('{points}', '20');
         if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function' && promoImageOptionsData) {
             fallback = window.MatchdoPromoImage.formatPromoTabPricingHint(promoImageOptionsData);
         }
@@ -7036,8 +7048,8 @@ $(document).ready(function () {
         if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
             window.MatchdoPromoImage.pointsPreview().then(function (res) {
                 if (res && res.ok && res.data && res.data.points != null) {
-                    var note = res.data.is_subscriber_pricing ? '（訂閱價）' : '';
-                    $('#promoImagePointsDisplay').text('每張 ' + res.data.points + ' 點' + note);
+                    var note = res.data.is_subscriber_pricing ? (t('customProduct.promoImagePointsSubscriber') || '（訂閱價）') : '';
+                    $('#promoImagePointsDisplay').text(tf('customProduct.promoImagePointsPerRun', '每張 {points} 點', { points: res.data.points }) + note);
                 }
             }).catch(function () {});
         }
@@ -7053,8 +7065,9 @@ $(document).ready(function () {
             promoImageOptionsData = data;
             var pricingHintEl = document.getElementById('promoImagePricingHint');
             if (pricingHintEl && window.MatchdoPromoImage && typeof window.MatchdoPromoImage.formatPromoTabPricingHint === 'function') {
-                pricingHintEl.innerHTML = '把產品圖做成可當 DM、廣告、宣傳用的主視覺。' +
-                    window.MatchdoPromoImage.formatPromoTabPricingHint(data) + '；可多選參考圖（最多 8 張）。';
+                pricingHintEl.textContent = (t('customProduct.promoImageIntroPrefix') || '把產品圖做成可當 DM、廣告、宣傳用的主視覺。') +
+                    window.MatchdoPromoImage.formatPromoTabPricingHint(data) + '；' +
+                    (t('customProduct.promoImageIntroSuffix') || '可多選參考圖（最多 8 張）。');
             }
             var themes = data.themes || data.templates || [];
             var scenes = data.scenes || [];
@@ -7070,13 +7083,13 @@ $(document).ready(function () {
                 scenes,
                 'key',
                 'name',
-                '（不指定場景）'
+                t('customProduct.promoImageSceneNone') || '（不指定場景）'
             );
             if (typeof window.MatchdoPromoImage.fillPhotographySelect === 'function') {
                 window.MatchdoPromoImage.fillPhotographySelect(
                     document.getElementById('promoImagePhotoSelect'),
                     data.photography_sets || [],
-                    '（不追加）'
+                    t('customProduct.promoImagePhotoNone') || '（不追加）'
                 );
             } else {
                 window.MatchdoPromoImage.fillSelect(
@@ -7084,7 +7097,7 @@ $(document).ready(function () {
                     data.photography_sets || [],
                     'id',
                     'name',
-                    '（不追加）'
+                    t('customProduct.promoImagePhotoNone') || '（不追加）'
                 );
             }
             if (typeof window.MatchdoPromoImage.bindSelectHint === 'function') {
@@ -7108,7 +7121,7 @@ $(document).ready(function () {
                 $('#promoImageThemeHint').text(data.migration_hint);
             }
             if (!scenes.length && !data.slot_migration_hint) {
-                $('#promoImageEnvHint').text('尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
+                $('#promoImageEnvHint').text(t('customProduct.promoImageEnvAdminHint') || '尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
             }
             refreshPromoImagePointsDisplay();
         }).catch(function (err) {
@@ -7153,7 +7166,7 @@ $(document).ready(function () {
     $('#promoImageApplyBtn').on('click', function () {
         var urls = (window.promoImageImageUrls || []).slice();
         if (!urls.length) {
-            alert('請先從數位資產加入至少一張圖片');
+            alert(t('customProduct.promoImageSelectRequired') || '請先從數位資產加入至少一張圖片');
             return;
         }
         var $btn = $('#promoImageApplyBtn');
@@ -7185,7 +7198,7 @@ $(document).ready(function () {
             : null;
         if (!genFn) {
             $btn.prop('disabled', false);
-            $wrap.html('<p class="text-danger small mb-0">情境圖模組未載入</p>' + noteHtml);
+            $wrap.html('<p class="text-danger small mb-0">' + (t('customProduct.promoImageModuleMissing') || '情境圖模組未載入') + '</p>' + noteHtml);
             return;
         }
         genFn(payload).then(function (result) {
@@ -7196,7 +7209,7 @@ $(document).ready(function () {
                 return;
             }
             if (result.status === 402) {
-                $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
+                $wrap.html('<p class="text-danger small mb-0">' + (data.error || tf('customProduct.promoImageInsufficientPoints', '點數不足（需要 {n} 點）', { n: (data.required || 20) })) + '</p>' + noteHtml);
                 return;
             }
             if (data.success && (data.imageData || data.image_url)) {

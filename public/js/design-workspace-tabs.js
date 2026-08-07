@@ -83,7 +83,7 @@ function buildMobileToggleHtml(activeTool) {
     return (
         '<button type="button" class="cp-tab-mobile-toggle ' + groupCss + '" aria-expanded="false" aria-controls="cp-tab-strip-panel">' +
         '<span class="cp-tab-mobile-toggle-text">' +
-        '<span class="cp-tab-mobile-toggle-prefix">工作區</span>' +
+        '<span class="cp-tab-mobile-toggle-prefix" data-i18n="workspaceTab.prefix">工作區</span>' +
         '<span class="cp-tab-mobile-toggle-label">' + label + '</span>' +
         '</span>' +
         '<i class="bi bi-chevron-down cp-tab-mobile-toggle-icon" aria-hidden="true"></i>' +
@@ -176,7 +176,7 @@ function ensureMobileToggle(root) {
     if (!wrap.id) wrap.id = 'cp-tab-strip-panel';
     btn.innerHTML =
         '<span class="cp-tab-mobile-toggle-text">' +
-        '<span class="cp-tab-mobile-toggle-prefix">工作區</span>' +
+        '<span class="cp-tab-mobile-toggle-prefix" data-i18n="workspaceTab.prefix">工作區</span>' +
         '<span class="cp-tab-mobile-toggle-label">' + getActiveTabLabel(root) + '</span>' +
         '</span>' +
         '<i class="bi bi-chevron-down cp-tab-mobile-toggle-icon" aria-hidden="true"></i>';
@@ -236,9 +236,10 @@ function initDesignWorkspaceTabsMobile() {
             });
         });
     }
-    if (window.i18n && window.i18n.ready) {
+        if (window.i18n && window.i18n.ready) {
         window.i18n.ready.then(function () {
             document.querySelectorAll('.design-workspace-tabs').forEach(refreshMobileToggleLabel);
+            if (window.i18n.applyPage) window.i18n.applyPage();
         }).catch(function () {});
     }
 }

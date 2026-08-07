@@ -6,6 +6,15 @@
 (function (global) {
     'use strict';
 
+    function pt(key, fb, map) {
+        var s = (global.i18n && global.i18n.t) ? global.i18n.t(key) : key;
+        if (!s || s === key) s = fb || key;
+        if (map) Object.keys(map).forEach(function (k) {
+            s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(map[k]));
+        });
+        return s;
+    }
+
     function esc(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -30,7 +39,7 @@
         var percents = Array.isArray(it.ratio_percents) ? it.ratio_percents : null;
         if (percents && percents.length) return percents.join('/');
         if (it.ratio_preset === 'dual_50_50') return '50/50';
-        if (it.color_count === 3) return '三色';
+        if (it.color_count === 3) return pt('materialCombo.colorCount3', '三色');
         return '75/25';
     }
 
@@ -166,7 +175,7 @@
                 var label = (it.type_text && String(it.type_text).trim()) || '';
                 if (!map[key]) {
                     map[key] = true;
-                    order.push({ key: key, label: label || '未分類' });
+                    order.push({ key: key, label: label || pt('materialCombo.pal.uncategorized', '未分類') });
                 }
             });
             order.sort(function (a, b) {
@@ -236,12 +245,18 @@
             var rows = itemsForActiveType();
             var showMineActions = state.scope === 'mine';
             var showTertiary = state.colorCount === 3;
-            var countLabel = state.colorCount === 3 ? '三色' : '雙色';
+            var countLabel = state.colorCount === 3
+                ? pt('materialCombo.colorCount3', '三色')
+                : pt('materialCombo.colorCount2', '雙色');
             if (theadRow) {
-                theadRow.innerHTML = (showMineActions ? '<th style="width:2rem" title="拖曳排序"></th>' : '') +
-                    '<th>名稱</th><th>備註</th><th>主色</th><th>配色</th>' +
-                    (showTertiary ? '<th>輔色</th>' : '') +
-                    '<th>比重</th><th style="width:9rem">操作</th>';
+                theadRow.innerHTML = (showMineActions ? '<th style="width:2rem" title="' + esc(pt('materialCombo.pal.dragColTitle', '拖曳排序')) + '"></th>' : '') +
+                    '<th>' + esc(pt('materialCombo.pal.colName', '名稱')) + '</th>' +
+                    '<th>' + esc(pt('materialCombo.pal.colNote', '備註')) + '</th>' +
+                    '<th>' + esc(pt('materialCombo.pal.colMain', '主色')) + '</th>' +
+                    '<th>' + esc(pt('materialCombo.pal.colAccent', '配色')) + '</th>' +
+                    (showTertiary ? ('<th>' + esc(pt('materialCombo.pal.colThird', '輔色（三色）')) + '</th>') : '') +
+                    '<th>' + esc(pt('materialCombo.pal.colRatio', '比重')) + '</th>' +
+                    '<th style="width:9rem">' + esc(pt('materialCombo.pal.colActions', '操作')) + '</th>';
             }
             if (!rows.length) {
                 tableBody.innerHTML = '';
@@ -249,22 +264,22 @@
                     emptyEl.classList.remove('d-none');
                     if (!typeKeysForScope().length) {
                         emptyEl.textContent = state.scope === 'mine'
-                            ? ('尚無我的' + countLabel + '配色。可將目前選色存成我的。')
-                            : ('尚無官方' + countLabel + '配色。');
+                            ? pt('materialCombo.pal.emptyMine', '尚無我的{colorCount}配色。可將目前選色存成我的。', { colorCount: countLabel })
+                            : pt('materialCombo.pal.emptyPlatform', '尚無官方{colorCount}配色。', { colorCount: countLabel });
                     } else {
                         emptyEl.textContent = state.scope === 'mine'
-                            ? ('此類型尚無我的' + countLabel + '配色。')
-                            : ('此類型尚無官方' + countLabel + '配色。');
+                            ? pt('materialCombo.pal.emptyTypeMine', '此類型尚無我的{colorCount}配色。', { colorCount: countLabel })
+                            : pt('materialCombo.pal.emptyTypePlatform', '此類型尚無官方{colorCount}配色。', { colorCount: countLabel });
                     }
                 }
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
             tableBody.innerHTML = rows.map(function (it) {
-                var actions = '<button type="button" class="btn btn-sm btn-primary btn-pal-apply" data-id="' + esc(it.id) + '">套用</button>';
+                var actions = '<button type="button" class="btn btn-sm btn-primary btn-pal-apply" data-id="' + esc(it.id) + '">' + esc(pt('materialCombo.pal.apply', '套用')) + '</button>';
                 if (showMineActions) {
-                    actions += ' <button type="button" class="btn btn-sm btn-outline-secondary btn-pal-edit" data-id="' + esc(it.id) + '">編輯</button>' +
-                        ' <button type="button" class="btn btn-sm btn-outline-danger btn-pal-del" data-id="' + esc(it.id) + '">刪</button>';
+                    actions += ' <button type="button" class="btn btn-sm btn-outline-secondary btn-pal-edit" data-id="' + esc(it.id) + '">' + esc(pt('materialCombo.pal.edit', '編輯')) + '</button>' +
+                        ' <button type="button" class="btn btn-sm btn-outline-danger btn-pal-del" data-id="' + esc(it.id) + '">' + esc(pt('materialCombo.pal.del', '刪')) + '</button>';
                 }
                 var tertiaryCell = showTertiary
                     ? ('<td>' + (it.tertiary_hex ? swatchHtml(it.tertiary_hex) : '<span class="text-muted small">—</span>') + '</td>')
@@ -272,7 +287,7 @@
                 var note = (it.note && String(it.note).trim()) || '';
                 var dragCell = showMineActions
                     ? ('<td class="text-center align-middle">' +
-                        '<span class="mdc-pal-drag-handle" draggable="true" data-pal-id="' + esc(it.id) + '" title="拖曳調整類型內排序" aria-label="拖曳排序">⠿</span>' +
+                        '<span class="mdc-pal-drag-handle" draggable="true" data-pal-id="' + esc(it.id) + '" title="' + esc(pt('materialCombo.pal.dragTitle', '拖曳調整類型內排序')) + '" aria-label="' + esc(pt('materialCombo.pal.dragAria', '拖曳排序')) + '">⠿</span>' +
                         '</td>')
                     : '';
                 return '<tr data-pal-id="' + esc(it.id) + '">' +
@@ -305,12 +320,12 @@
                         body: JSON.stringify({ sort_order: sortOrder })
                     });
                     var j = await r.json().catch(function () { return {}; });
-                    if (!r.ok) throw new Error(j.error || '排序儲存失敗');
+                    if (!r.ok) throw new Error(j.error || pt('materialCombo.pal.sortFail', '排序儲存失敗'));
                     if (item) item.sort_order = sortOrder;
                 }
-                onStatus('已更新類型內排序', true);
+                onStatus(pt('materialCombo.pal.sortSaved', '已更新類型內排序'), true);
             } catch (err) {
-                onStatus(err.message || '排序儲存失敗', false);
+                onStatus(err.message || pt('materialCombo.pal.sortFail', '排序儲存失敗'), false);
                 await loadMine(true);
                 renderTypeTabs();
                 renderTable();
@@ -345,7 +360,7 @@
             var r = await fetch('/api/material-color-palettes/platform' + q, { headers: await getHeaders() });
             var j = await r.json().catch(function () { return {}; });
             if (!r.ok) {
-                onStatus(j.error || '載入官方配色失敗', false);
+                onStatus(j.error || pt('materialCombo.pal.loadPlatformFail', '載入官方配色失敗'), false);
                 state.platformTypes = [];
                 state.platformItems = [];
             } else {
@@ -360,7 +375,7 @@
             var r = await fetch('/api/me/material-color-palettes', { headers: await getHeaders() });
             var j = await r.json().catch(function () { return {}; });
             if (!r.ok) {
-                onStatus(j.error || '載入我的配色失敗', false);
+                onStatus(j.error || pt('materialCombo.pal.loadMineFail', '載入我的配色失敗'), false);
                 state.mineItems = [];
             } else {
                 state.mineItems = j.items || [];
@@ -464,12 +479,12 @@
                     var it = findItem(applyBtn.getAttribute('data-id'));
                     if (!it) return;
                     applyItem(it);
-                    onStatus('已套用「' + (it.name || '') + '」', true);
+                    onStatus(pt('materialCombo.pal.applied', '已套用「{name}」', { name: it.name || '' }), true);
                     if (modal) modal.hide();
                     return;
                 }
                 if (delBtn) {
-                    if (!confirm('確定刪除此配色？')) return;
+                    if (!confirm(pt('materialCombo.pal.confirmDelete', '確定刪除此配色？'))) return;
                     var id = delBtn.getAttribute('data-id');
                     var headers = await getHeaders();
                     headers['Content-Type'] = 'application/json';
@@ -478,8 +493,8 @@
                         headers: headers
                     });
                     var j = await r.json().catch(function () { return {}; });
-                    if (!r.ok) return onStatus(j.error || '刪除失敗', false);
-                    onStatus('已刪除', true);
+                    if (!r.ok) return onStatus(j.error || pt('materialCombo.pal.deleteFail', '刪除失敗'), false);
+                    onStatus(pt('materialCombo.pal.deleted', '已刪除'), true);
                     await loadMine(true);
                     renderTypeTabs();
                     renderTable();
@@ -488,13 +503,13 @@
                 if (editBtn) {
                     var item = findItem(editBtn.getAttribute('data-id'));
                     if (!item) return;
-                    var name = prompt('名稱', item.name || '');
+                    var name = prompt(pt('materialCombo.pal.promptName', '名稱'), item.name || '');
                     if (name == null) return;
                     name = String(name).trim();
-                    if (!name) return onStatus('名稱不可空白', false);
-                    var typeText = prompt('類型（可留空）', item.type_text || '');
+                    if (!name) return onStatus(pt('materialCombo.pal.nameRequired', '名稱不可空白'), false);
+                    var typeText = prompt(pt('materialCombo.pal.promptType', '類型（可留空）'), item.type_text || '');
                     if (typeText == null) return;
-                    var noteText = prompt('備註描述（可留空）', item.note || '');
+                    var noteText = prompt(pt('materialCombo.pal.promptNote', '備註描述（可留空）'), item.note || '');
                     if (noteText == null) return;
                     var headers2 = await getHeaders();
                     headers2['Content-Type'] = 'application/json';
@@ -515,8 +530,8 @@
                         })
                     });
                     var j2 = await r2.json().catch(function () { return {}; });
-                    if (!r2.ok) return onStatus(j2.error || '更新失敗', false);
-                    onStatus('已更新', true);
+                    if (!r2.ok) return onStatus(j2.error || pt('materialCombo.pal.updateFail', '更新失敗'), false);
+                    onStatus(pt('materialCombo.pal.updated', '已更新'), true);
                     await loadMine(true);
                     renderTypeTabs();
                     renderTable();
@@ -529,24 +544,24 @@
             saveBtn.addEventListener('click', async function () {
                 var cur = getCurrentPalette ? getCurrentPalette() : null;
                 if (!cur || !normHex(cur.primary || cur.primary_hex) || !normHex(cur.accent || cur.accent_hex)) {
-                    return onStatus('請先設定有效的主色／配色', false);
+                    return onStatus(pt('materialCombo.pal.needValidColors', '請先設定有效的主色／配色'), false);
                 }
                 var primary = normHex(cur.primary || cur.primary_hex);
                 var accent = normHex(cur.accent || cur.accent_hex);
                 var colorCount = cur.color_count === 3 ? 3 : 2;
                 var tertiary = colorCount === 3 ? normHex(cur.tertiary || cur.tertiary_hex) : null;
                 if (colorCount === 3 && !tertiary) {
-                    return onStatus('三色模式請先設定輔色', false);
+                    return onStatus(pt('materialCombo.pal.needThirdColor', '三色模式請先設定輔色'), false);
                 }
                 var ratioPercents = Array.isArray(cur.ratio_percents) ? cur.ratio_percents : null;
                 var defaultName = colorCount === 3
                     ? (primary + ' / ' + accent + ' / ' + tertiary)
                     : (primary + ' / ' + accent);
-                var name = prompt('為此配色命名', defaultName);
+                var name = prompt(pt('materialCombo.pal.promptNameDefault', '為此配色命名'), defaultName);
                 if (name == null) return;
                 name = String(name).trim();
-                if (!name) return onStatus('名稱不可空白', false);
-                var typeText = prompt('類型（可留空）', '');
+                if (!name) return onStatus(pt('materialCombo.pal.nameRequired', '名稱不可空白'), false);
+                var typeText = prompt(pt('materialCombo.pal.promptType', '類型（可留空）'), '');
                 if (typeText == null) return;
                 var noteEl = document.getElementById('mdcPalSaveNote');
                 var noteFromBar = noteEl ? String(noteEl.value || '').trim() : '';
@@ -572,8 +587,8 @@
                     body: JSON.stringify(payload)
                 });
                 var j = await r.json().catch(function () { return {}; });
-                if (!r.ok) return onStatus(j.error || '儲存失敗', false);
-                onStatus('已存成我的配色', true);
+                if (!r.ok) return onStatus(j.error || pt('materialCombo.pal.saveFail', '儲存失敗'), false);
+                onStatus(pt('materialCombo.pal.savedMine', '已存成我的配色'), true);
                 if (noteEl) noteEl.value = '';
                 state.scope = 'mine';
                 state.colorCount = colorCount;
