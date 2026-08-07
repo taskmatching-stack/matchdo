@@ -103,6 +103,8 @@ const GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT = 'gemini-3.1-flash-lite-image';
 const GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT = 'gemini-3.1-flash-image';
 /** 印花資產 AI 重繪（預設 Nano Banana Lite） */
 const GEMINI_MODEL_PRINT_ASSET_DEFAULT = 'gemini-3.1-flash-lite-image';
+/** 圖樣提取 AI 重繪（預設 Nano Banana Lite） */
+const GEMINI_MODEL_PATTERN_EXTRACT_DEFAULT = 'gemini-3.1-flash-lite-image';
 const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
@@ -327,6 +329,20 @@ async function getMaterialDualColorEngine() {
 
 async function getPrintAssetEngine() {
     return getOptimizeEnginePref('print_asset_engine', 'PRINT_ASSET_ENGINE');
+}
+
+/** 圖樣提取 AI 重繪 → 預設 Lite image（可後台 gemini_model_pattern_extract） */
+async function getPatternExtractModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_pattern_extract').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_PATTERN_EXTRACT || GEMINI_MODEL_PATTERN_EXTRACT_DEFAULT;
+}
+
+async function getPatternExtractEngine() {
+    return getOptimizeEnginePref('pattern_extract_engine', 'PATTERN_EXTRACT_ENGINE');
 }
 
 function getVisualSemanticsDeps() {
@@ -3921,15 +3937,24 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「保持顏色並優化此皮革材質光影」 */
+/** 材料 AI 重繪：材質類型可選填（空白則 AI 從參考圖判斷） */
 function normalizeMaterialSurfaceType(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
 }
 
 function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     const t = normalizeMaterialSurfaceType(surfaceType);
-    if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
-    return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
+    const materialLine = t
+        ? `Target material: ${t}. `
+        : 'Identify the dominant material surface in the reference image. ';
+    return (
+        materialLine +
+        'Recreate it as a full-bleed 1024×1024 material swatch. ' +
+        'Preserve the original colors and surface character of that material only (including natural gloss, reflections, or transparency where present—e.g. metal or glass). ' +
+        'Remove product silhouettes, garment construction, seams, labels, and background clutter. ' +
+        'Do not add text, logos, prints, or decorative graphics. ' +
+        'Output a square material library color card suitable for digital reference.'
+    );
 }
 
 /** 材料雙色卡 Step2：對齊 BFL 官網 playground 實測句（中文直送，勿翻譯） */
@@ -4508,7 +4533,7 @@ async function resolvePhotographyBodyForMaterial(surfaceType) {
     }
 }
 
-/** 材料色卡優化：只用材質類型中文兩句，不加攝影參數（見 flux-and-gemini-prompt-policy） */
+/** 材料色卡優化：英文 swatch prompt；材質可空；不加攝影參數（見 flux-and-gemini-prompt-policy） */
 async function buildVendorAssetMaterialFluxOptimizePromptWithPhoto(surfaceType) {
     return buildVendorAssetMaterialFluxOptimizePrompt(surfaceType);
 }
@@ -4769,7 +4794,7 @@ function extractGeminiResponseImageBuffer(result) {
 }
 
 /** 材料／版型 img2img：Gemini Lite image；只回圖（官方 responseModalities: ['Image']） */
-async function optimizeVendorAssetImageWithGemini(imageBuffer, mimeType, promptText) {
+async function optimizeVendorAssetImageWithGemini(imageBuffer, mimeType, promptText, opts) {
     if (!process.env.GEMINI_API_KEY) return null;
     if (!imageBuffer || !imageBuffer.length) throw new Error('無效的參考圖');
     const prompt = String(promptText || '').trim();
@@ -4792,10 +4817,11 @@ async function optimizeVendorAssetImageWithGemini(imageBuffer, mimeType, promptT
         throw new Error('Gemini 未回傳優化圖，請稍後重試');
     }
     const sharp = require('sharp');
-    return sharp(extracted.buffer, { failOn: 'none' })
-        .rotate()
-        .jpeg({ quality: 92, mozjpeg: true })
-        .toBuffer();
+    let pipeline = sharp(extracted.buffer, { failOn: 'none' }).rotate();
+    if (opts && opts.outputSize === 1024) {
+        pipeline = pipeline.resize(1024, 1024, { fit: 'cover' });
+    }
+    return pipeline.jpeg({ quality: 92, mozjpeg: true }).toBuffer();
 }
 
 /** @deprecated 別名 */
@@ -4835,7 +4861,7 @@ async function optimizeVendorAssetImage(
             buf = fileBuffer;
             mime = mimeType || 'image/jpeg';
         }
-        return optimizeVendorAssetImageWithGemini(buf, mime, prompt);
+        return optimizeVendorAssetImageWithGemini(buf, mime, prompt, isMaterial ? { outputSize: 1024 } : undefined);
     }
 
     if (!forceFlux && hasKey) {
@@ -8871,11 +8897,13 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const engineKeys = [
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
-            'print_asset_engine'
+            'print_asset_engine',
+            'pattern_extract_engine'
         ];
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
             'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash', 'gemini_model_print_asset',
+            'gemini_model_pattern_extract',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -8885,6 +8913,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const vendorEngine = await getVendorAssetOptimizeEngine();
         const comboEngine = await getMaterialDualColorEngine();
         const printEngine = await getPrintAssetEngine();
+        const patternEngine = await getPatternExtractEngine();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -8893,9 +8922,11 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite || process.env.GEMINI_MODEL_MATERIAL_COMBO_LITE || GEMINI_MODEL_MATERIAL_COMBO_LITE_DEFAULT,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash || process.env.GEMINI_MODEL_MATERIAL_COMBO_FLASH || GEMINI_MODEL_MATERIAL_COMBO_FLASH_DEFAULT,
             gemini_model_print_asset: byKey.gemini_model_print_asset || process.env.GEMINI_MODEL_PRINT_ASSET || GEMINI_MODEL_PRINT_ASSET_DEFAULT,
+            gemini_model_pattern_extract: byKey.gemini_model_pattern_extract || process.env.GEMINI_MODEL_PATTERN_EXTRACT || GEMINI_MODEL_PATTERN_EXTRACT_DEFAULT,
             vendor_asset_optimize_engine: vendorEngine,
             material_dual_color_engine: comboEngine,
             print_asset_engine: printEngine,
+            pattern_extract_engine: patternEngine,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -8906,9 +8937,11 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_material_combo_lite: !!byKey.gemini_model_material_combo_lite,
                 gemini_model_material_combo_flash: !!byKey.gemini_model_material_combo_flash,
                 gemini_model_print_asset: !!byKey.gemini_model_print_asset,
+                gemini_model_pattern_extract: !!byKey.gemini_model_pattern_extract,
                 vendor_asset_optimize_engine: !!byKey.vendor_asset_optimize_engine,
                 material_dual_color_engine: !!byKey.material_dual_color_engine,
                 print_asset_engine: !!byKey.print_asset_engine,
+                pattern_extract_engine: !!byKey.pattern_extract_engine,
                 ...bfl.saved_in_db
             }
         });
@@ -8947,10 +8980,14 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_print_asset !== undefined) {
             upserts.push({ key: 'gemini_model_print_asset', value: String(body.gemini_model_print_asset).trim(), updated_at: now });
         }
+        if (body.gemini_model_pattern_extract !== undefined) {
+            upserts.push({ key: 'gemini_model_pattern_extract', value: String(body.gemini_model_pattern_extract).trim(), updated_at: now });
+        }
         const engineFields = [
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
-            'print_asset_engine'
+            'print_asset_engine',
+            'pattern_extract_engine'
         ];
         for (const key of engineFields) {
             if (body[key] === undefined) continue;
@@ -9001,6 +9038,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_material_combo_lite: byKey.gemini_model_material_combo_lite ?? null,
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash ?? null,
             gemini_model_print_asset: byKey.gemini_model_print_asset ?? null,
+            gemini_model_pattern_extract: byKey.gemini_model_pattern_extract ?? null,
             vendor_asset_optimize_engine: byKey.vendor_asset_optimize_engine
                 ? normalizeOptimizeEnginePref(byKey.vendor_asset_optimize_engine)
                 : null,
@@ -9009,6 +9047,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 : null,
             print_asset_engine: byKey.print_asset_engine
                 ? normalizeOptimizeEnginePref(byKey.print_asset_engine)
+                : null,
+            pattern_extract_engine: byKey.pattern_extract_engine
+                ? normalizeOptimizeEnginePref(byKey.pattern_extract_engine)
                 : null,
             ...bfl.models
         });
@@ -12900,7 +12941,7 @@ async function generateSceneSimulateImage(environmentImageBase64, productImageBa
 }
 
 /** 圖樣提取：單張圖 + 提示詞 + 可選無縫拼接 + 解析度 + 輸出格式，送 BFL 圖生圖（僅 input_image），回傳 buffer */
-async function generatePatternExtractImage(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+async function generatePatternExtractWithFlux(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
     return runInBflQueue(async () => {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !imageBase64) return null;
@@ -12935,6 +12976,74 @@ async function generatePatternExtractImage(imageBase64, userPrompt, seamless, se
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
     });
+}
+
+async function generatePatternExtractWithGemini(imageBase64, userPrompt, seamless, width, height, outputFormat) {
+    if (!process.env.GEMINI_API_KEY) throw new Error('未設定 GEMINI_API_KEY');
+    if (!imageBase64) throw new Error('圖片無效');
+    const systemPrompt = seamless
+        ? await getPatternExtractSeamlessSystemPrompt()
+        : await getPatternExtractSystemPrompt();
+    let prompt = (userPrompt && String(userPrompt).trim())
+        ? systemPrompt + '\n\nUser instruction: ' + String(userPrompt).trim()
+        : systemPrompt;
+    const model = await getPatternExtractModelName();
+    const parts = [
+        { text: prompt },
+        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }
+    ];
+    const result = await runInDualColorGeminiImageQueue(() => genAI.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: { responseModalities: ['Image'] }
+    }));
+    const extracted = extractGeminiResponseImageBuffer(result);
+    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
+        throw new Error('Gemini 未回傳圖樣，請稍後重試');
+    }
+    const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
+    const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
+    const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
+    const sharp = require('sharp');
+    let pipeline = sharp(extracted.buffer, { failOn: 'none' }).rotate().resize(w, h, { fit: 'cover' });
+    if (fmt === 'png') return pipeline.png().toBuffer();
+    return pipeline.jpeg({ quality: 92, mozjpeg: true }).toBuffer();
+}
+
+/**
+ * 圖樣提取：優先 Gemini Lite → 軟上限／429 則 FLUX。
+ * 引擎偏好：後台 pattern_extract_engine 或 PATTERN_EXTRACT_ENGINE=auto|gemini|flux。
+ */
+async function generatePatternExtract(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+    const pref = await getPatternExtractEngine();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasKey = !!process.env.GEMINI_API_KEY;
+
+    if (!forceFlux && hasKey) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                return await generatePatternExtractWithGemini(imageBase64, userPrompt, seamless, width, height, outputFormat);
+            } catch (err) {
+                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
+                console.warn('pattern-extract Gemini rate-limited → FLUX:', err.message || err);
+            }
+        } else if (forceGemini) {
+            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            e.status = 429;
+            e.retry_after_sec = quota.retry_after_sec;
+            e.quota_reason = quota.reason;
+            throw e;
+        }
+    }
+    return generatePatternExtractWithFlux(imageBase64, userPrompt, seamless, seed, width, height, outputFormat);
+}
+
+/** @deprecated 別名：舊呼叫點仍可用 */
+async function generatePatternExtractImage(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+    return generatePatternExtract(imageBase64, userPrompt, seamless, seed, width, height, outputFormat);
 }
 
 // API: 實境模擬（環境/人物圖 + 產品圖 → 合成圖，不存數位資產）；需登入，成功後扣 points_scene_simulate（預設 20 點）
@@ -13056,12 +13165,15 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         if (!imageBase64) {
             return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
         }
-        if (!process.env.BFL_API_KEY) {
+        const pref = await getPatternExtractEngine();
+        const canGemini = !!process.env.GEMINI_API_KEY && pref !== 'flux';
+        const canFlux = !!process.env.BFL_API_KEY && pref !== 'gemini';
+        if (!canGemini && !canFlux) {
             return res.status(503).json({ success: false, error: '圖樣提取服務暫未設定，請稍後再試' });
         }
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
         const seed = Math.floor(Math.random() * 2147483647);
-        const buffer = await generatePatternExtractImage(imageBase64, userPrompt || '', !!seamless, seed, w, h, outputFormat);
+        const buffer = await generatePatternExtract(imageBase64, userPrompt || '', !!seamless, seed, w, h, outputFormat);
         if (!buffer) {
             return res.status(500).json({ success: false, error: '生圖失敗，請稍後再試' });
         }
@@ -25759,9 +25871,6 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
             }
         }
         const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
-        if (assetKind === 'material' && !materialSurfaceType) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         const pointsRequired = await computePendingPreviewRedrawPoints(assetKind, isCover);
         let ownerId = seedUser.id;
         let isAdmin = false;
@@ -28144,9 +28253,6 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
 
         const materialSurfaceCreate = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
-        if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceCreate) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         if (assetKind === 'material') {
             semanticsJson = mergeMaterialSurfaceIntoSemantics(semanticsJson, materialSurfaceCreate);
             const materialComboCreate = parseMaterialComboFromBody(body);
@@ -28526,9 +28632,6 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
         const filenameHint = (srcLabel || labelFromImageUrl(sourceUrl) || '').trim();
         const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
-        if (assetKind === 'material' && !materialSurfaceType) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         try {
             file = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -29002,9 +29105,6 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
             : '';
         const imageLabels = parseImageLabelsBody(body, files.length);
         const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
-        if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceType) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         let pointsRequired = 0;
         if (optimizeIndices.length) {
             pointsRequired = await computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);
@@ -29796,9 +29896,6 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
                     const useDisplayStandPut = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
                     const materialSurfacePut = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
-                    if (assetKind === 'material' && !materialSurfacePut) {
-                        return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-                    }
                     const optimizedBuf = await optimizeVendorAssetImage(
                         file.buffer, file.mimetype, productNameForPrompt, assetKind,
                         assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
@@ -31741,9 +31838,6 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
             }
         }
         const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
-        if (assetKind === 'material' && !materialSurfaceType) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         const pointsRequired = await computePendingPreviewRedrawPoints(assetKind, isCover);
         let ownerId = seedUser.id;
         let isAdmin = false;
@@ -32113,9 +32207,6 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         const uiLocale = resolveUiLocaleFromRequest(req);
         const imageLabels = parseImageLabelsBody(body, totalUploadFiles);
         const materialSurfaceCreate = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
-        if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceCreate) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
 
         let tags = parseAiTagsFromBody(body);
         let semanticsJson = null;
@@ -32533,9 +32624,6 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images', supplierC
             materialCatalogHint = await supplierCatalogGroupNamesByIds(ctx.supplier.id, parseCatalogGroupIdsFromBody(body));
         }
         const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
-        if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceType) {
-            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
-        }
         let pointsRequired = 0;
         if (optimizeIndices.length) {
             pointsRequired = await computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);

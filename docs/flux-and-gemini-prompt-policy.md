@@ -19,34 +19,29 @@
 
 ### 2.1 材料 — 兩條管線（不可混用）
 
-**A. 材料 AI 重繪（廠商素材庫 `asset_kind = material`）— BFL FLUX img2img**
+**A. 材料 AI 重繪（廠商素材庫 `asset_kind = material`）— Gemini 優先 → FLUX 備援**
 
 ```
 原圖 → prepareVendorMaterialFluxImage（最長邊>1024 時縮小，不放大）
         ↓
-  buildVendorAssetMaterialFluxOptimizePrompt(material_surface_type)
+  buildVendorAssetMaterialFluxOptimizePrompt(material_surface_type)  // 可空
         ↓
-  bfl_flux_model_vendor_material（預設 flux-2-pro）· 1024×1024 · seed 3647440197
+  optimizeVendorAssetImage → Gemini Lite（1024×1024）→ 滿額／429 則 FLUX
         ↓
-  optimizeVendorAssetImageWithFlux（材料分支）
+  bfl_flux_model_vendor_material · 1024×1024 · seed 3647440197
 ```
 
 | 步驟 | 檔案／函式 |
 |------|------------|
 | 解析度準備 | `lib/resize-upload-image.js` → `prepareVendorMaterialFluxImage` |
-| 組 prompt | `buildVendorAssetMaterialFluxOptimizePrompt`（**中文**，`skipPromptTranslation: true`） |
-| 生圖 | `generateImageWithFlux2Pro` + `VENDOR_MATERIAL_FLUX_SEED` |
+| 組 prompt | `buildVendorAssetMaterialFluxOptimizePrompt`（**英文 swatch**；`skipPromptTranslation: true`） |
+| 生圖 | `optimizeVendorAssetImage` / `optimizeVendorAssetImageWithFlux` |
 | 鎖定規則 | `.cursor/rules/material-flux-prompt-lock.mdc` |
 
-**現行 prompt（兩句，2026-07-10）：**
+**現行 prompt（2026-08-08）：** 滿版材質色卡 1024×1024；**維持圖中該材質原色與質感**（含反光、透明）；去除產品外型；不含文字、Logo、印花。`material_surface_type` **建議填寫**（填了較精準；不強制，怕填錯可留空由 AI 從圖判斷）。
 
-1. `保持顏色並優化此{材質}材質光影` — 純色／滿版材質圖：依使用者填的材質類型生成滿版質感（**預期行為**）。
-2. `若參考圖含產品、服裝或物件外型…整張滿版呈現此{材質}材質色卡質感` — 產品圖與純色走**同一套**材質類型語意。
-
-`{材質}` = UI「AI 重繪材質類型」（必填）；**不是** `material_key` 查表。
-
-**禁止**把 `material_tagging_prompt` 的 **JSON 標籤**送進材料 FLUX optimize prompt。  
-**未接上線**：`resolveMaterialFluxEditPrompt`／`buildVendorAssetMaterialOptimizePrompt`（英文 BFL 外殼）、`optimizeVendorAssetMaterialWithGemini`（Gemini Image 死碼）— **勿當現行管線**。
+**禁止**把 `material_tagging_prompt` 的 **JSON 標籤**送進材料 optimize prompt。  
+**legacy 勿當現行**：`resolveMaterialFluxEditPrompt`／`buildVendorAssetMaterialOptimizePrompt`（英文 BFL 編輯句外殼）。
 
 **B. 材料標籤／設計頁附錄（Gemini 文字讀圖）**
 

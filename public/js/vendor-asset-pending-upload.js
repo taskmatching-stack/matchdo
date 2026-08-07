@@ -615,8 +615,8 @@
 
         function buildMaterialFluxPromptPreview(surfaceType) {
             var t = String(surfaceType || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
-            if (!t) return '（填材質類型後顯示）';
-            return '保持顏色並優化此' + t + '材質光影';
+            var mat = t ? ('材質：' + t + '；') : '材質：未填，改由 AI 從圖判斷；';
+            return mat + '滿版材質色卡 1024×1024；維持圖中該材質原色與質感（含反光、透明）；去除產品外型；不含文字、Logo、印花';
         }
 
         function syncMaterialFluxPromptPreviewEl(el, surfaceType) {
@@ -647,8 +647,7 @@
         }
 
         function validateMaterialSurfaceTypeForRedraw(surfaceType) {
-            if (String(surfaceType || '').trim()) return '';
-            return '請填材質類型（例：午夜藍PC塑料）再執行 AI 重繪';
+            return '';
         }
 
         function appendMaterialSurfaceTypeToFormData(fd, surfaceType) {

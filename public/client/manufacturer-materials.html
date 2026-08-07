@@ -710,9 +710,9 @@
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
-                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                                    <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
+                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
+                                    <p class="form-text text-muted small mb-0">建議填<strong>顏色與材質</strong>，重繪較精準。若不確定或怕填錯，可留空改由 AI 從圖中判斷。重繪摘要：<strong class="material-flux-prompt-preview">滿版材質色卡；維持圖中該材質原色與質感；不含文字、Logo、印花</strong></p>
                                 </div>
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -997,9 +997,9 @@
                             <p class="form-text text-muted small mb-0" data-i18n="baseModels.generateDescriptionEditHint">依目前圖片產生中英文各一段；換圖後請重新產生。上傳時產生說明已含在上傳扣點內，不另扣點。</p>
                         </div>
                         <div id="edit-material-surface-wrap" class="mb-3 d-none">
-                            <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                            <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                            <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
+                            <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
+                            <p class="form-text text-muted small mb-0">建議填<strong>顏色與材質</strong>，重繪較精準。若不確定或怕填錯，可留空改由 AI 從圖中判斷。重繪摘要：<strong id="edit-material-flux-prompt-preview">滿版材質色卡；維持圖中該材質原色與質感；不含文字、Logo、印花</strong></p>
                         </div>
                         <div class="mb-3 d-none" id="edit-images-material-wrap">
                             <label class="form-label">參考圖</label>
@@ -3572,8 +3572,8 @@
 
         function buildMaterialFluxPromptPreview(surfaceType) {
             var t = String(surfaceType || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
-            if (!t) return '（填材質類型後顯示）';
-            return '保持顏色並優化此' + t + '材質光影；產品圖另去除版型滿版呈現此' + t + '材質色卡質感';
+            var mat = t ? ('材質：' + t + '；') : '材質：未填，改由 AI 從圖判斷；';
+            return mat + '滿版材質色卡 1024×1024；維持圖中該材質原色與質感（含反光、透明）；去除產品外型；不含文字、Logo、印花';
         }
 
         function syncMaterialFluxPromptPreviewEl(el, surfaceType) {
@@ -3604,8 +3604,7 @@
         }
 
         function validateMaterialSurfaceTypeForRedraw(surfaceType) {
-            if (String(surfaceType || '').trim()) return '';
-            return '請填材質類型（例：午夜藍PC塑料）再執行 AI 重繪';
+            return '';
         }
 
         function appendMaterialSurfaceTypeToFormData(fd, surfaceType) {

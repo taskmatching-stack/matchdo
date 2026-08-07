@@ -346,9 +346,9 @@
                                 <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required placeholder="材質名稱，如：PU 膜布料、全棉斜紋"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
-                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                                    <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
+                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
+                                    <p class="form-text text-muted small mb-0">建議填<strong>顏色與材質</strong>，重繪較精準。若不確定或怕填錯，可留空改由 AI 從圖中判斷。重繪摘要：<strong class="material-flux-prompt-preview">滿版材質色卡；維持圖中該材質原色與質感；不含文字、Logo、印花</strong></p>
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
@@ -412,9 +412,9 @@
                             <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="btn-edit-gen-desc"><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.generateDescription">AI 產生說明</span> — <span id="edit-points-desc" class="fw-semibold">1</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
                         </div>
                         <div id="edit-material-surface-wrap" class="mb-3 d-none">
-                            <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
-                            <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。材質描述預覽：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                            <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
+                            <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
+                            <p class="form-text text-muted small mb-0">建議填<strong>顏色與材質</strong>，重繪較精準。若不確定或怕填錯，可留空改由 AI 從圖中判斷。重繪摘要：<strong id="edit-material-flux-prompt-preview">滿版材質色卡；維持圖中該材質原色與質感；不含文字、Logo、印花</strong></p>
                         </div>
                         <div class="mb-3" id="edit-images-gallery-wrap">
                             <label class="form-label" id="edit-gallery-images-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>

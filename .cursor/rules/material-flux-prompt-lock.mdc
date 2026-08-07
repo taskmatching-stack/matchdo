@@ -1,17 +1,20 @@
-# 材料 FLUX 提示詞／SEED — 已確定，禁止擅自改
+# 材料 AI 重繪 prompt — 已確定（2026-08-08 使用者定案）
 
 ## 必守
 
-使用者已在 BFL 實測並**明確確定**下列參數。**禁止** Agent 為「更好」「更穩」等理由擅自替換、改寫、翻譯替換，或「順便」改回舊版／Gemini 版／英文固定句。
+使用者已定案材料色卡重繪語意。**禁止** Agent 擅自改回舊版中文兩句或查表式硬編碼。
 
 | 項目 | 鎖定值 |
 |------|--------|
-| 提示詞模板 | `保持顏色並優化此{材質}材質光影`；若含產品／服裝外型則追加滿版色卡句（`buildVendorAssetMaterialFluxOptimizePrompt`） |
-| SEED | `3647440197`（`VENDOR_MATERIAL_FLUX_SEED`） |
-| 送 BFL | **中文原句**，`skipPromptTranslation: true`（勿改回 Gemini 翻譯） |
-| 輸出尺寸 | 1024×1024（材料 FLUX） |
+| 提示詞 | `buildVendorAssetMaterialFluxOptimizePrompt` — **英文 swatch prompt**；`material_surface_type` **建議填寫**（較精準；不強制，可留空由 AI 從圖判斷） |
+| 原色 | **維持圖中該材質的原色與質感**（含金屬反光、透明）；非全局改色 |
+| 禁止 | 文字、Logo、印花圖案 |
+| 引擎 | Gemini 優先 → FLUX 備援（`vendor_asset_optimize_engine`） |
+| FLUX SEED | `3647440197`（`VENDOR_MATERIAL_FLUX_SEED`） |
+| 送 BFL | 英文原句，`skipPromptTranslation: true` |
+| 輸出尺寸 | 1024×1024 |
 
-函式：`buildVendorAssetMaterialFluxOptimizePrompt`、`optimizeVendorAssetImageWithFlux` 材料分支。
+函式：`buildVendorAssetMaterialFluxOptimizePrompt`、`optimizeVendorAssetImage`（材料分支）、`optimizeVendorAssetImageWithFlux`（材料分支）。
 
 ## 允許改動的前提
 
@@ -20,6 +23,7 @@
 
 ## 禁止
 
-- ❌ 改回「維持材質…紋理」「光影→紋理」等未經使用者要求的句型
-- ❌ 改 SEED 為 `fluxSeedFromImageBuffer` 或其他值（材料路徑）
-- ❌ 改完不告知、不在 UI 顯示實際提示詞
+- ❌ 改回「保持顏色並優化此{材質}材質光影」舊句（除非使用者再要求）
+- ❌ 用 `material_key`／檔名查表推斷材質送 prompt
+- ❌ 禁止 3D／陰影（金屬反光、透明需保留）
+- ❌ 把材料組合、原型重繪、標籤管線一併改掉

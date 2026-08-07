@@ -60,6 +60,15 @@
                 </select>
                 <p class="form-text small text-muted mb-0"><code>print_asset_engine</code></p>
               </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-1" for="enginePatternExtract">圖樣提取</label>
+                <select id="enginePatternExtract" class="form-select form-select-sm">
+                  <option value="auto">auto（Gemini → FLUX 備援）</option>
+                  <option value="gemini">gemini（僅 Gemini）</option>
+                  <option value="flux">flux（僅 FLUX）</option>
+                </select>
+                <p class="form-text small text-muted mb-0"><code>pattern_extract_engine</code></p>
+              </div>
             </div>
             <button type="button" class="btn btn-sm btn-warning mt-3" id="btnSaveEngineConfig">儲存引擎切換</button>
             <span id="engineConfigDbHint" class="small text-muted ms-2"></span>
@@ -85,9 +94,9 @@
               <p class="form-text small text-muted mb-0"><strong>設計頁 AI 生成圖</strong>與<strong>廠商數位原型上傳</strong>共用此模型讀圖產標籤（<code>gemini_model_tagging</code>）。建議 gemini-3.1-flash-lite。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">Gemini 材料／版型 AI 重繪</label>
+              <label class="form-label small mb-1">Gemini 材料色卡 AI 重繪</label>
               <input type="text" id="aiConfigGeminiModelMaterialOptimize" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
-              <p class="form-text small text-muted mb-0">官方版型、廠商數位原型／材料、供應商目錄的 <strong>AI 重繪</strong>共用此槽（<code>gemini_model_material_optimize</code>）。未寫入 DB 前預設 <code>gemini-3.1-flash-lite-image</code>；滿額可 fallback FLUX。手填後按「儲存 Gemini 模型」即生效。</p>
+              <p class="form-text small text-muted mb-0">官方版型、廠商材料／供應商目錄的<strong>材質色卡重繪</strong>（<code>gemini_model_material_optimize</code>）。數位原型／零件仍共用此槽；材料走 swatch prompt、1024×1024。預設 <code>gemini-3.1-flash-lite-image</code>；滿額可 fallback FLUX。</p>
             </div>
             <div class="mb-3">
               <label class="form-label small mb-1">材料組合生圖・Lite（僅色卡）</label>
@@ -103,6 +112,11 @@
               <label class="form-label small mb-1">印花資產 AI 重繪</label>
               <input type="text" id="aiConfigGeminiModelPrintAsset" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
               <p class="form-text small text-muted mb-0"><code>/client/print-asset.html</code> AI 重繪（Nano Banana Lite，<code>gemini_model_print_asset</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">圖樣提取</label>
+              <input type="text" id="aiConfigGeminiModelPatternExtract" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
+              <p class="form-text small text-muted mb-0"><code>/pattern-extract/</code> 圖樣提取（<code>gemini_model_pattern_extract</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX（<code>bfl_flux_model_scene_pattern</code>）。</p>
             </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
@@ -133,9 +147,9 @@
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_material</code> — 材料 AI 重繪與材料組合在備援／強制 FLUX 時使用</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">實境模擬／圖樣提取</label>
+              <label class="form-label small mb-1">實境模擬／圖樣提取 FLUX 備援</label>
               <input type="text" id="bflFluxModelScenePattern" class="form-control form-control-sm" placeholder="flux-2-pro" />
-              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_scene_pattern</code> — 實境合成、圖樣提取</p>
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_scene_pattern</code> — 實境合成、圖樣提取在備援／強制 FLUX 時使用</p>
             </div>
             <div class="mb-3">
               <label class="form-label small mb-1">寫實化</label>
@@ -193,7 +207,7 @@
         <div class="card mb-3">
           <div class="card-body">
             <h6 class="card-title">圖樣提取系統提示詞</h6>
-            <p class="text-muted small mb-2">前台「圖樣提取」生圖時（未勾選無縫拼接），會將此系統提示詞與使用者輸入的提示詞（選填）組合後送交 Flux。留空則使用內建預設。</p>
+            <p class="text-muted small mb-2">前台「圖樣提取」生圖時（未勾選無縫拼接），會將此系統提示詞與使用者輸入的提示詞（選填）組合後送交 Gemini（優先）或 FLUX 備援。留空則使用內建預設。</p>
             <textarea id="patternExtractSystemPrompt" class="form-control form-control-sm" rows="4" placeholder="例：從圖片中提取可重複的圖樣或紋理，保持風格一致，適合用於織品或平面設計。"></textarea>
             <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSavePatternExtractPrompt">儲存</button>
           </div>
@@ -234,9 +248,11 @@
     var vendor = document.getElementById('engineVendorAsset');
     var combo = document.getElementById('engineMaterialCombo');
     var print = document.getElementById('enginePrintAsset');
+    var pattern = document.getElementById('enginePatternExtract');
     if (vendor && data.vendor_asset_optimize_engine) vendor.value = data.vendor_asset_optimize_engine;
     if (combo && data.material_dual_color_engine) combo.value = data.material_dual_color_engine;
     if (print && data.print_asset_engine) print.value = data.print_asset_engine;
+    if (pattern && data.pattern_extract_engine) pattern.value = data.pattern_extract_engine;
     var hint = document.getElementById('engineConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -244,6 +260,7 @@
       if (s.vendor_asset_optimize_engine) parts.push('版型／材料');
       if (s.material_dual_color_engine) parts.push('材料組合');
       if (s.print_asset_engine) parts.push('印花');
+      if (s.pattern_extract_engine) parts.push('圖樣提取');
       hint.textContent = parts.length
         ? '（已從資料庫載入：' + parts.join('、') + '）'
         : '（尚未寫入 DB；目前為程式／環境變數預設 auto）';
@@ -288,6 +305,7 @@
     var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
     var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
     var inpPrint = document.getElementById('aiConfigGeminiModelPrintAsset');
+    var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
@@ -297,6 +315,7 @@
     if (data.gemini_model_material_combo_lite != null && inpComboLite) inpComboLite.value = data.gemini_model_material_combo_lite;
     if (data.gemini_model_material_combo_flash != null && inpComboFlash) inpComboFlash.value = data.gemini_model_material_combo_flash;
     if (data.gemini_model_print_asset != null && inpPrint) inpPrint.value = data.gemini_model_print_asset;
+    if (data.gemini_model_pattern_extract != null && inpPattern) inpPattern.value = data.gemini_model_pattern_extract;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -307,6 +326,7 @@
       if (s.gemini_model_material_combo_lite) parts.push('組合Lite');
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       if (s.gemini_model_print_asset) parts.push('印花');
+      if (s.gemini_model_pattern_extract) parts.push('圖樣提取');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyEngineConfigToForm(data);
@@ -421,10 +441,12 @@
     var vendor = document.getElementById('engineVendorAsset');
     var combo = document.getElementById('engineMaterialCombo');
     var print = document.getElementById('enginePrintAsset');
+    var pattern = document.getElementById('enginePatternExtract');
     var payload = {
       vendor_asset_optimize_engine: (vendor && vendor.value) || 'auto',
       material_dual_color_engine: (combo && combo.value) || 'auto',
-      print_asset_engine: (print && print.value) || 'auto'
+      print_asset_engine: (print && print.value) || 'auto',
+      pattern_extract_engine: (pattern && pattern.value) || 'auto'
     };
     var btn = document.getElementById('btnSaveEngineConfig');
     if (btn) btn.disabled = true;
@@ -436,7 +458,7 @@
         return;
       }
       await loadAiConfig();
-      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」');
+      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -497,6 +519,7 @@
     var inpComboLite = document.getElementById('aiConfigGeminiModelMaterialComboLite');
     var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
     var inpPrint = document.getElementById('aiConfigGeminiModelPrintAsset');
+    var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -507,7 +530,8 @@
       gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_material_combo_lite: (inpComboLite && inpComboLite.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image',
-      gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image'
+      gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image',
+      gemini_model_pattern_extract: (inpPattern && inpPattern.value.trim()) || 'gemini-3.1-flash-lite-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -521,7 +545,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存：組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」，印花「' + (data.gemini_model_print_asset || payload.gemini_model_print_asset) + '」');
+      showMsg('已儲存：組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」，印花「' + (data.gemini_model_print_asset || payload.gemini_model_print_asset) + '」，圖樣提取「' + (data.gemini_model_pattern_extract || payload.gemini_model_pattern_extract) + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
