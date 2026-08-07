@@ -1,5 +1,7 @@
 'use strict';
 
+const manufacturerAudience = require('../lib/manufacturer-audience');
+
 /**
  * Sitemap 與 robots.txt（由 server.js 掛載，須在 express.static 之前）
  */
@@ -168,14 +170,15 @@ function registerSitemapRoutes(app, deps) {
                 const loc = base + '/client/industry-supplier-catalog.html?supplier_id=' + encodeURIComponent(r.id);
                 urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.58</priority></url>');
             }
-            const { data: protoRows } = await supabase
+            const { data: protoRowsRaw } = await supabase
                 .from('vendor_assets')
-                .select('id, updated_at, created_at, asset_kind, is_public')
+                .select('id, updated_at, created_at, asset_kind, is_public, manufacturer_id')
                 .eq('is_public', true)
                 .order('updated_at', { ascending: false })
                 .limit(SITEMAP_PRODUCT_TREE_LIMIT + 40);
+            const protoRows = await manufacturerAudience.filterVendorAssetRowsForAudience(supabase, protoRowsRaw || [], { internalPreview: false });
             let productTreeCount = 0;
-            for (const r of (protoRows || [])) {
+            for (const r of protoRows) {
                 if (!r || !r.id) continue;
                 const kind = String(r.asset_kind || '').toLowerCase();
                 if (kind !== 'prototype') continue;
@@ -262,13 +265,14 @@ function registerSitemapRoutes(app, deps) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/user_design/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
             }
-            const { data: portRows } = await supabase
+            const { data: portRowsRaw } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, image_url_before, updated_at, created_at')
+                .select('id, image_url_before, updated_at, created_at, manufacturer_id, show_on_media_wall')
                 .eq('show_on_media_wall', true)
                 .order('created_at', { ascending: false })
                 .limit(80);
-            for (const r of (portRows || [])) {
+            const portRows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, portRowsRaw || [], { internalPreview: false });
+            for (const r of portRows) {
                 const type = r.image_url_before ? 'comparison' : 'series';
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/' + type + '/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
@@ -284,14 +288,15 @@ function registerSitemapRoutes(app, deps) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/collection/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url>');
             }
-            const { data: assetRows } = await supabase
+            const { data: assetRowsRaw } = await supabase
                 .from('vendor_assets')
-                .select('id, asset_kind, updated_at, created_at, is_public')
+                .select('id, asset_kind, updated_at, created_at, is_public, manufacturer_id')
                 .eq('is_public', true)
                 .in('asset_kind', ['prototype', 'part', 'material'])
                 .order('updated_at', { ascending: false })
                 .limit(250);
-            for (const r of (assetRows || [])) {
+            const assetRows = await manufacturerAudience.filterVendorAssetRowsForAudience(supabase, assetRowsRaw || [], { internalPreview: false });
+            for (const r of assetRows) {
                 const kind = String(r.asset_kind || 'prototype').toLowerCase();
                 if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') continue;
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;

@@ -136,6 +136,7 @@ const designDirectionMarketSignals = require('./lib/design-direction-market-sign
 const designDirectionSeed = require('./lib/design-direction-seed');
 const promoSceneSeed = require('./lib/promo-scene-seed');
 const mediaWallQueries = require('./lib/media-wall-queries');
+const manufacturerAudience = require('./lib/manufacturer-audience');
 
 function mediaWallQueryLog(label, msg) {
     console.warn(label, msg);
@@ -523,6 +524,7 @@ async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false
     if (internalPreview || ownerPreview) return true;
     if (manufacturerVisibleToPublicAudience(mfr)) return true;
     if (await manufacturerHasActiveEmbedInstance(mfr.id)) return true;
+    if (manufacturerIsSeedVendor(mfr) && !manufacturerSeedPublicReleased(mfr)) return false;
     return manufacturerHasPublicVendorAssets(mfr.id);
 }
 
@@ -1020,13 +1022,16 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         const seenP = new Set();
         const ingestPortfolio = async (rows) => {
             if (!rows || !rows.length) return;
-            const mfrIds = [...new Set(rows.map((p) => p.manufacturer_id).filter(Boolean))];
+            const visibleRows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, rows, { internalPreview: false });
+            const mfrIds = [...new Set(visibleRows.map((p) => p.manufacturer_id).filter(Boolean))];
             const mfrMap = {};
             if (mfrIds.length) {
-                const { data: mfrs } = await supabase.from('manufacturers').select('id, user_id').in('id', mfrIds).eq('is_active', true);
-                (mfrs || []).forEach((m) => { mfrMap[m.id] = m.user_id || null; });
+                const audMap = await manufacturerAudience.fetchManufacturersForAudienceFilter(supabase, mfrIds, { internalPreview: false });
+                Object.keys(audMap).forEach(function (id) {
+                    mfrMap[id] = audMap[id].user_id || null;
+                });
             }
-            rows.forEach((p) => {
+            visibleRows.forEach((p) => {
                 if (!p || !p.id || seenP.has(p.id)) return;
                 const item = mapPortfolioRowToMediaWallItem(p, mfrMap);
                 if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
@@ -5921,13 +5926,14 @@ async function buildHomeInspirationCrawlNavHtml() {
                 text: r.title || ('設計 ' + r.id)
             });
         });
-        const { data: portRows } = await supabase
+        const { data: portRowsRaw } = await supabase
             .from('manufacturer_portfolio')
-            .select('id, title, image_url_before')
+            .select('id, title, image_url_before, manufacturer_id, show_on_media_wall')
             .eq('show_on_media_wall', true)
             .order('created_at', { ascending: false })
             .limit(30);
-        (portRows || []).forEach((r) => {
+        const portRows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, portRowsRaw || [], { internalPreview: false });
+        portRows.forEach((r) => {
             if (!r || !r.id) return;
             const type = r.image_url_before ? 'comparison' : 'series';
             links.push({
@@ -5935,14 +5941,15 @@ async function buildHomeInspirationCrawlNavHtml() {
                 text: r.title || ('作品 ' + r.id)
             });
         });
-        const { data: assetRows } = await supabase
+        const { data: assetRowsRaw } = await supabase
             .from('vendor_assets')
-            .select('id, title, asset_kind')
+            .select('id, title, asset_kind, is_public, manufacturer_id')
             .eq('is_public', true)
             .in('asset_kind', ['prototype', 'part', 'material'])
             .order('created_at', { ascending: false })
             .limit(40);
-        (assetRows || []).forEach((r) => {
+        const assetRows = await manufacturerAudience.filterVendorAssetRowsForAudience(supabase, assetRowsRaw || [], { internalPreview: false });
+        assetRows.forEach((r) => {
             if (!r || !r.id) return;
             const kind = normalizeVendorAssetKind(r.asset_kind);
             links.push({
@@ -6238,7 +6245,8 @@ async function getGalleryComparisonItems() {
             .order('created_at', { ascending: false })
             .limit(100);
 
-        const rows = compRows || [];
+        const rowsRaw = compRows || [];
+        const rows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, rowsRaw, { internalPreview: false });
         // Batch-fetch manufacturer info for joined display
         const mfrIds = [...new Set(rows.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
@@ -18337,6 +18345,7 @@ app.get('/api/media-wall', async (req, res) => {
         : (layoutOnly === null ? (clientFilterActive ? Math.min(12, Math.max(6, Math.floor(searchPool / 8))) : 6) : 0);
 
     try {
+        const internalPreview = await getRequestInternalPreviewFlag(req);
         // 主分類篩選時：custom_products.category 可能存「主分類 key」或「子分類 key」（表單只送一個欄位），故需包含該主分類下所有子分類 key
         let categoryKeysToMatch = filterCategoryKey ? [filterCategoryKey] : null;
         if (filterCategoryKey) {
@@ -18454,6 +18463,7 @@ app.get('/api/media-wall', async (req, res) => {
             return [];
         })();
         [userRows, compRows] = await Promise.all([fetchUserRowsP, fetchCompRowsP]);
+        compRows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, compRows || [], { internalPreview: internalPreview });
         let ownerDisplayMap = {};
         if (userRows && userRows.length) {
             const ownerIds = [...new Set(userRows.map(p => p.owner_id).filter(Boolean))];
@@ -18566,6 +18576,7 @@ app.get('/api/media-wall', async (req, res) => {
                 console.warn('GET /api/media-wall 系列圖查詢:', seriesErr && seriesErr.message);
             }
         }
+        seriesRows = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, seriesRows || [], { internalPreview: internalPreview });
         if (seriesRows && seriesRows.length) {
             const seriesMfrIds = [...new Set(seriesRows.map(p => p.manufacturer_id).filter(Boolean))];
             let seriesMfrMap = {};
@@ -18879,6 +18890,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
     }
     try {
         const contentLang = normalizeVendorContentLang(req.query.lang || req.query.content_lang || '');
+        const internalPreview = await getRequestInternalPreviewFlag(req);
         if (type === 'promo_scene') {
             const item = await fetchPromoMediaWallItemById(id, contentLang);
             if (!item) return res.status(404).json({ error: '找不到該情境圖' });
@@ -18915,10 +18927,13 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             const isComparison = !!row.image_url_before;
             if (type === 'comparison' && !isComparison) return res.status(404).json({ error: '找不到該對照圖' });
             if (type === 'series' && isComparison) return res.status(404).json({ error: '找不到該系列圖' });
+            const portfolioVisible = await manufacturerAudience.isPortfolioRowVisibleToAudience(supabase, row, { internalPreview: internalPreview });
+            if (!portfolioVisible) return res.status(404).json({ error: '找不到該作品' });
             let mfrUserId = null;
             let mfrName = null;
             if (row.manufacturer_id) {
-                const { data: mfr } = await supabase.from('manufacturers').select('user_id, name, is_active').eq('id', row.manufacturer_id).maybeSingle();
+                const audMap = await manufacturerAudience.fetchManufacturersForAudienceFilter(supabase, [row.manufacturer_id], { internalPreview: internalPreview });
+                const mfr = audMap[row.manufacturer_id];
                 if (mfr) {
                     mfrUserId = mfr.user_id || null;
                     mfrName = mfr.name || null;
@@ -19009,12 +19024,12 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             if (error || !row) return res.status(404).json({ error: '找不到該素材' });
             const kind = normalizeVendorAssetKind(row.asset_kind);
             if (kind !== type) return res.status(404).json({ error: '找不到該素材' });
-            const { data: mfr } = await supabase
-                .from('manufacturers')
-                .select('id, name, user_id, is_active, expires_at, vendor_source, seed_public_released_at')
-                .eq('id', row.manufacturer_id)
-                .maybeSingle();
-            if (!mfr || !vendorAssetVisibleOnManufacturerProfile(mfr, row)) {
+            const audMap = await manufacturerAudience.fetchManufacturersForAudienceFilter(supabase, [row.manufacturer_id], { internalPreview: internalPreview });
+            const mfr = audMap[row.manufacturer_id];
+            if (!mfr) return res.status(404).json({ error: '找不到該素材或尚未公開' });
+            if (internalPreview) {
+                if (mfr.is_active === false) return res.status(404).json({ error: '找不到該素材或尚未公開' });
+            } else if (!manufacturerAudience.vendorAssetVisibleToPublicAudience(mfr, row)) {
                 return res.status(404).json({ error: '找不到該素材或尚未公開' });
             }
             const mapped = await mapVendorAssetForApiEnriched(row, 'zh-TW');
@@ -21531,6 +21546,9 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
                 return titleMatch || tagsMatch || highlightMatch;
             });
         }
+
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        list = await manufacturerAudience.filterPortfolioRowsForAudience(supabase, list, { internalPreview: internalPreview });
 
         const mfrIds = [...new Set(list.map(p => p.manufacturer_id).filter(Boolean))];
         let mfrMap = {};

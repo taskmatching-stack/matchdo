@@ -10,3 +10,6 @@ client_secret*.json
 credentials*.json
 *.log
 .DS_Store
+# 本機上線檢查表 Excel（不納版控；見 scripts/build-launch-checklist-xlsx.py）
+docs/上線前檢查表.xlsx
+docs/~$*

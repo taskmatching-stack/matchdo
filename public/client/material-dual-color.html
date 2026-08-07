@@ -76,6 +76,8 @@
         .mdc-mat-preset-chip { font-size: 0.8125rem; line-height: 1.2; padding: 0.2rem 0.55rem; border-radius: 999px; }
         .mdc-mat-preset-del { opacity: 0.55; margin-left: 0.15rem; font-weight: 600; }
         .mdc-mat-preset-del:hover { opacity: 1; }
+        .mdc-preset-quick-bar { border: 1px solid rgba(122,143,161,0.35); background: #f8fafb; }
+        .mdc-field-preset-save { font-size: 0.8125rem; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -186,10 +188,33 @@
             <div class="card mdc-step-card shadow-sm mb-4">
                 <div class="card-header bg-white fw-semibold" data-i18n="materialCombo.stepGenerate">材質生成</div>
                 <div class="card-body">
+                    <div class="mdc-preset-quick-bar rounded p-3 mb-3 d-none" id="mdc-preset-quick-bar">
+                        <div class="fw-semibold small mb-1" data-i18n="materialCombo.quickPresetsTitle">常用快速填入</div>
+                        <p class="small text-muted mb-2 mb-md-2" data-i18n="materialCombo.quickPresetsHelp">在各材質／分界處欄位輸入文字後，按右側「存此欄」；下次點下方 chip 即可一鍵帶入。</p>
+                        <div class="mb-2" id="mdc-mat-presets-wrap">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <span class="small fw-medium" data-i18n="materialCombo.matPresetsLabel">常用材質</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary" id="mdc-mat-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.matPresetSave">存目前材質欄位</button>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-mat-presets-chips"></div>
+                            <div class="small mt-1 d-none" id="mdc-mat-preset-hint"></div>
+                        </div>
+                        <div id="mdc-boundary-presets-wrap">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <span class="small fw-medium" data-i18n="materialCombo.boundaryPresetsLabel">常用分界處</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary" id="mdc-boundary-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.boundaryPresetSave">存分界處</button>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-boundary-presets-chips"></div>
+                            <div class="small mt-1 d-none" id="mdc-boundary-preset-hint"></div>
+                        </div>
+                    </div>
                     <p class="small text-muted mb-3" id="mdc-print-one-hint" data-i18n="materialCombo.printOneZoneHint">印花只能擇一區使用。</p>
                     <div class="row g-3">
                         <div class="col-md-6" id="mdc-main-mat-col">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.mainMaterialLabel">主色區材質</label>
+                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                                <span data-i18n="materialCombo.mainMaterialLabel">主色區材質</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-main-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                            </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-main-material" data-i18n-placeholder="materialCombo.mainMaterialPh" placeholder="例：編織布" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-main-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.mainPrintBtn">主色區印花</span></button>
@@ -202,7 +227,10 @@
                             </div>
                         </div>
                         <div class="col-md-6" id="mdc-accent-mat-col">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.accentMaterialLabel">配色區材質</label>
+                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                                <span data-i18n="materialCombo.accentMaterialLabel">配色區材質</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-accent-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                            </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.accentPrintBtn">配色區印花</span></button>
@@ -215,7 +243,10 @@
                             </div>
                         </div>
                         <div class="col-md-6 d-none" id="mdc-third-mat-col">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.thirdMaterialLabel">輔色區材質</label>
+                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                                <span data-i18n="materialCombo.thirdMaterialLabel">輔色區材質</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-third-material"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                            </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-third-material" data-i18n-placeholder="materialCombo.thirdMaterialPh" placeholder="例：麂皮" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.thirdPrintBtn">輔色區印花</span></button>
@@ -227,14 +258,6 @@
                                 <img id="mdc-third-pattern-img" alt="輔色區印花">
                             </div>
                         </div>
-                        <div class="col-12 d-none" id="mdc-mat-presets-wrap">
-                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                <span class="small text-muted" data-i18n="materialCombo.matPresetsLabel">常用材質（先點欄位，再點選填入）</span>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-mat-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.matPresetSave">存目前欄位</button>
-                            </div>
-                            <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-mat-presets-chips"></div>
-                            <div class="small text-muted mt-1 d-none" id="mdc-mat-preset-hint"></div>
-                        </div>
                         <div class="col-12 d-none" id="mdc-print-kind-wrap">
                             <div class="d-flex flex-wrap gap-3 small">
                                 <label class="mb-0"><input type="radio" name="mdc-print-kind" value="pattern" checked> <span data-i18n="materialCombo.printKindPattern">印花圖樣</span></label>
@@ -242,16 +265,11 @@
                             </div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small mb-1" data-i18n="materialCombo.boundaryLabel">分界處（選填）</label>
+                            <label class="form-label small mb-1 d-flex flex-wrap justify-content-between align-items-center gap-1">
+                                <span data-i18n="materialCombo.boundaryLabel">分界處（選填）</span>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary d-none mdc-field-preset-save" data-preset-kind="boundary" data-preset-target="mdc-boundary"><i class="bi bi-bookmark-plus me-1"></i><span data-i18n="materialCombo.saveThisField">存此欄</span></button>
+                            </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-boundary" data-i18n-placeholder="materialCombo.boundaryPh" placeholder="例：同色明線車縫" maxlength="64">
-                            <div class="d-none mt-2" id="mdc-boundary-presets-wrap">
-                                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                    <span class="small text-muted" data-i18n="materialCombo.boundaryPresetsLabel">常用分界處（先點欄位，再點選填入）</span>
-                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="mdc-boundary-preset-save" style="font-size:0.8125rem" data-i18n="materialCombo.boundaryPresetSave">存目前欄位</button>
-                                </div>
-                                <div class="d-flex flex-wrap gap-1 align-items-center" id="mdc-boundary-presets-chips"></div>
-                                <div class="small text-muted mt-1 d-none" id="mdc-boundary-preset-hint"></div>
-                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small mb-1" data-i18n="materialCombo.libraryTitleLabel">存庫名稱（選填）</label>
@@ -361,10 +379,10 @@
     <script src="/js/site-header.js?v=20260807-i18n2"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
-    <script src="/js/material-preset-chips.js?v=20260807b"></script>
+    <script src="/js/material-preset-chips.js?v=20260807d"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-boundary-20260807';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-quickbar-20260807d';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -800,10 +818,22 @@
 
         function initMaterialPresets() {
             if (!window.MaterialPresetChips) return;
+            var quickBar = document.getElementById('mdc-preset-quick-bar');
+            if (quickBar) quickBar.classList.remove('d-none');
+            document.querySelectorAll('.mdc-field-preset-save').forEach(function (btn) {
+                btn.classList.remove('d-none');
+            });
+            var statusEl = document.getElementById('mdc-status');
             var headersFn = async function () {
                 var tok = await getToken();
                 return tok ? { Authorization: 'Bearer ' + tok } : {};
             };
+            var matFieldBtns = [];
+            document.querySelectorAll('.mdc-field-preset-save[data-preset-kind="material"]').forEach(function (btn) {
+                var id = btn.getAttribute('data-preset-target');
+                var input = id ? document.getElementById(id) : null;
+                if (input) matFieldBtns.push({ btn: btn, input: input });
+            });
             MaterialPresetChips.init({
                 kind: 'material',
                 getHeaders: headersFn,
@@ -812,11 +842,16 @@
                 chipsEl: document.getElementById('mdc-mat-presets-chips'),
                 saveBtn: document.getElementById('mdc-mat-preset-save'),
                 hintEl: document.getElementById('mdc-mat-preset-hint'),
+                statusEl: statusEl,
+                fieldSaveBtns: matFieldBtns,
+                emptyLabel: t('materialCombo.presetEmptyMaterial', '尚無常用材質，輸入後按「存此欄」'),
                 hintFocus: t('materialCombo.presetHintFocusMaterial', '請先點一下要填入的材質欄位'),
                 hintEmpty: t('materialCombo.presetHintEmptyMaterial', '欄位是空的，無法存為常用'),
                 fillTitle: t('materialCombo.presetFillField', '填入欄位'),
+                fillOkLabel: t('materialCombo.presetFilled', '已填入'),
                 removeTitle: t('materialCombo.presetRemove', '移除')
             });
+            var bndBtn = document.querySelector('.mdc-field-preset-save[data-preset-kind="boundary"]');
             MaterialPresetChips.init({
                 kind: 'boundary',
                 getHeaders: headersFn,
@@ -825,9 +860,13 @@
                 chipsEl: document.getElementById('mdc-boundary-presets-chips'),
                 saveBtn: document.getElementById('mdc-boundary-preset-save'),
                 hintEl: document.getElementById('mdc-boundary-preset-hint'),
+                statusEl: statusEl,
+                fieldSaveBtns: bndBtn ? [{ btn: bndBtn, input: boundary }] : [],
+                emptyLabel: t('materialCombo.presetEmptyBoundary', '尚無常用分界處，輸入後按「存此欄」'),
                 hintFocus: t('materialCombo.presetHintFocusBoundary', '請先點一下分界處欄位'),
                 hintEmpty: t('materialCombo.presetHintEmptyBoundary', '分界處是空的，無法存為常用'),
                 fillTitle: t('materialCombo.presetFillField', '填入欄位'),
+                fillOkLabel: t('materialCombo.presetFilled', '已填入'),
                 removeTitle: t('materialCombo.presetRemove', '移除')
             });
         }
@@ -842,6 +881,8 @@
             } catch (_) { user = null; }
             if (!user || !(await getToken())) {
                 document.getElementById('auth-alert').classList.remove('d-none');
+                var quickBar = document.getElementById('mdc-preset-quick-bar');
+                if (quickBar) quickBar.classList.add('d-none');
                 return;
             }
             document.getElementById('auth-alert').classList.add('d-none');
