@@ -111,7 +111,7 @@
                     <div class="row g-2 mb-3">
                         <div class="col-md-6">
                             <label class="form-label small mb-1" for="pa-save-title" data-i18n="printAsset.titleLabel">名稱（可選）</label>
-                            <input type="text" class="form-control form-control-sm" id="pa-save-title" maxlength="120" data-i18n-placeholder="printAsset.titlePh" placeholder="預設用印花類型或「印花」">
+                            <input type="text" class="form-control form-control-sm" id="pa-save-title" maxlength="120" data-i18n-placeholder="printAsset.titlePh" placeholder="預設用印花材質或「印花」">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small mb-1" for="pa-save-category" data-i18n="printAsset.categoryLabel">分類（可選）</label>
@@ -129,9 +129,9 @@
             <div class="card pa-step-card shadow-sm mb-3">
                 <div class="card-header bg-white fw-semibold" data-i18n="printAsset.stepRedraw">AI 重繪（選用）</div>
                 <div class="card-body">
-                    <label class="form-label small mb-1" data-i18n="printAsset.printTypeLabel">印花類型（重繪時必填）</label>
-                    <input type="text" class="form-control form-control-sm mb-2" id="pa-print-type" maxlength="32" data-i18n-placeholder="printAsset.printTypePh" placeholder="例：碎花、幾何圖案、插畫印花">
-                    <p class="form-text text-muted small mb-2"><span data-i18n="printAsset.promptPreviewPrefix">提示詞預覽：</span><strong id="pa-prompt-preview" class="fw-normal" data-i18n="printAsset.promptPreviewEmpty">（填印花類型後顯示）</strong></p>
+                    <label class="form-label small mb-1" data-i18n="printAsset.printTypeLabel">印花材質（重繪時必填）</label>
+                    <input type="text" class="form-control form-control-sm mb-2" id="pa-print-type" maxlength="32" data-i18n-placeholder="printAsset.printTypePh" placeholder="例：棉、尼龍、聚酯、絲綢">
+                    <p class="form-text text-muted small mb-2"><span data-i18n="printAsset.promptPreviewPrefix">提示詞預覽：</span><strong id="pa-prompt-preview" class="fw-normal" data-i18n="printAsset.promptPreviewEmpty">（填印花材質後顯示）</strong></p>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <button type="button" class="btn btn-primary" id="pa-redraw-btn" disabled><i class="bi bi-stars me-1"></i><span data-i18n="printAsset.redrawBtn">AI 重繪</span></button>
                         <span class="text-muted small" id="pa-points-label"></span>
@@ -217,7 +217,7 @@
         function updatePromptPreview() {
             var kind = (printTypeEl.value || '').trim();
             if (!kind) {
-                promptPreview.textContent = t('printAsset.promptPreviewEmpty', '（填印花類型後顯示）');
+                promptPreview.textContent = t('printAsset.promptPreviewEmpty', '（填印花材質後顯示）');
                 return;
             }
             promptPreview.textContent = '保持顏色並優化此' + kind + '印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此' + kind + '印花圖樣。';

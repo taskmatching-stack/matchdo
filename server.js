@@ -4280,7 +4280,7 @@ function normalizePrintAssetType(raw) {
 
 function buildPrintAssetOptimizePrompt(printType) {
     const t = normalizePrintAssetType(printType);
-    if (!t) throw new Error('請填印花類型（例：碎花、幾何圖案）');
+    if (!t) throw new Error('請填印花材質（例：棉、尼龍、聚酯）');
     return `保持顏色並優化此${t}印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}印花圖樣。`;
 }
 /** @deprecated 別名：舊 FLUX 路徑／呼叫點仍可用 */
@@ -27443,7 +27443,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
         try {
             aiPromptUsed = buildPrintAssetOptimizePrompt(printType);
         } catch (promptErr) {
-            return res.status(400).json({ error: promptErr.message || '請填印花類型' });
+            return res.status(400).json({ error: promptErr.message || '請填印花材質' });
         }
         const pointsRequired = await getPointsPrintAssetFlux();
         const ownerId = seedUser.id;
