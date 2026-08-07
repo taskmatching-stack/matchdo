@@ -1,0 +1,150 @@
+/**
+ * 客製產品選單 — 獨立元件，不用 Bootstrap dropdown-item／dropdown-header
+ * 色組以 .nav-cp-section 整塊底色呈現（標題列 + 項目同一色帶）
+ */
+.nav-hover-menu.nav-cp-menu {
+    min-width: 13.5rem;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.nav-cp-menu .nav-cp-link {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.5rem 1rem 0.5rem 0.85rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    text-decoration: none;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+}
+.nav-cp-menu .nav-cp-link i {
+    display: inline-block;
+    margin-right: 0.35rem;
+    vertical-align: -0.1em;
+}
+
+.nav-cp-menu .nav-cp-link--design {
+    padding: 0.55rem 1rem;
+    background: #7A8FA3;
+    color: #fff;
+    font-weight: 600;
+}
+.nav-cp-menu .nav-cp-link--design:hover {
+    background: #657A8E;
+    color: #fff;
+}
+.nav-cp-menu .nav-cp-link--design i {
+    color: #fff;
+}
+
+.nav-cp-section-label {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+}
+
+.nav-cp-section--structure {
+    background: #d4dde6;
+}
+.nav-cp-section--structure .nav-cp-section-label {
+    background: #7A8FA3;
+    color: #fff;
+}
+.nav-cp-section--structure .nav-cp-link {
+    color: #4a5f72;
+}
+.nav-cp-section--structure .nav-cp-link i {
+    color: #657A8E;
+}
+.nav-cp-section--structure .nav-cp-link:hover {
+    background: rgba(122, 143, 163, 0.28);
+    color: #3d5163;
+}
+
+.nav-cp-section--style {
+    background: #d8e4de;
+}
+.nav-cp-section--style .nav-cp-section-label {
+    background: #8FA89E;
+    color: #fff;
+}
+.nav-cp-section--style .nav-cp-link {
+    color: #465a52;
+}
+.nav-cp-section--style .nav-cp-link i {
+    color: #6E8A7E;
+}
+.nav-cp-section--style .nav-cp-link:hover {
+    background: rgba(111, 141, 128, 0.26);
+    color: #364840;
+}
+
+.nav-cp-section--marketing {
+    background: #dde2e8;
+}
+.nav-cp-section--marketing .nav-cp-section-label {
+    background: #9BA8B5;
+    color: #fff;
+}
+.nav-cp-section--marketing .nav-cp-link {
+    color: #4a5562;
+}
+.nav-cp-section--marketing .nav-cp-link i {
+    color: #7A8794;
+}
+.nav-cp-section--marketing .nav-cp-link:hover {
+    background: rgba(130, 145, 158, 0.26);
+    color: #3a4550;
+}
+
+.nav-cp-section--assist {
+    background: #e0e6ed;
+}
+.nav-cp-section--assist .nav-cp-section-label {
+    background: #A8B5C4;
+    color: #fff;
+}
+.nav-cp-section--assist .nav-cp-link {
+    color: #4a5562;
+}
+.nav-cp-section--assist .nav-cp-link i {
+    color: #8A97A8;
+}
+.nav-cp-section--assist .nav-cp-link:hover {
+    background: rgba(142, 158, 175, 0.28);
+    color: #3a4550;
+}
+
+.nav-cp-section--utility {
+    background: #fff;
+    border-top: 1px solid rgba(88, 100, 112, 0.14);
+    padding: 0.25rem 0 0.35rem;
+}
+.nav-cp-section--utility .nav-cp-link {
+    color: #5C6670;
+    font-weight: 500;
+}
+.nav-cp-section--utility .nav-cp-link i {
+    color: #8A96A3;
+}
+.nav-cp-section--utility .nav-cp-link:hover {
+    background: #F0F3F7;
+    color: #5C6670;
+}

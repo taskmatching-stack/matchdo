@@ -70,17 +70,6 @@
   border-bottom: none;
 }
 
-#custom-product #designTabs .nav-link {
-  color: var(--md-text-muted);
-  border-bottom-width: 2px;
-  font-weight: 500;
-}
-
-#custom-product #designTabs .nav-link.active {
-  color: var(--md-primary);
-  border-bottom-color: var(--md-primary);
-}
-
 #custom-product .btn-generate,
 #custom-product .promo-generate-btn {
   background: var(--md-primary);
@@ -157,18 +146,7 @@
   color: #8A96A3;
 }
 
-/* 設計頁 Tab、廠商版型切換鈕（覆蓋 style.css !important） */
-#custom-product #designTabs .nav-link {
-  color: var(--md-text-muted, #8A96A3);
-}
-#custom-product #designTabs .nav-link:hover {
-  color: var(--md-text, #5C6670);
-}
-#custom-product #designTabs .nav-link.active {
-  color: var(--md-primary, #7A8FA3) !important;
-  border-bottom-color: var(--md-primary, #7A8FA3) !important;
-  background: transparent !important;
-}
+/* 設計頁 Tab 色組見 design-workspace-tabs.css（cp-tab-link） */
 
 #custom-product #bs-category-summary {
   background: var(--md-card, #F0F3F7) !important;

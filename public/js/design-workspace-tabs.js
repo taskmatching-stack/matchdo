@@ -53,7 +53,7 @@ function buildDesignWorkspaceTabsHtml(activeTool) {
     var parts = [
         '<div class="design-workspace-tabs cp-tab-groups cp-tab-groups--single">',
         '<div class="cp-tab-strip-wrap">',
-        '<ul class="nav nav-tabs cp-tab-strip" role="tablist">'
+        '<ul class="cp-tab-strip" role="tablist">'
     ];
     TAB_GROUPS.forEach(function (group, gi) {
         if (gi > 0) {
@@ -62,8 +62,8 @@ function buildDesignWorkspaceTabsHtml(activeTool) {
         group.tabs.forEach(function (tab) {
             var isActive = tab.tool === activeTool;
             parts.push(
-                '<li class="nav-item ' + group.css + '" role="presentation">',
-                '<a class="nav-link' + (isActive ? ' active' : '') + '"',
+                '<li class="cp-tab-item ' + group.css + '" role="presentation">',
+                '<a class="cp-tab-link' + (isActive ? ' active' : '') + '"',
                 ' href="' + escapeAttr(tab.href) + '"',
                 ' role="tab"',
                 ' aria-selected="' + (isActive ? 'true' : 'false') + '"',
