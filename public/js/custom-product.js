@@ -213,7 +213,7 @@ $(document).ready(function () {
         var tabId = tabEl.id || '';
         var tabParam = getTabParamFromButtonId(tabId);
         // 廠商版型／商攝：改導獨立頁，不在殼內切 panel
-        if (tabParam === 'vendor-styles' || tabParam === 'promo-camera') {
+        if (tabParam === 'vendor-styles' || tabParam === 'official-templates' || tabParam === 'material-combo' || tabParam === 'print-asset' || tabParam === 'promo-camera') {
             window.location.assign(buildIndependentUrlForTab(tabParam));
             return;
         }
@@ -6182,6 +6182,9 @@ $(document).ready(function () {
     function getTabParamFromButtonId(buttonId) {
         if (buttonId === 'tab-product-design') return 'product-design';
         if (buttonId === 'tab-vendor-styles') return 'vendor-styles';
+        if (buttonId === 'tab-official-templates') return 'official-templates';
+        if (buttonId === 'tab-material-combo') return 'material-combo';
+        if (buttonId === 'tab-print-asset') return 'print-asset';
         if (buttonId === 'tab-scene-sim') return 'scene-sim';
         if (buttonId === 'tab-pattern-extract') return 'pattern-extract';
         if (buttonId === 'tab-design-to-physical') return 'design-to-physical';
@@ -6191,6 +6194,9 @@ $(document).ready(function () {
     }
     function getTabButtonIdFromParam(param) {
         if (param === 'vendor-styles') return 'tab-vendor-styles';
+        if (param === 'official-templates') return 'tab-official-templates';
+        if (param === 'material-combo') return 'tab-material-combo';
+        if (param === 'print-asset') return 'tab-print-asset';
         if (param === 'scene-sim') return 'tab-scene-sim';
         if (param === 'pattern-extract') return 'tab-pattern-extract';
         if (param === 'design-to-physical') return 'tab-design-to-physical';
@@ -6213,6 +6219,9 @@ $(document).ready(function () {
     }
     function getIndependentPathForTab(tabParam) {
         if (tabParam === 'vendor-styles') return '/vendor-styles/';
+        if (tabParam === 'official-templates') return '/official-templates/';
+        if (tabParam === 'material-combo') return '/client/material-dual-color.html?return=design';
+        if (tabParam === 'print-asset') return '/client/print-asset.html';
         if (tabParam === 'pattern-extract') return '/pattern-extract/';
         if (tabParam === 'design-to-physical') return '/design-to-physical/';
         if (tabParam === 'scene-sim') return '/scene-sim/';
@@ -6237,7 +6246,9 @@ $(document).ready(function () {
         if (p === '/promo-image') return 'promo-image';
         if (p === '/promo-camera' || p === '/promo-camera-app') return 'promo-camera';
         if (p === '/vendor-styles') return 'vendor-styles';
-        if (p === '/official-templates') return 'vendor-styles';
+        if (p === '/official-templates') return 'official-templates';
+        if (p.includes('material-dual-color')) return 'material-combo';
+        if (p.includes('print-asset')) return 'print-asset';
         if (/custom-product\.html$/i.test(p)) {
             var t = (new URLSearchParams(window.location.search).get('tab') || 'product-design').trim();
             if (t === 'product-design' || t === 'vendor-styles' || t === 'scene-sim' || t === 'pattern-extract' || t === 'design-to-physical' || t === 'promo-image' || t === 'promo-camera') return t;
@@ -6249,7 +6260,7 @@ $(document).ready(function () {
         return buildIndependentUrlForTab(tabParam);
     }
     function syncDesignTabLinkHrefs() {
-        ['product-design', 'vendor-styles', 'pattern-extract', 'design-to-physical', 'scene-sim', 'promo-image', 'promo-camera'].forEach(function (tabParam) {
+        ['product-design', 'vendor-styles', 'official-templates', 'material-combo', 'print-asset', 'pattern-extract', 'design-to-physical', 'scene-sim', 'promo-image', 'promo-camera'].forEach(function (tabParam) {
             var el = document.getElementById(getTabButtonIdFromParam(tabParam));
             if (el && el.tagName === 'A') el.setAttribute('href', buildIndependentUrlForTab(tabParam));
         });
@@ -6278,7 +6289,7 @@ $(document).ready(function () {
     function applyTabFromUrl() {
         var tabParam = getTabParamFromPathname();
         // 廠商／官方／商攝為站外獨立頁；若誤留在殼上則導走
-        if (tabParam === 'vendor-styles' || tabParam === 'promo-camera') {
+        if (tabParam === 'vendor-styles' || tabParam === 'official-templates' || tabParam === 'material-combo' || tabParam === 'print-asset' || tabParam === 'promo-camera') {
             window.location.replace(buildIndependentUrlForTab(tabParam));
             return;
         }
