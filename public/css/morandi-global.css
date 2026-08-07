@@ -261,37 +261,57 @@ a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.02em;
-    padding: 0.35rem 1rem 0.25rem;
+    padding: 0.4rem 1rem 0.3rem;
 }
-.nav-cp-menu .nav-cp-h--structure { color: var(--md-primary); background: var(--md-primary-softer); }
-.nav-cp-menu .nav-cp-h--marketing { color: var(--md-rose-text); background: rgba(155, 168, 181, 0.14); }
-.nav-cp-menu .nav-cp-h--style { color: var(--md-sage-text); background: rgba(143, 168, 158, 0.14); }
-.nav-cp-menu .nav-cp-h--assist { color: var(--md-clay-text); background: rgba(168, 181, 196, 0.16); }
+.nav-cp-menu .nav-cp-h--structure { color: #fff; background: var(--md-primary); }
+.nav-cp-menu .nav-cp-h--style { color: #fff; background: var(--md-sage); }
+.nav-cp-menu .nav-cp-h--marketing { color: #fff; background: var(--md-rose); }
+.nav-cp-menu .nav-cp-h--image { color: #fff; background: #8E9DAB; }
+.nav-cp-menu .nav-cp-h--assist { color: #fff; background: var(--md-clay); }
 .nav-cp-menu .nav-cp-item {
     font-size: 0.9rem;
     padding-left: 0.85rem;
-    border-left: 3px solid transparent;
+    border-left: none;
 }
-.nav-cp-menu .nav-cp-item i { opacity: 0.88; }
+.nav-cp-menu .nav-cp-item i { opacity: 1; }
 .nav-cp-menu .nav-cp-item--design {
-    color: var(--md-primary-dark);
-    background: var(--md-primary-softer);
-    border-left-color: var(--md-primary);
+    color: #fff;
+    background: var(--md-primary);
     font-weight: 600;
 }
-.nav-cp-menu .nav-cp-item--design:hover { background: var(--md-primary-soft); color: var(--md-primary-dark); }
-.nav-cp-menu .nav-cp-item--structure { border-left-color: rgba(122, 143, 163, 0.45); }
-.nav-cp-menu .nav-cp-item--structure:hover { background: var(--md-primary-softer); }
+.nav-cp-menu .nav-cp-item--design:hover { background: var(--md-primary-dark); color: #fff; }
+.nav-cp-menu .nav-cp-item--design i { color: #fff; }
+.nav-cp-menu .nav-cp-item--structure {
+    color: var(--md-primary-dark);
+    background: rgba(122, 143, 163, 0.26);
+}
+.nav-cp-menu .nav-cp-item--structure:hover { background: rgba(122, 143, 163, 0.38); color: var(--md-primary-dark); }
 .nav-cp-menu .nav-cp-item--structure i { color: var(--md-primary); }
-.nav-cp-menu .nav-cp-item--marketing { border-left-color: rgba(155, 168, 181, 0.55); }
-.nav-cp-menu .nav-cp-item--marketing:hover { background: rgba(155, 168, 181, 0.12); }
-.nav-cp-menu .nav-cp-item--marketing i { color: var(--md-rose); }
-.nav-cp-menu .nav-cp-item--style { border-left-color: rgba(143, 168, 158, 0.55); }
-.nav-cp-menu .nav-cp-item--style:hover { background: rgba(143, 168, 158, 0.12); }
-.nav-cp-menu .nav-cp-item--style i { color: var(--md-sage); }
-.nav-cp-menu .nav-cp-item--assist { border-left-color: rgba(168, 181, 196, 0.65); }
-.nav-cp-menu .nav-cp-item--assist:hover { background: rgba(168, 181, 196, 0.14); }
-.nav-cp-menu .nav-cp-item--assist i { color: var(--md-clay); }
+.nav-cp-menu .nav-cp-item--marketing {
+    color: var(--md-rose-text);
+    background: rgba(155, 168, 181, 0.3);
+}
+.nav-cp-menu .nav-cp-item--marketing:hover { background: rgba(155, 168, 181, 0.42); }
+.nav-cp-menu .nav-cp-item--marketing i { color: #7A8794; }
+.nav-cp-menu .nav-cp-item--style {
+    color: var(--md-sage-text);
+    background: rgba(143, 168, 158, 0.3);
+}
+.nav-cp-menu .nav-cp-item--style:hover { background: rgba(143, 168, 158, 0.42); }
+.nav-cp-menu .nav-cp-item--style i { color: #6E8A7E; }
+.nav-cp-menu .nav-cp-item--assist {
+    color: var(--md-clay-text);
+    background: rgba(168, 181, 196, 0.34);
+}
+.nav-cp-menu .nav-cp-item--assist:hover { background: rgba(168, 181, 196, 0.46); }
+.nav-cp-menu .nav-cp-item--assist i { color: #8A97A8; }
+.nav-cp-menu .nav-cp-item--utility {
+    color: var(--md-text);
+    border-left-color: transparent;
+    font-weight: 500;
+}
+.nav-cp-menu .nav-cp-item--utility:hover { background: var(--md-surface-alt); color: var(--md-text); }
+.nav-cp-menu .nav-cp-item--utility i { color: var(--md-text-muted); }
 .nav-cp-menu .nav-cp-divider {
     margin: 0.35rem 0.75rem;
     border-top-color: var(--md-border);

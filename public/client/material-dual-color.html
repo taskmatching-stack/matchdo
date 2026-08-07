@@ -83,7 +83,7 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold"><span data-i18n="materialCombo.pageTitle">材料組合</span> <span class="text-muted fw-normal fs-6" data-i18n="materialCombo.pageTitleEn">Material Combination</span> <span class="badge bg-light text-secondary border ms-1 align-middle fw-normal" data-i18n="materialCombo.noPrototypeBadge">無需版型</span></h4>
+                    <h4 class="mb-0 fw-bold"><span data-i18n="materialCombo.pageTitle">材料組合</span> <span class="text-muted fw-normal fs-6" data-i18n="materialCombo.pageTitleEn">Material Combination</span></h4>
                 </div>
                 <a href="#" class="btn btn-sm btn-outline-secondary" id="mdc-back-link"><i class="bi bi-arrow-left me-1"></i><span data-i18n="materialCombo.backMaterials">返回材料/顏色</span></a>
             </div>
@@ -854,7 +854,7 @@
                 var offBanner = document.getElementById('official-platform-banner');
                 if (offBanner) offBanner.classList.remove('d-none');
                 var titleH4 = document.querySelector('.page-title-bar h4');
-                if (titleH4) titleH4.innerHTML = t('materialCombo.pageTitle', '材料組合') + ' <span class="text-muted fw-normal fs-6">' + t('materialCombo.pageTitleEn', 'Material Combination') + '</span> <span class="badge bg-light text-secondary border ms-1 align-middle fw-normal">' + t('materialCombo.noPrototypeBadge', '無需版型') + '</span> <span class="badge bg-secondary ms-1">' + t('materialCombo.officialLibraryBadge', '官方版型庫') + '</span>';
+                if (titleH4) titleH4.innerHTML = t('materialCombo.pageTitle', '材料組合') + ' <span class="text-muted fw-normal fs-6">' + t('materialCombo.pageTitleEn', 'Material Combination') + '</span> <span class="badge bg-secondary ms-1">' + t('materialCombo.officialLibraryBadge', '官方版型庫') + '</span>';
             }
 
             if (returnTarget === 'supplier') {
