@@ -11,7 +11,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
-    <link href="/css/morandi-global.css?v=4" rel="stylesheet">
+    <link href="/css/morandi-global.css?v=7" rel="stylesheet">
+    <link href="/css/design-workspace-tabs.css?v=1" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
@@ -47,6 +48,10 @@
                 <a href="/client/my-custom-products.html?tab=print" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="printAsset.backLibrary">返回數位資產庫</span></a>
             </div>
         </div>
+    </div>
+
+    <div class="container pt-3 pb-0" style="max-width:1100px">
+        <div data-design-workspace-tabs data-active-tool="print-asset"></div>
     </div>
 
     <div class="container py-4" style="max-width: 920px;">
@@ -140,6 +145,7 @@
 
     <div id="site-footer"></div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/design-workspace-tabs.js?v=1"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/site-footer.js"></script>

@@ -8,7 +8,7 @@
         var _m = document.createElement('link');
         _m.id = 'morandi-global-css';
         _m.rel = 'stylesheet';
-        _m.href = '/css/morandi-global.css?v=6';
+        _m.href = '/css/morandi-global.css?v=7';
         document.head.appendChild(_m);
     }
     // Bootstrap：禁止在 mid-body 同步注入（長頁雙載入會沖掉頭像 Dropdown）。

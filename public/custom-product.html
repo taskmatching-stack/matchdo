@@ -73,6 +73,7 @@
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet">
     <link href="/css/custom-product-ios-surface.css?v=6" rel="stylesheet">
+    <link href="/css/design-workspace-tabs.css?v=1" rel="stylesheet">
     <!-- Bootstrap JS 必須在 head 先掛名（defer），讓 mid-body 的 site-header.js 看見 #bs-bundle-js，勿再自行注入第二份 -->
     <script id="bs-bundle-js" src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <!-- JSON-LD Structured Data -->
@@ -1394,127 +1395,6 @@
         #custom-product #generatedImagePreview { width: 100%; max-width: 100%; }
         #custom-product #generatedImagePreview .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
         #custom-product #generatedImagePreview img { max-width: 100%; height: auto; display: block; }
-        #custom-product #designTabGroups { margin-bottom: 0.75rem; }
-        #custom-product .cp-tab-strip-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-        }
-        #custom-product .cp-tab-strip-wrap::-webkit-scrollbar { height: 4px; }
-        #custom-product .cp-tab-strip-wrap::-webkit-scrollbar-thumb { background: rgba(122, 143, 163, 0.35); border-radius: 4px; }
-        #custom-product .cp-tab-strip {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: flex-end;
-            border-bottom: none;
-            margin-bottom: 0;
-            padding: 0 0 2px;
-            min-width: min-content;
-            gap: 2px;
-        }
-        #custom-product .cp-tab-strip .cp-tab-divider {
-            flex: 0 0 2px;
-            align-self: stretch;
-            margin: 0.35rem 0.15rem 0.2rem;
-            background: rgba(88, 100, 112, 0.18);
-            border-radius: 1px;
-            list-style: none;
-            padding: 0;
-        }
-        #custom-product .cp-tab-strip .nav-item { flex: 0 0 auto; }
-        #custom-product .cp-tab-strip .nav-link {
-            border: none;
-            border-bottom: 3px solid transparent;
-            margin-bottom: 0;
-            padding: 0.5rem 0.8rem;
-            font-weight: 500;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            border-radius: 8px 8px 0 0;
-        }
-        #custom-product .cp-tab-g-design .nav-link {
-            color: var(--md-primary-dark, #657A8E);
-            background: rgba(122, 143, 163, 0.28);
-        }
-        #custom-product .cp-tab-g-design .nav-link:hover {
-            color: #fff;
-            background: rgba(122, 143, 163, 0.55);
-        }
-        #custom-product .cp-tab-g-design .nav-link.active {
-            color: #fff;
-            background: var(--md-primary, #7A8FA3);
-            border-bottom-color: var(--md-primary-dark, #657A8E);
-            font-weight: 600;
-        }
-        #custom-product .cp-tab-g-style .nav-link {
-            color: var(--md-sage-text, #5A7268);
-            background: rgba(143, 168, 158, 0.32);
-        }
-        #custom-product .cp-tab-g-style .nav-link:hover {
-            color: #fff;
-            background: rgba(111, 141, 128, 0.72);
-        }
-        #custom-product .cp-tab-g-style .nav-link.active {
-            color: #fff;
-            background: var(--md-sage, #8FA89E);
-            border-bottom-color: #6E8A7E;
-            font-weight: 600;
-        }
-        #custom-product .cp-tab-g-marketing .nav-link {
-            color: var(--md-rose-text, #5E6875);
-            background: rgba(155, 168, 181, 0.32);
-        }
-        #custom-product .cp-tab-g-marketing .nav-link:hover {
-            color: #fff;
-            background: rgba(130, 145, 158, 0.72);
-        }
-        #custom-product .cp-tab-g-marketing .nav-link.active {
-            color: #fff;
-            background: var(--md-rose, #9BA8B5);
-            border-bottom-color: #7A8794;
-            font-weight: 600;
-        }
-        #custom-product .cp-tab-g-assist .nav-link {
-            color: var(--md-clay-text, #5E6B78);
-            background: rgba(168, 181, 196, 0.36);
-        }
-        #custom-product .cp-tab-g-assist .nav-link:hover {
-            color: #fff;
-            background: rgba(142, 158, 175, 0.78);
-        }
-        #custom-product .cp-tab-g-assist .nav-link.active {
-            color: #fff;
-            background: var(--md-clay, #A8B5C4);
-            border-bottom-color: #8A97A8;
-            font-weight: 600;
-        }
-        #custom-product .cp-tab-strip-wrap {
-            border-bottom: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
-        }
-        @media (max-width: 767px) {
-            #custom-product .cp-tab-strip-wrap {
-                overflow-x: visible;
-                -webkit-overflow-scrolling: auto;
-            }
-            #custom-product .cp-tab-strip {
-                flex-wrap: wrap;
-                min-width: 0;
-                row-gap: 0.2rem;
-            }
-            #custom-product .cp-tab-strip .cp-tab-divider {
-                flex: 0 0 100%;
-                width: 100%;
-                height: 0;
-                margin: 0;
-                padding: 0;
-                border: none;
-                background: transparent;
-            }
-            #custom-product .cp-tab-strip .nav-link {
-                padding: 0.42rem 0.6rem;
-                font-size: 0.8125rem;
-            }
-        }
         #custom-product .past-gallery-tabs { margin-bottom: 0.5rem; }
         #custom-product .past-gallery-inner.is-promo-tab .past-item,
         #custom-product .past-gallery-inner.is-favorites-tab .past-item,
@@ -1610,7 +1490,7 @@
                     <p class="page-sub mb-0" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，輔助您快速打樣設計稿</p>
                 </div>
 
-                <div id="designTabGroups" class="cp-tab-groups cp-tab-groups--single">
+                <div id="designTabGroups" class="design-workspace-tabs cp-tab-groups cp-tab-groups--single">
                     <div class="cp-tab-strip-wrap">
                         <ul class="nav nav-tabs cp-tab-strip" role="tablist">
                             <li class="nav-item cp-tab-g-design" role="presentation">
