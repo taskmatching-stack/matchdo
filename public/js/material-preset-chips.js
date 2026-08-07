@@ -53,12 +53,14 @@ window.MaterialPresetChips = (function () {
             selectEl.value = '';
         }
 
-        function renderManageMenu() {
-            var menu = opts.manageMenuEl;
-            var wrap = opts.manageWrapEl;
+        function asElList(v) {
+            if (!v) return [];
+            return Array.isArray(v) ? v : [v];
+        }
+
+        function fillManageMenu(menu) {
             if (!menu) return;
             menu.innerHTML = '';
-            if (wrap) wrap.classList.remove('d-none');
             if (!items.length) {
                 var emptyLi = document.createElement('li');
                 emptyLi.className = 'dropdown-item-text small text-muted px-2 py-1';
@@ -84,6 +86,13 @@ window.MaterialPresetChips = (function () {
                 li.appendChild(row);
                 menu.appendChild(li);
             });
+        }
+
+        function renderManageMenu() {
+            asElList(opts.manageWrapEl).forEach(function (wrap) {
+                if (wrap) wrap.classList.remove('d-none');
+            });
+            asElList(opts.manageMenuEl).forEach(fillManageMenu);
         }
 
         function render() {

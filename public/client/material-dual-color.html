@@ -255,6 +255,10 @@
                                 <span data-i18n="materialCombo.accentMaterialLabel">配色區材質</span>
                                 <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-accent-mat-preset-select" data-i18n-aria-label="materialCombo.presetSelectMaterial" aria-label="選常用材質"><option value="" data-i18n="materialCombo.presetSelectMaterial">選常用材質</option></select>
                                 <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-accent-material" data-i18n-title="materialCombo.presetSaveMaterial" data-i18n-aria-label="materialCombo.presetSaveMaterial" title="存常用" aria-label="存常用"><i class="bi bi-bookmark-plus"></i></button>
+                                <div class="dropdown d-none mdc-preset-manage" id="mdc-accent-mat-preset-manage">
+                                    <button type="button" class="btn btn-sm mdc-preset-del-btn" data-bs-toggle="dropdown" data-bs-auto-close="true" data-i18n-title="materialCombo.presetDeleteMaterial" data-i18n-aria-label="materialCombo.presetDeleteMaterial" title="刪除常用材質" aria-label="刪除常用材質"><i class="bi bi-trash"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-sm py-1" id="mdc-accent-mat-preset-del-menu" style="min-width:9rem;max-width:14rem"></ul>
+                                </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -272,6 +276,10 @@
                                 <span data-i18n="materialCombo.thirdMaterialLabel">輔色區材質</span>
                                 <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-third-mat-preset-select" data-i18n-aria-label="materialCombo.presetSelectMaterial" aria-label="選常用材質"><option value="" data-i18n="materialCombo.presetSelectMaterial">選常用材質</option></select>
                                 <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="material" data-preset-target="mdc-third-material" data-i18n-title="materialCombo.presetSaveMaterial" data-i18n-aria-label="materialCombo.presetSaveMaterial" title="存常用" aria-label="存常用"><i class="bi bi-bookmark-plus"></i></button>
+                                <div class="dropdown d-none mdc-preset-manage" id="mdc-third-mat-preset-manage">
+                                    <button type="button" class="btn btn-sm mdc-preset-del-btn" data-bs-toggle="dropdown" data-bs-auto-close="true" data-i18n-title="materialCombo.presetDeleteMaterial" data-i18n-aria-label="materialCombo.presetDeleteMaterial" title="刪除常用材質" aria-label="刪除常用材質"><i class="bi bi-trash"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-sm py-1" id="mdc-third-mat-preset-del-menu" style="min-width:9rem;max-width:14rem"></ul>
+                                </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-third-material" data-i18n-placeholder="materialCombo.thirdMaterialPh" placeholder="例：麂皮" maxlength="64">
                             <div class="d-flex flex-wrap gap-2 mt-2">
@@ -410,10 +418,10 @@
     <script src="/js/site-header.js?v=20260807-i18n2"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
-    <script src="/js/material-preset-chips.js?v=20260807m"></script>
+    <script src="/js/material-preset-chips.js?v=20260807n"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-i18n-20260807m';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-trash-accent-20260807n';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -884,8 +892,16 @@
                     { selectEl: document.getElementById('mdc-third-mat-preset-select'), input: thirdMaterial }
                 ],
                 fieldSaveBtns: matFieldBtns,
-                manageWrapEl: document.getElementById('mdc-mat-preset-manage'),
-                manageMenuEl: document.getElementById('mdc-mat-preset-del-menu')
+                manageWrapEl: [
+                    document.getElementById('mdc-mat-preset-manage'),
+                    document.getElementById('mdc-accent-mat-preset-manage'),
+                    document.getElementById('mdc-third-mat-preset-manage')
+                ],
+                manageMenuEl: [
+                    document.getElementById('mdc-mat-preset-del-menu'),
+                    document.getElementById('mdc-accent-mat-preset-del-menu'),
+                    document.getElementById('mdc-third-mat-preset-del-menu')
+                ]
             }));
             var bndBtn = document.querySelector('.mdc-field-preset-save[data-preset-kind="boundary"]');
             mdcPresetInstances.push(MaterialPresetChips.init({
