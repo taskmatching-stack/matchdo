@@ -418,6 +418,7 @@
     <script src="/js/site-header.js?v=20260807-i18n2"></script>
     <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
+    <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/material-preset-chips.js?v=20260807n"></script>
     <script>
     (function () {
@@ -743,6 +744,18 @@
         if (thirdFile) thirdFile.addEventListener('change', function () {
             if (this.files && this.files[0]) setZonePatternFromFile('third', this.files[0]);
         });
+
+        if (window.MatchdoImageDrop) {
+            ['main', 'accent', 'third'].forEach(function (zone) {
+                var col = document.getElementById('mdc-' + zone + '-mat-col');
+                if (!col) return;
+                window.MatchdoImageDrop.wire({
+                    zone: col,
+                    multiple: false,
+                    onFiles: function (file) { setZonePatternFromFile(zone, file); }
+                });
+            });
+        }
 
         function materialsReturnHref() {
             if (returnTarget === 'design') return '/custom-product.html';

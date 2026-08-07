@@ -1144,11 +1144,12 @@
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
     <script src="/js/material-cover-grid-compose.js?v=20260803g"></script>
     <script src="/js/material-dual-color-import.js?v=20260804b"></script>
+    <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'catalog-toggle-primary-20260805';
+        window.__MATCHDO_MATERIALS_BUILD = 'image-drop-upload-20260808';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -4896,12 +4897,22 @@
             var kind = form.getAttribute('data-kind');
             if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
             var multiInput = form.querySelector('.add-image-multi');
-            if (multiInput) {
-                multiInput.addEventListener('change', function () {
-                    var files = multiInput.files;
-                    if (!files || !files.length) return;
-                    appendFilesToPending(form, files);
-                    multiInput.value = '';
+            if (!multiInput || multiInput._wired) return;
+            multiInput._wired = true;
+            multiInput.addEventListener('change', function () {
+                var files = multiInput.files;
+                if (!files || !files.length) return;
+                appendFilesToPending(form, files);
+                multiInput.value = '';
+            });
+            var dropZone = form.querySelector('.ref-image-block')
+                || (multiInput.closest ? multiInput.closest('.col-12') : null)
+                || multiInput.parentElement;
+            if (window.MatchdoImageDrop && dropZone) {
+                window.MatchdoImageDrop.wire({
+                    zone: dropZone,
+                    multiple: true,
+                    onFiles: function (files) { appendFilesToPending(form, files); }
                 });
             }
         }
@@ -6123,6 +6134,20 @@
             }
             editGalleryUploadBound = true;
             multi.addEventListener('change', function () { onEditGalleryFilesSelected(multi); });
+            var editDropZone = multi.closest('.col-12') || multi.parentElement;
+            if (window.MatchdoImageDrop && editDropZone) {
+                window.MatchdoImageDrop.wire({
+                    zone: editDropZone,
+                    multiple: true,
+                    onFiles: function (files) {
+                        startTokenRefreshTimer();
+                        var added = appendFilesToEditGalleryLocal(files);
+                        if (added > 0) {
+                            setEditGalleryStatus('已加入上方預覽 ' + added + ' 張；按「儲存」才寫入', 'info');
+                        }
+                    }
+                });
+            }
         }
         function showToast(msg, type) {
             type = type || 'success';

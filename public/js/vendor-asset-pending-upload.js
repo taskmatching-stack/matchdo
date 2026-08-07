@@ -1261,6 +1261,16 @@
       appendFilesToPending(form, multiInput.files);
       multiInput.value = '';
     });
+    var dropZone = form.querySelector('.ref-image-block')
+      || (multiInput.closest ? multiInput.closest('.col-12') : null)
+      || multiInput.parentElement;
+    if (global.MatchdoImageDrop && dropZone && !dropZone._matchdoImageDropWired) {
+      global.MatchdoImageDrop.wire({
+        zone: dropZone,
+        multiple: true,
+        onFiles: function (files) { appendFilesToPending(form, files); }
+      });
+    }
   }
   global.MatchdoVendorAssetPending = {
     getPendingImages: getPendingImages,

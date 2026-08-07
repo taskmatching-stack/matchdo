@@ -6503,12 +6503,10 @@ $(document).ready(function () {
             }
         });
     }
-    $('#sceneSimPreviewWrap').on('click', function (e) {
-        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+    $('#sceneSimPreviewWrap').on('click', function () {
         openAssetPickerModal('sceneSim');
     });
-    $('#patternExtractPreviewWrap').on('click', function (e) {
-        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+    $('#patternExtractPreviewWrap').on('click', function () {
         openAssetPickerModal('patternExtract');
     });
     // 實境模擬結果：只顯示圖＋下載按鈕，不存入數位資產
@@ -6901,6 +6899,18 @@ $(document).ready(function () {
         reader.onload = function () { setDesignToPhysicalPreview(reader.result); };
         reader.readAsDataURL(f);
         this.value = '';
+    });
+    $('#designToPhysicalPreviewWrap').on('dragover', function (e) { e.preventDefault(); e.stopPropagation(); $(this).css('border-color', '#7A8FA3'); });
+    $('#designToPhysicalPreviewWrap').on('dragleave', function (e) { e.preventDefault(); $(this).css('border-color', ''); });
+    $('#designToPhysicalPreviewWrap').on('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).css('border-color', '');
+        var file = e.originalEvent && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files && e.originalEvent.dataTransfer.files[0];
+        if (!file || !file.type.match(/^image\//)) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) { setDesignToPhysicalPreview(ev.target.result); };
+        reader.readAsDataURL(file);
     });
     $('#designToPhysicalPickAssetBtn').on('click', function () {
         openAssetPickerModal('designToPhysical');

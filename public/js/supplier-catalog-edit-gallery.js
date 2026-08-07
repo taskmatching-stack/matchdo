@@ -761,6 +761,19 @@
       if (actions) actions.classList.remove('d-none');
       input.value = '';
     });
+    var dropZone = input.closest('.col-12') || input.parentElement;
+    if (global.MatchdoImageDrop && dropZone) {
+      global.MatchdoImageDrop.wire({
+        zone: dropZone,
+        multiple: true,
+        onFiles: function (files) {
+          syncEditGalleryPendingMirrors(getCfg().getEditItem());
+          Pending.appendFilesToPending(form, files);
+          var actions = document.getElementById('edit-gallery-pending-actions');
+          if (actions) actions.classList.remove('d-none');
+        }
+      });
+    }
     var btnUpload = document.getElementById('btn-edit-upload-pending-only');
     if (btnUpload) {
       btnUpload.addEventListener('click', async function () {
