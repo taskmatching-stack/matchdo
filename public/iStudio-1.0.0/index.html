@@ -126,23 +126,25 @@
                 #media-wall-section .d-flex.flex-wrap { margin-bottom: 0.5rem; }
                 /* 網格填滿可用寬度，左右對稱、Chrome/Edge 一致；不設 max-width 讓寬螢幕也塞滿 */
                 #media-wall-grid-wrap { width: 100%; max-width: 100%; margin-left: 0; margin-right: 0; box-sizing: border-box; }
-                /* 欄寬固定 260px（勿 1fr 拉寬），列同高 → 單格 1:1；設計稿 contain 不裁切 */
-                #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, 260px); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
+                /* 全部模式：每組左系列＋右 2 列（第 1 列全稿；第 2 列稿＋末格對照） */
+                #media-wall-layout { width: 100%; }
+                #media-wall-layout.d-none { display: none !important; }
+                #media-wall-groups { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+                #media-wall-groups.d-none { display: none !important; }
+                .media-wall-group { display: flex; align-items: flex-start; gap: 8px; width: 100%; --mw-cell: 260px; --mw-gap: 8px; --mw-cols: 3; }
+                .media-wall-group.no-series .media-wall-group-series { display: none; }
+                .media-wall-group-series { width: var(--mw-cell); flex: 0 0 var(--mw-cell); }
+                .media-wall-group-series .media-wall-1x2,
+                .media-wall-series-spacer { height: calc(var(--mw-cell) * 2 + var(--mw-gap)); min-height: calc(var(--mw-cell) * 2 + var(--mw-gap)); width: 100%; flex-shrink: 0; }
+                .media-wall-group-grid { flex: 1; min-width: 0; display: grid; gap: var(--mw-gap); grid-template-columns: repeat(var(--mw-cols), minmax(0, 1fr)); grid-auto-flow: row; grid-auto-rows: var(--mw-cell); min-height: 0; }
+                .media-wall-group-grid.one-row { grid-auto-rows: var(--mw-cell); }
+                .media-wall-group-grid .media-wall-item { min-height: 0; min-width: 0; }
+                .media-wall-group-grid .media-wall-item:not(.media-wall-1x2) { aspect-ratio: 1 / 1; width: 100%; height: auto; max-height: var(--mw-cell); align-self: start; }
+                /* 篩選模式：單一平面網格 */
+                #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, 260px); grid-auto-rows: 260px; gap: 8px; align-content: start; width: 100%; }
+                #media-wall-grid.d-none { display: none !important; }
                 #media-wall-grid .media-wall-item { min-height: 0; }
                 #media-wall-grid .media-wall-1x2 { grid-column: span 1; grid-row: span 2; min-height: 0; }
-                #media-wall-grid .media-wall-1x2-pos0 { grid-column: 1; grid-row: 1 / 3; }
-                #media-wall-grid .media-wall-1x2-pos1 { grid-column: -2 / -1 !important; grid-row: 3 / 5 !important; }
-                #media-wall-grid .media-wall-1x2-pos2 { grid-column: 1; grid-row: 5 / 7; }
-                #media-wall-grid .media-wall-1x2-pos3 { grid-column: -2 / -1 !important; grid-row: 7 / 9 !important; }
-                #media-wall-grid .media-wall-1x2-pos4 { grid-column: 1; grid-row: 9 / 11; }
-                #media-wall-grid .media-wall-1x2-pos5 { grid-column: -2 / -1 !important; grid-row: 11 / 13 !important; }
-                /* 對照圖：兩行為一組，每組 1 張 1x1。奇數組=該組第2行最後，偶數組=該組第1行(即下一組首行)第一 */
-                #media-wall-grid .media-wall-comparison-pos0 { grid-column: -2 / -1 !important; grid-row: 2 / 3 !important; }
-                #media-wall-grid .media-wall-comparison-pos1 { grid-column: 1 !important; grid-row: 3 / 4 !important; }
-                #media-wall-grid .media-wall-comparison-pos2 { grid-column: -2 / -1 !important; grid-row: 6 / 7 !important; }
-                #media-wall-grid .media-wall-comparison-pos3 { grid-column: 1 !important; grid-row: 7 / 8 !important; }
-                #media-wall-grid .media-wall-comparison-pos4 { grid-column: -2 / -1 !important; grid-row: 10 / 11 !important; }
-                #media-wall-grid .media-wall-comparison-pos5 { grid-column: 1 !important; grid-row: 11 / 12 !important; }
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
                 }
@@ -170,26 +172,26 @@
                     object-fit: cover;
                 }
                 .media-wall-type-promo { background: rgba(100, 85, 60, .92); color: #fff; }
-                #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
-                #media-wall-grid .media-wall-1x2 .card,
-                #media-wall-grid .media-wall-comparison .card { border: 2px solid #7A8FA3; box-shadow: 0 2px 8px rgba(122,143,163,.35); }
-                #media-wall-grid .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-                #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
-                #media-wall-grid .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
-                #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
-                #media-wall-grid .media-wall-item[data-type="user_design"] .card-img-wrap > img { object-fit: contain; }
-                #media-wall-grid .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
-                #media-wall-grid .card:hover .card-img-wrap::after { opacity: 0; }
-                #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff !important; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 1px #7A8FA3, 0 1px 3px rgba(0,0,0,.9); }
-                #media-wall-grid .card .card-title-overlay h2, #media-wall-grid .card .card-title-overlay h3 { margin: 0; font-size: inherit; font-weight: inherit; color: #fff !important; text-shadow: 0 0 1px #7A8FA3, 0 1px 3px rgba(0,0,0,.9); }
+                #media-wall-grid-wrap .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; position: relative; }
+                #media-wall-grid-wrap .media-wall-1x2 .card,
+                #media-wall-grid-wrap .media-wall-comparison .card { border: 2px solid #7A8FA3; box-shadow: 0 2px 8px rgba(122,143,163,.35); }
+                #media-wall-grid-wrap .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+                #media-wall-grid-wrap .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
+                #media-wall-grid-wrap .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
+                #media-wall-grid-wrap .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+                #media-wall-grid-wrap .media-wall-item[data-type="user_design"] .card-img-wrap > img { object-fit: contain; }
+                #media-wall-grid-wrap .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
+                #media-wall-grid-wrap .card:hover .card-img-wrap::after { opacity: 0; }
+                #media-wall-grid-wrap .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff !important; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 1px #7A8FA3, 0 1px 3px rgba(0,0,0,.9); }
+                #media-wall-grid-wrap .card .card-title-overlay h2, #media-wall-grid-wrap .card .card-title-overlay h3 { margin: 0; font-size: inherit; font-weight: inherit; color: #fff !important; text-shadow: 0 0 1px #7A8FA3, 0 1px 3px rgba(0,0,0,.9); }
                 .media-wall-seo-desc { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-                #media-wall-grid .card .card-img-wrap img[src*="placehold.co"] { filter: grayscale(1); }
-                #media-wall-grid .card .card-img-wrap .media-wall-placeholder { background: #e8e8e8 !important; color: #888 !important; font-size: 0.7rem; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 80px; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px), repeating-linear-gradient(90deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px) !important; }
-                #media-wall-grid .card .card-img-wrap .media-wall-placeholder span { color: #888; }
+                #media-wall-grid-wrap .card .card-img-wrap img[src*="placehold.co"] { filter: grayscale(1); }
+                #media-wall-grid-wrap .card .card-img-wrap .media-wall-placeholder { background: #e8e8e8 !important; color: #888 !important; font-size: 0.7rem; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 80px; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px), repeating-linear-gradient(90deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px) !important; }
+                #media-wall-grid-wrap .card .card-img-wrap .media-wall-placeholder span { color: #888; }
                 /* 系列多圖：1×2（兩格）或 2×2（四格） */
-                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; }
-                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid.collection-grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+                #media-wall-grid-wrap .media-wall-1x2 .card .card-img-wrap.collection-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; }
+                #media-wall-grid-wrap .media-wall-1x2 .card .card-img-wrap.collection-grid.collection-grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+                #media-wall-grid-wrap .media-wall-1x2 .card .card-img-wrap.collection-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
                 /* 對比卡：圖區內填滿，overlay 滑桿（垂直線+圓形把手） */
                 .comparison-slider-wrap { position: absolute; inset: 0; width: 100%; height: 100%; }
                 .comparison-slider-wrap img.slider-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -200,8 +202,8 @@
                 .comparison-slider-wrap .slider-handle { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; background: #fff; border: 2px solid #7A8FA3; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 12px; color: #7A8FA3; }
                 /* 對照卡說明「左＝設計稿、右＝作品圖」：左右置中、與愛心按鈕同高（top 對齊） */
                 .comparison-slider-wrap .slider-hint { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff; font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none; }
-                #media-wall-grid .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
-                #media-wall-grid .media-wall-1x2 .card { min-height: 0; }
+                #media-wall-grid-wrap .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
+                #media-wall-grid-wrap .media-wall-1x2 .card { min-height: 0; }
                 /* ── 愛心按鈕 ── */
                 .mw-fav-btn { position:absolute; top:6px; left:6px; z-index:12; width:30px; height:30px; border:none; background:#7A8FA3; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; line-height:1; box-shadow:0 1px 6px rgba(0,0,0,.3); transition:transform .15s,background .12s; }
                 .mw-fav-btn:hover { transform:scale(1.18); background:#3a5169; }
@@ -226,12 +228,11 @@
                 .media-wall-type-collection { background: rgba(80,120,80,.9); color: #fff; }
                 .media-wall-type-vendor-ref { background: rgba(255,255,255,.9); color: #7A8FA3; border: 1px solid rgba(122,143,163,.28); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
                 /* 管理員：在首頁關閉個別圖片顯示 */
-                #media-wall-grid .card { position: relative; }
-                #media-wall-grid .media-wall-admin-hide { position: absolute; top: 4px; right: 4px; z-index: 10; padding: 2px 6px; font-size: 0.65rem; background: rgba(0,0,0,.7); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 2px; }
-                #media-wall-grid .media-wall-admin-hide:hover { background: #7A8FA3; }
-                #media-wall-grid .media-wall-admin-delete { right: 4px; left: auto; top: 4px; margin-left: 0; background: rgba(180,60,60,.9); }
-                #media-wall-grid .media-wall-admin-delete:hover { background: #c0392b; }
-                #media-wall-grid .media-wall-admin-actions { position: absolute; top: 4px; right: 4px; z-index: 10; display: flex; gap: 2px; }
+                #media-wall-grid-wrap .media-wall-admin-hide { position: absolute; top: 4px; right: 4px; z-index: 10; padding: 2px 6px; font-size: 0.65rem; background: rgba(0,0,0,.7); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 2px; }
+                #media-wall-grid-wrap .media-wall-admin-hide:hover { background: #7A8FA3; }
+                #media-wall-grid-wrap .media-wall-admin-delete { right: 4px; left: auto; top: 4px; margin-left: 0; background: rgba(180,60,60,.9); }
+                #media-wall-grid-wrap .media-wall-admin-delete:hover { background: #c0392b; }
+                #media-wall-grid-wrap .media-wall-admin-actions { position: absolute; top: 4px; right: 4px; z-index: 10; display: flex; gap: 2px; }
                 /* 分類篩選：標籤形式，非下拉 */
                 #media-wall-filter { margin-bottom: 0.75rem; }
                 #media-wall-filter .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem; }
@@ -276,8 +277,11 @@
             <div id="media-wall-active-filters" class="d-none" aria-live="polite"></div>
             <!-- 我的最愛縮圖列已移除，改由「我的收藏」過濾按鈕控制格線顯示 -->
             <div id="media-wall-grid-wrap">
-                <div id="media-wall-grid">
-                    <!-- 由 JS 載入 /api/media-wall -->
+                <div id="media-wall-layout" class="media-wall-layout">
+                    <div id="media-wall-groups"></div>
+                </div>
+                <div id="media-wall-grid" class="d-none">
+                    <!-- 篩選模式由 JS 載入 -->
                 </div>
                 <div id="media-wall-sentinel" style="height:1px;pointer-events:none;" aria-hidden="true"></div>
             </div>
@@ -496,20 +500,80 @@
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
     <script src="/js/media-wall-promo-scene.js?v=20260724-portrait-span"></script>
+    <script src="/js/media-wall-mixed-layout.js?v=20260807e"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
+            var layoutEl = document.getElementById('media-wall-layout');
+            var groupsEl = document.getElementById('media-wall-groups');
             var grid = document.getElementById('media-wall-grid');
             var gridWrap = document.getElementById('media-wall-grid-wrap');
             var MW_GRID_GAP = 8;
             var MW_COL_MIN = 260;
+            var MW_SERIES_COL = 260;
 
-            /** 與 #media-wall-grid「全部」模式相同的一格寬高（見 inline style 第 129、146 行） */
-            function getMediaWallCellMetrics(containerWidth) {
+            function clearMediaWallGrid() {
+                if (grid) grid.innerHTML = '';
+                if (groupsEl) groupsEl.innerHTML = '';
+            }
+            function setMediaWallMixedLayout(on) {
+                if (layoutEl) layoutEl.classList.toggle('d-none', !on);
+                if (grid) grid.classList.toggle('d-none', !!on);
+            }
+            function mediaWallHasAnyItems() {
+                var n = 0;
+                if (grid) n += grid.querySelectorAll('.media-wall-item').length;
+                if (groupsEl) n += groupsEl.querySelectorAll('.media-wall-item').length;
+                return n > 0;
+            }
+            function forEachMediaWallItem(fn) {
+                [groupsEl, grid].forEach(function (el) {
+                    if (!el) return;
+                    el.querySelectorAll('.media-wall-item').forEach(fn);
+                });
+            }
+            function getMediaWallGridWidth(hasSeriesCol) {
+                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : (grid ? grid.clientWidth : 0);
+                if (hasSeriesCol) {
+                    if (window.matchMedia('(max-width: 767px)').matches) {
+                        w = Math.max(0, w - (w - 2 * MW_GRID_GAP) / 3 - MW_GRID_GAP);
+                    } else {
+                        w = Math.max(0, w - MW_SERIES_COL - MW_GRID_GAP);
+                    }
+                }
+                return w;
+            }
+
+            /** 全部模式：系列欄＝一格寬，與右側主格同尺寸（避免縮窗時欄窄列高仍 260） */
+            function getMediaWallMixedGroupMetrics(useSeries) {
+                var W = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : 0;
+                var gap = MW_GRID_GAP;
+                var isMobile = window.matchMedia('(max-width: 767px)').matches;
+                if (!useSeries) {
+                    return getMediaWallCellMetrics(W, false);
+                }
+                if (isMobile) {
+                    var mobileMainCols = 2;
+                    var mobileUnits = mobileMainCols + 1;
+                    var mobileCell = W > 0 ? (W - gap * mobileUnits) / mobileUnits : 0;
+                    return { colCount: mobileMainCols, colW: mobileCell, rowCss: (mobileCell > 0 ? mobileCell + 'px' : '120px') };
+                }
+                var mainCols = Math.max(1, Math.floor((W + gap) / (MW_COL_MIN + gap)) - 1);
+                var cell = W > 0 ? (W - gap * (mainCols + 1)) / (mainCols + 1) : MW_COL_MIN;
+                while (cell < 120 && mainCols > 1) {
+                    mainCols--;
+                    cell = (W - gap * (mainCols + 1)) / (mainCols + 1);
+                }
+                return { colCount: mainCols, colW: cell, rowCss: (cell > 0 ? cell + 'px' : '260px') };
+            }
+
+            /** 與 #media-wall-grid「全部」模式相同的一格寬高 */
+            function getMediaWallCellMetrics(containerWidth, mainWithSeriesRail) {
                 var w = Math.max(0, containerWidth || 0);
                 if (window.matchMedia('(max-width: 767px)').matches) {
-                    var colW = w > 0 ? (w - 2 * MW_GRID_GAP) / 3 : 0;
-                    return { colW: colW, rowCss: 'minmax(120px, 28vw)', colCount: 3 };
+                    var colCount = mainWithSeriesRail ? 2 : 3;
+                    var colW = w > 0 ? (w - MW_GRID_GAP * (colCount - 1)) / colCount : 0;
+                    return { colW: colW, rowCss: 'minmax(120px, 28vw)', colCount: colCount };
                 }
                 var n = Math.max(1, Math.floor((w + MW_GRID_GAP) / (MW_COL_MIN + MW_GRID_GAP)));
                 var colW = (w - MW_GRID_GAP * (n - 1)) / n;
@@ -517,15 +581,13 @@
             }
 
             function promoPackColCount() {
-                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : (grid ? grid.clientWidth : 0);
-                return getMediaWallCellMetrics(w).colCount || 2;
+                return getMediaWallCellMetrics(getMediaWallGridWidth(false), false).colCount || 2;
             }
 
             /** 情境圖拼格：JS 欄數須與 packPromoSceneItems 一致（70b856c 誤刪此函式導致亂疊） */
             function applyPromoSceneGridMetrics() {
                 if (!grid) return;
-                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : (grid ? grid.clientWidth : 0);
-                var m = getMediaWallCellMetrics(w);
+                var m = getMediaWallCellMetrics(getMediaWallGridWidth(false), false);
                 var n = m.colCount || 2;
                 if (m.colW > 0) {
                     grid.style.setProperty('grid-template-columns', 'repeat(' + n + ', ' + m.colW + 'px)', 'important');
@@ -607,7 +669,9 @@
 
             // 重新同步格線所有愛心按鈕
             function updateAllFavButtons() {
-                grid.querySelectorAll('.mw-fav-btn').forEach(function(btn) {
+                forEachMediaWallItem(function (btnWrap) {
+                    var btn = btnWrap.querySelector('.mw-fav-btn');
+                    if (!btn) return;
                     var favId = btn.getAttribute('data-fav-id');
                     var faved = isFavorite(favId);
                     btn.classList.toggle('active', faved);
@@ -642,7 +706,7 @@
                 if (showingFavoritesOnly && !isNowFaved) {
                     var wrap = btn && btn.closest('.media-wall-item');
                     if (wrap) wrap.remove();
-                    if (!grid.querySelector('.media-wall-item')) renderFavoritesEmptyState();
+                    if (!mediaWallHasAnyItems()) renderFavoritesEmptyState();
                 }
                 // 背景寫 DB
                 var token = await getFavToken();
@@ -671,7 +735,8 @@
                         return itemMatchesWallFilters(item);
                     });
                 }
-                grid.innerHTML = '';
+                clearMediaWallGrid();
+                setMediaWallMixedLayout(false);
                 if (!favs.length) { renderFavoritesEmptyState(); return; }
                 favs.forEach(function(f) {
                     var item = f.item || {};
@@ -761,10 +826,11 @@
             var currentPage = 1;
             var currentQ = '';
             var currentTagFilters = [];
-            var perPage = 24;
+            var perPage = 33;
             var mediaWallHasRendered = false;
             var isLoading = false;
             var allLoadedPromoItems = []; // 情境圖模式：已載入的所有 items（避免 append 亂疊）
+            var allLoadedMixedItems = []; // 全部模式：累積各頁後整牆重排（第 2 頁起與第 1 頁同一規則）
             function itemMatchesTagFilters(item, tagFilters) {
                 if (!tagFilters || !tagFilters.length) return true;
                 var tags = getDisplayTags(item).map(function (t) { return String(t).trim().toLowerCase(); });
@@ -869,8 +935,8 @@
                 card.appendChild(actions);
             }
             function patchMediaWallAdminButtons() {
-                if (!adminOpts.isAdmin || !grid) return;
-                grid.querySelectorAll('.media-wall-item').forEach(function (wrap) {
+                if (!adminOpts.isAdmin) return;
+                forEachMediaWallItem(function (wrap) {
                     appendMediaWallAdminActions(wrap, adminOpts);
                 });
             }
@@ -1105,6 +1171,11 @@
                 if (zh) return zh;
                 return en || '';
             }
+            function mediaWallCreatedDesc(a, b) {
+                var ta = (a && a.created_at) ? new Date(a.created_at).getTime() : 0;
+                var tb = (b && b.created_at) ? new Date(b.created_at).getTime() : 0;
+                return tb - ta;
+            }
             function renderOne(p, opts) {
                     var wrap = document.createElement('div');
                     var cls = 'media-wall-item';
@@ -1161,7 +1232,7 @@
                         var urls = (p.series_image_urls && Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls
                             : (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : ((p.cover_image_url && p.cover_image_url.trim()) ? [p.cover_image_url.trim()] : (p.image_url ? [p.image_url] : [])));
                         if (urls.length === 0) {
-                            content = '<div class="media-wall-placeholder"><span>系列</span></div>';
+                            return null;
                         } else if (urls.length >= 4) {
                             wrapExtra = ' collection-grid collection-grid-2x2';
                             content = urls.slice(0, 4).map(function (u) { return '<img src="' + escAttr(imageSrcForShare(u)) + '" alt="' + escAttr(altText) + '" loading="lazy">'; }).join('');
@@ -1255,8 +1326,10 @@
                             e.stopPropagation();
                             var panel = wrap.querySelector('.mw-tags-panel');
                             var open = panel && panel.classList.contains('is-open');
-                            grid.querySelectorAll('.mw-tags-panel.is-open').forEach(function (el) { el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true'); });
-                            grid.querySelectorAll('.mw-tags-btn[aria-expanded="true"]').forEach(function (el) { el.setAttribute('aria-expanded', 'false'); });
+                            if (gridWrap) {
+                            gridWrap.querySelectorAll('.mw-tags-panel.is-open').forEach(function (el) { el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true'); });
+                            gridWrap.querySelectorAll('.mw-tags-btn[aria-expanded="true"]').forEach(function (el) { el.setAttribute('aria-expanded', 'false'); });
+                            }
                             if (panel && !open) {
                                 panel.classList.add('is-open');
                                 panel.setAttribute('aria-hidden', 'false');
@@ -1324,7 +1397,13 @@
                     }
                     return wrap;
             }
-            var adminOpts = { isAdmin: false, getToken: function () { return Promise.resolve(null); } };
+            var adminOpts = { isAdmin: false, staffPreview: false, getToken: function () { return Promise.resolve(null); } };
+            var mediaWallInitialLoadDone = false;
+            function profileCanInternalPreview(profile) {
+                if (!profile) return false;
+                var role = String(profile.role || '').trim().toLowerCase();
+                return role === 'admin' || role === 'tester';
+            }
             function profileCanDeleteOnHomepage(profile) {
                 if (!profile) return false;
                 if (profile.media_wall_manage === true) return true;
@@ -1333,11 +1412,15 @@
             }
             function applyMediaWallAdminFromProfile(profile, session) {
                 var wasAdmin = adminOpts.isAdmin;
+                var wasStaffPreview = adminOpts.staffPreview;
                 adminOpts.isAdmin = profileCanDeleteOnHomepage(profile);
+                adminOpts.staffPreview = profileCanInternalPreview(profile);
                 var token = (session && session.access_token) || (session && session.session && session.session.access_token);
-                if (token) {
+                if (adminOpts.staffPreview && token) {
                     adminOpts.getToken = function () {
+                        if (!adminOpts.staffPreview) return Promise.resolve(null);
                         return AuthService.getSession().then(function (s) {
+                            if (!adminOpts.staffPreview) return null;
                             return (s && s.access_token) || (s && s.session && s.session.access_token) || null;
                         });
                     };
@@ -1348,14 +1431,29 @@
                     if (typeof showingFavoritesOnly !== 'undefined' && showingFavoritesOnly) renderFavoritesGrid();
                     else if (mediaWallHasRendered) patchMediaWallAdminButtons();
                 }
+                if (mediaWallInitialLoadDone && adminOpts.staffPreview !== wasStaffPreview) {
+                    reloadMediaWall(1, false);
+                }
             }
-            (function resolveMediaWallAdminEarly() {
-                if (!window.AuthService || !AuthService.getUserProfile || !AuthService.getSession) return;
+            (function bootMediaWallWithAuth() {
+                var authTimer = null;
+                function finishBoot(profile, session) {
+                    if (mediaWallInitialLoadDone) return;
+                    mediaWallInitialLoadDone = true;
+                    if (authTimer) clearTimeout(authTimer);
+                    applyMediaWallAdminFromProfile(profile, session);
+                    reloadMediaWall(1, false);
+                }
+                if (!window.AuthService || !AuthService.getSession) {
+                    finishBoot(null, null);
+                    return;
+                }
+                authTimer = setTimeout(function () { finishBoot(null, null); }, 2000);
                 Promise.all([
-                    AuthService.getUserProfile().catch(function () { return null; }),
-                    AuthService.getSession().catch(function () { return null; })
+                    AuthService.getSession().catch(function () { return null; }),
+                    AuthService.getUserProfile ? AuthService.getUserProfile().catch(function () { return null; }) : Promise.resolve(null)
                 ]).then(function (pair) {
-                    applyMediaWallAdminFromProfile(pair[0], pair[1]);
+                    finishBoot(pair[1], pair[0]);
                 });
             })();
             var currentCategoryKey = '';
@@ -1524,11 +1622,13 @@
                                 });
                             }
                         } else {
-                            // 登出：清空快取、重設按鈕，並撤銷靈感牆刪除權限（避免殘留給下一個使用者）
                             favUserLoggedIn = false;
                             saveFavs([]);
                             updateAllFavButtons();
+                            adminOpts.staffPreview = false;
+                            adminOpts.getToken = function () { return Promise.resolve(null); };
                             applyMediaWallAdminFromProfile(null, null);
+                            if (!showingFavoritesOnly) reloadMediaWall(1, false);
                             if (showingFavoritesOnly) {
                                 showingFavoritesOnly = false;
                                 if (favFilterBtn) {
@@ -1554,6 +1654,17 @@
                 if (currentSubcategoryKey) url += '&subcategory_key=' + encodeURIComponent(currentSubcategoryKey);
                 if (currentLayoutType) url += '&layout_type=' + encodeURIComponent(currentLayoutType);
                 return url;
+            }
+            function buildMediaWallFetchOpts(baseOpts) {
+                baseOpts = baseOpts || {};
+                var opts = Object.assign({}, baseOpts, { cache: 'no-store' });
+                if (!adminOpts.staffPreview) return Promise.resolve(opts);
+                return adminOpts.getToken().then(function (token) {
+                    if (token && adminOpts.staffPreview) {
+                        opts.headers = Object.assign({}, opts.headers || {}, { Authorization: 'Bearer ' + token });
+                    }
+                    return opts;
+                });
             }
             var loadMediaWallRequestId = 0;
             function updateMediaWallItemListLD(list) {
@@ -1585,14 +1696,13 @@
                 var savedScrollY = (!append && typeof window !== 'undefined') ? window.scrollY : 0;
                 if (!append) {
                     if (gridWrap && gridWrap.offsetHeight > 0) gridWrap.style.minHeight = gridWrap.offsetHeight + 'px';
-                    grid.innerHTML = '';
+                    clearMediaWallGrid();
+                    allLoadedMixedItems = [];
                     loading.classList.remove('d-none');
                     empty.classList.add('d-none');
                 }
                 var url = buildMediaWallUrl(page, q);
-                var fetchOpts = (layoutFilter || currentCategoryKey || currentSubcategoryKey || q || currentTagFilters.length)
-                    ? { cache: 'no-store' }
-                    : {};
+                var fetchOpts = { cache: 'no-store' };
                 function clearMediaWallLoadingShell() {
                     loading.classList.add('d-none');
                     if (gridWrap) gridWrap.style.minHeight = '';
@@ -1613,6 +1723,7 @@
                     if (thisRequestId !== loadMediaWallRequestId) return;
                     clearMediaWallLoadingShell();
                     if (data.error) { showMediaWallLoadError(); return; }
+                    if (data.internal_preview && !adminOpts.staffPreview) return;
                     var items = data.items || [];
                     var effectiveLayoutFilter = layoutFilter;
                     if (effectiveLayoutFilter) {
@@ -1625,11 +1736,13 @@
                     function appendRenderedItem(p) {
                         try {
                             var el = renderOne(p, opts);
+                            if (!el) return null;
                             renderFrag.appendChild(el);
                             return p;
                         } catch (renderErr) { console.warn('media-wall render skip', p && p.id, renderErr); return null; }
                     }
                     if (effectiveLayoutFilter) {
+                        setMediaWallMixedLayout(false);
                         listForLD = [];
                         if (effectiveLayoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
                             grid.classList.add('mw-promo-scene-grid');
@@ -1638,7 +1751,7 @@
                             lastPromoPackColCount = promoCols;
                             if (append) {
                                 allLoadedPromoItems = allLoadedPromoItems.concat(items);
-                                grid.innerHTML = '';
+                                clearMediaWallGrid();
                                 items = allLoadedPromoItems;
                             } else {
                                 allLoadedPromoItems = items.slice();
@@ -1657,37 +1770,45 @@
                         } else {
                             grid.classList.remove('mw-promo-scene-grid');
                             clearPromoSceneGridMetrics();
+                            items.sort(mediaWallCreatedDesc);
                             items.forEach(function (p) {
                                 var rendered = appendRenderedItem(p);
                                 if (rendered) listForLD.push(rendered);
                             });
                         }
                     } else {
+                        setMediaWallMixedLayout(true);
                         grid.classList.remove('mw-promo-scene-grid');
                         clearPromoSceneGridMetrics();
-                        var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
-                        var collections = items.filter(is1x2);
-                        var ones = items.filter(function (p) { return !is1x2(p); });
-                        var comparisons = ones.filter(function (p) { return (p.type || '') === 'comparison'; });
-                        var designs = ones.filter(function (p) { return (p.type || '') === 'user_design'; });
-                        var max1x2Total = 8;
-                        collections = collections.slice(0, max1x2Total);
-                        var maxDesignPerBlock = 11;
-                        var displayOrder = [];
-                        var i1x2 = 0, iComp = 0, iDesign = 0;
-                        while (i1x2 < collections.length || iComp < comparisons.length || iDesign < designs.length) {
-                            if (i1x2 < collections.length) displayOrder.push(collections[i1x2++]);
-                            if (iComp < comparisons.length) displayOrder.push(comparisons[iComp++]);
-                            for (var k = 0; k < maxDesignPerBlock && iDesign < designs.length; k++) displayOrder.push(designs[iDesign++]);
-                        }
                         listForLD = [];
-                        displayOrder.forEach(function (p) {
-                            var rendered = appendRenderedItem(p);
-                            if (rendered) listForLD.push(rendered);
-                        });
+                        if (append) {
+                            allLoadedMixedItems = allLoadedMixedItems.concat(items);
+                        } else {
+                            allLoadedMixedItems = items.slice();
+                        }
+                        var mixedItems = allLoadedMixedItems;
+                        if (append) clearMediaWallGrid();
+                        if (window.MatchdoMediaWallMixedLayout && typeof window.MatchdoMediaWallMixedLayout.renderMixedLayout === 'function') {
+                            var mixed = window.MatchdoMediaWallMixedLayout.renderMixedLayout({
+                                items: mixedItems,
+                                renderOne: renderOne,
+                                opts: opts,
+                                sortByCreatedDesc: mediaWallCreatedDesc,
+                                getCellMetrics: function (useSeriesCol) {
+                                    return getMediaWallMixedGroupMetrics(useSeriesCol);
+                                }
+                            });
+                            listForLD = mixed.listForLD || [];
+                            var mk0 = getMediaWallMixedGroupMetrics(mixed.useSeries);
+                            lastMixedLayoutKey = String(mk0.colCount) + 'x' + Math.round(mk0.colW || 0);
+                            if (mixed.fragment && mixed.fragment.childNodes.length) renderFrag.appendChild(mixed.fragment);
+                        }
                     }
-                    if (renderFrag.childNodes.length) grid.appendChild(renderFrag);
-                    mediaWallHasRendered = listForLD.length > 0 || grid.querySelectorAll('.media-wall-item').length > 0;
+                    if (renderFrag.childNodes.length) {
+                        if (effectiveLayoutFilter && grid) grid.appendChild(renderFrag);
+                        else if (groupsEl) groupsEl.appendChild(renderFrag);
+                    }
+                    mediaWallHasRendered = listForLD.length > 0 || mediaWallHasAnyItems();
                     if (!append && items.length > 0 && listForLD.length === 0) { showMediaWallLoadError(); return; }
                     if (!append && listForLD.length > 0) {
                         var ldList = listForLD.slice();
@@ -1696,32 +1817,19 @@
                             : function (fn) { setTimeout(fn, 0); };
                         scheduleLd(function () { updateMediaWallItemListLD(ldList); });
                     }
-                    if (!effectiveLayoutFilter) {
-                        var twoRows = grid.querySelectorAll('.media-wall-1x2');
-                        for (var i = 0; i < twoRows.length; i++) {
-                            if (i <= 5) {
-                                twoRows[i].classList.add('media-wall-1x2-pos' + i);
-                            } else {
-                                var rowStart = 13 + Math.floor((i - 6) / 2) * 2;
-                                twoRows[i].style.gridColumn = (i - 6) % 2 === 0 ? '1' : '-2 / -1';
-                                twoRows[i].style.gridRow = rowStart + ' / ' + (rowStart + 2);
-                            }
-                        }
-                        var comps = grid.querySelectorAll('.media-wall-comparison');
-                        for (var i = 0; i < comps.length; i++) {
-                            if (i <= 5) comps[i].classList.add('media-wall-comparison-pos' + i);
-                        }
-                    }
                     currentPage = page;
                     currentQ = q;
                     renderFavSection();
                     renderActiveFilterChips();
-                    var hideLoadMore = (page < 2 || items.length < perPage) || (effectiveLayoutFilter === 'promo_scene');
+                    var batchDesignCount = items.filter(function (p) { return (p.type || '') === 'user_design'; }).length;
+                    var hideLoadMore = (batchDesignCount < perPage) || (effectiveLayoutFilter === 'promo_scene');
                     if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', hideLoadMore);
                 }
                 function attemptFetch(retryCount) {
                     var retryScheduled = false;
-                    fetch(url, fetchOpts).then(function (r) {
+                    buildMediaWallFetchOpts(fetchOpts).then(function (reqOpts) {
+                        return fetch(url, reqOpts);
+                    }).then(function (r) {
                         if (!r.ok) throw new Error('HTTP ' + r.status);
                         return r.json();
                     }).then(function (data) {
@@ -1744,18 +1852,43 @@
                 }
                 attemptFetch(0);
             }
-            // 立即載入靈感牆，不等待 Auth / 分類 API，避免首次進入頁面時因非同步延遲而空白
-            reloadMediaWall(1, false);
             renderActiveFilterChips();
             var promoGridResizeTimer;
+            var mixedGridResizeTimer;
+            var lastMixedLayoutKey = '';
+            function rerenderMixedWallFromCache() {
+                if (currentLayoutType || !allLoadedMixedItems.length || !groupsEl || !window.MatchdoMediaWallMixedLayout) return;
+                clearMediaWallGrid();
+                var mixed = window.MatchdoMediaWallMixedLayout.renderMixedLayout({
+                    items: allLoadedMixedItems,
+                    renderOne: renderOne,
+                    opts: adminOpts,
+                    sortByCreatedDesc: mediaWallCreatedDesc,
+                    getCellMetrics: function (useSeriesCol) {
+                        return getMediaWallMixedGroupMetrics(useSeriesCol);
+                    }
+                });
+                if (mixed.fragment && mixed.fragment.childNodes.length) groupsEl.appendChild(mixed.fragment);
+                updateAllFavButtons();
+            }
             window.addEventListener('resize', function () {
-                if (currentLayoutType !== 'promo_scene' || !grid) return;
-                clearTimeout(promoGridResizeTimer);
-                promoGridResizeTimer = setTimeout(function () {
-                    var cols = promoPackColCount();
-                    if (cols !== lastPromoPackColCount) reloadMediaWall(1, false);
-                    else applyPromoSceneGridMetrics();
-                }, 200);
+                if (currentLayoutType === 'promo_scene' && grid) {
+                    clearTimeout(promoGridResizeTimer);
+                    promoGridResizeTimer = setTimeout(function () {
+                        var cols = promoPackColCount();
+                        if (cols !== lastPromoPackColCount) reloadMediaWall(1, false);
+                        else applyPromoSceneGridMetrics();
+                    }, 200);
+                } else if (!currentLayoutType && allLoadedMixedItems.length) {
+                    clearTimeout(mixedGridResizeTimer);
+                    mixedGridResizeTimer = setTimeout(function () {
+                        var mk = getMediaWallMixedGroupMetrics(true);
+                        var key = String(mk.colCount) + 'x' + Math.round(mk.colW || 0);
+                        if (key === lastMixedLayoutKey) return;
+                        lastMixedLayoutKey = key;
+                        rerenderMixedWallFromCache();
+                    }, 200);
+                }
             });
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
@@ -1902,9 +2035,9 @@
             if (sentinel && typeof IntersectionObserver !== 'undefined') {
                 var io = new IntersectionObserver(function (entries) {
                     if (!entries[0] || !entries[0].isIntersecting) return;
-                    if (showingFavoritesOnly || isLoading || currentPage !== 1) return;
-                    if (currentLayoutType === 'promo_scene') return;
-                    reloadMediaWall(2, true);
+                    if (showingFavoritesOnly || isLoading || currentLayoutType) return;
+                    if (loadMoreBtn && loadMoreBtn.classList.contains('d-none')) return;
+                    reloadMediaWall(currentPage + 1, true);
                 }, { root: null, rootMargin: '0px', threshold: 0 });
                 io.observe(sentinel);
             }
@@ -2141,14 +2274,15 @@
             function isPlainPrimaryCardClick(e) {
                 return !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button);
             }
-            grid.addEventListener('click', function (e) {
+            var mediaWallClickRoot = gridWrap || grid;
+            if (mediaWallClickRoot) mediaWallClickRoot.addEventListener('click', function (e) {
                 var aEarly = e.target.closest('a.media-wall-card-link');
                 if (!aEarly) return;
                 var wrapEarly = aEarly.closest('.media-wall-item');
                 // 一般左鍵 + data-item → lightbox；Ctrl／⌘／Shift 等保留瀏覽器開獨立 /inspiration/*
                 if (wrapEarly && wrapEarly.getAttribute('data-item') && isPlainPrimaryCardClick(e)) e.preventDefault();
             }, true);
-            grid.addEventListener('click', function (e) {
+            if (mediaWallClickRoot) mediaWallClickRoot.addEventListener('click', function (e) {
                 if (e.target.closest('.mw-fav-btn, .mw-tags-btn, .media-wall-admin-actions, .comparison-slider-wrap')) return;
                 if (!isPlainPrimaryCardClick(e)) return;
                 var a = e.target.closest('a.media-wall-card-link');
@@ -2171,7 +2305,10 @@
                 var type = parts.length >= 1 && knownTypes.indexOf(parts[0]) >= 0 ? parts[0] : '';
                 var id = parts.length >= 2 ? parts.slice(1).join('-') : '';
                 if (!type || !id) return;
-                fetch('/api/media-wall-item/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?lang=' + encodeURIComponent(getMediaWallLang()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (data) {
+                var itemUrl = '/api/media-wall-item/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?lang=' + encodeURIComponent(getMediaWallLang());
+                buildMediaWallFetchOpts({ cache: 'no-store' }).then(function (reqOpts) {
+                    return fetch(itemUrl, reqOpts);
+                }).then(function (r) { return r.json(); }).then(function (data) {
                     var item = data && data.item ? data.item : null;
                     if (item) {
                         openLightboxWithItem(item);
@@ -2193,7 +2330,12 @@
                     var item = {};
                     try { item = JSON.parse(this.dataset.favItem || '{}'); } catch (e) {}
                     // 同步格線上對應的縮圖愛心按鈕
-                    var gridCardBtn = grid ? grid.querySelector('.mw-fav-btn[data-fav-id="' + (favId || '').replace(/"/g, '&quot;') + '"]') : null;
+                    var gridCardBtn = null;
+                    forEachMediaWallItem(function (el) {
+                        if (gridCardBtn) return;
+                        var btn = el.querySelector('.mw-fav-btn[data-fav-id="' + (favId || '').replace(/"/g, '&quot;') + '"]');
+                        if (btn) gridCardBtn = btn;
+                    });
                     toggleFavorite(favId, item, gridCardBtn);
                     // 更新 lightbox 愛心按鈕本身
                     syncLightboxFavBtn(favId, item);

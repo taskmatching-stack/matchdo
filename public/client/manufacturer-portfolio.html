@@ -340,18 +340,35 @@
         var mfrId = null;
         var isSeedVendor = false;
         async function applySeedVendorInfoBanner(vendorSource) {
-            isSeedVendor = false;
+            isSeedVendor = vendorSource === 'seed';
             var banner = document.getElementById('seed-vendor-banner');
             if (!banner) return;
-            if (vendorSource !== 'seed') {
+            if (!isSeedVendor) {
                 banner.classList.add('d-none');
+                applySeedMediaWallToggleUi();
                 return;
             }
             banner.classList.remove('d-none');
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
-            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：請用此帳號完成作品與素材上架；<strong>轉正式廠商後</strong>再交付帳密予廠商自行維護。';
+            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：系列／對照圖<strong>不會</strong>出現在訪客靈感牆，僅管理員／測試員內部預覽；轉正式廠商後再交付帳密。';
             var btnAdd = document.getElementById('btn-add-open');
             if (btnAdd) btnAdd.classList.remove('d-none');
+            applySeedMediaWallToggleUi();
+        }
+        function applySeedMediaWallToggleUi() {
+            var addWrap = document.getElementById('add-show-on-media-wall');
+            var editWrap = document.getElementById('edit-show-on-media-wall');
+            var addRow = addWrap && addWrap.closest('.col-12');
+            var editRow = editWrap && editWrap.closest('.col-12');
+            if (addRow) addRow.classList.toggle('d-none', isSeedVendor);
+            if (editRow) editRow.classList.toggle('d-none', isSeedVendor);
+            if (isSeedVendor) {
+                if (addWrap) { addWrap.checked = false; addWrap.disabled = true; }
+                if (editWrap) { editWrap.checked = false; editWrap.disabled = true; }
+            } else {
+                if (addWrap) addWrap.disabled = false;
+                if (editWrap) editWrap.disabled = false;
+            }
         }
         var customCategories = [];
         var portfolioItems = [];
@@ -363,7 +380,7 @@
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'series-order-cache-20260712';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'seed-media-wall-toggle-20260807';
         var editSeriesOrderUrls = [];
         var editSeriesDragUrl = null;
 
@@ -747,7 +764,9 @@
                 var privateLabel = tr('portfolio.privateBadge');
             var dragTitle = tr('portfolio.sortDrag', '拖曳排序');
             grid.innerHTML = portfolioItems.map(function (p) {
-                var pubBadge = (p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>');
+                var pubBadge = isSeedVendor
+                    ? ('<span class="badge bg-warning text-dark me-1">僅內部預覽</span>')
+                    : ((p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>'));
                 var moqN = p.min_order_quantity;
                 var moqLine = (moqN != null && moqN !== '' && Number(moqN) >= 1)
                     ? esc(String(tr('portfolio.moqLine')).replace(/\{n\}/g, String(moqN)))
@@ -957,7 +976,7 @@
                     fd.append('category_key', document.getElementById('add-category').value);
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
                     fd.append('category_type', 'custom');
-                    fd.append('show_on_media_wall', document.getElementById('add-show-on-media-wall').checked ? 'true' : 'false');
+                    fd.append('show_on_media_wall', (isSeedVendor || !document.getElementById('add-show-on-media-wall').checked) ? 'false' : 'true');
                     fd.append('customization_levels', JSON.stringify(addLevels));
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', body: fd });
                     const d = await r.json();
@@ -1039,7 +1058,7 @@
                     fd.append('category_key', document.getElementById('edit-category').value);
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
                     fd.append('category_type', 'custom');
-                    fd.append('show_on_media_wall', document.getElementById('edit-show-on-media-wall').checked ? 'true' : 'false');
+                    fd.append('show_on_media_wall', (isSeedVendor || !document.getElementById('edit-show-on-media-wall').checked) ? 'false' : 'true');
                     fd.append('customization_levels', JSON.stringify(editLevels));
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', body: fd });
                     const d = await r.json();
@@ -1114,7 +1133,8 @@
             document.getElementById('edit-title').value = p.title || '';
             document.getElementById('edit-highlight').value = p.design_highlight || '';
             document.getElementById('edit-desc').value = p.description || '';
-            document.getElementById('edit-show-on-media-wall').checked = p.show_on_media_wall !== false;
+            document.getElementById('edit-show-on-media-wall').checked = isSeedVendor ? false : (p.show_on_media_wall !== false);
+            applySeedMediaWallToggleUi();
             document.getElementById('edit-tags').value = portfolioTagsForDisplay(p).join(', ');
             var editMoq = document.getElementById('edit-moq');
             if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
