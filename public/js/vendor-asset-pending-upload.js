@@ -1041,10 +1041,13 @@
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3 pending-list-col';
                 col.setAttribute('data-pending-id', item.id);
-                if (formKind === 'material') {
+                if (global.MatchdoMaterialCoverGridCompose && global.MatchdoMaterialCoverGridCompose.coverGridComposeEnabledForKind(formKind)) {
                     var Compose = global.MatchdoMaterialCoverGridCompose;
-                    if (Compose && Compose.materialCoverComposeSlotHtml) {
-                        col.insertAdjacentHTML('beforeend', Compose.materialCoverComposeSlotHtml(idx === 0, false));
+                    if (Compose.materialCoverComposeSlotHtml) {
+                        col.insertAdjacentHTML('beforeend', Compose.materialCoverComposeSlotHtml(idx === 0, false, {
+                            kind: formKind,
+                            buttonLabel: Compose.coverComposeButtonLabel ? Compose.coverComposeButtonLabel(formKind) : undefined
+                        }));
                     }
                 }
                 var card = document.createElement('div');
@@ -1147,7 +1150,7 @@
                 }
             });
             if (formKind === 'material' && list[0]) list[0].designer_selectable = false;
-            if (formKind === 'material' && CFG.syncMaterialComposeCoverButton) {
+            if (global.MatchdoMaterialCoverGridCompose && global.MatchdoMaterialCoverGridCompose.coverGridComposeEnabledForKind(formKind) && CFG.syncMaterialComposeCoverButton) {
                 CFG.syncMaterialComposeCoverButton(form);
             }
         }

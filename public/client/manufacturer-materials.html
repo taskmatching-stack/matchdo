@@ -1142,14 +1142,14 @@
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260803g"></script>
+    <script src="/js/material-cover-grid-compose.js?v=20260809a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804b"></script>
     <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'image-drop-upload-20260808';
+        window.__MATCHDO_MATERIALS_BUILD = 'prototype-cover-compose-20260809';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3091,13 +3091,24 @@
             return item;
         }
 
+        /** 材料 + 數位版型（官方／廠商 prototype）：待傳／編輯可拼封面 */
+        function coverGridComposeEnabledForKind(kindOrAsset) {
+            var k = normalizeKind(typeof kindOrAsset === 'string' ? kindOrAsset : (kindOrAsset && kindOrAsset.asset_kind));
+            var Compose = materialCoverComposeApi();
+            if (Compose && Compose.coverGridComposeEnabledForKind) return Compose.coverGridComposeEnabledForKind(k);
+            return k === 'material' || k === 'prototype';
+        }
+
         /** 材料：封面欄上方拼色卡按鈕；其餘欄用等高 spacer 對齊圖卡 */
         function materialCoverComposeSlotHtml(kindOrAsset, isCover, forEdit) {
-            if (!materialGallerySwatchAutoSelectable(kindOrAsset)) return '';
+            if (!coverGridComposeEnabledForKind(kindOrAsset)) return '';
             var Compose = materialCoverComposeApi();
-            return Compose && Compose.materialCoverComposeSlotHtml
-                ? Compose.materialCoverComposeSlotHtml(isCover, forEdit)
-                : '';
+            if (!Compose || !Compose.materialCoverComposeSlotHtml) return '';
+            var kind = normalizeKind(typeof kindOrAsset === 'string' ? kindOrAsset : (kindOrAsset && kindOrAsset.asset_kind));
+            return Compose.materialCoverComposeSlotHtml(isCover, forEdit, {
+                kind: kind,
+                buttonLabel: Compose.coverComposeButtonLabel ? Compose.coverComposeButtonLabel(kind) : undefined
+            });
         }
 
         /** 數位原型／配件／材料：可勾選「設計者可選／僅展示」（材料封面強制僅展示） */
@@ -4391,7 +4402,7 @@
                 col.className = 'col-6 col-sm-4 col-md-3 pending-list-col';
                 col.setAttribute('data-pending-id', item.id);
                 col.setAttribute('draggable', list.length > 1 ? 'true' : 'false');
-                if (formKind === 'material') {
+                if (coverGridComposeEnabledForKind(formKind)) {
                     col.insertAdjacentHTML('beforeend', materialCoverComposeSlotHtml(formKind, idx === 0, false));
                 }
                 var card = document.createElement('div');
@@ -4542,7 +4553,7 @@
         }
 
         function syncMaterialComposeCoverButtonForForm(form) {
-            if (!form || form.getAttribute('data-kind') !== 'material') return;
+            if (!form || !coverGridComposeEnabledForKind(form.getAttribute('data-kind'))) return;
             var grid = form.querySelector('.add-pending-images');
             var btn = grid ? grid.querySelector('.btn-compose-material-cover') : null;
             if (!btn) return;
@@ -4601,6 +4612,8 @@
         async function handleComposeMaterialCoverPending(form) {
             var Compose = materialCoverComposeApi();
             if (!form || !Compose) return;
+            var formKind = form.getAttribute('data-kind') || 'prototype';
+            var isMaterial = formKind === 'material';
             var grid = form.querySelector('.add-pending-images');
             var sources = grid && Compose.collectMaterialSwatchSourcesFromGrid
                 ? Compose.collectMaterialSwatchSourcesFromGrid(grid, {
@@ -4614,7 +4627,7 @@
                 sources = Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false });
             }
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
+                showToast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
                 return;
             }
             if (sources.length > Compose.MAX_COUNT) {
@@ -4628,13 +4641,16 @@
                 var blob = await Compose.composeGrid(sources);
                 var file = new File([blob], 'material-cover-grid.jpg', { type: 'image/jpeg' });
                 var list = getPendingImages(form);
+                var coverLabel = Compose.coverLabelForKind
+                    ? Compose.coverLabelForKind(formKind, sources.length)
+                    : Compose.coverLabelForCount(sources.length);
                 list.unshift({
                     id: 'p' + Date.now() + '-cover-' + Math.random().toString(36).slice(2),
                     file: file,
                     optimize: false,
-                    label: Compose.coverLabelForCount(sources.length),
+                    label: coverLabel,
                     link_group: '',
-                    designer_selectable: false,
+                    designer_selectable: isMaterial ? false : true,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -4645,7 +4661,7 @@
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
                 schedulePendingDraftSave(form);
-                showToast('已產生 1:1 封面色卡（' + sources.length + ' 色），請確認後發布', 'success');
+                showToast('已產生 1:1 封面（' + sources.length + ' 張），請確認後發布', 'success');
             } catch (err) {
                 showToast((err && err.message) || '拼封面失敗', 'danger');
             } finally {
@@ -4656,9 +4672,11 @@
         async function handleComposeMaterialCoverEdit(m) {
             var Compose = materialCoverComposeApi();
             if (!Compose || !m) return;
+            var assetKind = normalizeKind(m.asset_kind);
+            var isMaterial = assetKind === 'material';
             var sources = collectEditMaterialSwatchSources(m);
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('需至少 ' + Compose.MIN_COUNT + ' 張單色樣張（不含封面）', 'warning');
+                showToast('需至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
                 return;
             }
             var btn = document.getElementById('btn-edit-compose-material-cover');
@@ -4672,13 +4690,16 @@
                 }
                 var blob = await Compose.composeGrid(loaded);
                 var file = new File([blob], 'material-cover-grid.jpg', { type: 'image/jpeg' });
+                var coverLabel = Compose.coverLabelForKind
+                    ? Compose.coverLabelForKind(assetKind, loaded.length)
+                    : Compose.coverLabelForCount(loaded.length);
                 var newItem = {
                     id: 'el' + Date.now() + '-grid',
                     file: file,
                     optimize: false,
-                    label: Compose.coverLabelForCount(loaded.length),
+                    label: coverLabel,
                     link_group: '',
-                    designer_selectable: false,
+                    designer_selectable: isMaterial ? false : true,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -4704,7 +4725,7 @@
                 editGalleryDisplayOrder = [newKey].concat((editGalleryDisplayOrder || []).filter(function (k) { return k !== newKey; }));
                 refreshCurrentEditGallery();
                 setEditGalleryStatus('已產生 1:1 封面預覽，按「儲存」寫入', 'info');
-                showToast('已產生 1:1 封面色卡（' + loaded.length + ' 色）', 'success');
+                showToast('已產生 1:1 封面（' + loaded.length + ' 張）', 'success');
             } catch (err) {
                 showToast((err && err.message) || '拼封面失敗', 'danger');
             } finally {
@@ -4725,7 +4746,7 @@
                     return;
                 }
                 var form = btn.closest('form.add-form');
-                if (form && form.getAttribute('data-kind') === 'material') handleComposeMaterialCoverPending(form);
+                if (form && coverGridComposeEnabledForKind(form.getAttribute('data-kind'))) handleComposeMaterialCoverPending(form);
             });
         }
 

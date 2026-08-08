@@ -149,13 +149,37 @@
     return '多色色卡（' + n + '色）';
   }
 
-  /** 封面欄上方拼色卡按鈕；其餘欄用等高 spacer 對齊圖卡 */
-  function materialCoverComposeSlotHtml(isCover, forEdit) {
+  function normalizeComposeKind(kind) {
+    return String(kind || '').trim().toLowerCase();
+  }
+
+  /** 材料 + 數位版型（官方／廠商 prototype） */
+  function coverGridComposeEnabledForKind(kind) {
+    var k = normalizeComposeKind(kind);
+    return k === 'material' || k === 'prototype';
+  }
+
+  function coverComposeButtonLabel(kind) {
+    return normalizeComposeKind(kind) === 'prototype'
+      ? '拼封面（2～9 張）'
+      : '拼封面色卡（2～9 張）';
+  }
+
+  function coverLabelForKind(kind, n) {
+    return normalizeComposeKind(kind) === 'prototype'
+      ? ('多色展示（' + n + '款）')
+      : coverLabelForCount(n);
+  }
+
+  /** 封面欄上方拼封面按鈕；其餘欄用等高 spacer 對齊圖卡 */
+  function materialCoverComposeSlotHtml(isCover, forEdit, opts) {
+    opts = opts || {};
     if (isCover) {
       var idAttr = forEdit ? ' id="btn-edit-compose-material-cover"' : '';
+      var label = opts.buttonLabel || coverComposeButtonLabel(opts.kind);
       return '<div class="material-cover-compose-slot">' +
         '<button type="button" class="btn btn-outline-primary btn-sm btn-compose-material-cover"' + idAttr + ' disabled>' +
-        '<i class="bi bi-grid-3x3-gap me-1"></i>拼封面色卡（2～9 張）</button></div>';
+        '<i class="bi bi-grid-3x3-gap me-1"></i>' + label + '</button></div>';
     }
     return '<div class="material-cover-compose-slot material-cover-compose-slot--spacer" aria-hidden="true"></div>';
   }
@@ -205,8 +229,8 @@
     var n = countMaterialSwatchCols(gridEl);
     btn.disabled = n < MIN_COUNT;
     btn.title = n >= MIN_COUNT
-      ? ('將 ' + Math.min(n, MAX_COUNT) + ' 張單色樣張拼成 1:1 封面（不扣點）')
-      : ('需至少 ' + MIN_COUNT + ' 張單色樣張（不含封面）；目前 ' + n + ' 張');
+      ? ('將 ' + Math.min(n, MAX_COUNT) + ' 張圖片拼成 1:1 封面（不扣點）')
+      : ('需至少 ' + MIN_COUNT + ' 張圖片（不含封面）；目前 ' + n + ' 張');
   }
 
   global.MatchdoMaterialCoverGridCompose = {
@@ -221,6 +245,9 @@
     collectMaterialSwatchSourcesFromGrid: collectMaterialSwatchSourcesFromGrid,
     syncMaterialCoverComposeButton: syncMaterialCoverComposeButton,
     coverLabelForCount: coverLabelForCount,
+    coverGridComposeEnabledForKind: coverGridComposeEnabledForKind,
+    coverComposeButtonLabel: coverComposeButtonLabel,
+    coverLabelForKind: coverLabelForKind,
     isAiDerivedItem: isAiDerivedItem
   };
 })(typeof window !== 'undefined' ? window : this);

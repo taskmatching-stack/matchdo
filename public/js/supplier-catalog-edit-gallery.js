@@ -442,10 +442,13 @@
               : '') +
             '</div>')) +
         '</div>';
-      var isMaterial = catalogItemAssetKind(item) === 'material';
+      var assetKind = catalogItemAssetKind(item);
       var Compose = global.MatchdoMaterialCoverGridCompose;
-      var composeSlot = (isMaterial && Compose && Compose.materialCoverComposeSlotHtml)
-        ? Compose.materialCoverComposeSlotHtml(isCover, true)
+      var composeSlot = (Compose && Compose.coverGridComposeEnabledForKind && Compose.coverGridComposeEnabledForKind(assetKind) && Compose.materialCoverComposeSlotHtml)
+        ? Compose.materialCoverComposeSlotHtml(isCover, true, {
+            kind: assetKind,
+            buttonLabel: Compose.coverComposeButtonLabel ? Compose.coverComposeButtonLabel(assetKind) : undefined
+          })
         : '';
       return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '">' +
         composeSlot +
