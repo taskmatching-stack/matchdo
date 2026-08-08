@@ -323,6 +323,56 @@
 .vplt-guide-section--collapsed .vplt-guide-section-body[hidden] {
     display: none !important;
 }
+/* 同一自訂分類：橫向 tab 切換多筆配件／材料 */
+.vplt-guide-section--catalog-tabs .vplt-guide-catalog-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.15rem 0 0.5rem;
+    margin-bottom: 0.35rem;
+    scrollbar-width: thin;
+}
+.vplt-guide-catalog-tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 12rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.vplt-guide-catalog-tab:hover {
+    border-color: #7A8FA3;
+    color: #334155;
+}
+.vplt-guide-catalog-tab.active {
+    border-color: #7A8FA3;
+    background: #EAEEF3;
+    color: #1e293b;
+    box-shadow: 0 0 0 2px rgba(122, 143, 163, 0.18);
+}
+.vplt-guide-catalog-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 9rem;
+}
+.vplt-guide-catalog-tab .vplt-vendor-unlink {
+    font-size: 1rem;
+    line-height: 1;
+}
+.vplt-guide-catalog-tab-panel[hidden] {
+    display: none !important;
+}
 /* 橫向選單：同一結構；箭頭浮在內容上，不推擠左緣（與標題對齊） */
 .vplt-guide-rail-nav {
     position: relative;

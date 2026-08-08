@@ -24,6 +24,7 @@
         guideVariantByAssetId: {},
         guideExpandedAssetIds: Object.create(null),
         guidePartSectionExpanded: Object.create(null),
+        guideCatalogTabByGroup: Object.create(null),
         guidePayload: null,
         guideLinkMetaByAssetId: {}
     };
@@ -852,7 +853,7 @@
 
     function syncGuidePartSectionDom(section) {
         if (!section) return;
-        var aid = section.getAttribute('data-guide-section-asset') || '';
+        var aid = section.getAttribute('data-guide-section-asset') || section.getAttribute('data-guide-section-group') || '';
         var expanded = isGuidePartSectionExpanded(aid);
         section.classList.toggle('vplt-guide-section--expanded', expanded);
         section.classList.toggle('vplt-guide-section--collapsed', !expanded);
@@ -925,6 +926,144 @@
         return kindSpan + ' <span class="vplt-guide-section-name">' + title + '</span>';
     }
 
+    function guideSectionHeadingForCatalogGroup(kindKey, groupLabel) {
+        var kindLbl = esc(guideKindLabelForKey(kindKey));
+        var kindSpan = '<span class="vplt-guide-section-tag vplt-guide-section-tag--' + esc(kindKey) + '">' + kindLbl + '</span>';
+        var name = esc(groupLabel || tr('productTree.catalogGroup', '自訂分類'));
+        return kindSpan + ' <span class="vplt-guide-section-name">' + name + '</span>';
+    }
+
+    function primaryCatalogGroupForAsset(a) {
+        if (!a || !Array.isArray(a.catalog_groups) || !a.catalog_groups.length) return null;
+        var groups = a.catalog_groups.slice().sort(function (x, y) {
+            return String(x.name || '').localeCompare(String(y.name || ''), 'zh-Hant');
+        });
+        return groups[0] || null;
+    }
+
+    function catalogGroupSectionKey(kind, groupId) {
+        return 'grp:' + kind + ':' + groupId;
+    }
+
+    function buildKindCatalogBuckets(linkedIds, kind) {
+        var buckets = [];
+        var groupIndex = Object.create(null);
+        linkedIds.forEach(function (aid) {
+            var a = assetById(aid);
+            if (!a || a.asset_kind !== kind) return;
+            var g = primaryCatalogGroupForAsset(a);
+            if (!g || !g.id) {
+                buckets.push({ mode: 'single', kind: kind, assetIds: [aid] });
+                return;
+            }
+            var gid = String(g.id);
+            if (!groupIndex[gid]) {
+                groupIndex[gid] = {
+                    mode: 'group',
+                    kind: kind,
+                    groupId: gid,
+                    groupLabel: String(g.name || '').trim(),
+                    assetIds: []
+                };
+                buckets.push(groupIndex[gid]);
+            }
+            groupIndex[gid].assetIds.push(aid);
+        });
+        return buckets;
+    }
+
+    function activeCatalogTabAssetId(bucket) {
+        var key = catalogGroupSectionKey(bucket.kind, bucket.groupId);
+        var preferred = state.guideCatalogTabByGroup[key];
+        if (preferred && bucket.assetIds.indexOf(preferred) >= 0) return preferred;
+        return bucket.assetIds[0];
+    }
+
+    function renderLinkedAssetSection(kind, aid) {
+        var a = assetById(aid);
+        if (!a) return '';
+        var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+        var heading = guideSectionHeadingHtml(kind, a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
+        return guideSectionHtml(kind, heading, guideTilesForAsset(a, aid, kind, picked).join(''), aid);
+    }
+
+    function guideCatalogTabbedSectionHtml(bucket) {
+        var kind = bucket.kind;
+        var sectionKey = catalogGroupSectionKey(kind, bucket.groupId);
+        var activeAid = activeCatalogTabAssetId(bucket);
+        var heading = guideSectionHeadingForCatalogGroup(kind, bucket.groupLabel);
+        var tabsHtml = bucket.assetIds.map(function (aid) {
+            var a = assetById(aid);
+            var title = esc((a && a.title) || aid);
+            var active = aid === activeAid;
+            var remove = IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '';
+            return '<button type="button" class="vplt-guide-catalog-tab' + (active ? ' active' : '') + '"' +
+                ' role="tab" aria-selected="' + (active ? 'true' : 'false') + '"' +
+                ' data-catalog-tab="' + esc(aid) + '" data-catalog-group-key="' + esc(sectionKey) + '">' +
+                '<span class="vplt-guide-catalog-tab-label">' + title + '</span>' + remove + '</button>';
+        }).join('');
+        var panelsHtml = bucket.assetIds.map(function (aid) {
+            var a = assetById(aid);
+            if (!a) return '';
+            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+            var hidden = aid !== activeAid ? ' hidden' : '';
+            return '<div class="vplt-guide-catalog-tab-panel"' + hidden + ' data-catalog-panel="' + esc(aid) + '" role="tabpanel">' +
+                guideSectionRailHtml(guideTilesForAsset(a, aid, kind, picked).join('')) +
+                '</div>';
+        }).join('');
+        var bodyInner = '<div class="vplt-guide-catalog-tabs" role="tablist">' + tabsHtml + '</div>' +
+            '<div class="vplt-guide-catalog-tab-panels">' + panelsHtml + '</div>';
+        var isCollapsible = !IS_VENDOR && kind !== 'prototype';
+        if (!isCollapsible) {
+            return '<section class="vplt-guide-section vplt-guide-section--' + esc(kind) + ' vplt-guide-section--catalog-tabs"' +
+                ' data-guide-catalog-group="' + esc(sectionKey) + '">' +
+                '<h3 class="vplt-guide-section-title">' + heading + '</h3>' + bodyInner + '</section>';
+        }
+        var expanded = isGuidePartSectionExpanded(sectionKey);
+        var stateCls = expanded ? ' vplt-guide-section--expanded' : ' vplt-guide-section--collapsed';
+        var expandLbl = esc(tr('productTree.sectionExpand', '展開選項'));
+        var collapseLbl = esc(tr('productTree.sectionCollapse', '收合選項'));
+        var toggleAria = expanded ? collapseLbl : expandLbl;
+        var chevronCls = expanded ? 'bi-chevron-up' : 'bi-chevron-down';
+        return '<section class="vplt-guide-section vplt-guide-section--' + esc(kind) + ' vplt-guide-section--catalog-tabs vplt-guide-section--collapsible' + stateCls + '"' +
+            ' data-guide-catalog-group="' + esc(sectionKey) + '" data-guide-section-group="' + esc(sectionKey) + '">' +
+            '<button type="button" class="vplt-guide-section-toggle"' +
+            ' data-guide-section-toggle="' + esc(sectionKey) + '"' +
+            ' aria-expanded="' + (expanded ? 'true' : 'false') + '" aria-label="' + toggleAria + '">' +
+            '<h3 class="vplt-guide-section-title">' + heading +
+            ' <i class="bi ' + chevronCls + ' vplt-guide-section-chevron" aria-hidden="true"></i></h3>' +
+            '</button>' +
+            '<div class="vplt-guide-section-body"' + (expanded ? '' : ' hidden') + '>' + bodyInner + '</div>' +
+            '</section>';
+    }
+
+    function renderLinkedKindSections(kind, linkedIds) {
+        var html = '';
+        buildKindCatalogBuckets(linkedIds, kind).forEach(function (bucket) {
+            if (bucket.mode === 'group' && bucket.assetIds.length >= 2) {
+                html += guideCatalogTabbedSectionHtml(bucket);
+            } else if (bucket.assetIds && bucket.assetIds[0]) {
+                html += renderLinkedAssetSection(kind, bucket.assetIds[0]);
+            }
+        });
+        return html;
+    }
+
+    function syncCatalogTabSectionDom(section, sectionKey, activeAid) {
+        if (!section) return;
+        section.querySelectorAll('[data-catalog-tab]').forEach(function (tab) {
+            var on = tab.getAttribute('data-catalog-tab') === activeAid;
+            tab.classList.toggle('active', on);
+            tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        section.querySelectorAll('[data-catalog-panel]').forEach(function (panel) {
+            var on = panel.getAttribute('data-catalog-panel') === activeAid;
+            if (on) panel.removeAttribute('hidden');
+            else panel.setAttribute('hidden', '');
+        });
+        if (sectionKey) state.guideCatalogTabByGroup[sectionKey] = activeAid;
+    }
+
     function vendorSectionRemoveBtnHtml(aid) {
         return ' <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 align-baseline vplt-vendor-unlink"' +
             ' data-remove="' + esc(aid) + '" title="' + esc(tr('productTree.removeLink', '移除關聯')) + '">&times;</button>';
@@ -970,32 +1109,8 @@
         var protoTiles = guideTilesForAsset(proto, proto.id, 'prototype', false).join('');
         sections += guideSectionHtml('prototype', guideSectionHeadingHtml('prototype', proto), protoTiles);
 
-        var partIds = [];
-        var materialIds = [];
-        linkedIds.forEach(function (aid) {
-            var a = assetById(aid);
-            if (!a) return;
-            if (a.asset_kind === 'part') partIds.push(aid);
-            else if (a.asset_kind === 'material') materialIds.push(aid);
-        });
-
-        partIds.forEach(function (aid) {
-            var a = assetById(aid);
-            if (!a) return;
-            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            var heading = guideSectionHeadingHtml('part', a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
-            sections += guideSectionHtml('part', heading,
-                guideTilesForAsset(a, aid, 'part', picked).join(''), aid);
-        });
-
-        materialIds.forEach(function (aid) {
-            var a = assetById(aid);
-            if (!a) return;
-            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            var heading = guideSectionHeadingHtml('material', a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
-            sections += guideSectionHtml('material', heading,
-                guideTilesForAsset(a, aid, 'material', picked).join(''), aid);
-        });
+        sections += renderLinkedKindSections('part', linkedIds);
+        sections += renderLinkedKindSections('material', linkedIds);
 
         if (!linkedIds.length && !IS_VENDOR) {
             sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
@@ -1054,6 +1169,24 @@
         });
     }
 
+    function wireGuideCatalogTabs(canvas) {
+        if (!canvas) return;
+        canvas.querySelectorAll('[data-catalog-tab]').forEach(function (btn) {
+            if (btn.__vpltCatTabWired) return;
+            btn.__vpltCatTabWired = true;
+            btn.addEventListener('click', function (e) {
+                if (e.target.closest('.vplt-vendor-unlink')) return;
+                e.preventDefault();
+                var aid = btn.getAttribute('data-catalog-tab');
+                var gk = btn.getAttribute('data-catalog-group-key');
+                if (!aid || !gk) return;
+                var section = btn.closest('[data-guide-catalog-group]');
+                syncCatalogTabSectionDom(section, gk, aid);
+                if (section) wireGuideRailNav(section);
+            });
+        });
+    }
+
     function wireGuideSectionToggles(canvas) {
         if (!canvas) return;
         canvas.querySelectorAll('[data-guide-section-toggle]').forEach(function (btn) {
@@ -1061,10 +1194,10 @@
             btn.__vpltSecWired = true;
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                var aid = btn.getAttribute('data-guide-section-toggle');
-                if (!aid) return;
+                var key = btn.getAttribute('data-guide-section-toggle');
+                if (!key) return;
                 var section = btn.closest('.vplt-guide-section');
-                setGuidePartSectionExpanded(aid, !isGuidePartSectionExpanded(aid));
+                setGuidePartSectionExpanded(key, !isGuidePartSectionExpanded(key));
                 syncGuidePartSectionDom(section);
             });
         });
@@ -1073,6 +1206,7 @@
     function wireGuideRail(canvas) {
         if (!canvas) return;
         wireGuideSectionToggles(canvas);
+        wireGuideCatalogTabs(canvas);
         wireGuideRailNav(canvas);
         canvas.querySelectorAll('.vplt-guide-tile').forEach(function (tile) {
             if (tile.__vpltTileWired) return;
@@ -1701,7 +1835,8 @@
                 image_items: a.image_items,
                 asset_kind: a.asset_kind,
                 allow_multi_pick: a.allow_multi_pick !== false,
-                pick_group: a.pick_group || null
+                pick_group: a.pick_group || null,
+                catalog_groups: Array.isArray(a.catalog_groups) ? a.catalog_groups : []
             };
         });
         state.links = (data.linked_assets || []).map(function (a, idx) {
@@ -1719,6 +1854,7 @@
         state.__guidePersistDoneForNav = false;
         state.guideExpandedAssetIds = Object.create(null);
         state.guidePartSectionExpanded = Object.create(null);
+        state.guideCatalogTabByGroup = Object.create(null);
         updateGuideChrome(data);
         selectPrototype(p.id);
         seedDefaultPrototypeVariantSelection(p.id);
@@ -1736,7 +1872,8 @@
             image_urls: a.image_urls,
             image_items: a.image_items,
             asset_kind: a.asset_kind,
-            is_public: a.is_public
+            is_public: a.is_public,
+            catalog_groups: Array.isArray(a.catalog_groups) ? a.catalog_groups : []
         };
     }
 

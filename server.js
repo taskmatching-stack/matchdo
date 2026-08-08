@@ -23203,6 +23203,14 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
         if (node.asset_kind === 'prototype') prototypes.push(node);
         else if (node.asset_kind === 'material' || node.asset_kind === 'part') linkableAssets.push(node);
     });
+    if (linkableAssets.length) {
+        try {
+            const enriched = await attachCatalogGroupIdsToAssets(linkableAssets);
+            if (Array.isArray(enriched) && enriched.length) linkableAssets = enriched;
+        } catch (catErr) {
+            console.warn('buildVendorProductLinkTreePayload catalog_groups:', catErr && catErr.message);
+        }
+    }
     const tableReady = await vendorPrototypeLinksTableReady();
     let links = [];
     if (tableReady) {
@@ -23284,6 +23292,13 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
                 pick_group: m.pick_group || null
             };
         }).filter(Boolean);
+    }
+    if (linkedAssets.length) {
+        try {
+            linkedAssets = await attachCatalogGroupIdsToAssets(linkedAssets);
+        } catch (catErr) {
+            console.warn('buildPublicPrototypeLinkTree catalog_groups:', catErr && catErr.message);
+        }
     }
     const protoNode = mapVendorAssetLinkTreeNode(proto) || {};
     return {
@@ -24160,6 +24175,13 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                         pick_group: m.pick_group || null
                     };
                 }).filter(Boolean);
+            }
+            if (linkedAssets.length) {
+                try {
+                    linkedAssets = await attachCatalogGroupIdsToAssets(linkedAssets);
+                } catch (catErr) {
+                    console.warn('link-tree preview catalog_groups:', catErr && catErr.message);
+                }
             }
             const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow) || {};
             res.set('Cache-Control', 'private, max-age=0, must-revalidate');
