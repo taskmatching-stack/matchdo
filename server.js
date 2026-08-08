@@ -23196,7 +23196,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
         .order('created_at', { ascending: false });
     if (assetErr) throw assetErr;
     const prototypes = [];
-    const linkableAssets = [];
+    let linkableAssets = [];
     (assets || []).forEach((r) => {
         const node = mapVendorAssetLinkTreeNode(r);
         if (!node) return;
@@ -23205,8 +23205,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
     });
     if (linkableAssets.length) {
         try {
-            const enriched = await attachCatalogGroupIdsToAssets(linkableAssets);
-            if (Array.isArray(enriched) && enriched.length) linkableAssets = enriched;
+            linkableAssets = await attachCatalogGroupIdsToAssets(linkableAssets);
         } catch (catErr) {
             console.warn('buildVendorProductLinkTreePayload catalog_groups:', catErr && catErr.message);
         }
@@ -23699,6 +23698,26 @@ async function attachCatalogGroupIdsToAssets(items) {
             const name = (g.name != null) ? String(g.name).trim() : '';
             if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
         });
+        const parentIds = [...new Set(Object.values(groupsById).map((g) => g.parent_id).filter(Boolean))];
+        const missingParentIds = parentIds.filter((id) => !groupsById[id]);
+        if (missingParentIds.length) {
+            let { data: parents, error: parentErr } = await supabase
+                .from('vendor_catalog_groups')
+                .select('id, name, parent_id, asset_kind')
+                .in('id', missingParentIds);
+            if (parentErr && parentErr.code === '42703') {
+                ({ data: parents, error: parentErr } = await supabase
+                    .from('vendor_catalog_groups')
+                    .select('id, name, parent_id')
+                    .in('id', missingParentIds));
+            }
+            if (!parentErr) {
+                (parents || []).forEach((g) => {
+                    const name = (g.name != null) ? String(g.name).trim() : '';
+                    if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
+                });
+            }
+        }
     }
     const map = {};
     (links || []).forEach((l) => {
@@ -23712,7 +23731,12 @@ async function attachCatalogGroupIdsToAssets(items) {
         return {
             ...r,
             catalog_group_ids: cats.map((g) => g.id),
-            catalog_groups: cats.map((g) => ({ id: g.id, name: g.name, parent_id: g.parent_id }))
+            catalog_groups: cats.map((g) => ({
+                id: g.id,
+                name: g.name,
+                parent_id: g.parent_id,
+                parent_name: g.parent_id && groupsById[g.parent_id] ? groupsById[g.parent_id].name : null
+            }))
         };
     });
 }

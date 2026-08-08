@@ -378,7 +378,78 @@
       display: grid; 
       grid-template-columns: repeat(3, 1fr); 
       gap: 0.5rem; 
-      margin-bottom: 1rem;
+      margin-bottom: 0;
+    }
+    .sim-catalog-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .sim-catalog-block-head {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8125rem;
+    }
+    .sim-catalog-kind {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: #EAEEF3;
+      color: #475569;
+      font-weight: 600;
+      font-size: 0.72rem;
+    }
+    .sim-catalog-group-label {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .sim-catalog-tabs {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.35rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0.1rem 0 0.5rem;
+      margin-bottom: 0.35rem;
+      scrollbar-width: thin;
+    }
+    .sim-catalog-tab {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      max-width: 12rem;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #fff;
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      line-height: 1.25;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .sim-catalog-tab:hover {
+      border-color: var(--sim-primary);
+      color: #334155;
+    }
+    .sim-catalog-tab.active {
+      border-color: var(--sim-primary);
+      background: #EAEEF3;
+      color: #1e293b;
+      box-shadow: 0 0 0 2px rgba(122, 143, 163, 0.18);
+    }
+    .sim-catalog-tab-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 9rem;
+    }
+    .sim-catalog-panel[hidden] {
+      display: none !important;
     }
     .sim-mat-item {
       aspect-ratio: 1; 
@@ -840,6 +911,17 @@
       border-color: #334155;
       color: #e2e8f0;
     }
+    body.embed-theme-dark .sim-catalog-group-label { color: #f1f5f9; }
+    body.embed-theme-dark .sim-catalog-tab {
+      background: #0f172a;
+      border-color: #475569;
+      color: #cbd5e1;
+    }
+    body.embed-theme-dark .sim-catalog-tab.active {
+      background: #334155;
+      border-color: #94a3b8;
+      color: #f8fafc;
+    }
     body.embed-chrome-minimal .sim-header {
       padding: 0.4rem 0.75rem;
       background: transparent;
@@ -948,11 +1030,11 @@
         <div id="vendorRefSummary" class="sim-vendor-ref-block"></div>
         <div id="materialSection" style="display:none;">
           <label class="sim-label">材料（單選）</label>
-          <div id="materialList" class="sim-material-list"></div>
+          <div id="materialGroups" class="sim-catalog-groups"></div>
         </div>
         <div id="partSection" style="display:none;">
           <label class="sim-label">配件（可複選）</label>
-          <div id="partList" class="sim-part-list"></div>
+          <div id="partGroups" class="sim-catalog-groups"></div>
         </div>
         <p id="noMaterials" class="sim-no-data">此主產品無關聯材配</p>
       </div>
@@ -1086,6 +1168,6 @@
   </div>
   
   <script src="/js/vendor-asset-image-link-groups.js?v=20260713a"></script>
-  <script src="/js/embed-simulator.js?v=20260802-engine-brand"></script>
+  <script src="/js/embed-simulator.js?v=20260809-catalog-tabs"></script>
 </body>
 </html>

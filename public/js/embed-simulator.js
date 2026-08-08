@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260802-engine-brand';
+  const BUILD = 'embed-simulator-20260809-catalog-tabs';
   const EMBED_ENGINE_BRAND = 'MatchDO Engine';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
@@ -69,7 +69,8 @@
     uiMode: 'try',
     sceneEnvImage: null,
     lastResultUrl: null,
-    sceneGenerating: false
+    sceneGenerating: false,
+    catalogTabByGroup: Object.create(null)
   };
   
   UPLOAD_REF_SLOTS.forEach(function (slot) {
@@ -475,6 +476,7 @@
     
     // 渲染參考圖槽位
     renderRefSlots();
+    wireStep2MaterialPartClicks();
     
     if (useMockData) {
       console.log('[Mock Mode] 使用假資料');
@@ -980,78 +982,240 @@
     }
   }
   
+  // === 自訂分類分桶（對齊看可搭配 product-tree）===
+  function primaryCatalogGroupForAsset(a) {
+    if (!a || !Array.isArray(a.catalog_groups) || !a.catalog_groups.length) return null;
+    var groups = a.catalog_groups.slice().sort(function (x, y) {
+      return String(x.name || '').localeCompare(String(y.name || ''), 'zh-Hant');
+    });
+    return groups[0] || null;
+  }
+
+  function catalogBucketMetaForAsset(a) {
+    var g = primaryCatalogGroupForAsset(a);
+    if (!g || !g.id) return null;
+    if (g.parent_id) {
+      return {
+        bucketId: String(g.parent_id),
+        bucketLabel: String(g.parent_name || g.name || '').trim()
+      };
+    }
+    return {
+      bucketId: String(g.id),
+      bucketLabel: String(g.name || '').trim()
+    };
+  }
+
+  function catalogGroupSectionKey(kind, groupId) {
+    return 'grp:' + kind + ':' + groupId;
+  }
+
+  function buildKindCatalogBuckets(items, kind) {
+    var buckets = [];
+    var groupIndex = Object.create(null);
+    (items || []).forEach(function (a) {
+      if (!a || a.asset_kind !== kind) return;
+      var meta = catalogBucketMetaForAsset(a);
+      if (!meta || !meta.bucketId) {
+        buckets.push({ mode: 'single', kind: kind, assetIds: [a.id] });
+        return;
+      }
+      var gid = meta.bucketId;
+      if (!groupIndex[gid]) {
+        groupIndex[gid] = {
+          mode: 'group',
+          kind: kind,
+          groupId: gid,
+          groupLabel: meta.bucketLabel,
+          assetIds: []
+        };
+        buckets.push(groupIndex[gid]);
+      }
+      groupIndex[gid].assetIds.push(a.id);
+    });
+    return buckets;
+  }
+
+  function kindSectionLabel(kind) {
+    return kind === 'part' ? '配件' : '材料';
+  }
+
+  function assetByIdInList(items, id) {
+    return (items || []).find(function (a) { return a && String(a.id) === String(id); }) || null;
+  }
+
+  function activeCatalogTabAssetId(bucket) {
+    var key = catalogGroupSectionKey(bucket.kind, bucket.groupId);
+    var preferred = state.catalogTabByGroup[key];
+    if (preferred && bucket.assetIds.indexOf(preferred) >= 0) return preferred;
+    return bucket.assetIds[0];
+  }
+
+  function renderMatPartItemHtml(item, kind) {
+    var img = kind === 'material' ? (materialPickImageUrl(item) || item.image_url) : item.image_url;
+    return '<div class="sim-mat-item" data-id="' + escapeHtml(item.id) + '" data-kind="' + escapeHtml(kind) + '">' +
+      '<img class="sim-mat-img" src="' + escapeHtml(img || '') + '" alt="' + escapeHtml(item.title || '') + '">' +
+      '<i class="sim-mat-checkmark bi bi-check"></i>' +
+      '</div>';
+  }
+
+  function renderCatalogSingleBlock(item, kind) {
+    var kindLbl = kindSectionLabel(kind);
+    var title = escapeHtml(item.title || item.id || '');
+    return '<div class="sim-catalog-block sim-catalog-block--single">' +
+      '<div class="sim-catalog-block-head">' +
+      '<span class="sim-catalog-kind">' + kindLbl + '</span>' +
+      (title ? ' <span class="sim-catalog-group-label">' + title + '</span>' : '') +
+      '</div>' +
+      '<div class="sim-material-list">' + renderMatPartItemHtml(item, kind) + '</div>' +
+      '</div>';
+  }
+
+  function renderCatalogTabbedBlock(bucket, items, kind) {
+    var sectionKey = catalogGroupSectionKey(bucket.kind, bucket.groupId);
+    var activeAid = activeCatalogTabAssetId(bucket);
+    var kindLbl = kindSectionLabel(kind);
+    var tabsHtml = bucket.assetIds.map(function (aid) {
+      var a = assetByIdInList(items, aid);
+      var title = escapeHtml((a && a.title) || aid);
+      var active = aid === activeAid;
+      return '<button type="button" class="sim-catalog-tab' + (active ? ' active' : '') + '"' +
+        ' role="tab" aria-selected="' + (active ? 'true' : 'false') + '"' +
+        ' data-catalog-tab="' + escapeHtml(aid) + '" data-catalog-group-key="' + escapeHtml(sectionKey) + '">' +
+        '<span class="sim-catalog-tab-label">' + title + '</span></button>';
+    }).join('');
+    var panelsHtml = bucket.assetIds.map(function (aid) {
+      var a = assetByIdInList(items, aid);
+      if (!a) return '';
+      var hidden = aid !== activeAid ? ' hidden' : '';
+      return '<div class="sim-catalog-panel"' + hidden + ' data-catalog-panel="' + escapeHtml(aid) + '" role="tabpanel">' +
+        '<div class="sim-material-list">' + renderMatPartItemHtml(a, kind) + '</div></div>';
+    }).join('');
+    return '<div class="sim-catalog-block sim-catalog-block--tabs" data-catalog-group="' + escapeHtml(sectionKey) + '">' +
+      '<div class="sim-catalog-block-head">' +
+      '<span class="sim-catalog-kind">' + kindLbl + '</span>' +
+      ' <span class="sim-catalog-group-label">' + escapeHtml(bucket.groupLabel || '自訂分類') + '</span>' +
+      '</div>' +
+      '<div class="sim-catalog-tabs" role="tablist">' + tabsHtml + '</div>' +
+      '<div class="sim-catalog-panels">' + panelsHtml + '</div>' +
+      '</div>';
+  }
+
+  function renderCatalogGroupedSections(items, kind, containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    if (!items.length) {
+      container.innerHTML = '';
+      return;
+    }
+    var html = '';
+    buildKindCatalogBuckets(items, kind).forEach(function (bucket) {
+      if (bucket.mode === 'group' && bucket.assetIds.length >= 2) {
+        html += renderCatalogTabbedBlock(bucket, items, kind);
+      } else if (bucket.assetIds && bucket.assetIds[0]) {
+        var a = assetByIdInList(items, bucket.assetIds[0]);
+        if (a) html += renderCatalogSingleBlock(a, kind);
+      }
+    });
+    container.innerHTML = html;
+    wireCatalogTabs(container);
+    syncMaterialPartSelectionUi();
+  }
+
+  function syncCatalogTabSectionDom(section, sectionKey, activeAid) {
+    if (!section) return;
+    section.querySelectorAll('[data-catalog-tab]').forEach(function (tab) {
+      var on = tab.getAttribute('data-catalog-tab') === activeAid;
+      tab.classList.toggle('active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    section.querySelectorAll('[data-catalog-panel]').forEach(function (panel) {
+      var on = panel.getAttribute('data-catalog-panel') === activeAid;
+      if (on) panel.removeAttribute('hidden');
+      else panel.setAttribute('hidden', '');
+    });
+    if (sectionKey) state.catalogTabByGroup[sectionKey] = activeAid;
+  }
+
+  function wireCatalogTabs(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-catalog-tab]').forEach(function (btn) {
+      if (btn.__simCatalogTabWired) return;
+      btn.__simCatalogTabWired = true;
+      btn.addEventListener('click', function () {
+        var sectionKey = btn.getAttribute('data-catalog-group-key');
+        var activeAid = btn.getAttribute('data-catalog-tab');
+        var section = btn.closest('[data-catalog-group]');
+        syncCatalogTabSectionDom(section, sectionKey, activeAid);
+      });
+    });
+  }
+
+  function wireStep2MaterialPartClicks() {
+    var step2 = document.getElementById('step2');
+    if (!step2 || step2.__simMatPartWired) return;
+    step2.__simMatPartWired = true;
+    step2.addEventListener('click', function (e) {
+      var item = e.target.closest('.sim-mat-item');
+      if (!item || !step2.contains(item)) return;
+      var id = item.getAttribute('data-id');
+      var kind = item.getAttribute('data-kind');
+      if (!id) return;
+      if (kind === 'material') selectMaterial(id);
+      else if (kind === 'part') togglePart(id);
+    });
+  }
+
+  function syncMaterialPartSelectionUi() {
+    document.querySelectorAll('.sim-mat-item[data-kind="material"]').forEach(function (el) {
+      var id = el.getAttribute('data-id');
+      el.classList.toggle('selected', state.selectedMaterials.indexOf(id) >= 0);
+    });
+    document.querySelectorAll('.sim-mat-item[data-kind="part"]').forEach(function (el) {
+      var id = el.getAttribute('data-id');
+      el.classList.toggle('selected', state.selectedParts.indexOf(id) >= 0);
+    });
+  }
+
   // === Step 2: 材料渲染 ===
   function renderMaterials() {
     const section = document.getElementById('materialSection');
-    const list = document.getElementById('materialList');
     const noMat = document.getElementById('noMaterials');
-    
+
     if (!state.materials.length) {
-      section.style.display = 'none';
-      noMat.style.display = state.parts.length ? 'none' : 'block';
+      if (section) section.style.display = 'none';
+      if (noMat) noMat.style.display = state.parts.length ? 'none' : 'block';
+      renderCatalogGroupedSections([], 'material', 'materialGroups');
       return;
     }
-    
-    section.style.display = 'block';
-    noMat.style.display = 'none';
-    
-    list.innerHTML = state.materials.map(m => `
-      <div class="sim-mat-item" data-id="${m.id}">
-        <img class="sim-mat-img" src="${materialPickImageUrl(m) || m.image_url}" alt="${escapeHtml(m.title)}">
-        <i class="sim-mat-checkmark bi bi-check"></i>
-      </div>
-    `).join('');
-    
-    // 綁定點擊事件
-    list.querySelectorAll('.sim-mat-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const matId = item.dataset.id;
-        selectMaterial(matId);
-      });
-    });
+
+    if (section) section.style.display = 'block';
+    if (noMat) noMat.style.display = 'none';
+    renderCatalogGroupedSections(state.materials, 'material', 'materialGroups');
   }
-  
+
   // === 選擇材料（單選）===
   function selectMaterial(matId) {
-    // 單選：清空後選中
     state.selectedMaterials = [matId];
-    
-    document.querySelectorAll('#materialList .sim-mat-item').forEach(el => {
-      el.classList.toggle('selected', el.dataset.id === matId);
-    });
-    
+    syncMaterialPartSelectionUi();
     updateStep2Summary();
     renderVendorRefSummary();
   }
-  
+
   // === Step 2: 配件渲染 ===
   function renderParts() {
     const section = document.getElementById('partSection');
-    const list = document.getElementById('partList');
-    
+
     if (!state.parts.length) {
-      section.style.display = 'none';
+      if (section) section.style.display = 'none';
+      renderCatalogGroupedSections([], 'part', 'partGroups');
       return;
     }
-    
-    section.style.display = 'block';
-    
-    list.innerHTML = state.parts.map(p => `
-      <div class="sim-mat-item" data-id="${p.id}">
-        <img class="sim-mat-img" src="${p.image_url}" alt="${escapeHtml(p.title)}">
-        <i class="sim-mat-checkmark bi bi-check"></i>
-      </div>
-    `).join('');
-    
-    // 綁定點擊事件
-    list.querySelectorAll('.sim-mat-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const partId = item.dataset.id;
-        togglePart(partId);
-      });
-    });
+
+    if (section) section.style.display = 'block';
+    renderCatalogGroupedSections(state.parts, 'part', 'partGroups');
   }
-  
+
   // === 切換配件（複選）===
   function togglePart(partId) {
     const idx = state.selectedParts.indexOf(partId);
@@ -1060,8 +1224,7 @@
     } else {
       state.selectedParts.push(partId);
     }
-    
-    document.querySelector('#partList [data-id="' + partId + '"]').classList.toggle('selected');
+    syncMaterialPartSelectionUi();
     updateStep2Summary();
     renderVendorRefSummary();
   }

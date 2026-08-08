@@ -941,6 +941,22 @@
         return groups[0] || null;
     }
 
+    /** 同父分類的子分類（如 木紋 > 深色木紋）合併為同一 tab 區 */
+    function catalogBucketMetaForAsset(a) {
+        var g = primaryCatalogGroupForAsset(a);
+        if (!g || !g.id) return null;
+        if (g.parent_id) {
+            return {
+                bucketId: String(g.parent_id),
+                bucketLabel: String(g.parent_name || g.name || '').trim()
+            };
+        }
+        return {
+            bucketId: String(g.id),
+            bucketLabel: String(g.name || '').trim()
+        };
+    }
+
     function catalogGroupSectionKey(kind, groupId) {
         return 'grp:' + kind + ':' + groupId;
     }
@@ -951,18 +967,18 @@
         linkedIds.forEach(function (aid) {
             var a = assetById(aid);
             if (!a || a.asset_kind !== kind) return;
-            var g = primaryCatalogGroupForAsset(a);
-            if (!g || !g.id) {
+            var meta = catalogBucketMetaForAsset(a);
+            if (!meta || !meta.bucketId) {
                 buckets.push({ mode: 'single', kind: kind, assetIds: [aid] });
                 return;
             }
-            var gid = String(g.id);
+            var gid = meta.bucketId;
             if (!groupIndex[gid]) {
                 groupIndex[gid] = {
                     mode: 'group',
                     kind: kind,
                     groupId: gid,
-                    groupLabel: String(g.name || '').trim(),
+                    groupLabel: meta.bucketLabel,
                     assetIds: []
                 };
                 buckets.push(groupIndex[gid]);
