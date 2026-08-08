@@ -29660,7 +29660,7 @@ app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (allErr) return res.status(500).json({ error: '查詢失敗' });
-        const candidates = (allRows || [])
+        const candidatesRaw = (allRows || [])
             .filter((r) => r.id !== id)
             .map((r) => ({
                 id: r.id,
@@ -29668,6 +29668,14 @@ app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
                 image_url: r.image_url,
                 asset_kind: normalizeVendorAssetKind(r.asset_kind)
             }));
+        let candidates = candidatesRaw;
+        if (candidates.length && (await vendorCatalogGroupsTableReady()) && (await vendorAssetGroupLinksTableReady())) {
+            try {
+                candidates = await attachCatalogGroupIdsToAssets(candidates);
+            } catch (catErr) {
+                console.warn('GET prototype-links catalog_groups:', catErr && catErr.message);
+            }
+        }
         if (kind === 'prototype') {
             const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, id);
             const linkedLinks = (linkPack.ids || []).map(function (lid) {

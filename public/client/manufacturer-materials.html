@@ -235,6 +235,19 @@
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
+        .proto-link-catalog-group-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #64748b;
+            padding: 0.15rem 0.35rem 0.35rem;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+            margin-bottom: 0.35rem;
+        }
+        .proto-link-catalog-group + .proto-link-catalog-group {
+            margin-top: 0.65rem;
+            padding-top: 0.35rem;
+            border-top: 1px dashed rgba(100, 116, 139, 0.15);
+        }
         .btn-add-submit-only {
             background: linear-gradient(135deg, var(--mat-primary) 0%, #8FA3B0 100%);
             border: none;
@@ -1149,7 +1162,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'prototype-cover-compose-20260809';
+        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-catalog-groups-20260809';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -8910,56 +8923,182 @@
             meta.classList.toggle('d-none', !chk.checked);
         }
 
+        function enrichLinkCandidates(candidates) {
+            return (candidates || []).map(function (c) {
+                var m = materialsAll.find(function (x) { return x.id === c.id; });
+                var groups = (m && Array.isArray(m.catalog_groups) && m.catalog_groups.length)
+                    ? m.catalog_groups
+                    : (Array.isArray(c.catalog_groups) ? c.catalog_groups : []);
+                return {
+                    id: c.id,
+                    title: c.title,
+                    image_url: c.image_url,
+                    asset_kind: c.asset_kind,
+                    catalog_groups: groups
+                };
+            });
+        }
+
+        function primaryCatalogGroupForCandidate(c) {
+            if (!c || !Array.isArray(c.catalog_groups) || !c.catalog_groups.length) return null;
+            var groups = c.catalog_groups.slice().sort(function (a, b) {
+                return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant');
+            });
+            return groups[0] || null;
+        }
+
+        function groupLinkCandidatesByCatalog(candidates) {
+            var items = enrichLinkCandidates(candidates);
+            var groupOrder = [];
+            var groupMap = Object.create(null);
+            var ungrouped = [];
+            items.forEach(function (c) {
+                var g = primaryCatalogGroupForCandidate(c);
+                if (!g || !g.id) {
+                    ungrouped.push(c);
+                    return;
+                }
+                var gid = String(g.id);
+                if (!groupMap[gid]) {
+                    groupMap[gid] = {
+                        groupId: gid,
+                        groupLabel: String(g.name || '').trim(),
+                        items: []
+                    };
+                    groupOrder.push(groupMap[gid]);
+                }
+                groupMap[gid].items.push(c);
+            });
+            var kind = items.length ? normalizeKind(items[0].asset_kind) : '';
+            var flat = kind ? groupsForKind(kind) : [];
+            if (flat.length) {
+                var orderIdx = Object.create(null);
+                flat.forEach(function (g, i) { orderIdx[String(g.id)] = i; });
+                groupOrder.sort(function (a, b) {
+                    var ia = orderIdx[a.groupId] != null ? orderIdx[a.groupId] : 9999;
+                    var ib = orderIdx[b.groupId] != null ? orderIdx[b.groupId] : 9999;
+                    if (ia !== ib) return ia - ib;
+                    return String(a.groupLabel || '').localeCompare(String(b.groupLabel || ''), 'zh-Hant');
+                });
+            }
+            if (ungrouped.length) {
+                groupOrder.push({
+                    groupId: '',
+                    groupLabel: tr('baseModels.catalogGroupUncategorized', '未分類'),
+                    items: ungrouped,
+                    isUncategorized: true
+                });
+            }
+            return groupOrder;
+        }
+
+        function buildPrototypeLinkRowElement(c, selected, metaMap) {
+            var cid = String(c.id);
+            var meta = metaMap[cid] || { allow_multi_pick: true, pick_group: '' };
+            var rowWrap = document.createElement('div');
+            rowWrap.className = 'prototype-link-row border-bottom pb-2 mb-2';
+            var thumb = c.image_url
+                ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
+                : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
+            var title = (c.title || cid).replace(/</g, '&lt;');
+            var kindBadge = assetKindLabelShort(c.asset_kind);
+            rowWrap.innerHTML =
+                '<label class="d-flex align-items-center gap-2 small mb-0">' +
+                '<input type="checkbox" class="form-check-input flex-shrink-0 proto-link-check" value="' + cid.replace(/"/g, '&quot;') + '"' +
+                (selected.has(cid) ? ' checked' : '') + '>' + thumb +
+                '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
+                (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span></label>' +
+                '<div class="proto-link-meta ms-4 ps-2' + (selected.has(cid) ? '' : ' d-none') + '">' +
+                '<div class="form-check form-check-inline small mb-1">' +
+                '<input type="checkbox" class="form-check-input proto-link-allow-multi"' + (meta.allow_multi_pick ? ' checked' : '') + '>' +
+                '<label class="form-check-label">可與其他並選</label></div>' +
+                '<div class="input-group input-group-sm" style="max-width:14rem">' +
+                '<span class="input-group-text">擇一組</span>' +
+                '<input type="text" class="form-control proto-link-pick-group" placeholder="留空＝無" value="' +
+                String(meta.pick_group || '').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></div></div>';
+            var chk = rowWrap.querySelector('.proto-link-check');
+            if (chk) {
+                chk.addEventListener('change', function () { syncPrototypeLinkMetaVisibility(rowWrap); });
+            }
+            return rowWrap;
+        }
+
+        function buildSimpleLinkCheckboxElement(c, selected) {
+            var cid = String(c.id);
+            var row = document.createElement('label');
+            row.className = 'd-flex align-items-center gap-2 small mb-0 prototype-link-row';
+            var thumb = c.image_url
+                ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
+                : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
+            var title = (c.title || cid).replace(/</g, '&lt;');
+            var kindBadge = assetKindLabelShort(c.asset_kind);
+            row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '"' +
+                (selected.has(cid) ? ' checked' : '') + '>' + thumb +
+                '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
+                (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span>';
+            return row;
+        }
+
+        function appendCatalogGroupedLinkRows(listEl, candidates, rowBuilder) {
+            var groups = groupLinkCandidatesByCatalog(candidates);
+            groups.forEach(function (grp) {
+                var section = document.createElement('div');
+                section.className = 'proto-link-catalog-group';
+                if (grp.groupLabel && (grp.items.length > 1 || grp.groupId)) {
+                    var heading = document.createElement('div');
+                    heading.className = 'proto-link-catalog-group-title';
+                    heading.textContent = grp.groupLabel;
+                    section.appendChild(heading);
+                }
+                var inner = document.createElement('div');
+                inner.className = 'proto-link-catalog-group-items d-flex flex-column gap-2';
+                grp.items.forEach(function (c) {
+                    inner.appendChild(rowBuilder(c));
+                });
+                section.appendChild(inner);
+                listEl.appendChild(section);
+            });
+        }
+
         function renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks) {
             if (!listEl) return;
             listEl.innerHTML = '';
             var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
             var metaMap = buildPrototypeLinkMetaMap(linkedLinks, selectedIds);
-            if (!candidates || !candidates.length) {
+            var enriched = enrichLinkCandidates(candidates);
+            if (!enriched.length) {
                 if (emptyEl) emptyEl.classList.remove('d-none');
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            candidates.forEach(function (c) {
-                var cid = String(c.id);
-                var meta = metaMap[cid] || { allow_multi_pick: true, pick_group: '' };
-                var rowWrap = document.createElement('div');
-                rowWrap.className = 'prototype-link-row border-bottom pb-2 mb-2';
-                var thumb = c.image_url
-                    ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
-                    : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
-                var title = (c.title || cid).replace(/</g, '&lt;');
-                var kindBadge = assetKindLabelShort(c.asset_kind);
-                rowWrap.innerHTML =
-                    '<label class="d-flex align-items-center gap-2 small mb-0">' +
-                    '<input type="checkbox" class="form-check-input flex-shrink-0 proto-link-check" value="' + cid.replace(/"/g, '&quot;') + '"' +
-                    (selected.has(cid) ? ' checked' : '') + '>' + thumb +
-                    '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
-                    (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span></label>' +
-                    '<div class="proto-link-meta ms-4 ps-2' + (selected.has(cid) ? '' : ' d-none') + '">' +
-                    '<div class="form-check form-check-inline small mb-1">' +
-                    '<input type="checkbox" class="form-check-input proto-link-allow-multi"' + (meta.allow_multi_pick ? ' checked' : '') + '>' +
-                    '<label class="form-check-label">可與其他並選</label></div>' +
-                    '<div class="input-group input-group-sm" style="max-width:14rem">' +
-                    '<span class="input-group-text">擇一組</span>' +
-                    '<input type="text" class="form-control proto-link-pick-group" placeholder="留空＝無" value="' +
-                    String(meta.pick_group || '').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></div></div>';
-                var chk = rowWrap.querySelector('.proto-link-check');
-                if (chk) {
-                    chk.addEventListener('change', function () { syncPrototypeLinkMetaVisibility(rowWrap); });
-                }
-                listEl.appendChild(rowWrap);
+            appendCatalogGroupedLinkRows(listEl, enriched, function (c) {
+                return buildPrototypeLinkRowElement(c, selected, metaMap);
+            });
+        }
+
+        function renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds) {
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
+            var enriched = enrichLinkCandidates(candidates);
+            if (!enriched.length) {
+                if (emptyEl) emptyEl.classList.remove('d-none');
+                return;
+            }
+            if (emptyEl) emptyEl.classList.add('d-none');
+            appendCatalogGroupedLinkRows(listEl, enriched, function (c) {
+                return buildSimpleLinkCheckboxElement(c, selected);
             });
         }
 
         function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds, linkedLinks) {
-            renderPrototypeLinkRows(
-                document.getElementById(containerId),
-                document.getElementById(emptyId),
-                candidates,
-                selectedIds,
-                linkedLinks
-            );
+            var listEl = document.getElementById(containerId);
+            var emptyEl = document.getElementById(emptyId);
+            if (containerId === 'edit-linked-prototypes-list') {
+                renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds);
+                return;
+            }
+            renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks);
         }
 
         function readPrototypeLinkEntries(listEl) {
@@ -9008,44 +9147,20 @@
                     var k = normalizeKind(m.asset_kind);
                     return k === 'material' || k === 'part';
                 }).map(function (m) {
-                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind };
+                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind, catalog_groups: m.catalog_groups || [] };
                 });
                 var listEl = form.querySelector('.add-prototype-links-list');
                 var emptyEl = form.querySelector('.add-prototype-links-empty');
-                if (!listEl) return;
-                listEl.innerHTML = '';
-                if (!candidates.length) {
-                    if (emptyEl) emptyEl.classList.remove('d-none');
-                    return;
-                }
                 renderPrototypeLinkRows(listEl, emptyEl, candidates, [], []);
             } else if (kind === 'material' || kind === 'part') {
                 var protoCandidates = materialsAll.filter(function (m) {
                     return normalizeKind(m.asset_kind) === 'prototype';
                 }).map(function (m) {
-                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind };
+                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind, catalog_groups: m.catalog_groups || [] };
                 });
                 var lpList = form.querySelector('.add-linked-prototypes-list');
                 var lpEmpty = form.querySelector('.add-linked-prototypes-empty');
-                if (!lpList) return;
-                lpList.innerHTML = '';
-                if (!protoCandidates.length) {
-                    if (lpEmpty) lpEmpty.classList.remove('d-none');
-                    return;
-                }
-                if (lpEmpty) lpEmpty.classList.add('d-none');
-                protoCandidates.forEach(function (c) {
-                    var cid = String(c.id);
-                    var row = document.createElement('label');
-                    row.className = 'd-flex align-items-center gap-2 small mb-0';
-                    var thumb = c.image_url
-                        ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
-                        : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
-                    var title = (c.title || cid).replace(/</g, '&lt;');
-                    row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '">' + thumb +
-                        '<span class="flex-grow-1 text-truncate">' + title + '</span>';
-                    lpList.appendChild(row);
-                });
+                renderSimpleLinkCheckboxRows(lpList, lpEmpty, protoCandidates, []);
             }
         }
 
