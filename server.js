@@ -3962,6 +3962,84 @@ function normalizeDualColorMaterialField(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 64);
 }
 
+function normalizeDualColorMaterialField(raw) {
+    return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 64);
+}
+
+function normalizeMaterialComboMaterialKey(raw) {
+    return normalizeDualColorMaterialField(raw).toLowerCase();
+}
+
+function normalizeMaterialComboTransition(raw) {
+    if (!raw || typeof raw !== 'object') return { mode: 'hard' };
+    const mode = raw.mode === 'gradient' ? 'gradient' : 'hard';
+    const out = { mode };
+    if (mode === 'gradient') {
+        let span = parseInt(raw.span_pct, 10);
+        if (!Number.isFinite(span)) span = 12;
+        out.span_pct = Math.max(1, Math.min(30, span));
+    } else {
+        const b = String(raw.boundary || '').trim();
+        if (b) out.boundary = b.slice(0, 64);
+    }
+    return out;
+}
+
+function parseMaterialComboTransitionsInput(raw, colorCount) {
+    if (raw == null || raw === '') return [];
+    if (typeof raw === 'string') {
+        try { return parseMaterialComboTransitionsInput(JSON.parse(raw), colorCount); } catch (_) { return []; }
+    }
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'object') {
+        const edges = colorCount === 3 ? ['main_accent', 'accent_third'] : ['main_accent'];
+        return edges.map((edge) => Object.assign({ edge }, raw[edge] || {})).filter((t) => t && t.edge);
+    }
+    return [];
+}
+
+function parseMaterialComboMaterialLinksInput(raw, colorCount) {
+    const out = {};
+    if (raw == null || raw === '') return out;
+    let src = raw;
+    if (typeof raw === 'string') {
+        try { src = JSON.parse(raw); } catch (_) { return out; }
+    }
+    if (!src || typeof src !== 'object') return out;
+    if (src.accent && src.accent.linked) {
+        out.accent = { linked: true, linked_to: 'main' };
+    }
+    if (colorCount === 3 && src.third && src.third.linked) {
+        out.third = { linked: true, linked_to: src.third.linked_to === 'main' ? 'main' : 'accent' };
+    }
+    return out;
+}
+
+function isMaterialComboZoneLinked(materialLinks, zone) {
+    return !!(materialLinks && materialLinks[zone] && materialLinks[zone].linked);
+}
+
+function normalizeMaterialComboTransitions(rawTransitions, colorCount, materialLinks, legacyBoundary) {
+    const edges = colorCount === 3 ? ['main_accent', 'accent_third'] : ['main_accent'];
+    const byEdge = {};
+    parseMaterialComboTransitionsInput(rawTransitions, colorCount).forEach((t) => {
+        if (t && t.edge) byEdge[t.edge] = t;
+    });
+    return edges.map((edge, idx) => {
+        let tr = normalizeMaterialComboTransition(byEdge[edge] || {});
+        const linkZone = edge === 'main_accent' ? 'accent' : 'third';
+        if (!isMaterialComboZoneLinked(materialLinks, linkZone)) {
+            tr = { mode: 'hard', boundary: tr.boundary || '' };
+        } else if (tr.mode === 'gradient') {
+            tr = { mode: 'gradient', span_pct: tr.span_pct || 12 };
+        }
+        if (tr.mode === 'hard' && !tr.boundary && idx === 0 && legacyBoundary) {
+            tr.boundary = legacyBoundary;
+        }
+        return Object.assign({ edge }, tr);
+    });
+}
+
 /** 印花用法：pattern＝印花圖樣（色跟 HEX）；color＝印花色（色跟印花圖）。預設 pattern。 */
 function normalizeDualColorPrintKind(raw) {
     const k = String(raw || '').trim().toLowerCase();
@@ -4011,22 +4089,78 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
     if (colorCount === 3 && !hasThirdPat && !third) throw new Error('請填輔色區材質或選擇印花圖樣');
 
+    const materialLinks = opts.materialLinks && typeof opts.materialLinks === 'object' ? opts.materialLinks : {};
+    const legacyBoundary = normalizeDualColorMaterialField(stitchMaterial);
+    const transitions = normalizeMaterialComboTransitions(opts.transitions, colorCount, materialLinks, legacyBoundary);
+    const transitionByEdge = {};
+    transitions.forEach((t) => { if (t && t.edge) transitionByEdge[t.edge] = t; });
+
+    transitions.forEach((tr) => {
+        if (tr.mode !== 'gradient') return;
+        if (patCount > 0) throw new Error('漸層交界不可同時使用印花');
+        const edge = tr.edge;
+        if (edge === 'main_accent' && !isMaterialComboZoneLinked(materialLinks, 'accent')) {
+            throw new Error('漸層僅適用於已套用相同材質的交界');
+        }
+        if (edge === 'accent_third' && !isMaterialComboZoneLinked(materialLinks, 'third')) {
+            throw new Error('漸層僅適用於已套用相同材質的交界');
+        }
+    });
+
     const printKind = normalizeDualColorPrintKind(opts.printKind);
     const printWord = printKind === 'color' ? '印花色' : '印花圖樣';
     const percents = normalizeMaterialComboRatioPercents(opts.ratioPercents, colorCount);
-    const mainPhrase = hasMainPat ? (`上方${printWord}${main || ''}材質`) : (`${main}材質`);
-    const accentPhrase = hasAccentPat
-        ? (`${colorCount === 3 ? '中間' : '下方'}${printWord}${accent || ''}材質`)
-        : (`${accent}材質`);
-    const stitch = normalizeDualColorMaterialField(stitchMaterial);
+    const mainHex = normalizeMaterialComboHex(opts.mainHex) || '';
+    const accentHex = normalizeMaterialComboHex(opts.accentHex) || '';
+    const thirdHex = normalizeMaterialComboHex(opts.thirdHex) || '';
+
+    function zoneMaterialPhrase(zone, mat, hasPat, posWord) {
+        if (hasPat) return `${posWord}${printWord}${mat || ''}材質`;
+        return `${mat}材質`;
+    }
+
+    function buildGradientSegmentPhrase(edge, topHex, bottomHex, mat) {
+        const tr = transitionByEdge[edge];
+        const span = tr && tr.mode === 'gradient' ? (tr.span_pct || 12) : null;
+        if (!span || !mat) return null;
+        const top = topHex || '';
+        const bottom = bottomHex || '';
+        if (edge === 'main_accent') {
+            return `上方${top}至${colorCount === 3 ? '中間' : '下方'}${bottom}同一${mat}材質自然色度過渡，過渡帶約${span}%高度`;
+        }
+        return `中間${top}至下方${bottom}同一${mat}材質自然色度過渡，過渡帶約${span}%高度`;
+    }
+
+    const mainPhrase = zoneMaterialPhrase('main', main, hasMainPat, '上方');
+    const accentPhrase = zoneMaterialPhrase('accent', accent, hasAccentPat, colorCount === 3 ? '中間' : '下方');
+    const gradMainAccent = buildGradientSegmentPhrase('main_accent', mainHex, accentHex, main || accent);
+    const gradAccentThird = colorCount === 3 ? buildGradientSegmentPhrase('accent_third', accentHex, thirdHex, accent || third) : null;
+
     let prompt;
     if (colorCount === 3) {
-        const thirdPhrase = hasThirdPat ? (`下方${printWord}${third || ''}材質`) : (`${third}材質`);
-        prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，中間色塊${percents[1]}%改為${accentPhrase}，下方色塊${percents[2]}%改為${thirdPhrase}`;
+        const thirdPhrase = zoneMaterialPhrase('third', third, hasThirdPat, '下方');
+        if (gradMainAccent && gradAccentThird) {
+            prompt = `依原圖${gradMainAccent}，${gradAccentThird}，上方色塊${percents[0]}%、中間${percents[1]}%、下方${percents[2]}%`;
+        } else if (gradMainAccent) {
+            prompt = `依原圖${gradMainAccent}，中間色塊${percents[1]}%改為${accentPhrase}，下方色塊${percents[2]}%改為${thirdPhrase}`;
+        } else if (gradAccentThird) {
+            prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，${gradAccentThird}，中間色塊${percents[1]}%`;
+        } else {
+            prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，中間色塊${percents[1]}%改為${accentPhrase}，下方色塊${percents[2]}%改為${thirdPhrase}`;
+        }
+    } else if (gradMainAccent) {
+        prompt = `依原圖${gradMainAccent}，上方色塊${percents[0]}%、下方${percents[1]}%`;
     } else {
         prompt = `依原圖上方色塊${percents[0]}%改為${mainPhrase}，下方色塊${percents[1]}%改為${accentPhrase}`;
     }
-    if (stitch) prompt += `，分界處改為${stitch}`;
+
+    transitions.forEach((tr) => {
+        if (tr.mode !== 'hard' || !tr.boundary) return;
+        prompt += `，${tr.edge === 'accent_third' ? '中間與下方' : '分界處'}改為${tr.boundary}`;
+    });
+    if (!transitions.some((tr) => tr.mode === 'hard' && tr.boundary) && legacyBoundary && !gradMainAccent && !gradAccentThird) {
+        prompt += `，分界處改為${legacyBoundary}`;
+    }
     prompt += '，解析度1024x1024，請維持原圖色塊比例';
     return prompt;
 }
@@ -4069,7 +4203,12 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         printKind: (hasMainPat || hasAccentPat || hasThirdPat) ? printKind : 'pattern',
         thirdMaterial: extras.thirdMaterial || '',
         colorCount: extras.colorCount || 2,
-        ratioPercents: extras.ratioPercents
+        ratioPercents: extras.ratioPercents,
+        materialLinks: extras.materialLinks,
+        transitions: extras.transitions,
+        mainHex: extras.mainHex,
+        accentHex: extras.accentHex,
+        thirdHex: extras.thirdHex
     });
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
@@ -4198,7 +4337,12 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
         printKind: hasPrint ? printKind : 'pattern',
         thirdMaterial: extras.thirdMaterial || '',
         colorCount: extras.colorCount || 2,
-        ratioPercents: extras.ratioPercents
+        ratioPercents: extras.ratioPercents,
+        materialLinks: extras.materialLinks,
+        transitions: extras.transitions,
+        mainHex: extras.mainHex,
+        accentHex: extras.accentHex,
+        thirdHex: extras.thirdHex
     });
     const model = await dualColorGeminiModelForRefs(hasPrint);
 
@@ -4662,18 +4806,25 @@ function normalizeMaterialComboHex(raw) {
     return '';
 }
 
-/** 材料組合結構（主色／配色／可選輔色 HEX+材料、比重、分界選填） */
+/** 材料組合結構（主色／配色／可選輔色 HEX+材料、比重、分界／漸層 transition） */
 function normalizeMaterialCombo(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const mainHex = normalizeMaterialComboHex(raw.main && raw.main.hex);
     const accentHex = normalizeMaterialComboHex(raw.accent && raw.accent.hex);
-    const mainMat = String((raw.main && raw.main.material) || '').trim();
-    const accentMat = String((raw.accent && raw.accent.material) || '').trim();
+    let mainMat = String((raw.main && raw.main.material) || '').trim();
+    let accentMat = String((raw.accent && raw.accent.material) || '').trim();
     if (!mainHex || !accentHex || !mainMat || !accentMat) return null;
     const colorCount = parseInt(raw.color_count, 10) === 3 || (raw.third && raw.third.hex) ? 3 : 2;
     const ratioPercents = normalizeMaterialComboRatioPercents(raw.ratio_percents, colorCount);
+    const materialLinks = parseMaterialComboMaterialLinksInput(raw.material_links, colorCount);
+    if (isMaterialComboZoneLinked(materialLinks, 'accent')) {
+        accentMat = mainMat;
+    }
+    const legacyBoundary = String(raw.boundary || '').trim();
+    const transitions = normalizeMaterialComboTransitions(raw.transitions, colorCount, materialLinks, legacyBoundary);
+    const hasGradient = transitions.some((t) => t.mode === 'gradient');
     const out = {
-        version: colorCount === 3 ? 2 : 1,
+        version: hasGradient || Object.keys(materialLinks).length ? 3 : (colorCount === 3 ? 2 : 1),
         layout: colorCount === 3
             ? ('top_' + ratioPercents[0] + '_mid_' + ratioPercents[1] + '_bottom_' + ratioPercents[2])
             : ('top_' + ratioPercents[0] + '_bottom_' + ratioPercents[1]),
@@ -4684,13 +4835,21 @@ function normalizeMaterialCombo(raw) {
         accent: { hex: accentHex, material: accentMat }
     };
     if (colorCount === 3) {
+        let thirdMat = String((raw.third && raw.third.material) || '').trim();
         const thirdHex = normalizeMaterialComboHex(raw.third && raw.third.hex);
-        const thirdMat = String((raw.third && raw.third.material) || '').trim();
+        if (isMaterialComboZoneLinked(materialLinks, 'third')) {
+            thirdMat = isMaterialComboZoneLinked(materialLinks, 'accent') && materialLinks.third.linked_to === 'accent'
+                ? accentMat
+                : mainMat;
+        }
         if (!thirdHex || !thirdMat) return null;
         out.third = { hex: thirdHex, material: thirdMat };
     }
-    const boundary = String(raw.boundary || '').trim();
-    if (boundary) out.boundary = boundary;
+    if (Object.keys(materialLinks).length) out.material_links = materialLinks;
+    if (transitions.length) out.transitions = transitions;
+    const firstHardBoundary = transitions.find((t) => t.mode === 'hard' && t.boundary);
+    if (firstHardBoundary && firstHardBoundary.boundary) out.boundary = firstHardBoundary.boundary;
+    else if (legacyBoundary) out.boundary = legacyBoundary;
     return mergeMaterialComboLineage(out, raw);
 }
 
@@ -27220,10 +27379,17 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         const printKind = patCount
             ? normalizeDualColorPrintKind(body.print_kind || body.printKind)
             : 'pattern';
+        const materialLinks = parseMaterialComboMaterialLinksInput(body.material_links_json || body.material_links, colorCount);
+        const transitionsInput = body.transitions_json || body.transitions;
         const comboExtras = {
             thirdMaterial: thirdMaterial,
             colorCount: colorCount,
-            ratioPercents: ratioPercents
+            ratioPercents: ratioPercents,
+            materialLinks: materialLinks,
+            transitions: transitionsInput,
+            mainHex: body.main_hex || body.mainHex || '',
+            accentHex: body.accent_hex || body.accentHex || '',
+            thirdHex: body.third_hex || body.thirdHex || ''
         };
         let aiPromptUsed;
         try {
@@ -27234,7 +27400,12 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
                 printKind,
                 thirdMaterial: thirdMaterial,
                 colorCount: colorCount,
-                ratioPercents: ratioPercents
+                ratioPercents: ratioPercents,
+                materialLinks: materialLinks,
+                transitions: transitionsInput,
+                mainHex: body.main_hex || body.mainHex || '',
+                accentHex: body.accent_hex || body.accentHex || '',
+                thirdHex: body.third_hex || body.thirdHex || ''
             });
         } catch (promptErr) {
             return res.status(400).json({ error: promptErr.message || '請填各區材質或選擇印花圖樣' });
@@ -27307,6 +27478,8 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             ratio_percents: ratioPercents,
             ratio_preset: body.ratio_preset || body.ratioPreset || null,
             color_count: colorCount,
+            material_links: materialLinks,
+            transitions: transitionsInput,
             source_palette: (function () {
                 try {
                     const raw = body.source_palette_json || body.source_palette;

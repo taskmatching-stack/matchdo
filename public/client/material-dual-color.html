@@ -117,6 +117,16 @@
             border-color: var(--md-rose) !important;
         }
         .mdc-preset-select { width: auto; min-width: 5.5rem; max-width: 11rem; flex: 0 0 auto; font-size: 0.8125rem; padding-top: 0.15rem; padding-bottom: 0.15rem; height: auto; }
+        .mdc-link-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+        .mdc-transition-block {
+            border: 1px solid rgba(88, 100, 112, 0.14);
+            border-radius: 8px;
+            padding: 0.65rem 0.75rem;
+            margin-bottom: 0.65rem;
+            background: #fafbfc;
+        }
+        .mdc-transition-block.is-linked { border-color: rgba(122, 143, 163, 0.35); }
+        input.mdc-mat-linked { background: #f1f5f9; }
     </style>
 </head>
 <body>
@@ -261,6 +271,10 @@
                                 </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-accent-material" data-i18n-placeholder="materialCombo.accentMaterialPh" placeholder="例：粒面皮革" maxlength="64">
+                            <div class="mdc-link-row mt-1" id="mdc-accent-link-row">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-link-accent-btn"><span data-i18n="materialCombo.linkAccentToMain">與主色相同材質</span></button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-unlink-accent-btn"><span data-i18n="materialCombo.unlinkMaterial">改回獨立材質</span></button>
+                            </div>
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.accentPrintBtn">配色區印花</span></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-accent-upload-print"><i class="bi bi-upload me-1"></i><span data-i18n="materialCombo.upload">上傳</span></button>
@@ -282,6 +296,10 @@
                                 </div>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="mdc-third-material" data-i18n-placeholder="materialCombo.thirdMaterialPh" placeholder="例：麂皮" maxlength="64">
+                            <div class="mdc-link-row mt-1" id="mdc-third-link-row">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-link-third-btn"><span data-i18n="materialCombo.linkThirdToAccent">與上一區相同材質</span></button>
+                                <button type="button" class="btn btn-sm btn-link text-muted px-1 d-none" id="mdc-unlink-third-btn"><span data-i18n="materialCombo.unlinkMaterial">改回獨立材質</span></button>
+                            </div>
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-pick-print"><i class="bi bi-flower1 me-1"></i><span data-i18n="materialCombo.thirdPrintBtn">輔色區印花</span></button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="mdc-third-upload-print"><i class="bi bi-upload me-1"></i><span data-i18n="materialCombo.upload">上傳</span></button>
@@ -298,18 +316,8 @@
                                 <label class="mb-0"><input type="radio" name="mdc-print-kind" value="color"> <span data-i18n="materialCombo.printKindColor">印花色</span></label>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small mb-1 d-flex flex-wrap align-items-center gap-2">
-                                <span data-i18n="materialCombo.boundaryLabel">分界處（選填）</span>
-                                <select class="form-select form-select-sm d-none mdc-preset-select" id="mdc-boundary-preset-select" data-i18n-aria-label="materialCombo.presetSelectBoundary" aria-label="選常用分界"><option value="" data-i18n="materialCombo.presetSelectBoundary">選常用分界</option></select>
-                                <button type="button" class="btn btn-sm d-none mdc-field-preset-save" data-preset-kind="boundary" data-preset-target="mdc-boundary" data-i18n-title="materialCombo.presetSaveBoundary" data-i18n-aria-label="materialCombo.presetSaveBoundary" title="存常用分界" aria-label="存常用分界"><i class="bi bi-bookmark-plus"></i></button>
-                                <div class="dropdown d-none mdc-preset-manage" id="mdc-boundary-preset-manage">
-                                    <button type="button" class="btn btn-sm mdc-preset-del-btn" data-bs-toggle="dropdown" data-bs-auto-close="true" data-i18n-title="materialCombo.presetDeleteBoundary" data-i18n-aria-label="materialCombo.presetDeleteBoundary" title="刪除常用分界" aria-label="刪除常用分界"><i class="bi bi-trash"></i></button>
-                                    <ul class="dropdown-menu dropdown-menu-sm py-1" id="mdc-boundary-preset-del-menu" style="min-width:9rem;max-width:14rem"></ul>
-                                </div>
-                            </label>
-                            <input type="text" class="form-control form-control-sm" id="mdc-boundary" data-i18n-placeholder="materialCombo.boundaryPh" placeholder="例：同色明線車縫" maxlength="64">
-                        </div>
+                        <div class="col-12" id="mdc-transitions-wrap"></div>
+                        <input type="hidden" id="mdc-boundary" value="">
                         <div class="col-md-6">
                             <label class="form-label small mb-1" data-i18n="materialCombo.libraryTitleLabel">存庫名稱（選填）</label>
                             <input type="text" class="form-control form-control-sm" id="mdc-library-title" data-i18n-placeholder="materialCombo.libraryTitlePh" placeholder="預設：主材／配材" maxlength="120">
@@ -416,13 +424,13 @@
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js?v=20260807-i18n2"></script>
-    <script src="/js/material-dual-color-compose.js?v=20260806t1"></script>
+    <script src="/js/material-dual-color-compose.js?v=20260809-gradient"></script>
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
     <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/material-preset-chips.js?v=20260807n"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-presets-trash-accent-20260807n';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-gradient-v1-20260809';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -463,6 +471,209 @@
             accent: { url: null, file: null, objectUrl: null },
             third: { url: null, file: null, objectUrl: null }
         };
+        var materialLinks = {
+            accent: { linked: false, linkedTo: 'main' },
+            third: { linked: false, linkedTo: 'accent' }
+        };
+        var transitionState = {
+            main_accent: { mode: 'hard', boundary: '', span_pct: 12 },
+            accent_third: { mode: 'hard', boundary: '', span_pct: 12 }
+        };
+        function normalizeMatKey(raw) {
+            return String(raw || '').trim().toLowerCase();
+        }
+
+        function isZoneLinked(zone) {
+            return !!(materialLinks[zone] && materialLinks[zone].linked);
+        }
+
+        function transitionEdgesForMode() {
+            return getColorCount() === 3 ? ['main_accent', 'accent_third'] : ['main_accent'];
+        }
+
+        function transitionEdgeLabel(edge) {
+            if (edge === 'main_accent') {
+                return getColorCount() === 3
+                    ? t('materialCombo.edgeMainAccentTri', '主色 ↔ 配色')
+                    : t('materialCombo.edgeMainAccentDual', '主色 ↔ 配色');
+            }
+            return t('materialCombo.edgeAccentThird', '配色 ↔ 輔色');
+        }
+
+        function syncLinkedMaterialFields() {
+            if (isZoneLinked('accent')) {
+                accentMaterial.value = (mainMaterial.value || '').trim();
+                accentMaterial.readOnly = true;
+                accentMaterial.classList.add('mdc-mat-linked');
+            } else {
+                accentMaterial.readOnly = false;
+                accentMaterial.classList.remove('mdc-mat-linked');
+            }
+            if (thirdMaterial) {
+                if (isZoneLinked('third')) {
+                    var src = isZoneLinked('accent') ? accentMaterial : mainMaterial;
+                    thirdMaterial.value = (src && src.value || '').trim();
+                    thirdMaterial.readOnly = true;
+                    thirdMaterial.classList.add('mdc-mat-linked');
+                } else {
+                    thirdMaterial.readOnly = false;
+                    thirdMaterial.classList.remove('mdc-mat-linked');
+                }
+            }
+        }
+
+        function syncLegacyBoundaryHidden() {
+            var tr = transitionState.main_accent || {};
+            if (boundary) boundary.value = tr.mode === 'hard' ? (tr.boundary || '') : '';
+        }
+
+        function getTransitionsPayload() {
+            return transitionEdgesForMode().map(function (edge) {
+                var tr = transitionState[edge] || { mode: 'hard', boundary: '', span_pct: 12 };
+                var out = { edge: edge, mode: tr.mode === 'gradient' ? 'gradient' : 'hard' };
+                if (out.mode === 'gradient') out.span_pct = Compose.clampSpanPct(tr.span_pct);
+                else if ((tr.boundary || '').trim()) out.boundary = String(tr.boundary).trim();
+                return out;
+            });
+        }
+
+        function getMaterialLinksPayload() {
+            var out = {};
+            if (isZoneLinked('accent')) out.accent = { linked: true, linked_to: 'main' };
+            if (getColorCount() === 3 && isZoneLinked('third')) {
+                out.third = { linked: true, linked_to: materialLinks.third.linkedTo || 'accent' };
+            }
+            return out;
+        }
+
+        function getSwatchTransitionOptions() {
+            var map = Object.create(null);
+            getTransitionsPayload().forEach(function (tr) {
+                if (tr && tr.edge) map[tr.edge] = tr;
+            });
+            return { transitions: map };
+        }
+
+        function setZoneLink(zone, linked, linkedTo) {
+            if (!materialLinks[zone]) return;
+            materialLinks[zone].linked = !!linked;
+            if (linkedTo) materialLinks[zone].linkedTo = linkedTo;
+            if (!linked) {
+                var edge = zone === 'accent' ? 'main_accent' : 'accent_third';
+                if (transitionState[edge]) {
+                    transitionState[edge].mode = 'hard';
+                }
+            }
+            syncLinkedMaterialFields();
+            renderTransitionsUi();
+            syncMaterialLinkButtons();
+            refreshSwatch();
+            updateGenerateEnabled();
+        }
+
+        function renderTransitionsUi() {
+            var transitionsWrap = document.getElementById('mdc-transitions-wrap');
+            if (!transitionsWrap) return;
+            var html = '';
+            transitionEdgesForMode().forEach(function (edge) {
+                var tr = transitionState[edge] || { mode: 'hard', boundary: '', span_pct: 12 };
+                var linkZone = edge === 'main_accent' ? 'accent' : 'third';
+                var linked = isZoneLinked(linkZone);
+                var title = transitionEdgeLabel(edge);
+                html += '<div class="mdc-transition-block' + (linked ? ' is-linked' : '') + '" data-transition-edge="' + edge + '">';
+                html += '<div class="small fw-semibold mb-2">' + title + '</div>';
+                if (linked) {
+                    html += '<div class="d-flex flex-wrap gap-3 small mb-2">';
+                    html += '<label class="mb-0"><input type="radio" name="mdc-tr-mode-' + edge + '" value="hard"' + (tr.mode !== 'gradient' ? ' checked' : '') + '> ' + t('materialCombo.transitionHard', '硬分界') + '</label>';
+                    html += '<label class="mb-0"><input type="radio" name="mdc-tr-mode-' + edge + '" value="gradient"' + (tr.mode === 'gradient' ? ' checked' : '') + '> ' + t('materialCombo.transitionGradient', '同材質漸層') + '</label>';
+                    html += '</div>';
+                    if (tr.mode === 'gradient') {
+                        html += '<label class="form-label small mb-1">' + t('materialCombo.gradientSpanLabel', '過渡寬度（%）') + '</label>';
+                        html += '<input type="number" class="form-control form-control-sm mdc-tr-span" min="1" max="30" value="' + Compose.clampSpanPct(tr.span_pct) + '" style="max-width:6rem">';
+                    } else {
+                        html += '<label class="form-label small mb-1">' + t('materialCombo.boundaryLabel', '分界描述（選填）') + '</label>';
+                        html += '<input type="text" class="form-control form-control-sm mdc-tr-boundary" maxlength="64" placeholder="' + t('materialCombo.boundaryPh', '例：同色明線車縫') + '" value="' + String(tr.boundary || '').replace(/"/g, '&quot;') + '">';
+                    }
+                } else {
+                    html += '<p class="small text-muted mb-2">' + t('materialCombo.transitionUnlinkedHint', '請先按「相同材質」才可選漸層；不同材質僅能硬分界。') + '</p>';
+                    html += '<label class="form-label small mb-1">' + t('materialCombo.boundaryLabel', '分界描述（選填）') + '</label>';
+                    html += '<input type="text" class="form-control form-control-sm mdc-tr-boundary" maxlength="64" placeholder="' + t('materialCombo.boundaryPh', '例：同色明線車縫') + '" value="' + String(tr.boundary || '').replace(/"/g, '&quot;') + '">';
+                }
+                html += '</div>';
+            });
+            transitionsWrap.innerHTML = html;
+            transitionsWrap.querySelectorAll('[data-transition-edge]').forEach(function (block) {
+                var edge = block.getAttribute('data-transition-edge');
+                block.querySelectorAll('input[name="mdc-tr-mode-' + edge + '"]').forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        if (!transitionState[edge]) transitionState[edge] = { mode: 'hard', boundary: '', span_pct: 12 };
+                        transitionState[edge].mode = radio.value === 'gradient' ? 'gradient' : 'hard';
+                        if (transitionState[edge].mode === 'gradient') {
+                            var zones = edge === 'main_accent' ? ['main', 'accent'] : ['accent', 'third'];
+                            if (zones.some(function (z) { return zoneHasPattern(z); })) {
+                                transitionState[edge].mode = 'hard';
+                                if (statusEl) {
+                                    statusEl.textContent = t('materialCombo.gradientNoPrint', '漸層交界不可同時使用印花，請先清除印花');
+                                    statusEl.className = 'small mt-2 text-warning';
+                                }
+                            }
+                        }
+                        renderTransitionsUi();
+                        syncLegacyBoundaryHidden();
+                        refreshSwatch();
+                        updateGenerateEnabled();
+                    });
+                });
+                var spanInput = block.querySelector('.mdc-tr-span');
+                if (spanInput) {
+                    spanInput.addEventListener('input', function () {
+                        if (!transitionState[edge]) transitionState[edge] = { mode: 'gradient', boundary: '', span_pct: 12 };
+                        transitionState[edge].span_pct = Compose.clampSpanPct(spanInput.value);
+                        refreshSwatch();
+                    });
+                }
+                block.querySelectorAll('.mdc-tr-boundary').forEach(function (input) {
+                    input.addEventListener('input', function () {
+                        if (!transitionState[edge]) transitionState[edge] = { mode: 'hard', boundary: '', span_pct: 12 };
+                        transitionState[edge].boundary = input.value;
+                        syncLegacyBoundaryHidden();
+                    });
+                });
+            });
+            syncLegacyBoundaryHidden();
+        }
+
+        function wireMaterialLinkButtons() {
+            var linkAccentBtn = document.getElementById('mdc-link-accent-btn');
+            var unlinkAccentBtn = document.getElementById('mdc-unlink-accent-btn');
+            var linkThirdBtn = document.getElementById('mdc-link-third-btn');
+            var unlinkThirdBtn = document.getElementById('mdc-unlink-third-btn');
+            if (linkAccentBtn) linkAccentBtn.addEventListener('click', function () {
+                setZoneLink('accent', true, 'main');
+            });
+            if (unlinkAccentBtn) unlinkAccentBtn.addEventListener('click', function () {
+                setZoneLink('accent', false);
+            });
+            if (linkThirdBtn) linkThirdBtn.addEventListener('click', function () {
+                setZoneLink('third', true, 'accent');
+            });
+            if (unlinkThirdBtn) unlinkThirdBtn.addEventListener('click', function () {
+                setZoneLink('third', false);
+            });
+        }
+
+        function syncMaterialLinkButtons() {
+            var linkAccentBtn = document.getElementById('mdc-link-accent-btn');
+            var unlinkAccentBtn = document.getElementById('mdc-unlink-accent-btn');
+            var linkThirdBtn = document.getElementById('mdc-link-third-btn');
+            var unlinkThirdBtn = document.getElementById('mdc-unlink-third-btn');
+            var thirdLinkRow = document.getElementById('mdc-third-link-row');
+            if (linkAccentBtn) linkAccentBtn.classList.toggle('d-none', isZoneLinked('accent'));
+            if (unlinkAccentBtn) unlinkAccentBtn.classList.toggle('d-none', !isZoneLinked('accent'));
+            if (thirdLinkRow) thirdLinkRow.classList.toggle('d-none', getColorCount() !== 3);
+            if (linkThirdBtn) linkThirdBtn.classList.toggle('d-none', isZoneLinked('third'));
+            if (unlinkThirdBtn) unlinkThirdBtn.classList.toggle('d-none', !isZoneLinked('third'));
+        }
         var printPickTarget = null;
         var printPickerModal = null;
         var printPickerMounted = null;
@@ -580,6 +791,9 @@
                 if (swatchHint) swatchHint.textContent = tf('materialCombo.swatchHintDual', '雙色色卡：{main}% / {accent}%。', { main: percents[0], accent: percents[1] });
             }
             syncTriPctSum();
+            syncLinkedMaterialFields();
+            syncMaterialLinkButtons();
+            renderTransitionsUi();
             refreshSwatch();
             updateGenerateEnabled();
         }
@@ -802,7 +1016,7 @@
                     updateGenerateEnabled();
                     return;
                 }
-                var preview = Compose.composeVerticalSwatch(bands, 256);
+                var preview = Compose.composeVerticalSwatch(bands, 256, getSwatchTransitionOptions());
                 var ctx = swatchCanvas.getContext('2d');
                 swatchCanvas.width = 256;
                 swatchCanvas.height = 256;
@@ -826,7 +1040,7 @@
             if (getColorCount() === 3) {
                 bands.push({ hex: thirdHex.value, pct: percents[2] });
             }
-            var canvas = Compose.composeVerticalSwatch(bands, Compose.CANVAS_SIZE);
+            var canvas = Compose.composeVerticalSwatch(bands, Compose.CANVAS_SIZE, getSwatchTransitionOptions());
             swatchBlob = await Compose.canvasToBlob(canvas, 'image/png');
             swatchDirty = false;
             return swatchBlob;
@@ -915,21 +1129,6 @@
                     document.getElementById('mdc-accent-mat-preset-del-menu'),
                     document.getElementById('mdc-third-mat-preset-del-menu')
                 ]
-            }));
-            var bndBtn = document.querySelector('.mdc-field-preset-save[data-preset-kind="boundary"]');
-            mdcPresetInstances.push(MaterialPresetChips.init({
-                kind: 'boundary',
-                getHeaders: headersFn,
-                inputs: [boundary],
-                getSelectPlaceholder: function () { return t('materialCombo.presetSelectBoundary', '選常用分界'); },
-                getEmptyManageLabel: function () { return t('materialCombo.presetManageEmpty', '尚無常用'); },
-                getRemoveTitle: function () { return t('materialCombo.presetRemove', '刪除'); },
-                renderTargets: [
-                    { selectEl: document.getElementById('mdc-boundary-preset-select'), input: boundary }
-                ],
-                fieldSaveBtns: bndBtn ? [{ btn: bndBtn, input: boundary }] : [],
-                manageWrapEl: document.getElementById('mdc-boundary-preset-manage'),
-                manageMenuEl: document.getElementById('mdc-boundary-preset-del-menu')
             }));
         }
 
@@ -1040,7 +1239,9 @@
                 fd.append('main_material', main);
                 fd.append('accent_material', accent);
                 if (tri) fd.append('third_material', third);
-                if ((boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
+                if ((boundary && boundary.value || '').trim()) fd.append('boundary', boundary.value.trim());
+                try { fd.append('material_links_json', JSON.stringify(getMaterialLinksPayload())); } catch (_) {}
+                try { fd.append('transitions_json', JSON.stringify(getTransitionsPayload())); } catch (_) {}
                 fd.append('main_hex', mainHex.value || '');
                 fd.append('accent_hex', accentHex.value || '');
                 if (tri) fd.append('third_hex', thirdHex.value || '');
@@ -1123,8 +1324,11 @@
             }
         });
 
-        [mainMaterial, accentMaterial, boundary].forEach(function (el) {
-            if (el) el.addEventListener('input', function () { updateGenerateEnabled(); });
+        [mainMaterial, accentMaterial].forEach(function (el) {
+            if (el) el.addEventListener('input', function () {
+                syncLinkedMaterialFields();
+                updateGenerateEnabled();
+            });
         });
         if (thirdMaterial) thirdMaterial.addEventListener('input', function () { updateGenerateEnabled(); });
         document.querySelectorAll('input[name="mdc-print-kind"]').forEach(function (el) {
@@ -1245,9 +1449,12 @@
                         returnTarget: returnTarget,
                         mainMaterial: main,
                         accentMaterial: accent,
-                        boundary: (boundary.value || '').trim(),
+                        boundary: (boundary && boundary.value || '').trim(),
                         mainHex: mainHex.value,
                         accentHex: accentHex.value,
+                        materialLinks: getMaterialLinksPayload(),
+                        transitions: getTransitionsPayload(),
+                        material_combo: lastFluxResponse.material_combo || null,
                         label: (main && accent) ? (main + '／' + accent) : t('materialCombo.defaultLabel', '材料組合'),
                         redrawChargedPts: lastFluxResponse.points_deducted || 0,
                         previewCreditTxId: lastFluxResponse.credit_transaction_id || null,
@@ -1263,6 +1470,8 @@
         }
 
         paintUiNow();
+        wireMaterialLinkButtons();
+        renderTransitionsUi();
         initAuth();
         function bootMaterialComboI18n() {
             if (!window.i18n || !window.i18n.ready) return;

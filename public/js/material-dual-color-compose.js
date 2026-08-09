@@ -1,6 +1,6 @@
 /**
  * 材料組合色卡 Step1：垂直無縫色帶（雙色／三色），依百分比繪製 PNG
- * 前端文案禁止出現模型名稱。
+ * 支援同材質交界漸層（transitions）
  */
 (function (global) {
   'use strict';
@@ -12,12 +12,20 @@
     dual_50_50: { key: 'dual_50_50', label: '50 / 50', percents: [50, 50] }
   };
 
+  var TRANSITION_EDGES = ['main_accent', 'accent_third'];
+
   function normalizeHex(raw) {
     var s = String(raw || '').trim();
     if (!s) return '';
     if (s.charAt(0) !== '#') s = '#' + s;
     if (!/^#[0-9A-Fa-f]{6}$/.test(s)) return '';
     return s.toUpperCase();
+  }
+
+  function clampSpanPct(raw) {
+    var n = parseInt(raw, 10);
+    if (!Number.isFinite(n)) return 12;
+    return Math.max(1, Math.min(30, n));
   }
 
   /** @param {number[]} percents 整數％，合計須為 100，每段 >= 1 */
@@ -41,11 +49,35 @@
     return { ok: true, percents: nums };
   }
 
+  function normalizeTransitionMap(transitions, bandCount) {
+    var map = Object.create(null);
+    var src = transitions;
+    if (Array.isArray(transitions)) {
+      src = Object.create(null);
+      transitions.forEach(function (tr) {
+        if (tr && tr.edge) src[tr.edge] = tr;
+      });
+    }
+    if (!src || typeof src !== 'object') src = Object.create(null);
+    var edges = bandCount >= 3 ? TRANSITION_EDGES.slice() : ['main_accent'];
+    edges.forEach(function (edge) {
+      var tr = src[edge] || {};
+      var mode = tr.mode === 'gradient' ? 'gradient' : 'hard';
+      map[edge] = {
+        mode: mode,
+        span_pct: clampSpanPct(tr.span_pct)
+      };
+    });
+    return map;
+  }
+
   /**
    * @param {{ hex: string, pct: number }[]} bands
    * @param {number} [size]
+   * @param {{ transitions?: object|array }} [options]
    */
-  function composeVerticalSwatch(bands, size) {
+  function composeVerticalSwatch(bands, size, options) {
+    options = options || {};
     var canvasSize = size > 0 ? size : CANVAS_SIZE;
     if (!Array.isArray(bands) || bands.length < 2) {
       throw new Error('至少需要兩段色塊');
@@ -60,8 +92,10 @@
       hexes.push(hx);
     }
     var heights = [];
+    var yStarts = [];
     var used = 0;
     for (var j = 0; j < checked.percents.length; j++) {
+      yStarts.push(used);
       if (j === checked.percents.length - 1) {
         heights.push(canvasSize - used);
       } else {
@@ -70,6 +104,8 @@
         used += h;
       }
     }
+    var transitionMap = normalizeTransitionMap(options.transitions, hexes.length);
+
     var canvas = document.createElement('canvas');
     canvas.width = canvasSize;
     canvas.height = canvasSize;
@@ -80,6 +116,23 @@
       ctx.fillRect(0, y, canvasSize, heights[k]);
       y += heights[k];
     }
+
+    TRANSITION_EDGES.forEach(function (edge, bandIdx) {
+      if (bandIdx >= hexes.length - 1) return;
+      var tr = transitionMap[edge];
+      if (!tr || tr.mode !== 'gradient') return;
+      var boundaryY = yStarts[bandIdx + 1];
+      var spanPx = Math.max(2, Math.round(canvasSize * clampSpanPct(tr.span_pct) / 100));
+      var gradY0 = Math.max(0, boundaryY - Math.floor(spanPx / 2));
+      var gradY1 = Math.min(canvasSize, boundaryY + Math.ceil(spanPx / 2));
+      if (gradY1 <= gradY0) return;
+      var g = ctx.createLinearGradient(0, gradY0, 0, gradY1);
+      g.addColorStop(0, hexes[bandIdx]);
+      g.addColorStop(1, hexes[bandIdx + 1]);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, gradY0, canvasSize, gradY1 - gradY0);
+    });
+
     return canvas;
   }
 
@@ -103,8 +156,11 @@
   global.MatchdoMaterialDualColorCompose = {
     CANVAS_SIZE: CANVAS_SIZE,
     DUAL_PRESETS: DUAL_PRESETS,
+    TRANSITION_EDGES: TRANSITION_EDGES,
     normalizeHex: normalizeHex,
+    clampSpanPct: clampSpanPct,
     validatePercents: validatePercents,
+    normalizeTransitionMap: normalizeTransitionMap,
     composeVerticalSwatch: composeVerticalSwatch,
     composeDualColorSwatch: composeDualColorSwatch,
     canvasToBlob: canvasToBlob

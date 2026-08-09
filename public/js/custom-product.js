@@ -1061,7 +1061,22 @@ $(document).ready(function () {
         if (combo.accent && (combo.accent.hex || combo.accent.material)) {
             parts.push('配色 ' + (combo.accent.hex || '') + ' ' + (combo.accent.material || ''));
         }
-        if (combo.boundary) parts.push('分界：' + combo.boundary);
+        if (combo.third && (combo.third.hex || combo.third.material)) {
+            parts.push('輔色 ' + (combo.third.hex || '') + ' ' + (combo.third.material || ''));
+        }
+        if (Array.isArray(combo.transitions) && combo.transitions.length) {
+            combo.transitions.forEach(function (tr) {
+                if (!tr || !tr.edge) return;
+                if (tr.mode === 'gradient') {
+                    var edgeLbl = tr.edge === 'main_accent' ? '主↔配' : '配↔輔';
+                    parts.push(edgeLbl + '漸層 ' + (tr.span_pct != null ? tr.span_pct : 12) + '%');
+                } else if (tr.boundary) {
+                    parts.push('分界：' + tr.boundary);
+                }
+            });
+        } else if (combo.boundary) {
+            parts.push('分界：' + combo.boundary);
+        }
         return parts.join('；');
     }
 
@@ -1083,13 +1098,15 @@ $(document).ready(function () {
             await MatchdoDualColorImport.clearImport();
             return false;
         }
-        var combo = {
+        var combo = meta.material_combo && meta.material_combo.main ? meta.material_combo : {
             version: 1,
             layout: 'top_75_bottom_25',
             main: { hex: meta.mainHex || '', material: meta.mainMaterial || '' },
             accent: { hex: meta.accentHex || '', material: meta.accentMaterial || '' }
         };
-        if ((meta.boundary || '').trim()) combo.boundary = meta.boundary.trim();
+        if (!combo.transitions && (meta.boundary || '').trim()) combo.boundary = meta.boundary.trim();
+        if (meta.transitions) combo.transitions = meta.transitions;
+        if (meta.materialLinks) combo.material_links = meta.materialLinks;
         var dataUrl = await new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function () { resolve(reader.result); };

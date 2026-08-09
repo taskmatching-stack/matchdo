@@ -107,6 +107,7 @@ SQL：`docs/add-user-material-combo-generations.sql`（資產庫表）；印花�
 
 ## 參考
 
+- **同材質漸層（規劃定案、未實作）**：`docs/PLAN-material-dual-color-gradient.md`
 - 官網 playground 曾成功：色卡 + 印花、短中文、`prompt_upsampling: true`（句型當時無 75% 字樣；本站已改 75／25）
 - 隔離／最小改動：`.cursor/rules/minimal-change-healthy-code.mdc`
 - 材料單色優化另案：`.cursor/rules/material-flux-prompt-lock.mdc`（勿與雙色卡混改）
