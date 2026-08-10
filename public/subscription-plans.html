@@ -87,6 +87,7 @@
       "name": "MATCHDO"
     },
     "description": "解鎖設計工具、廠商媒合加速、圖片生成點數等功能的訂閱服務。",
+    "image": "https://matchdo.cc/img/og-plans.jpg",
     "url": "https://matchdo.cc/subscription-plans.html",
     "offers": [
       {
@@ -176,17 +177,10 @@
 (function(){
   var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
   function isPayPalCheckout() {
-    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
-    return window.PaymentLocale && PaymentLocale.isPayPalLocale(lang);
+    return !!(window.PaymentLocale && PaymentLocale.isPayPalLocale());
   }
   function applyPayPalPricingUi() {
-    if (!isPayPalCheckout()) return;
-    var monthlyBtn = document.getElementById('pricingMonthly');
-    var yearlyBtn = document.getElementById('pricingYearly');
-    if (monthlyBtn) monthlyBtn.style.display = 'none';
-    if (yearlyBtn) yearlyBtn.classList.add('active');
-    document.querySelectorAll('.price-monthly').forEach(function (el) { el.classList.add('d-none'); });
-    document.querySelectorAll('.price-yearly').forEach(function (el) { el.classList.remove('d-none'); });
+    /* PayPal 為主：保留月/年切換，renderPlans 已用 USD 金額 */
   }
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
   // 方案名稱對應的 i18n key
@@ -260,16 +254,20 @@
       var planName = t(planNameKeys[sortOrder] || '') || plan.name || '';
       var planSub  = t(planSubKeys[sortOrder] || '') || '';
       // 價格顯示：由 locale 決定幣別（en.json 是 $X/mo，zh-TW.json 是 X 元/月）
-      var priceMonthly = t(priceMonthlyKeys[sortOrder] || '') || (price + ' ' + t('pricing.perMonth'));
-      var priceYearly  = t(priceYearlyKeys[sortOrder] || '') || (yearlyPrice + ' ' + t('pricing.perMonth').replace('/月','').replace('/mo','') + '/yr');
+      var priceMonthlyText = isPayPalCheckout()
+        ? ('$' + checkoutMonthly + t('pricing.perMonth'))
+        : (t(priceMonthlyKeys[sortOrder] || '') || (price + ' ' + t('pricing.perMonth')));
+      var priceYearlyText = isPayPalCheckout()
+        ? ('$' + checkoutYearly + t('pricing.perYear'))
+        : (t(priceYearlyKeys[sortOrder] || '') || (yearlyPrice + ' /yr'));
       col.innerHTML =
         '<div class="pricing-card card h-100">' + badge +
         '<div class="card-body">' +
         '<div class="plan-name">' + planName + '</div>' +
         '<div class="plan-sub">' + planSub + '</div>' +
         '<div class="price">' +
-        '<span class="price-monthly">' + priceMonthly + '</span>' +
-        '<span class="price-yearly d-none">' + priceYearly + '</span>' +
+        '<span class="price-monthly">' + priceMonthlyText + '</span>' +
+        '<span class="price-yearly d-none">' + priceYearlyText + '</span>' +
         '</div>' +
         '<div class="points">' + credits + ' <span>' + t('pricing.pointsPerMonth') + '</span></div>' +
         (featureListHtml ? '<ul class="feature-list">' + featureListHtml + '</ul>' : '') +
@@ -288,11 +286,11 @@
       if (btn.getAttribute('data-free-plan') === 'true') return;
       btn.addEventListener('click', function(e){
         e.preventDefault();
-        var isYearly = isPayPalCheckout() || (document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active'));
-        var amount = parseInt(btn.getAttribute(isYearly ? 'data-amount-yearly' : 'data-amount'), 10) || 0;
+        var isYearly = document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active');
+        var amount = parseFloat(btn.getAttribute(isYearly ? 'data-amount-yearly' : 'data-amount')) || 0;
         var credits = parseInt(btn.getAttribute(isYearly ? 'data-credits-yearly' : 'data-credits'), 10) || 0;
         var plan = btn.getAttribute('data-plan');
-        var billing = isPayPalCheckout() ? 'yearly' : (isYearly ? 'yearly' : 'monthly');
+        var billing = isYearly ? 'yearly' : 'monthly';
         if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
         var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
         if (window.AuthService && AuthService.getSession) {

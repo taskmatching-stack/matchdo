@@ -39,14 +39,68 @@
   var cancel = params.get('cancel');
   var token = params.get('token');
   var orderId = params.get('order_id');
+  var isSubscription = params.get('subscription') === '1';
+  var subscriptionId = params.get('subscription_id');
 
   function show(el, on) { if (el) el.style.display = on ? '' : 'none'; }
+
+  function finishPayPalSubscription(session) {
+    if (!session || !session.access_token) {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultFail'), true);
+      document.getElementById('failMessage').textContent = '請重新登入後再查看點數。';
+      return;
+    }
+    if (!subscriptionId) {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultFail'), true);
+      document.getElementById('failMessage').textContent = '缺少訂閱編號，請至「我的點數」確認是否已入帳。';
+      return;
+    }
+    fetch('/api/payment/paypal/subscription-complete', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription_id: subscriptionId })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        show(document.getElementById('loading'), false);
+        show(document.getElementById('result'), true);
+        if (data.success && data.balance_after !== undefined) {
+          show(document.getElementById('resultSuccess'), true);
+          document.getElementById('balanceAfter').textContent = data.balance_after;
+        } else {
+          show(document.getElementById('resultFail'), true);
+          document.getElementById('failMessage').textContent = data.error || '訂閱啟用失敗，請聯絡客服。';
+        }
+      })
+      .catch(function () {
+        show(document.getElementById('loading'), false);
+        show(document.getElementById('result'), true);
+        show(document.getElementById('resultFail'), true);
+        document.getElementById('failMessage').textContent = '訂閱確認時發生錯誤，請至「我的點數」確認是否已入帳。';
+      });
+  }
 
   if (cancel === '1') {
     show(document.getElementById('loading'), false);
     show(document.getElementById('result'), true);
     show(document.getElementById('resultFail'), true);
     document.getElementById('failMessage').textContent = '您已取消付款。';
+    return;
+  }
+
+  if (provider === 'paypal' && isSubscription) {
+    if (typeof AuthService !== 'undefined' && AuthService.getSession) {
+      AuthService.getSession().then(finishPayPalSubscription);
+    } else {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultFail'), true);
+      document.getElementById('failMessage').textContent = '請重新登入後再查看點數。';
+    }
     return;
   }
 

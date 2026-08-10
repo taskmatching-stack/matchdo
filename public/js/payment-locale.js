@@ -1,5 +1,5 @@
 /**
- * 金流語系：中文／台灣 → 綠界 TWD；英文 → PayPal USD（含約 10% 手續費／匯差）
+ * 金流：全站以 PayPal（USD）為主；綠界保留後端相容，前台預設 PayPal。
  */
 (function (global) {
   var TWD_TO_USD = {
@@ -16,7 +16,7 @@
   ];
 
   function isPayPalLocale(lang) {
-    return lang === 'en';
+    return true;
   }
 
   function twdToUsd(twdAmount) {

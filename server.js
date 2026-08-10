@@ -112,6 +112,8 @@ const adminMigrations = require('./lib/admin-migrations');
 const materialComboAnalytics = require('./lib/material-combo-analytics');
 const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const categoryUsageStats = require('./lib/category-usage-stats');
+const paypalRest = require('./lib/paypal-rest');
+const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
@@ -5830,6 +5832,27 @@ async function getPaymentConfig() {
     return out;
 }
 
+async function getPaymentConfigValue(key) {
+    const k = String(key || '').trim();
+    if (!k) return '';
+    try {
+        const { data } = await supabase.from('payment_config').select('value').eq('key', k).maybeSingle();
+        return data && data.value != null ? String(data.value).trim() : '';
+    } catch (_) {
+        return '';
+    }
+}
+
+async function setPaymentConfigValue(key, value) {
+    const k = String(key || '').trim();
+    if (!k) return;
+    await supabase.from('payment_config').upsert({
+        key: k,
+        value: String(value),
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+}
+
 /** Phase 1.6: 上傳單檔至 Supabase Storage，回傳 { path, publicUrl } */
 async function uploadToSupabaseStorage(bucket, pathPrefix, file, options = {}) {
     if (file && file.buffer && file.buffer.length) {
@@ -10893,6 +10916,11 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
         const billing = (body.billing || '').toLowerCase();
         const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
         const isYearly = billing === 'yearly' && planKey;
+        if (isYearly && config.paypal && config.paypal.clientId && config.paypal.clientSecret) {
+            await cancelUserPayPalSubscriptionsBeforeNewPlan(user.id, config.paypal, {
+                reason: 'User switched to yearly plan'
+            });
+        }
         const orderId = 'PP' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         const insertPayload = {
             order_id: orderId,
@@ -11008,6 +11036,251 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
     } catch (e) {
         console.error('POST /api/payment/paypal/capture 異常:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+async function processPayPalSubscriptionPayment(order, opts) {
+    if (!order || !order.user_id) return { ok: false, reason: 'invalid_order' };
+    opts = opts || {};
+    const periodIndex = opts.periodIndex != null ? String(opts.periodIndex) : '1';
+    const grant = await paypalSubscriptionFulfill.grantPayPalCredits(supabase, order, {
+        order_id: order.order_id,
+        period_index: periodIndex,
+        sale_id: opts.saleId || '',
+        subscription_id: opts.subscriptionId || order.external_id || null
+    });
+    if (!grant.ok) return grant;
+    if (grant.duplicate) return grant;
+    const paidAt = new Date().toISOString();
+    if (order.status !== 'paid') {
+        await supabase.from('payment_orders').update({ status: 'paid', paid_at: paidAt }).eq('id', order.id);
+    }
+    const subMode = periodIndex === '1' ? 'new' : 'extend';
+    await fulfillSubscriptionAfterPayment(order, { mode: subMode, autoRenew: true });
+    return grant;
+}
+
+/** 換方案前取消使用者既有 PayPal 月訂（防雙重扣款） */
+async function cancelUserPayPalSubscriptionsBeforeNewPlan(userId, paypalCfg, options) {
+    if (!userId || !paypalCfg) return [];
+    options = options || {};
+    const reason = options.reason || 'User switched subscription plan';
+    const { data: rows, error } = await supabase
+        .from('payment_orders')
+        .select('id, order_id, external_id, status, metadata')
+        .eq('user_id', userId)
+        .eq('provider', 'paypal')
+        .eq('order_type', 'subscription')
+        .not('external_id', 'is', null)
+        .order('created_at', { ascending: false });
+    if (error) {
+        console.error('cancelUserPayPalSubscriptionsBeforeNewPlan select:', error);
+        return [];
+    }
+    const seen = new Set();
+    const cancelled = [];
+    for (const row of (rows || [])) {
+        const subId = String(row.external_id || '').trim();
+        if (!subId || seen.has(subId)) continue;
+        seen.add(subId);
+        let sub;
+        try {
+            sub = await paypalRest.getPayPalSubscription(paypalCfg, subId);
+        } catch (e) {
+            console.warn('PayPal get subscription skipped:', subId, e.message);
+            continue;
+        }
+        const status = String(sub.status || '').toUpperCase();
+        if (paypalRest.isPayPalSubscriptionTerminalStatus(status)) continue;
+        if (!paypalRest.isPayPalSubscriptionMustCancelStatus(status)) continue;
+        try {
+            await paypalRest.cancelPayPalSubscription(paypalCfg, subId, reason);
+            cancelled.push(subId);
+            const prevMeta = parsePaymentOrderMetadata(row.metadata);
+            await supabase.from('payment_orders').update({
+                metadata: Object.assign({}, prevMeta, {
+                    paypal_subscription_cancelled_at: new Date().toISOString(),
+                    paypal_cancel_reason: reason
+                })
+            }).eq('external_id', subId).eq('user_id', userId);
+        } catch (e) {
+            const errMsg = (e && e.message) || String(e);
+            const alreadyDone = /cancelled|canceled|invalid.*status/i.test(errMsg);
+            if (paypalRest.isPayPalSubscriptionMustCancelStatus(status) && !alreadyDone) {
+                console.error('PayPal cancel failed:', subId, status, errMsg);
+                throw new Error('無法取消既有 PayPal 訂閱，請至 PayPal 帳戶取消後再試，或聯絡客服。');
+            }
+            console.warn('PayPal cancel skipped:', subId, status, errMsg);
+        }
+    }
+    if (cancelled.length > 0) {
+        await supabase
+            .from('user_subscriptions')
+            .update({ auto_renew: false })
+            .eq('user_id', userId)
+            .eq('status', 'active');
+    }
+    return cancelled;
+}
+
+// POST /api/payment/paypal/create-subscription — PayPal Billing Subscription（月訂）
+app.post('/api/payment/paypal/create-subscription', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const config = await getPaymentConfig();
+        const paypalCfg = config.paypal;
+        if (!paypalCfg.clientId || !paypalCfg.clientSecret) {
+            return res.status(503).json({
+                error: 'PayPal 金流尚未設定',
+                hint: '請至後台「金流設定」填寫 PayPal Client ID / Secret。'
+            });
+        }
+        const body = req.body || {};
+        const amount = Math.abs(parseFloat(body.amount) || 0);
+        const credits = Math.abs(parseInt(body.credits, 10) || 0);
+        const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
+        if (amount <= 0 || credits <= 0 || !planKey) {
+            return res.status(400).json({ error: '請填寫月付金額、點數與方案' });
+        }
+        await cancelUserPayPalSubscriptionsBeforeNewPlan(user.id, paypalCfg, {
+            reason: 'User switched to a new monthly plan'
+        });
+        const orderId = 'PPS' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        const insertPayload = {
+            order_id: orderId,
+            user_id: user.id,
+            provider: 'paypal',
+            amount: Math.round(amount * 100) / 100,
+            currency: 'USD',
+            credits_to_grant: credits,
+            status: 'pending',
+            order_type: 'subscription',
+            metadata: { plan_key: planKey, billing: 'monthly' }
+        };
+        const { error: orderErr } = await supabase.from('payment_orders').insert(insertPayload);
+        if (orderErr) {
+            console.error('payment_orders insert paypal subscription:', orderErr);
+            return res.status(500).json({ error: '建立訂閱訂單失敗' });
+        }
+        const billingPlanId = await paypalRest.ensurePayPalBillingPlan(
+            paypalCfg,
+            { planKey: planKey, billing: 'monthly', amountUsd: amount },
+            getPaymentConfigValue,
+            setPaymentConfigValue
+        );
+        const baseUrl = (process.env.BASE_URL || BASE_URL || '').replace(/\/$/, '') || ('http://localhost:' + (process.env.PORT || 3000));
+        const subscription = await paypalRest.createPayPalSubscription(paypalCfg, {
+            planId: billingPlanId,
+            customId: orderId,
+            returnUrl: baseUrl + '/payment/return.html?provider=paypal&subscription=1',
+            cancelUrl: baseUrl + '/payment/return.html?provider=paypal&cancel=1'
+        });
+        const approvalUrl = paypalRest.extractPayPalApprovalUrl(subscription);
+        if (!approvalUrl || !subscription.id) {
+            return res.status(500).json({ error: '無法取得 PayPal 訂閱核准連結' });
+        }
+        await supabase.from('payment_orders').update({ external_id: subscription.id }).eq('order_id', orderId);
+        res.json({ approval_url: approvalUrl, order_id: orderId, subscription_id: subscription.id });
+    } catch (e) {
+        console.error('POST /api/payment/paypal/create-subscription 異常:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// POST /api/payment/paypal/subscription-complete — 用戶核准訂閱後啟用（首扣入點）
+app.post('/api/payment/paypal/subscription-complete', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const subscriptionId = String((req.body && req.body.subscription_id) || (req.body && req.body.subscriptionId) || '').trim();
+        if (!subscriptionId) return res.status(400).json({ error: '缺少 subscription_id' });
+        const config = await getPaymentConfig();
+        const paypalCfg = config.paypal;
+        const sub = await paypalRest.getPayPalSubscription(paypalCfg, subscriptionId);
+        const status = String(sub.status || '').toUpperCase();
+        if (status !== 'ACTIVE' && status !== 'APPROVED') {
+            return res.status(400).json({ error: '訂閱尚未啟用（' + (sub.status || '') + '）' });
+        }
+        const customId = String(sub.custom_id || '').trim();
+        const { data: order, error: ordErr } = await supabase
+            .from('payment_orders')
+            .select('id, order_id, user_id, credits_to_grant, status, order_type, metadata, external_id')
+            .eq('order_id', customId)
+            .eq('provider', 'paypal')
+            .maybeSingle();
+        if (ordErr || !order || order.user_id !== user.id) {
+            return res.status(404).json({ error: '找不到對應訂閱訂單' });
+        }
+        if (!order.external_id) {
+            await supabase.from('payment_orders').update({ external_id: subscriptionId }).eq('id', order.id);
+        }
+        const grant = await processPayPalSubscriptionPayment(order, {
+            subscriptionId: subscriptionId,
+            periodIndex: '1'
+        });
+        const { data: c } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+        res.json({
+            success: true,
+            duplicate: !!grant.duplicate,
+            balance_after: grant.balance_after != null ? grant.balance_after : ((c && c.balance) || 0)
+        });
+    } catch (e) {
+        console.error('POST /api/payment/paypal/subscription-complete 異常:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// POST /api/payment/paypal/webhook — PayPal 訂閱／扣款事件
+app.post('/api/payment/paypal/webhook', express.json(), async (req, res) => {
+    try {
+        const event = req.body || {};
+        const eventType = String(event.event_type || '').trim();
+        const resource = event.resource || {};
+        if (eventType === 'PAYMENT.SALE.COMPLETED') {
+            const subscriptionId = resource.billing_agreement_id || resource.billing_agreement || resource.subscription_id || '';
+            const saleId = resource.id || '';
+            if (subscriptionId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('id, order_id, user_id, credits_to_grant, status, order_type, metadata, external_id')
+                    .eq('external_id', subscriptionId)
+                    .eq('provider', 'paypal')
+                    .eq('order_type', 'subscription')
+                    .maybeSingle();
+                if (order) {
+                    const periodIndex = saleId || String(Date.now());
+                    await processPayPalSubscriptionPayment(order, {
+                        subscriptionId: subscriptionId,
+                        periodIndex: periodIndex,
+                        saleId: saleId
+                    });
+                }
+            }
+        } else if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+            const subscriptionId = resource.id || '';
+            const customId = String(resource.custom_id || '').trim();
+            if (subscriptionId && customId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('id, order_id, user_id, credits_to_grant, status, order_type, metadata, external_id')
+                    .eq('order_id', customId)
+                    .maybeSingle();
+                if (order) {
+                    if (!order.external_id) {
+                        await supabase.from('payment_orders').update({ external_id: subscriptionId }).eq('id', order.id);
+                    }
+                    await processPayPalSubscriptionPayment(order, {
+                        subscriptionId: subscriptionId,
+                        periodIndex: '1'
+                    });
+                }
+            }
+        }
+        res.sendStatus(200);
+    } catch (e) {
+        console.error('POST /api/payment/paypal/webhook 異常:', e);
+        res.sendStatus(500);
     }
 });
 
@@ -15319,7 +15592,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
             start_date: start.toISOString(),
             end_date: end.toISOString(),
             status: 'active',
-            auto_renew: false
+            auto_renew: options.autoRenew === true
         });
     } else {
         const { data: active } = await supabase
@@ -15353,7 +15626,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
                 start_date: now.toISOString(),
                 end_date: end.toISOString(),
                 status: 'active',
-                auto_renew: false
+                auto_renew: options.autoRenew === true
             });
         }
     }
@@ -15390,7 +15663,11 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     const mode = (options && options.mode)
         ? options.mode
         : (orderType === 'subscription' ? 'extend' : 'new');
-    await activateUserSubscriptionFromPlan(order.user_id, plan, { mode, syncMemberLevel: 'always' });
+    await activateUserSubscriptionFromPlan(order.user_id, plan, {
+        mode,
+        syncMemberLevel: 'always',
+        autoRenew: !!(options && options.autoRenew)
+    });
 }
 
 /** 是否視為付費會員：有效 user_subscriptions（方案價>0）或 profiles.member_level 非「一般」 */

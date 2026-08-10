@@ -137,53 +137,37 @@
   }
 
   function isPayPalCheckout() {
-    return window.PaymentLocale && PaymentLocale.isPayPalLocale(lang);
+    return !!(window.PaymentLocale && PaymentLocale.isPayPalLocale());
   }
 
   function refreshPresetButtons() {
-    var usePayPal = isPayPalCheckout();
     document.querySelectorAll('.preset-btn[data-amount-twd]').forEach(function (btn) {
-      var twd = btn.getAttribute('data-amount-twd');
       var usd = btn.getAttribute('data-amount-usd');
       var credits = btn.getAttribute('data-credits');
-      var amt = usePayPal ? usd : twd;
-      btn.setAttribute('data-amount', amt);
-      if (usePayPal) {
-        btn.innerHTML = '$' + usd + ' = ' + credits + ' <span data-i18n="credits.points">' + t('credits.points') + '</span>';
-      } else {
-        btn.innerHTML = twd + ' <span data-i18n="credits.points">' + t('credits.points') + '</span> ＝ ' + credits;
-      }
+      btn.setAttribute('data-amount', usd);
+      btn.innerHTML = '$' + usd + ' = ' + credits + ' <span data-i18n="credits.points">' + t('credits.points') + '</span>';
     });
   }
 
   function applyPaymentLocale() {
-    var usePayPal = isPayPalCheckout();
-    var isMonthlySub = urlBilling === 'monthly' && urlPlan;
+    refreshPresetButtons();
     var ecpayCard = document.querySelector('.pay-card[data-provider="ecpay"]');
     var paypalCard = document.querySelector('.pay-card[data-provider="paypal"]');
     var step2El = document.getElementById('step2Label');
     var amountInput = document.getElementById('amount');
+    var hintEl = document.getElementById('paymentHint');
 
-    refreshPresetButtons();
-
-    if (usePayPal && !isMonthlySub) {
-      if (ecpayCard) ecpayCard.style.display = 'none';
-      if (paypalCard) {
-        paypalCard.style.display = '';
-        paypalCard.classList.add('selected');
-        selectedProvider = 'paypal';
-      }
-      var btnPay = document.getElementById('btnPay');
-      if (btnPay) btnPay.disabled = false;
-      if (step2El) step2El.style.display = 'none';
-      if (amountInput) amountInput.setAttribute('step', '0.01');
-    } else if (!usePayPal) {
-      if (paypalCard) paypalCard.style.display = 'none';
-      if (ecpayCard) ecpayCard.style.display = '';
-      if (step2El) step2El.style.display = '';
-    } else {
-      if (step2El) step2El.style.display = '';
+    if (ecpayCard) ecpayCard.style.display = 'none';
+    if (paypalCard) {
+      paypalCard.style.display = '';
+      paypalCard.classList.add('selected');
+      selectedProvider = 'paypal';
     }
+    if (step2El) step2El.style.display = 'none';
+    if (amountInput) amountInput.setAttribute('step', '0.01');
+    if (hintEl) hintEl.textContent = t('credits.paymentHint');
+    var btnPay = document.getElementById('btnPay');
+    if (btnPay) btnPay.disabled = false;
   }
 
   function show(el, show) { if (el) el.style.display = show ? '' : 'none'; }
@@ -323,11 +307,15 @@
         });
     } else {
       var paypalPayload = { amount: amount, credits: credits };
-      if (billing === 'yearly' && plan) {
+      var paypalApiUrl = '/api/payment/paypal/create';
+      if (isMonthlySubscription && plan) {
+        paypalApiUrl = '/api/payment/paypal/create-subscription';
+        paypalPayload.plan = plan;
+      } else if (billing === 'yearly' && plan) {
         paypalPayload.billing = 'yearly';
         paypalPayload.plan = plan;
       }
-      fetch('/api/payment/paypal/create', {
+      fetch(paypalApiUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(paypalPayload)
@@ -388,21 +376,12 @@
       if (creditsInput) { creditsInput.value = credits || ''; creditsInput.readOnly = true; creditsInput.classList.add('bg-light'); }
       var credLabel = document.getElementById('creditsLabel');
       if (credLabel) credLabel.textContent = urlBilling === 'yearly' ? '年訂閱獲得點數' : '每期點數';
-      if (hintEl) hintEl.textContent = urlBilling === 'monthly' ? '月訂閱：綠界信用卡定期定額，每月自動扣款。' : (urlBilling === 'yearly' ? '年繳：依選擇之付款方式一次付清。' : hintEl.textContent);
-      if (urlBilling === 'monthly') {
-        var payCards = document.querySelectorAll('.pay-card');
-        payCards.forEach(function (c) {
-          if (c.getAttribute('data-provider') === 'paypal') {
-            c.style.opacity = '0.6';
-            c.style.pointerEvents = 'none';
-            c.title = '月訂閱僅支援綠界信用卡定期定額';
-          } else {
-            c.classList.add('selected');
-            selectedProvider = 'ecpay';
-          }
-        });
-        var btnPay = document.getElementById('btnPay');
-        if (btnPay) btnPay.disabled = false;
+      if (hintEl) {
+        hintEl.textContent = urlBilling === 'monthly'
+          ? (t('credits.subscriptionMonthlyHint') || '月訂閱：PayPal 自動扣款（美金），每月續扣並入點。')
+          : (urlBilling === 'yearly'
+            ? (t('credits.subscriptionYearlyHint') || '年繳：PayPal 一次付清（美金）。')
+            : hintEl.textContent);
       }
     } else {
       if (titleEl) titleEl.textContent = (typeof window !== 'undefined' && window.i18n && window.i18n.t && window.i18n.t('credits.topUpTitle')) || '儲值點數';
