@@ -319,7 +319,7 @@
     categories.forEach(function (cat) {
       var cls = rowInactiveClass(cat.is_active, false);
       var gk = catGroupKey(cat);
-      var subs = visibleSubs(cat.subcategories, hasVendorRowData);
+      var subs = cat.subcategories || [];
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + catHeadMainCell(cat) + '</td><td class="col-sub">合計</td>'
         + vendorNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
@@ -337,7 +337,7 @@
     categories.forEach(function (cat) {
       var cls = rowInactiveClass(cat.is_active, false) + (orphanMode ? ' row-orphan' : '');
       var gk = catGroupKey(cat);
-      var subs = visibleSubs(cat.subcategories, function (s) { return s.records || s.images; });
+      var subs = cat.subcategories || [];
       var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
       subs.forEach(function (sub) {
@@ -363,7 +363,7 @@
     categories.forEach(function (cat) {
       var cls = rowInactiveClass(cat.is_active, false) + (orphanMode ? ' row-orphan' : '');
       var gk = catGroupKey(cat);
-      var subs = visibleSubs(cat.subcategories, hasPromoRowData);
+      var subs = cat.subcategories || [];
       var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + promoNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
