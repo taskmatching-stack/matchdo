@@ -4072,6 +4072,27 @@ function normalizeMaterialComboRatioPercents(raw, colorCount) {
     return nums;
 }
 
+function normalizeMaterialComboMix(raw, colorCount, hexList) {
+    const roles = colorCount === 3 ? ['main', 'accent', 'third'] : ['main', 'accent'];
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const style = src.style === 'heather' ? 'heather' : 'heather';
+    let weights = Array.isArray(src.weights) ? src.weights.map((w) => parseInt(w, 10)) : [];
+    if (weights.length !== roles.length) {
+        weights = colorCount === 3 ? [50, 30, 20] : [70, 30];
+    }
+    const sum = weights.reduce((a, b) => a + b, 0);
+    if (sum !== 100 || weights.some((w) => !Number.isFinite(w) || w < 1)) {
+        weights = colorCount === 3 ? [50, 30, 20] : [70, 30];
+    }
+    const colors = [];
+    for (let i = 0; i < roles.length; i++) {
+        const hx = normalizeMaterialComboHex(hexList && hexList[i]);
+        if (!hx) return null;
+        colors.push({ role: roles[i], hex: hx, weight: weights[i] });
+    }
+    return { style, weights: weights.slice(), colors };
+}
+
 function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMaterial, patternOpts) {
     const opts = patternOpts && typeof patternOpts === 'object' ? patternOpts : {};
     const hasMainPat = !!opts.hasMainPattern;
@@ -4085,6 +4106,21 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     const accent = normalizeDualColorMaterialField(accentMaterial);
     const third = normalizeDualColorMaterialField(opts.thirdMaterial);
     const colorCount = opts.colorCount === 3 || (Array.isArray(opts.ratioPercents) && opts.ratioPercents.length === 3) ? 3 : 2;
+    const swatchMode = opts.swatchMode === 'mixed' ? 'mixed' : 'banded';
+    const mainHex = normalizeMaterialComboHex(opts.mainHex) || '';
+    const accentHex = normalizeMaterialComboHex(opts.accentHex) || '';
+    const thirdHex = normalizeMaterialComboHex(opts.thirdHex) || '';
+
+    if (swatchMode === 'mixed') {
+        if (patCount > 0) throw new Error('全幅混色模式不可使用印花');
+        if (!main) throw new Error('請填材質');
+        const mix = normalizeMaterialComboMix(opts.mix, colorCount, [mainHex, accentHex, thirdHex]);
+        if (!mix) throw new Error('混色設定無效');
+        const roleWord = { main: '主色', accent: '配色', third: '輔色' };
+        const colorParts = mix.colors.map((c) => `${roleWord[c.role] || c.role}${c.hex}約${c.weight}%`);
+        return `依原圖同一${main}材質全幅混纺，${colorParts.join('、')}，细点交织混色、无水平分块或色带，解析度1024x1024，请维持原图混色比例`;
+    }
+
     if (!hasMainPat && !main) throw new Error('請填主色區材質或選擇印花圖樣');
     if (!hasAccentPat && !accent) throw new Error('請填配色區材質或選擇印花圖樣');
     if (colorCount === 3 && !hasThirdPat && !third) throw new Error('請填輔色區材質或選擇印花圖樣');
@@ -4110,9 +4146,6 @@ function buildMaterialDualColorFluxPrompt(mainMaterial, accentMaterial, stitchMa
     const printKind = normalizeDualColorPrintKind(opts.printKind);
     const printWord = printKind === 'color' ? '印花色' : '印花圖樣';
     const percents = normalizeMaterialComboRatioPercents(opts.ratioPercents, colorCount);
-    const mainHex = normalizeMaterialComboHex(opts.mainHex) || '';
-    const accentHex = normalizeMaterialComboHex(opts.accentHex) || '';
-    const thirdHex = normalizeMaterialComboHex(opts.thirdHex) || '';
 
     function zoneMaterialPhrase(zone, mat, hasPat, posWord) {
         if (hasPat) return `${posWord}${printWord}${mat || ''}材質`;
@@ -4206,6 +4239,8 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
         ratioPercents: extras.ratioPercents,
         materialLinks: extras.materialLinks,
         transitions: extras.transitions,
+        swatchMode: extras.swatchMode,
+        mix: extras.mix,
         mainHex: extras.mainHex,
         accentHex: extras.accentHex,
         thirdHex: extras.thirdHex
@@ -4340,6 +4375,8 @@ async function optimizeMaterialDualColorWithGemini(fileBuffer, mainMaterial, acc
         ratioPercents: extras.ratioPercents,
         materialLinks: extras.materialLinks,
         transitions: extras.transitions,
+        swatchMode: extras.swatchMode,
+        mix: extras.mix,
         mainHex: extras.mainHex,
         accentHex: extras.accentHex,
         thirdHex: extras.thirdHex
@@ -4806,16 +4843,44 @@ function normalizeMaterialComboHex(raw) {
     return '';
 }
 
-/** 材料組合結構（主色／配色／可選輔色 HEX+材料、比重、分界／漸層 transition） */
+/** 材料組合結構（主色／配色／可選輔色 HEX+材料、比重、分界／漸層 transition 或全幅混色 mix） */
 function normalizeMaterialCombo(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const mainHex = normalizeMaterialComboHex(raw.main && raw.main.hex);
     const accentHex = normalizeMaterialComboHex(raw.accent && raw.accent.hex);
     let mainMat = String((raw.main && raw.main.material) || '').trim();
     let accentMat = String((raw.accent && raw.accent.material) || '').trim();
-    if (!mainHex || !accentHex || !mainMat || !accentMat) return null;
+    if (!mainHex || !accentHex || !mainMat) return null;
     const colorCount = parseInt(raw.color_count, 10) === 3 || (raw.third && raw.third.hex) ? 3 : 2;
+    const swatchMode = raw.swatch_mode === 'mixed' ? 'mixed' : 'banded';
     const ratioPercents = normalizeMaterialComboRatioPercents(raw.ratio_percents, colorCount);
+
+    if (swatchMode === 'mixed') {
+        accentMat = mainMat;
+        const thirdHexMix = colorCount === 3 ? normalizeMaterialComboHex(raw.third && raw.third.hex) : '';
+        if (colorCount === 3 && !thirdHexMix) return null;
+        const mix = normalizeMaterialComboMix(raw.mix, colorCount, colorCount === 3
+            ? [mainHex, accentHex, thirdHexMix]
+            : [mainHex, accentHex]);
+        if (!mix) return null;
+        const outMixed = {
+            version: 4,
+            swatch_mode: 'mixed',
+            layout: 'mixed_' + mix.style,
+            color_count: colorCount,
+            ratio_percents: mix.weights.slice(),
+            mix,
+            main: { hex: mainHex, material: mainMat },
+            accent: { hex: accentHex, material: accentMat }
+        };
+        if (raw.ratio_preset) outMixed.ratio_preset = String(raw.ratio_preset).trim().slice(0, 32);
+        if (colorCount === 3) {
+            outMixed.third = { hex: thirdHexMix, material: mainMat };
+        }
+        return mergeMaterialComboLineage(outMixed, raw);
+    }
+
+    if (!accentMat) return null;
     const materialLinks = parseMaterialComboMaterialLinksInput(raw.material_links, colorCount);
     if (isMaterialComboZoneLinked(materialLinks, 'accent')) {
         accentMat = mainMat;
@@ -27381,12 +27446,23 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             : 'pattern';
         const materialLinks = parseMaterialComboMaterialLinksInput(body.material_links_json || body.material_links, colorCount);
         const transitionsInput = body.transitions_json || body.transitions;
+        const swatchMode = String(body.swatch_mode || body.swatchMode || 'banded').trim() === 'mixed' ? 'mixed' : 'banded';
+        let mixInput = null;
+        try {
+            const mixRaw = body.mix_json || body.mix;
+            if (mixRaw) mixInput = typeof mixRaw === 'string' ? JSON.parse(mixRaw) : mixRaw;
+        } catch (_) { mixInput = null; }
+        const mixWeights = swatchMode === 'mixed'
+            ? (mixInput && Array.isArray(mixInput.weights) ? mixInput.weights : ratioPercents)
+            : ratioPercents;
         const comboExtras = {
             thirdMaterial: thirdMaterial,
             colorCount: colorCount,
-            ratioPercents: ratioPercents,
+            ratioPercents: mixWeights,
             materialLinks: materialLinks,
             transitions: transitionsInput,
+            swatchMode: swatchMode,
+            mix: swatchMode === 'mixed' ? Object.assign({ style: 'heather' }, mixInput || {}, { weights: mixWeights }) : null,
             mainHex: body.main_hex || body.mainHex || '',
             accentHex: body.accent_hex || body.accentHex || '',
             thirdHex: body.third_hex || body.thirdHex || ''
@@ -27400,9 +27476,11 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
                 printKind,
                 thirdMaterial: thirdMaterial,
                 colorCount: colorCount,
-                ratioPercents: ratioPercents,
+                ratioPercents: mixWeights,
                 materialLinks: materialLinks,
                 transitions: transitionsInput,
+                swatchMode: swatchMode,
+                mix: comboExtras.mix,
                 mainHex: body.main_hex || body.mainHex || '',
                 accentHex: body.accent_hex || body.accentHex || '',
                 thirdHex: body.third_hex || body.thirdHex || ''
@@ -27470,16 +27548,18 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
         }
         const comboForLibrary = normalizeMaterialCombo({
             main: { hex: body.main_hex || body.mainHex, material: mainMaterial },
-            accent: { hex: body.accent_hex || body.accentHex, material: accentMaterial },
+            accent: { hex: body.accent_hex || body.accentHex, material: swatchMode === 'mixed' ? mainMaterial : accentMaterial },
             third: colorCount === 3
-                ? { hex: body.third_hex || body.thirdHex, material: thirdMaterial }
+                ? { hex: body.third_hex || body.thirdHex, material: swatchMode === 'mixed' ? mainMaterial : thirdMaterial }
                 : null,
             boundary: boundary,
-            ratio_percents: ratioPercents,
+            ratio_percents: mixWeights,
             ratio_preset: body.ratio_preset || body.ratioPreset || null,
             color_count: colorCount,
-            material_links: materialLinks,
-            transitions: transitionsInput,
+            swatch_mode: swatchMode,
+            mix: swatchMode === 'mixed' ? comboExtras.mix : null,
+            material_links: swatchMode === 'mixed' ? null : materialLinks,
+            transitions: swatchMode === 'mixed' ? null : transitionsInput,
             source_palette: (function () {
                 try {
                     const raw = body.source_palette_json || body.source_palette;

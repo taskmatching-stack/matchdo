@@ -1055,6 +1055,16 @@ $(document).ready(function () {
     function formatMaterialComboAddon(combo) {
         if (!combo || !combo.main) return '';
         var parts = [];
+        if (combo.swatch_mode === 'mixed' && combo.mix && Array.isArray(combo.mix.colors)) {
+            parts.push('全幅混色');
+            combo.mix.colors.forEach(function (c) {
+                if (!c || !c.hex) return;
+                var roleLbl = c.role === 'main' ? '主色' : (c.role === 'accent' ? '配色' : '輔色');
+                parts.push(roleLbl + ' ' + c.hex + (c.weight != null ? ' ' + c.weight + '%' : ''));
+            });
+            if (combo.main.material) parts.push(combo.main.material);
+            return parts.join('；');
+        }
         if (combo.main.hex || combo.main.material) {
             parts.push('主色 ' + (combo.main.hex || '') + ' ' + (combo.main.material || ''));
         }
