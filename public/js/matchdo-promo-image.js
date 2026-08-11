@@ -9,7 +9,9 @@
   var RATIO_PRESETS = {
     '1:1': { w: 1024, h: 1024 },
     '4:3': { w: 1152, h: 864 },
+    '3:2': { w: 1248, h: 832 },
     '3:4': { w: 864, h: 1152 },
+    '2:3': { w: 832, h: 1248 },
     '16:9': { w: 1344, h: 756 },
     '9:16': { w: 756, h: 1344 },
     '21:9': { w: 1536, h: 658 },
@@ -519,20 +521,13 @@
       inner.appendChild(img);
     }
 
-    if (meta && (meta.output_width || meta.width || meta.gemini_native_width)) {
+    if (meta && (meta.output_width || meta.width)) {
       var dimP = document.createElement('p');
       dimP.className = 'small text-muted mt-1 mb-0';
       var ow = meta.output_width || meta.width;
       var oh = meta.output_height || meta.height;
-      var dimTxt = '輸出 ' + ow + '×' + oh;
-      if (meta.gemini_native_width && meta.gemini_native_height) {
-        dimTxt += '（Gemini 原生 ' + meta.gemini_native_width + '×' + meta.gemini_native_height + '）';
-      }
-      if (meta.image_config && (meta.image_config.image_size || meta.image_config.imageSize)) {
-        dimTxt += ' · image_size ' + (meta.image_config.image_size || meta.image_config.imageSize);
-      }
-      if (meta.gemini_api) dimTxt += ' · ' + meta.gemini_api;
-      dimP.textContent = dimTxt;
+      var isEn = (document.documentElement.lang || '').toLowerCase().indexOf('en') === 0;
+      dimP.textContent = isEn ? ('Output ' + ow + '×' + oh) : ('輸出 ' + ow + '×' + oh);
       inner.appendChild(dimP);
     }
 

@@ -1,6 +1,6 @@
 # 同一帳號・能力與選單規範（必讀）
 
-更新：2026-06-01  
+更新：2026-08-11  
 狀態：**產品定案** — 修改選單、`/api/me/capabilities`、B 線／素材上傳前請先讀本文。
 
 ---
@@ -57,19 +57,40 @@
 
 ---
 
-## 4. 選單結構（`public/js/site-header.js`）
+## 4. 選單結構（`public/js/site-header.js` · 2026-08）
 
-登入後「我的功能」固定為：
+登入後「我的功能」**①②③ 全部常駐**；頂部另有 **客製產品 ▾**、**設計風向 ▾**（與我的功能分工，避免重複）。
 
-**① 訂製／設計** — 控制台、數位資產、對話、點數、AI 編輯區  
+### 客製產品 ▾（`lib/nav-cp-menu-html.js` 單一來源）
 
-**② 製造商** — 廠商控制台、廠商公開首頁、展示案例、數位版型  
-→ 子區 **上游採購（B 線）**：瀏覽產業供應商目錄、已匯入上游品項  
-→ 訂製需求、聯絡方式  
+| 分區 | 連結 |
+|------|------|
+| 主入口 | `/custom-product.html`（選單文案：**設計稿**） |
+| 以結構 | `/vendor-styles/`、`/official-templates/` |
+| 以風格 | `/client/material-dual-color.html`、`/client/print-asset.html` |
+| 行銷影像 | `/promo-image/`、`/promo-camera` |
+| 輔助工具 | `/pattern-extract/`、`/design-to-physical/`、`/scene-sim/` |
+| 資產 | `/client/my-custom-products.html`、`/custom/gallery.html` |
 
-**③ 產業供應商** — 上架數位產品庫、製造商引用紀錄、供應商公開首頁  
+### 設計風向 ▾
 
-頂部「客製產品」「設計風向」與本規範無關，維持現狀。
+`/remake/`、`/design-direction/analysis.html`、`/client/my-custom-products.html?view=design-direction`、`/client/find-makers.html`、`/custom/gallery.html`
+
+### 我的功能 ▾
+
+**① 訂製／設計** — `/client/dashboard.html`、數位資產、對話、點數、AI 編輯區、材料組合、印花  
+
+**② 製造商** — 廠商控制台、廠商公開首頁（`#nav-my-vendor-home`）、展示案例、數位版型  
+→ 子區 **上游採購（B 線）**：產業供應商目錄、已匯入上游品項  
+→ 訂製需求（`/client/demands.html`）、聯絡方式  
+
+**③ 產業供應商** — 上架數位產品庫、製造商引用紀錄、供應商公開首頁（`#nav-my-supplier-home`）
+
+### 頭像 ▾
+
+首頁、帳號資訊、我的點數、**商攝導演**（`/promo-camera`）、聯絡設定、登出（管理員另有後台項）
+
+頂部「客製產品」「設計風向」與本規範無衝突；**勿**用 capabilities 隱藏 ①②③ 任一項。
 
 ---
 
@@ -88,4 +109,5 @@
 
 | 日期 | 說明 |
 |------|------|
+| 2026-08-11 | 選單對照 `nav-cp-menu-html.js`：客製產品分區（設計稿 IA）、商攝 Store 獨立發行說明 |
 | 2026-06-01 | 定案：同一帳號、選單全顯示；僅兩項業務限制；廢止 `nav.*` 控制選單顯示 |

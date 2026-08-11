@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-cam-always-20260811';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-ratio-32-20260812';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',

@@ -5,10 +5,10 @@
 (function (global) {
     'use strict';
 
-    /** 4:3、3:4 與 1:1 同為單格 */
+    /** 1:1、4:3、3:4、3:2、2:3 同為單格 contain */
     function isSingleCellPromoRatio(aspectRatio, width, height) {
         var ar = String(aspectRatio || '').trim().replace(/\s+/g, '');
-        if (ar === '1:1' || ar === '4:3' || ar === '3:4') return true;
+        if (ar === '1:1' || ar === '4:3' || ar === '3:4' || ar === '3:2' || ar === '2:3') return true;
         var w = parseInt(width, 10) || 0;
         var h = parseInt(height, 10) || 0;
         if ((!w || !h) && aspectRatio) {
@@ -20,7 +20,29 @@
         if (Math.abs(r - 1) <= 0.08) return true;
         if (Math.abs(r - 4 / 3) / (4 / 3) <= 0.04) return true;
         if (Math.abs(r - 3 / 4) / (3 / 4) <= 0.04) return true;
+        if (Math.abs(r - 3 / 2) / (3 / 2) <= 0.04) return true;
+        if (Math.abs(r - 2 / 3) / (2 / 3) <= 0.04) return true;
         return false;
+    }
+
+    /** 商攝・空間（地圖 layout_plan ＋ 平視 eye_level；4 MP 單格、16 MP 大圖） */
+    function isPromoSpaceMediaWallItem(item) {
+        if (!item) return false;
+        var ak = String(item.promo_asset_kind || '').trim();
+        if (ak === 'promo_camera_space_layout' || ak === 'promo_camera_space_eye_level') return true;
+        return String(item.shoot_mode || '').trim().toLowerCase() === 'space';
+    }
+
+    function resolveSpaceResolutionTier(item) {
+        var tier = String(item && item.space_resolution_tier || '').trim().toLowerCase();
+        if (tier === '4k' || tier === '2k') return tier;
+        var mp = parseInt(item && item.megapixels, 10) || 0;
+        if (mp >= 16) return '4k';
+        if (mp >= 4) return '2k';
+        var w = parseInt(item && item.width, 10) || 0;
+        var h = parseInt(item && item.height, 10) || 0;
+        if (Math.max(w, h) >= 4096) return '4k';
+        return '2k';
     }
 
     function orientOf(item) {
@@ -29,6 +51,9 @@
         if ((!w || !h) && item && item.aspect_ratio) {
             var m = String(item.aspect_ratio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
             if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
+        }
+        if (isPromoSpaceMediaWallItem(item)) {
+            return resolveSpaceResolutionTier(item) === '4k' ? 'large-square' : 'square';
         }
         if (isSingleCellPromoRatio(item && item.aspect_ratio, w, h)) {
             // 高解析度方圖（≥2M pixels）→ 2×2 大圖
@@ -164,6 +189,9 @@
 
     global.MatchdoMediaWallPromoScene = {
         isSingleCellPromoRatio: isSingleCellPromoRatio,
+        isPromoSpaceMediaWallItem: isPromoSpaceMediaWallItem,
+        isSpaceLayoutMapItem: isPromoSpaceMediaWallItem,
+        resolveSpaceResolutionTier: resolveSpaceResolutionTier,
         orientOf: orientOf,
         packPromoSceneItems: packPromoSceneItems,
         applyPlacement: applyPlacement

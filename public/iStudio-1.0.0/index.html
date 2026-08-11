@@ -272,6 +272,7 @@
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">
                 <div id="media-wall-filter-main" class="filter-row"></div>
+                <div id="media-wall-filter-promo" class="filter-row d-none"></div>
                 <div id="media-wall-filter-sub" class="filter-row d-none"></div>
             </div>
             <div id="media-wall-active-filters" class="d-none" aria-live="polite"></div>
@@ -499,7 +500,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-promo-scene.js?v=20260724-portrait-span"></script>
+    <script src="/js/media-wall-promo-scene.js?v=20260812-space-mp"></script>
     <script src="/js/media-wall-mixed-layout.js?v=20260807e"></script>
     <script src="/js/main.js"></script>
     <script>
@@ -727,7 +728,7 @@
             // 「我的收藏」過濾：只顯示已收藏作品（可疊加 layout 類型篩選）
             function renderFavoritesGrid() {
                 var favs = loadFavs();
-                if (currentLayoutType || currentQ || currentTagFilters.length || currentCategoryKey || currentSubcategoryKey) {
+                if (currentLayoutType || currentQ || currentTagFilters.length || currentCategoryKey || currentSubcategoryKey || currentPromoKind) {
                     favs = favs.filter(function (f) {
                         var item = f.item || {};
                         var t = item.type || (item.manufacturer_id ? (item.image_url_before ? 'comparison' : 'series') : 'user_design');
@@ -765,7 +766,15 @@
                         manufacturer_user_id: item.manufacturer_user_id || null,
                         design_highlight: item.design_highlight || null,
                         tags: item.tags || null,
-                        description: item.description || null
+                        description: item.description || null,
+                        promo_asset_kind: item.promo_asset_kind || null,
+                        promo_asset_kind_label: item.promo_asset_kind_label || null,
+                        shoot_mode: item.shoot_mode || null,
+                        space_output_type: item.space_output_type || null,
+                        space_resolution_tier: item.space_resolution_tier || null,
+                        megapixels: item.megapixels != null ? item.megapixels : null,
+                        user_prompt: item.user_prompt || null,
+                        scene_description: item.scene_description || null
                     };
                     var wrap = renderOne(p, adminOpts);
                     if (wrap) grid.appendChild(wrap);
@@ -858,7 +867,8 @@
             }
             function itemMatchesWallFilters(item) {
                 if (!item) return false;
-                if (currentLayoutType && (item.type || '') !== currentLayoutType) return false;
+                if (currentLayoutType && !mediaWallMatchesLayoutFilter(item, currentLayoutType)) return false;
+                if (currentLayoutType === 'promo_scene' && currentPromoKind && !promoItemMatchesKind(item, currentPromoKind)) return false;
                 if (currentSubcategoryKey && (item.subcategory_key || '') !== currentSubcategoryKey) return false;
                 if (currentCategoryKey && !currentSubcategoryKey) {
                     var ck = item.category_key || item.category || '';
@@ -1291,6 +1301,12 @@
                         dataItem.source_id = p.source_id || null;
                         dataItem.aspect_ratio = p.aspect_ratio || null;
                         dataItem.promo_orient = p.promo_orient || null;
+                        dataItem.promo_asset_kind = p.promo_asset_kind || null;
+                        dataItem.promo_asset_kind_label = p.promo_asset_kind_label || null;
+                        dataItem.shoot_mode = p.shoot_mode || null;
+                        dataItem.space_output_type = p.space_output_type || null;
+                        dataItem.space_resolution_tier = p.space_resolution_tier || null;
+                        dataItem.megapixels = p.megapixels != null ? p.megapixels : null;
                         dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
                     var displayTags = getDisplayTags(p);
@@ -1302,7 +1318,12 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
-                    else if (p.type === 'promo_scene') typeBadge = '';
+                    else if (p.type === 'promo_scene') {
+                        var promoLbl = String(p.promo_asset_kind_label || '').trim();
+                        typeBadge = promoLbl
+                            ? ('<span class="media-wall-type-badge media-wall-type-promo" title="' + escAttr(promoLbl) + '">' + esc(promoLbl) + '</span>')
+                            : '';
+                    }
                     else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = resolveInspirationPath(Object.assign({}, p, { id: p.id || itemId }));
@@ -1459,7 +1480,48 @@
             var currentCategoryKey = '';
             var currentSubcategoryKey = '';
             var currentLayoutType = '';
+            var currentPromoKind = '';
 
+            function normalizePromoKindKey(raw) {
+                var k = String(raw || '').trim().toLowerCase();
+                if (k === 'product' || k === 'space' || k === 'portrait' || k === 'design') return k;
+                return '';
+            }
+            function promoItemMatchesKind(item, kind) {
+                kind = normalizePromoKindKey(kind);
+                if (!kind) return true;
+                var ak = String((item && item.promo_asset_kind) || 'promo_scene').trim();
+                if (kind === 'design') return ak === 'promo_scene';
+                if (kind === 'product') return ak === 'promo_camera_product';
+                if (kind === 'space') return ak === 'promo_camera_space_layout' || ak === 'promo_camera_space_eye_level';
+                if (kind === 'portrait') return ak === 'promo_camera_portrait';
+                return true;
+            }
+            function promoKindI18nKey(kind) {
+                var map = {
+                    '': 'home.promoKindAll',
+                    product: 'home.promoKindProduct',
+                    space: 'home.promoKindSpace',
+                    portrait: 'home.promoKindPortrait',
+                    design: 'home.promoKindDesign'
+                };
+                return map[kind] || '';
+            }
+            function promoKindLabel(key) {
+                var i18nKey = promoKindI18nKey(key);
+                if (window.i18n && window.i18n.t && i18nKey) {
+                    var translated = window.i18n.t(i18nKey);
+                    if (translated && translated !== i18nKey) return translated;
+                }
+                var fallbacks = {
+                    '': '全部',
+                    product: '商攝・產品',
+                    space: '空間地圖',
+                    portrait: '商攝・人像',
+                    design: '產品情境圖'
+                };
+                return fallbacks[key] || key;
+            }
             function mediaWallMatchesLayoutFilter(p, filter) {
                 var t = (p && p.type) || '';
                 if (filter === 'series') return t === 'series' || t === 'collection';
@@ -1479,6 +1541,8 @@
                 currentSubcategoryKey = (p.get('subcategory_key') || '').trim();
                 currentQ = (p.get('q') || '').trim();
                 currentTagFilters = parseTagFiltersParam(p.get('tag') || '');
+                currentPromoKind = normalizePromoKindKey(p.get('promo_kind') || '');
+                if (currentLayoutType !== 'promo_scene') currentPromoKind = '';
                 if (searchInput) searchInput.value = currentQ;
             }
             function updateMediaWallURL(overrides) {
@@ -1489,12 +1553,15 @@
                 var sub = overrides.subcategory_key !== undefined ? overrides.subcategory_key : currentSubcategoryKey;
                 var q = overrides.q !== undefined ? overrides.q : currentQ;
                 var tags = overrides.tag !== undefined ? overrides.tag : currentTagFilters;
+                var promoKind = overrides.promo_kind !== undefined ? overrides.promo_kind : currentPromoKind;
                 if (Array.isArray(tags)) tags = tags.join(',');
                 if (layout) p.set('layout_type', layout); else p.delete('layout_type');
                 if (cat) p.set('category_key', cat); else p.delete('category_key');
                 if (sub) p.set('subcategory_key', sub); else p.delete('subcategory_key');
                 if (q) p.set('q', q); else p.delete('q');
                 if (tags && String(tags).trim()) p.set('tag', String(tags).trim()); else p.delete('tag');
+                if (promoKind && (layout || currentLayoutType) === 'promo_scene') p.set('promo_kind', promoKind);
+                else p.delete('promo_kind');
                 var search = p.toString();
                 var url = (window.location.pathname || '/') + (search ? '?' + search : '') + (window.location.hash || '');
                 if (window.history && window.history.pushState) window.history.pushState(null, '', url);
@@ -1529,6 +1596,9 @@
                     var layoutLabels = { user_design: '\u8a2d\u8a08\u5716', comparison: '\u5c0d\u7167\u5716', series: '\u7cfb\u5217\u5716', promo_scene: '\u60c5\u5883\u5716' };
                     chips.push({ kind: 'layout', label: layoutLabels[currentLayoutType] || currentLayoutType, clear: function () { setLayoutType(''); } });
                 }
+                if (currentLayoutType === 'promo_scene' && currentPromoKind) {
+                    chips.push({ kind: 'promo', label: promoKindLabel(currentPromoKind), clear: function () { setPromoKind(''); } });
+                }
                 if (currentCategoryKey) {
                     var catName = currentCategoryKey;
                     (categoriesData.categories || []).forEach(function (c) {
@@ -1556,6 +1626,7 @@
                 });
             }
             applyStateFromURL();
+            renderPromoKindFilters();
 
             // ── 我的收藏 過濾按鈕 ──
             var favFilterBtn = document.getElementById('mw-fav-filter-btn');
@@ -1579,14 +1650,54 @@
             function setLayoutType(type) {
                 type = String(type || '').trim();
                 currentLayoutType = (type === 'user_design' || type === 'comparison' || type === 'series' || type === 'promo_scene') ? type : '';
-                updateMediaWallURL();
+                if (currentLayoutType !== 'promo_scene') currentPromoKind = '';
+                updateMediaWallURL({ promo_kind: currentPromoKind });
                 document.querySelectorAll('.mw-layout-filter').forEach(function (btn) {
                     var btnType = (btn.getAttribute('data-layout-type') || '').trim();
                     btn.classList.toggle('active', btnType === currentLayoutType);
                 });
+                renderPromoKindFilters();
                 renderActiveFilterChips();
                 if (showingFavoritesOnly) renderFavoritesGrid();
                 else reloadMediaWall(1, false);
+            }
+            function setPromoKind(kind) {
+                currentPromoKind = normalizePromoKindKey(kind);
+                updateMediaWallURL({ layout_type: currentLayoutType, promo_kind: currentPromoKind });
+                renderPromoKindFilters();
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
+            }
+            function renderPromoKindFilters() {
+                var row = document.getElementById('media-wall-filter-promo');
+                if (!row) return;
+                row.innerHTML = '';
+                if (currentLayoutType !== 'promo_scene') {
+                    row.classList.add('d-none');
+                    return;
+                }
+                row.classList.remove('d-none');
+                var opts = [
+                    { key: '', i18n: 'home.promoKindAll', fallback: '全部' },
+                    { key: 'product', i18n: 'home.promoKindProduct', fallback: '商攝・產品' },
+                    { key: 'space', i18n: 'home.promoKindSpace', fallback: '空間地圖' },
+                    { key: 'portrait', i18n: 'home.promoKindPortrait', fallback: '商攝・人像' },
+                    { key: 'design', i18n: 'home.promoKindDesign', fallback: '產品情境圖' }
+                ];
+                opts.forEach(function (opt) {
+                    var tag = document.createElement('span');
+                    tag.className = 'filter-tag filter-sub' + (currentPromoKind === opt.key ? ' active' : '');
+                    tag.textContent = (window.i18n && window.i18n.t) ? (window.i18n.t(opt.i18n) || opt.fallback) : opt.fallback;
+                    tag.setAttribute('data-i18n', opt.i18n);
+                    tag.role = 'button';
+                    tag.tabIndex = 0;
+                    tag.addEventListener('click', function () { setPromoKind(opt.key); });
+                    tag.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPromoKind(opt.key); }
+                    });
+                    row.appendChild(tag);
+                });
             }
             (function () {
                 var buttons = document.querySelectorAll('.mw-layout-filter');
@@ -1647,12 +1758,14 @@
             var categoriesLang = '';
             function buildMediaWallUrl(page, q) {
                 var pagePerPage = (currentLayoutType === 'promo_scene') ? 100 : perPage;
+                if (currentLayoutType === 'promo_scene' && currentPromoKind) pagePerPage = 300;
                 var url = '/api/media-wall?per_page=' + pagePerPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
                 url += '&lang=' + encodeURIComponent(getMediaWallLang());
                 if (currentTagFilters.length) url += '&tag=' + encodeURIComponent(currentTagFilters.join(','));
                 if (currentCategoryKey) url += '&category_key=' + encodeURIComponent(currentCategoryKey);
                 if (currentSubcategoryKey) url += '&subcategory_key=' + encodeURIComponent(currentSubcategoryKey);
                 if (currentLayoutType) url += '&layout_type=' + encodeURIComponent(currentLayoutType);
+                if (currentLayoutType === 'promo_scene' && currentPromoKind) url += '&promo_kind=' + encodeURIComponent(currentPromoKind);
                 return url;
             }
             function buildMediaWallFetchOpts(baseOpts) {
@@ -1728,6 +1841,9 @@
                     var effectiveLayoutFilter = layoutFilter;
                     if (effectiveLayoutFilter) {
                         items = items.filter(function (p) { return mediaWallMatchesLayoutFilter(p, effectiveLayoutFilter); });
+                    }
+                    if (effectiveLayoutFilter === 'promo_scene' && currentPromoKind) {
+                        items = items.filter(function (p) { return promoItemMatchesKind(p, currentPromoKind); });
                     }
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
@@ -2000,8 +2116,8 @@
                     if (catJson && catJson.categories && catJson.categories.length) categoriesData = catJson;
                 } catch (e) {}
                 renderFilterTags();
+                renderPromoKindFilters();
                 renderActiveFilterChips();
-                // 靈感牆已在上方同步載入，此處僅更新篩選標籤，不再重複請求
             })();
             if (searchBtn && searchInput) {
                 searchBtn.addEventListener('click', function () {
@@ -2026,6 +2142,7 @@
                 applyStateFromURL();
                 document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
                 renderFilterTags();
+                renderPromoKindFilters();
                 renderActiveFilterChips();
                 if (showingFavoritesOnly) renderFavoritesGrid();
                 else reloadMediaWall(1, false);
@@ -2381,7 +2498,11 @@
                     }
                 });
             }
-            if (window.i18n && window.i18n.ready) window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); });
+            if (window.i18n && window.i18n.ready) window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+                renderPromoKindFilters();
+                renderActiveFilterChips();
+            });
 
             // ── 社群分享按鈕 ─────────────────────────────────────────────
             // 1. 預載社群帳號（僅用於 Pinterest 分享時帶出 pin 來源；可選）

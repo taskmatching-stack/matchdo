@@ -909,7 +909,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             results.push({
                 shot_index: i + 1,
                 success: false,
-                error: fluxErr.message || '生成失敗',
+                error: '生成失敗，請稍後再試',
                 shot_brief: shotBrief,
                 seed
             });
@@ -1879,6 +1879,7 @@ function mediaWallItemSearchHaystack(item) {
         item.category_key,
         item.subcategory_key,
         item.owner_display,
+        item.promo_asset_kind_label,
         ...(tags || [])
     ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -2257,10 +2258,10 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
     }));
 }
 
-/** 4:3、3:4 與 1:1 同為單格 contain；其餘依極橫／極直拼格 */
+/** 1:1、4:3、3:4、3:2、2:3 為單格 contain；其餘依極橫／極直拼格 */
 function isPromoSceneSingleCellRatio(aspectRatio, width, height) {
     const ar = String(aspectRatio || '').trim().replace(/\s+/g, '');
-    if (ar === '1:1' || ar === '4:3' || ar === '3:4') return true;
+    if (ar === '1:1' || ar === '4:3' || ar === '3:4' || ar === '3:2' || ar === '2:3') return true;
     let w = parseInt(width, 10) || 0;
     let h = parseInt(height, 10) || 0;
     if ((!w || !h) && aspectRatio) {
@@ -2272,6 +2273,8 @@ function isPromoSceneSingleCellRatio(aspectRatio, width, height) {
     if (Math.abs(r - 1) <= 0.08) return true;
     if (Math.abs(r - 4 / 3) / (4 / 3) <= 0.04) return true;
     if (Math.abs(r - 3 / 4) / (3 / 4) <= 0.04) return true;
+    if (Math.abs(r - 3 / 2) / (3 / 2) <= 0.04) return true;
+    if (Math.abs(r - 2 / 3) / (2 / 3) <= 0.04) return true;
     return false;
 }
 
@@ -2317,11 +2320,45 @@ function resolvePromoSceneDescriptionFromRow(row, templateNameMap) {
     return fallback || null;
 }
 
+function promoMediaWallItemMatchesKindFilter(item, kindFilter) {
+    const f = String(kindFilter || '').trim().toLowerCase();
+    if (!f || f === 'all') return true;
+    const ak = String((item && item.promo_asset_kind) || 'promo_scene').trim();
+    if (f === 'design' || f === 'flux' || f === 'promo_scene') return ak === 'promo_scene';
+    if (f === 'product') return ak === 'promo_camera_product';
+    if (f === 'space') return ak === 'promo_camera_space_layout' || ak === 'promo_camera_space_eye_level';
+    if (f === 'portrait') return ak === 'promo_camera_portrait';
+    return true;
+}
+
+function resolvePromoSpaceResolutionTier(row, meta) {
+    const fromMeta = meta && meta.space_resolution_tier;
+    if (fromMeta) {
+        return promoSpaceGemini.normalizeSpaceResolutionTier(fromMeta, row && row.width, row && row.height);
+    }
+    const mp = parseInt(row && row.megapixels, 10) || 0;
+    if (mp >= 16) return '4k';
+    if (mp >= 4) return '2k';
+    return promoSpaceGemini.normalizeSpaceResolutionTier(null, row && row.width, row && row.height);
+}
+
+function resolvePromoSpaceMediaWallOrient(row, meta, assetKind) {
+    const isSpace = assetKind === 'promo_camera_space_layout' || assetKind === 'promo_camera_space_eye_level';
+    if (!isSpace) return null;
+    return resolvePromoSpaceResolutionTier(row, meta) === '4k' ? 'large-square' : 'square';
+}
+
 function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, templateNameMap, lang) {
-    const orient = classifyPromoSceneOrientation(row.width, row.height, row.aspect_ratio);
+    const meta = parsePromoGenerationMetaJson(row && row.generation_meta_json);
+    const assetKind = resolvePromoGenerationAssetKind(row);
+    const spaceMediaOrient = resolvePromoSpaceMediaWallOrient(row, meta, assetKind);
+    const orient = spaceMediaOrient || classifyPromoSceneOrientation(row.width, row.height, row.aspect_ratio);
     let size = '1x1';
     if (orient === 'landscape') size = '2x1';
     else if (orient === 'portrait') size = '1x2';
+    else if (orient === 'large-square') size = '2x2';
+    const isSpaceKind = assetKind === 'promo_camera_space_layout' || assetKind === 'promo_camera_space_eye_level';
+    const spaceResTier = isSpaceKind ? resolvePromoSpaceResolutionTier(row, meta) : null;
     const sourceType = row.source_type ? String(row.source_type).trim() : '';
     const sourceId = row.source_id ? String(row.source_id).trim() : '';
     const srcProd = (sourceId && sourceProductMap && sourceProductMap[sourceId]) ? sourceProductMap[sourceId] : null;
@@ -2348,6 +2385,7 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
         aspect_ratio: row.aspect_ratio || null,
         width: row.width || null,
         height: row.height || null,
+        megapixels: row.megapixels != null ? row.megapixels : null,
         link,
         inspiration_url: inspirationUrl,
         source_type: sourceType || null,
@@ -2365,7 +2403,12 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
         ai_tags: Array.isArray(row.ai_tags) ? row.ai_tags : [],
         tags: [],
         image_semantics_json: row.image_semantics_json || null,
-        created_at: row.created_at || null
+        created_at: row.created_at || null,
+        promo_asset_kind: assetKind,
+        promo_asset_kind_label: promoGenerationAssetKindLabel(assetKind),
+        shoot_mode: meta.shoot_mode || null,
+        space_output_type: meta.space_output_type || null,
+        space_resolution_tier: spaceResTier
     });
     return stripMediaWallHeavyFields(item);
 }
@@ -15505,7 +15548,9 @@ app.get('/api/promo-image/options', async (req, res) => {
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
+                '3:2': { w: 1248, h: 832 },
                 '3:4': { w: 864, h: 1152 },
+                '2:3': { w: 832, h: 1248 },
                 '16:9': { w: 1344, h: 756 },
                 '9:16': { w: 756, h: 1344 },
                 '21:9': { w: 1536, h: 658 },
@@ -15635,11 +15680,22 @@ function parsePromoGenerationMetaJson(raw) {
 /** 數位資產庫分類：情境圖 TAB vs 商攝導演（產品／空間／人像） */
 function resolvePromoGenerationAssetKind(row) {
     const meta = parsePromoGenerationMetaJson(row && row.generation_meta_json);
-    const mode = String((row && row.generation_mode) || meta.generation_mode || '').trim();
+    let mode = String((row && row.generation_mode) || meta.generation_mode || '').trim();
+    if (!mode && row && row.camera_params) mode = 'camera_advanced';
     if (mode !== 'camera_advanced') return 'promo_scene';
-    const shoot = String(meta.shoot_mode || 'product').trim().toLowerCase();
+    let shoot = String(meta.shoot_mode || '').trim().toLowerCase();
+    if (!shoot && row && row.camera_params) {
+        const cp = parsePromoGenerationMetaJson(row.camera_params);
+        shoot = String(cp.shoot_mode || cp.shootMode || 'product').trim().toLowerCase();
+    }
+    if (!shoot) shoot = 'product';
     if (shoot === 'space') {
-        const out = String(meta.space_output_type || 'layout_plan').trim().toLowerCase();
+        let out = String(meta.space_output_type || '').trim().toLowerCase();
+        if (!out && row && row.camera_params) {
+            const cp = parsePromoGenerationMetaJson(row.camera_params);
+            out = String(cp.space_output_type || cp.spaceOutputType || 'layout_plan').trim().toLowerCase();
+        }
+        if (!out) out = 'layout_plan';
         return out === 'eye_level' ? 'promo_camera_space_eye_level' : 'promo_camera_space_layout';
     }
     if (shoot === 'portrait') return 'promo_camera_portrait';
@@ -15804,7 +15860,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             );
         } catch (fluxErr) {
             console.error('promo-image BFL:', fluxErr);
-            return res.status(500).json({ success: false, error: fluxErr.message || '生成失敗，請稍後再試' });
+            return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
         }
         if (!buffer) {
             return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
@@ -16011,7 +16067,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
+                '3:2': { w: 1248, h: 832 },
                 '3:4': { w: 864, h: 1152 },
+                '2:3': { w: 832, h: 1248 },
                 '16:9': { w: 1344, h: 756 },
                 '9:16': { w: 756, h: 1344 },
                 '21:9': { w: 1536, h: 658 },
@@ -16227,7 +16285,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             );
         } catch (fluxErr) {
             console.error('promo-camera BFL:', fluxErr);
-            return res.status(500).json({ success: false, error: fluxErr.message || '生成失敗，請稍後再試' });
+            return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
         }
         if (!buffer) {
             return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
@@ -17063,8 +17121,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             return res.status(500).json({
                 success: false,
                 error: process.env.BFL_API_KEY
-                    ? 'FLUX 生圖失敗，請稍後再試或調整描述' + (hasRefs ? '與參考圖' : '')
-                    : '未設定 BFL_API_KEY，無法生圖',
+                    ? '生圖失敗，請稍後再試或調整描述' + (hasRefs ? '與參考圖' : '')
+                    : '生圖服務暫未設定，請稍後再試',
                 ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
             });
         }
@@ -20902,6 +20960,7 @@ app.get('/api/media-wall', async (req, res) => {
     const filterCategoryKey = (req.query.category_key && String(req.query.category_key).trim()) || '';
     const filterSubcategoryKey = (req.query.subcategory_key && String(req.query.subcategory_key).trim()) || '';
     const filterLayoutType = (req.query.layout_type && String(req.query.layout_type).trim()) || '';
+    const promoKindFilter = (req.query.promo_kind && String(req.query.promo_kind).trim()) || '';
     const layoutOnly = ['user_design', 'comparison', 'collection', 'series', 'promo_scene'].includes(filterLayoutType) ? filterLayoutType : null;
     const contentLang = normalizeVendorContentLang(req.query.lang || req.query.content_lang || '');
 
@@ -20945,8 +21004,11 @@ app.get('/api/media-wall', async (req, res) => {
         }
 
         if (layoutOnly === 'promo_scene') {
-            const promoLimit = clientFilterActive ? searchPool : perPage;
-            const promoDbOffset = clientFilterActive ? 0 : offset;
+            const promoKindActive = !!String(promoKindFilter || '').trim();
+            const promoLimit = clientFilterActive
+                ? searchPool
+                : (promoKindActive ? Math.min(500, Math.max(perPage * 6, 200)) : perPage);
+            const promoDbOffset = (clientFilterActive || promoKindActive) ? 0 : offset;
             let promoRows = await mediaWallQueries.fetchPromoSceneMediaWallRows(
                 supabase,
                 promoDbOffset,
@@ -20979,6 +21041,11 @@ app.get('/api/media-wall', async (req, res) => {
                 });
             }
             let promoItems = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(out);
+            if (promoKindFilter) {
+                promoItems = promoItems.filter(function (item) {
+                    return promoMediaWallItemMatchesKindFilter(item, promoKindFilter);
+                });
+            }
             if (clientFilterActive) {
                 if (tagFilters.length) promoItems = promoItems.filter((item) => mediaWallItemMatchesTagFilters(item, tagFilters));
                 if (searchQ) {
@@ -20986,10 +21053,12 @@ app.get('/api/media-wall', async (req, res) => {
                     promoItems = promoItems.filter((item) => mediaWallItemSearchHaystack(item).includes(qLower));
                 }
                 promoItems = promoItems.slice(offset, offset + perPage);
+            } else if (promoKindFilter) {
+                promoItems = promoItems.slice(offset, offset + perPage);
             }
             await enrichMediaWallRefManufacturers(promoItems);
             res.set('Cache-Control', 'private, max-age=0, must-revalidate');
-            return res.json({ items: promoItems, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
+            return res.json({ items: promoItems, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters, promo_kind: promoKindFilter || null });
         }
 
         // 用戶設計 + 廠商對比：並行查詢（混合首頁不再串行等待）
@@ -30295,7 +30364,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
             console.error('print-generations/redraw optimize:', optErr);
             if (optErr && optErr.status === 429) {
                 return res.status(429).json({
-                    error: optErr.message || 'Gemini 生圖次數已達上限，請稍後再試',
+                    error: optErr.message || '生圖次數已達上限，請稍後再試',
                     retry_after_sec: optErr.retry_after_sec || null,
                     quota_reason: optErr.quota_reason || null
                 });
