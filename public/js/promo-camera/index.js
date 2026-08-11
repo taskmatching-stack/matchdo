@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-eye-cam-20260811';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-portrait-scene-ref-20260811';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
