@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-eye-mark-20260811';
+        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-map-fit-20260811';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;

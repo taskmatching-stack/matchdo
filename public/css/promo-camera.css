@@ -69,6 +69,15 @@
   max-width: 100%;
   height: auto;
   display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-width: 767px) {
+  #promo-camera-app .pc-result-slot .scene-sim-result-inner img {
+    max-height: min(42vh, 380px);
+    width: auto;
+    object-fit: contain;
+  }
 }
 #promo-camera-app .pc-thumb {
   width: 64px;
@@ -312,6 +321,13 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   .pc-space-compare .col-md-6 + .col-md-6 {
     margin-top: 0.5rem;
   }
+  .pc-space-compare img {
+    max-height: min(42vh, 380px);
+    width: auto;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 .pc-portrait-batch {
@@ -337,16 +353,22 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   background: #1a1a1a;
   overflow: auto;
   max-width: 100%;
-  max-height: min(70vh, 720px);
+  max-height: min(65vh, 640px);
+  text-align: center;
 }
 #promo-camera-app .pc-space-map-mark-canvas {
-  display: block;
+  display: inline-block;
   width: auto;
   height: auto;
-  max-width: none;
+  max-width: 100%;
   cursor: crosshair;
   touch-action: none;
   vertical-align: top;
+}
+@media (max-width: 767px) {
+  #promo-camera-app .pc-space-map-mark-frame {
+    max-height: min(40vh, 360px);
+  }
 }
 #promo-camera-app .pc-space-map-mark-instructions ul {
   margin-top: 0.25rem;

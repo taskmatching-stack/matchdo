@@ -7340,7 +7340,8 @@ async function setPaymentConfigValue(key, value) {
 
 /** Phase 1.6: 上傳單檔至 Supabase Storage，回傳 { path, publicUrl } */
 async function uploadToSupabaseStorage(bucket, pathPrefix, file, options = {}) {
-    if (file && file.buffer && file.buffer.length) {
+    /* 預設走廠商素材 1024 上限；商攝／情境圖成品須 skipNormalize，否則 2K／4K 會被壓回 1K */
+    if (!options.skipNormalize && file && file.buffer && file.buffer.length) {
         const normalized = await normalizeVendorUploadFile(file);
         if (normalized) file = normalized;
     }
@@ -15563,7 +15564,7 @@ async function uploadPromoResultImageBuffer(userId, buffer) {
             'custom-products',
             `promo/${userId}`,
             { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
-            { ext: 'jpg', contentType: 'image/jpeg' }
+            { ext: 'jpg', contentType: 'image/jpeg', skipNormalize: true }
         );
         return uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
     } catch (upErr) {
@@ -16834,7 +16835,7 @@ app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), as
                 'custom-products',
                 `promo/${user.id}`,
                 { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
-                { ext: 'jpg', contentType: 'image/jpeg' }
+                { ext: 'jpg', contentType: 'image/jpeg', skipNormalize: true }
             );
             resultImageUrl = uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
         } catch (upErr) {

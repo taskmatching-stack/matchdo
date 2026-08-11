@@ -933,11 +933,21 @@ body.pc-app-shell .pc-space-compare img {
   background: #f8f9fa;
 }
 
-/* 平視地圖標註：APP 框內可橫向／縱向捲動 */
+/* 平視地圖標註：APP 框縮小顯示，避免佔滿螢幕 */
 body.pc-app-shell .pc-space-map-mark-frame {
-  max-height: min(55vh, 480px);
+  max-height: min(40vh, 360px);
   max-width: 100%;
+  text-align: center;
 }
 body.pc-app-shell .pc-space-map-mark-canvas {
-  max-width: none;
+  max-width: 100%;
+}
+body.pc-app-shell .pc-space-compare img,
+body.pc-app-shell .pc-result-slot .scene-sim-result-inner img {
+  max-height: min(42vh, 380px);
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  object-fit: contain;
 }

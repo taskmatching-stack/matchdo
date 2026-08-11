@@ -861,11 +861,24 @@
       _spaceMarkNaturalW = _spaceMarkImg.naturalWidth || 0;
       _spaceMarkNaturalH = _spaceMarkImg.naturalHeight || 0;
       if (!_spaceMarkNaturalW || !_spaceMarkNaturalH) return;
-      /* 畫布像素＝原圖尺寸，CSS 不強制縮小（框內可捲動） */
+      /* 畫布像素＝原圖；CSS 依框寬／手機高度縮放（點擊座標走 getBoundingClientRect） */
       canvas.width = _spaceMarkNaturalW;
       canvas.height = _spaceMarkNaturalH;
-      canvas.style.width = _spaceMarkNaturalW + 'px';
-      canvas.style.height = _spaceMarkNaturalH + 'px';
+      var frame = canvas.closest('.pc-space-map-mark-frame') || canvas.parentElement;
+      var frameW = (frame && frame.clientWidth) ? frame.clientWidth : Math.min(window.innerWidth - 24, _spaceMarkNaturalW);
+      var narrow = window.matchMedia('(max-width: 767px)').matches
+        || !!(document.body && document.body.classList.contains('pc-app-shell'));
+      var maxH = narrow
+        ? Math.min(Math.round(window.innerHeight * 0.4), 360)
+        : Math.min(Math.round(window.innerHeight * 0.65), 640);
+      var displayW = Math.min(frameW, _spaceMarkNaturalW);
+      var displayH = Math.round(_spaceMarkNaturalH * (displayW / _spaceMarkNaturalW));
+      if (displayH > maxH) {
+        displayH = maxH;
+        displayW = Math.max(1, Math.round(_spaceMarkNaturalW * (displayH / _spaceMarkNaturalH)));
+      }
+      canvas.style.width = displayW + 'px';
+      canvas.style.height = displayH + 'px';
       var ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(_spaceMarkImg, 0, 0, canvas.width, canvas.height);
