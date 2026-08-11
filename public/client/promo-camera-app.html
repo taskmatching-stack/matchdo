@@ -186,6 +186,20 @@
           <div class="pc-compose-body is-collapsed" id="pcComposeBody">
 
           <div class="pc-app-block pc-space-layout-only d-none">
+            <div class="pc-app-block-title">空間地圖視角</div>
+            <div class="pc-app-card pc-app-card--pad">
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
+                <label class="form-check-label small" for="pcSpaceLayoutIso">45° ISO（預設）</label>
+              </div>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
+                <label class="form-check-label small" for="pcSpaceLayoutTop">正上方俯視</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="pc-app-block pc-space-layout-only d-none">
             <div class="pc-app-card pc-app-card--pad">
               <div class="d-flex flex-wrap gap-2 align-items-center">
                 <div class="form-check form-check-inline mb-0">
@@ -311,6 +325,23 @@
                   <i class="bi bi-chevron-right pc-app-picker-chevron" aria-hidden="true"></i>
                 </button>
                 <select id="pcSceneSelect" class="pc-app-select-native d-none" tabindex="-1" aria-hidden="true"></select>
+              </div>
+              <div class="pc-app-row pc-portrait-only d-none">
+                <div class="w-100">
+                  <div class="small text-muted mb-1">或場景參考圖</div>
+                  <div id="pcSceneRefThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
+                  <div class="pc-app-split-actions">
+                    <label class="pc-app-action pc-app-action--upload mb-0">
+                      <i class="bi bi-upload"></i>
+                      <span>上傳</span>
+                      <input type="file" id="pcSceneRefInput" accept="image/*" hidden />
+                    </label>
+                    <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickSceneRefBtn">
+                      <i class="bi bi-images"></i>
+                      <span>資產庫</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

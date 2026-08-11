@@ -533,8 +533,38 @@ async function resolvePromoStagingProductImage(body) {
     };
 }
 
+function promoFluxPortraitExtraRefsPromptPart(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const hasScene = !!o.hasSceneImage;
+    const hasProduct = !!o.hasStagingProduct;
+    if (hasScene && hasProduct) {
+        return 'Reference image 1 is the person for facial identity. Reference image 2 is the scene or environment to place the person in. Reference image 3 is a product or prop. Preserve the same person\'s facial identity; integrate the scene and product naturally per the user description.';
+    }
+    if (hasScene) {
+        return 'Reference image 1 is the person for facial identity. Reference image 2 is the scene or environment reference. Place the same person into this environment; preserve facial identity and match the scene lighting and spatial context.';
+    }
+    if (hasProduct) {
+        return 'Reference image 1 is the person for facial identity. Reference image 2 is the product or prop to feature in the shot. Integrate the product naturally per the user description; preserve the same person\'s facial identity.';
+    }
+    return '';
+}
+
+/** @deprecated use promoFluxPortraitExtraRefsPromptPart */
 function promoFluxPortraitProductRefPromptPart() {
-    return 'The first reference image is the person for facial identity. The second reference image is the product or prop to feature in the shot. Integrate the product naturally per the user description; preserve the same person\'s facial identity.';
+    return promoFluxPortraitExtraRefsPromptPart({ hasStagingProduct: true });
+}
+
+/** 人像模式：選填場景／環境參考圖 */
+async function resolvePromoSceneReferenceImage(body) {
+    const raw = String((body && (body.scene_image || body.scene_reference)) || '').trim();
+    if (!raw) return null;
+    const b64 = await resolveImageToBase64(raw);
+    if (!b64) return { error: '場景參考圖無法讀取，請重新上傳' };
+    return {
+        base64: b64,
+        mime: mimeFromPromoImageRef(raw),
+        url: (typeof raw === 'string' && /^https?:\/\//i.test(raw)) ? raw : null
+    };
 }
 
 /** 空間 layout_plan：平面圖 + 選填風格圖 */
@@ -805,7 +835,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '' };
     const cameraPreview = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, '', cameraKeys, w, h, {
         shootMode: 'portrait',
-        hasStagingProduct: !!resolvedRefs.hasStagingProduct
+        hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+        hasSceneImage: !!resolvedRefs.hasSceneImage
     });
     const cameraBrief = (cameraPreview.camera_resolved && typeof cameraPreview.camera_resolved === 'object')
         ? Object.values(cameraPreview.camera_resolved).filter(Boolean).join('; ')
@@ -844,7 +875,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         try {
             built = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, shotUserPrompt, cameraKeys, w, h, {
                 shootMode: 'portrait',
-                hasStagingProduct: !!resolvedRefs.hasStagingProduct
+                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+                hasSceneImage: !!resolvedRefs.hasSceneImage
             });
         } catch (promptErr) {
             results.push({
@@ -972,7 +1004,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     portrait_batch_count: outputCount,
                     portrait_shot_brief: shotBrief,
                     portrait_prompt_expanded: true,
-                    staging_product: !!resolvedRefs.hasStagingProduct
+                    staging_product: !!resolvedRefs.hasStagingProduct,
+                    scene_image: !!resolvedRefs.hasSceneImage
                 },
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage,
@@ -1554,6 +1587,7 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
     const h = dims.height;
     const minEdge = promoSpaceGemini.minEdgeForSpaceTier(spaceResTier);
     const spaceUseType = promoSpaceGemini.normalizeSpaceUseType(body.space_use_type);
+    const spaceLayoutView = promoSpaceGemini.normalizeSpaceLayoutView(body.space_layout_view);
     const userPrompt = String(body.user_prompt || body.prompt || '').trim();
     const clientChannel = normalizePromoClientChannel(body.client_channel);
 
@@ -1582,6 +1616,7 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
             styleText: refs.styleText,
             supplement: refs.supplement,
             spaceUseType,
+            layoutView: spaceLayoutView,
             width: w,
             height: h,
             tier: spaceResTier,
@@ -1658,6 +1693,7 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
     const generationMeta = {
         shoot_mode: 'space',
         space_output_type: spaceOutputType,
+        space_layout_view: spaceLayoutView,
         space_style_source: refs.styleSource,
         space_use_type: spaceUseType,
         floor_plan_source_url: primaryUrl ? String(primaryUrl).slice(0, 2000) : null,
@@ -1743,7 +1779,8 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
         space_use_type: spaceUseType,
         compare_ref_url: compareRefUrl,
         compare_ref_label: '平面配置圖',
-        compare_result_label: 'ISO 空間地圖',
+        compare_result_label: promoSpaceGemini.spaceLayoutViewLabel(spaceLayoutView),
+        space_layout_view: spaceLayoutView,
         camera_params: cameraParamsSnapshot
     });
 }
@@ -16162,7 +16199,8 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
         }
         const built = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, w, h, {
             shootMode,
-            hasStagingProduct: !!resolvedRefs.hasStagingProduct
+            hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+            hasSceneImage: !!resolvedRefs.hasSceneImage
         });
         const finalPrompt = built.prompt;
         const cameraResolved = built.camera_resolved || {};
@@ -16251,6 +16289,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                     shoot_mode: shootMode === 'portrait' ? 'portrait' : 'product',
                     reference_count: refBases.length,
                     staging_product: !!resolvedRefs.hasStagingProduct,
+                    scene_image: !!resolvedRefs.hasSceneImage,
                     aspect_ratio: aspectRatio,
                     theme_key: themeKey || null,
                     scene_key: sceneKey || null,
@@ -17952,7 +17991,7 @@ async function getPointsPromoCameraForUser(userId) {
     return getPointsPromoCameraForResolution(1024, 1024, userId);
 }
 
-/** 攝影模擬頁參考圖：產品模式 1 張；人像 1 張人像 + 選填 product_image */
+/** 攝影模擬頁參考圖：產品模式 1 張；人像 1 張人像 + 選填 scene_image + 選填 product_image */
 async function resolvePromoCameraReferences(body) {
     const b = body && typeof body === 'object' ? body : {};
     const shootMode = String(b.shoot_mode || 'product').trim().toLowerCase();
@@ -17964,13 +18003,19 @@ async function resolvePromoCameraReferences(body) {
     }
     if (!raw.length && typeof b.image === 'string' && b.image.trim()) raw.push(b.image.trim());
     if (raw.length > 1) {
-        return { error: '主參考圖一次只能使用一張（人像請用「產品／道具」欄另傳）', images: [], urls: [] };
+        return { error: '主參考圖一次只能使用一張（人像場景／道具請用專用欄位另傳）', images: [], urls: [] };
     }
     const main = await resolvePromoImageReferences(Object.assign({}, b, { images: raw.length ? raw : undefined, image: raw.length ? undefined : b.image }));
     if (main.error) return main;
 
     let stagingProduct = null;
+    let sceneReference = null;
     if (shootMode === 'portrait') {
+        const sceneResolved = await resolvePromoSceneReferenceImage(b);
+        if (sceneResolved && sceneResolved.error) {
+            return { error: sceneResolved.error, images: [], urls: [] };
+        }
+        if (sceneResolved && sceneResolved.base64) sceneReference = sceneResolved;
         const prodResolved = await resolvePromoStagingProductImage(b);
         if (prodResolved && prodResolved.error) {
             return { error: prodResolved.error, images: [], urls: [] };
@@ -17979,11 +18024,14 @@ async function resolvePromoCameraReferences(body) {
     }
 
     const images = main.images.slice();
+    if (sceneReference && sceneReference.base64) images.push(sceneReference.base64);
     if (stagingProduct && stagingProduct.base64) images.push(stagingProduct.base64);
 
     return {
         images: images,
         urls: main.urls,
+        hasSceneImage: !!(sceneReference && sceneReference.base64),
+        sceneImageUrl: (sceneReference && sceneReference.url) || null,
         hasStagingProduct: !!(stagingProduct && stagingProduct.base64),
         stagingProductUrl: (stagingProduct && stagingProduct.url) || null
     };
@@ -18703,14 +18751,16 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
-    const hasScene = Boolean(String(sceneKey || '').trim());
     const parts = [];
     if (shootMode === 'portrait') {
         parts.push(promoFluxPortraitIdentityPromptPart());
-        if (o.hasStagingProduct) {
-            parts.push(promoFluxPortraitProductRefPromptPart());
-        }
+        const extraRefPart = promoFluxPortraitExtraRefsPromptPart({
+            hasSceneImage: !!o.hasSceneImage,
+            hasStagingProduct: !!o.hasStagingProduct
+        });
+        if (extraRefPart) parts.push(extraRefPart);
     }
+    const hasScene = Boolean(String(sceneKey || '').trim()) || !!o.hasSceneImage;
     parts.push(hasScene
         ? promoFluxFillFramePromptPart(width, height)
         : promoFluxPreserveReferenceScenePromptPart(width, height));

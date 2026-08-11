@@ -152,6 +152,20 @@
             <button type="button" class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2 pc-staging-pick-alt pc-staging-product-only d-none">道具庫</button>
           </div>
           <div class="pc-space-layout-only d-none mb-2">
+            <label class="form-label small mb-1">空間地圖視角</label>
+            <div class="d-flex flex-wrap gap-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
+                <label class="form-check-label small" for="pcSpaceLayoutIso">45° ISO（預設）</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
+                <label class="form-check-label small" for="pcSpaceLayoutTop">正上方俯視</label>
+              </div>
+            </div>
+            <p class="form-text small text-muted mb-0">俯視較少死角；平視攝影仍可用任一種地圖標註。</p>
+          </div>
+          <div class="pc-space-layout-only d-none mb-2">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
               <div class="form-check form-check-inline mb-0">
                 <input class="form-check-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStylePrompt" value="prompt" checked />
@@ -205,6 +219,16 @@
             <div class="col-md-6">
               <label class="form-label small mb-0" for="pcSceneSelect" data-i18n="promoCamera.sceneOptional">場景（選填）</label>
               <select id="pcSceneSelect" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col-12 pc-portrait-only d-none">
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="small text-muted">或場景參考圖</span>
+                <div id="pcSceneRefThumbs" class="d-flex flex-wrap gap-1"></div>
+                <label class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2">
+                  <input type="file" id="pcSceneRefInput" accept="image/*" hidden />上傳
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2" id="pcPickSceneRefBtn">資產庫</button>
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label small mb-0" for="pcRatioSelect" data-i18n="promoCamera.aspectRatio">長寬比</label>

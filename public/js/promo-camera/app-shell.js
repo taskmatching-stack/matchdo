@@ -101,7 +101,7 @@
         var useLabel = (useSel.options[useSel.selectedIndex].textContent || '').trim();
         if (useLabel) parts.push(useLabel);
       }
-      parts.push(st.spaceOutputType === 'eye_level' ? '平視' : 'ISO');
+      parts.push(st.spaceOutputType === 'eye_level' ? '平視' : (st.spaceLayoutView === 'top_down' ? '俯視' : 'ISO'));
       if (st.spaceOutputType === 'eye_level' && st.spaceMapMarkConfirmed) {
         parts.push((st.spaceLookFrom || '?') + '→' + (st.spaceLookTo || '?'));
       }
@@ -116,6 +116,9 @@
     if (themeEl && themeEl.selectedIndex >= 0 && themeEl.options[themeEl.selectedIndex]) {
       var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
       if (themeLabel) parts.push(themeLabel);
+    }
+    if (mode === 'portrait' && st.sceneReferenceImage) {
+      parts.push('場景圖');
     }
     if (mode === 'product') {
       var subjectEl = document.getElementById('pcPreserveSubjects');

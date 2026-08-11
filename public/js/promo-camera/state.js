@@ -32,6 +32,7 @@
     sourceId: null,
     shootMode: 'product',
     spaceOutputType: 'layout_plan',
+    spaceLayoutView: 'iso_45',
     spaceStyleSource: 'prompt',
     spaceUseType: 'residential',
     spaceResolutionTier: '2k',
@@ -47,6 +48,7 @@
     spaceMapMarkConfirmed: false,
     styleImage: '',
     stagingProductImage: '',
+    sceneReferenceImage: '',
     themeKey: '',
     sceneKey: '',
     aspectRatio: '1:1',
@@ -532,6 +534,16 @@
     state.spaceOutputType = String(type || 'layout_plan').trim().toLowerCase() === 'eye_level' ? 'eye_level' : 'layout_plan';
   }
 
+  function normalizeSpaceLayoutView(view) {
+    var v = String(view || 'iso_45').trim().toLowerCase();
+    if (v === 'top_down' || v === 'topdown' || v === 'bird_eye') return 'top_down';
+    return 'iso_45';
+  }
+
+  function setSpaceLayoutView(view) {
+    state.spaceLayoutView = normalizeSpaceLayoutView(view);
+  }
+
   function setOutputCount(n) {
     state.outputCount = normalizePortraitOutputCount(n);
   }
@@ -552,6 +564,14 @@
 
   function clearStagingProductImage() {
     state.stagingProductImage = '';
+  }
+
+  function setSceneReferenceImage(url) {
+    state.sceneReferenceImage = url || '';
+  }
+
+  function clearSceneReferenceImage() {
+    state.sceneReferenceImage = '';
   }
 
   function canGenerate() {
@@ -624,6 +644,7 @@
       var spacePayload = {
         shoot_mode: 'space',
         space_output_type: state.spaceOutputType || 'layout_plan',
+        space_layout_view: state.spaceLayoutView || 'iso_45',
         space_style_source: state.spaceStyleSource,
         space_use_type: state.spaceUseType || 'residential',
         space_resolution_tier: state.spaceResolutionTier || '2k',
@@ -672,6 +693,9 @@
     };
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;
+    }
+    if (state.shootMode === 'portrait' && state.sceneReferenceImage) {
+      fluxPayload.scene_image = state.sceneReferenceImage;
     }
     return fluxPayload;
   }
@@ -737,9 +761,12 @@
     hasSpaceLookMarkers: hasSpaceLookMarkers,
     isSpaceMapMarkConfirmed: isSpaceMapMarkConfirmed,
     setSpaceOutputType: setSpaceOutputType,
+    setSpaceLayoutView: setSpaceLayoutView,
     setOutputCount: setOutputCount,
     setStagingProductImage: setStagingProductImage,
     clearStagingProductImage: clearStagingProductImage,
+    setSceneReferenceImage: setSceneReferenceImage,
+    clearSceneReferenceImage: clearSceneReferenceImage,
     setStyleImage: setStyleImage,
     canGenerate: canGenerate,
     get: function () { return state; },

@@ -251,7 +251,9 @@
       user_prompt: payload.user_prompt,
       compare_ref_url: compareRef,
       compare_ref_label: (data && data.compare_ref_label) || (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖'),
-      compare_result_label: (data && data.compare_result_label) || (payload.space_output_type === 'eye_level' ? '平視攝影' : 'ISO 空間地圖')
+      compare_result_label: (data && data.compare_result_label) || (payload.space_output_type === 'eye_level'
+        ? '平視攝影'
+        : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖'))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
     if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
@@ -404,6 +406,11 @@
     var outEye = document.getElementById('pcSpaceOutEye');
     if (outLayout) outLayout.checked = !eye;
     if (outEye) outEye.checked = eye;
+    var layoutIso = document.getElementById('pcSpaceLayoutIso');
+    var layoutTop = document.getElementById('pcSpaceLayoutTop');
+    var layoutView = St.get().spaceLayoutView || 'iso_45';
+    if (layoutIso) layoutIso.checked = layoutView !== 'top_down';
+    if (layoutTop) layoutTop.checked = layoutView === 'top_down';
 
     var promptEl = document.getElementById('pcPromptInput');
     var hintEl = document.getElementById('pcPromptHint');
@@ -426,7 +433,11 @@
       if (hintEl) hintEl.textContent = '';
       if (genBtn) {
         var spanLay = genBtn.querySelector('span');
-        if (spanLay) spanLay.textContent = '生成 ISO 空間地圖';
+        if (spanLay) {
+          spanLay.textContent = (St.get().spaceLayoutView === 'top_down')
+            ? '生成俯視空間地圖'
+            : '生成 ISO 空間地圖';
+        }
       }
       var styleImgRow = document.getElementById('pcSpaceStyleImageRow');
       if (styleImgRow) styleImgRow.classList.toggle('d-none', St.get().spaceStyleSource !== 'image');
@@ -633,6 +644,7 @@
     }
 
     renderSpaceThumbs();
+    renderSceneRefThumbs();
     renderStagingProductThumbs();
     renderSelectedThumbs();
     updateGenerateBtn();
@@ -1108,6 +1120,32 @@
     }
   }
 
+  function renderSceneRefThumbs() {
+    var wrap = document.getElementById('pcSceneRefThumbs');
+    if (!wrap) return;
+    if (!isPortraitMode()) {
+      wrap.innerHTML = '';
+      return;
+    }
+    var url = St.get().sceneReferenceImage;
+    if (!url) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-scene-ref" style="line-height:1;font-size:10px;">×</button>' +
+      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">場景</span></div>';
+    var rm = wrap.querySelector('.pc-remove-scene-ref');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.clearSceneReferenceImage();
+        renderSceneRefThumbs();
+        updateGenerateBtn();
+      });
+    }
+  }
+
   function renderStagingProductThumbs() {
     var wrap = document.getElementById('pcStagingProductThumbs');
     if (!wrap) return;
@@ -1508,6 +1546,13 @@
           hideBootstrapModal(modalEl);
           return;
         }
+        if (assetPickTarget === 'scene_ref') {
+          St.setSceneReferenceImage(u);
+          renderSceneRefThumbs();
+          updateGenerateBtn();
+          hideBootstrapModal(modalEl);
+          return;
+        }
         var st = pick.sourceType || 'digital_asset';
         var sid = pick.sourceId || null;
         St.clearImages();
@@ -1568,6 +1613,15 @@
       });
     });
 
+    document.querySelectorAll('input[name="pcSpaceLayoutView"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        if (!radio.checked) return;
+        St.setSpaceLayoutView(radio.value);
+        applySpaceOutputUi();
+        updateGenerateBtn();
+      });
+    });
+
     var pickFloorBtn = document.getElementById('pcPickFloorPlanBtn');
     if (pickFloorBtn) pickFloorBtn.addEventListener('click', function () { openAssetPicker('floor'); });
 
@@ -1576,6 +1630,8 @@
 
     var pickStagingBtn = document.getElementById('pcPickStagingProductBtn');
     if (pickStagingBtn) pickStagingBtn.addEventListener('click', function () { openAssetPicker('staging_product'); });
+    var pickSceneRefBtn = document.getElementById('pcPickSceneRefBtn');
+    if (pickSceneRefBtn) pickSceneRefBtn.addEventListener('click', function () { openAssetPicker('scene_ref'); });
     document.querySelectorAll('.pc-staging-pick-alt').forEach(function (btn) {
       btn.addEventListener('click', function () { openAssetPicker('staging_product'); });
     });
@@ -1594,6 +1650,20 @@
         readFileAsDataUrl(files[0], function (url) {
           St.setStagingProductImage(url);
           renderStagingProductThumbs();
+          updateGenerateBtn();
+        });
+        e.target.value = '';
+      });
+    }
+
+    var sceneRefInput = document.getElementById('pcSceneRefInput');
+    if (sceneRefInput) {
+      sceneRefInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          St.setSceneReferenceImage(url);
+          renderSceneRefThumbs();
           updateGenerateBtn();
         });
         e.target.value = '';
