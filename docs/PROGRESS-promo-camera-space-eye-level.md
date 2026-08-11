@@ -16,6 +16,7 @@
 | **平視可測** | 可 **上傳 ISO 地圖**（不依賴資產庫已有 layout） |
 | **地圖標註** | 打字母 → 選站點／望向 → 按**確定標註**才算選完；之後才可生成。字母＝區域，已移除「拍攝區域」勾選。 |
 | **線上 PWA 空間平視** | `promo-camera-app.html` 已補地圖標註／確定鈕／上傳 ISO；與共用 `index.js`／`state.js` 對齊。build：`promo-camera-app-eye-mark-20260811`。Store L4 需再跑 `sync-www`。 |
+| **空間相機殼（禁止再藏）** | ISO `layout_plan` 與 `eye_level` **皆須**顯示右側相機；見 `docs/DO-NOT-hide-promo-space-camera-shell.md`。build：`promo-camera-space-cam-always-20260811`。 |
 | **尚需瀏覽器** | checklist #2～#4；Node 須已載入本輪 `server.js` |
 
 **本機重啟指令（PowerShell）：**

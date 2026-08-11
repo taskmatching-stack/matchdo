@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-portrait-scene-mutex-20260811';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-cam-always-20260811';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -562,6 +562,16 @@
     syncOutputCountSelects();
   }
 
+  /**
+   * 空間 layout_plan 與 eye_level 皆須顯示右側相機殼（參數進 Gemini prompt）。
+   * 禁止依 spaceOutputType 隱藏 — docs/DO-NOT-hide-promo-space-camera-shell.md
+   */
+  function syncCameraShellVisibility() {
+    document.querySelectorAll('#promo-camera-app .pc-camera-shell').forEach(function (el) {
+      el.classList.remove('d-none');
+    });
+  }
+
   function applyShootModeUi() {
     var mode = getShootMode();
     var space = mode === 'space';
@@ -576,12 +586,7 @@
     document.querySelectorAll('.pc-product-only').forEach(function (el) {
       el.classList.toggle('d-none', mode !== 'product');
     });
-    /* 平視：右側相機參數（鏡頭／光圈／EV／底片）顯示並組進 prompt；ISO 地圖隱藏相機殼 */
-    var spaceEye = space && isSpaceEyeLevel();
-    var camShell = document.querySelector('#promo-camera-app .pc-camera-shell');
-    if (camShell) {
-      camShell.classList.toggle('d-none', space && !spaceEye);
-    }
+    syncCameraShellVisibility();
     document.querySelectorAll('.pc-space-only').forEach(function (el) {
       el.classList.toggle('d-none', !space);
     });

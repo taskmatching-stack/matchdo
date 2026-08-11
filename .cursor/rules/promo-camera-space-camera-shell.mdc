@@ -1,0 +1,16 @@
+# 商攝・空間模式相機殼（必守）
+
+改 `public/js/promo-camera/index.js` 的 `applyShootModeUi`、`applySpaceOutputUi`、或 `.pc-camera-shell` 顯示邏輯前，**先讀** `docs/DO-NOT-hide-promo-space-camera-shell.md`。
+
+## 必記
+
+- **空間攝影**（`layout_plan` **與** `eye_level`）右側相機控制台 **一律顯示**。
+- **禁止** `camShell.classList.toggle('d-none', space && !spaceEye)` 或任何「ISO 地圖時藏相機」分支。
+- 僅 **產品專用** 控件（拍攝角度、人物保留）用 `pc-product-only` 在空間模式隱藏。
+- 相機參數經 `state.buildGeneratePayload()` → 後端 `buildPromoSpaceLayoutCameraBlock` / eye_level 同路徑進 Gemini prompt。
+
+## 自檢
+
+1. 空間 → **ISO 空間地圖**：右側仍有鏡頭／光圈／EV？
+2. 切換 **平視** ↔ **ISO**：相機殼都不應消失？
+3. `/promo-camera` 與 `/promo-camera-app` 行為一致？
