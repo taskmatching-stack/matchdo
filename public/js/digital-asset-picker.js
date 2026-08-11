@@ -117,12 +117,19 @@
         var url = (row.image_url || '').trim();
         if (!url) return;
         var ratio = row.aspect_ratio ? (' · ' + row.aspect_ratio) : '';
+        var kindLabel = (row.asset_kind_label || '').trim();
+        var badge = kindLabel || fallbackTitle('promo');
+        var titleBase = (row.user_prompt || kindLabel || fallbackTitle('promo'));
         items.push({
           url: url,
-          title: ((row.user_prompt || fallbackTitle('promo')) + ratio).trim().substring(0, 48),
+          title: (titleBase + ratio).trim().substring(0, 48),
           sourceType: 'digital_asset',
           sourceId: row.id || null,
-          badge: fallbackTitle('promo')
+          badge: badge,
+          asset_kind: row.asset_kind || null,
+          shoot_mode: row.shoot_mode || null,
+          space_output_type: row.space_output_type || null,
+          space_use_label: row.space_use_label || null
         });
       });
       return items;
@@ -285,6 +292,7 @@
    * @param {function} [opts.onPick] ({url, sourceType, sourceId})
    * @param {string} [opts.initialTab]
    * @param {string[]} [opts.allowedTabs] 僅顯示這些 TAB（例：['print']）
+   * @param {function} [opts.filterItem] (item) => boolean 篩選列表項目
    * @param {string} [opts.mode] 'pick'（預設）| 'browse'（點擊放大，不選圖）
    */
   function mount(opts) {
@@ -318,6 +326,9 @@
         }
         var payload = res.data || {};
         var items = normalizeItems(tab, payload);
+        if (typeof opts.filterItem === 'function') {
+          items = items.filter(opts.filterItem);
+        }
         if (!items.length) {
           if (opts.emptyEl) {
             if (tab === 'material_combo' && payload.table_missing) {

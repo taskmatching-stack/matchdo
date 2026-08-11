@@ -58,6 +58,21 @@
 | **材料組合・Lite** | `gemini_model_material_combo_lite` | `getMaterialComboLiteModelName()` | 材料組合**僅色卡**生圖（Nano Banana Lite） |
 | **材料組合・Flash** | `gemini_model_material_combo_flash` | `getMaterialComboFlashModelName()` | 材料組合**色卡＋印花**生圖（Nano Banana Flash） |
 | **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
+| **商攝・空間 ISO 配置** | `gemini_model_promo_space_layout` | `getPromoSpaceLayoutModelName()` | `/promo-camera` 空間 `layout_plan`（`gemini-3-pro-image`） |
+| **商攝・空間平視** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | 空間 `eye_level` 平視攝影 |
+
+**商攝・空間解析度（程式，非 DB 鍵）**：前台 `space_resolution_tier: 2k|4k` → 後端 `config.imageConfig.imageSize: "2K"|"4K"`（[官方 image generation](https://ai.google.dev/gemini-api/docs/image-generation)；**K 须大写**）。不足时 sharp 补至 ≥2048／4096。
+
+**商攝・空間點數（`/admin/membership.html` → 點數規則，非本頁）**：
+
+| `payment_config.key` | 預設 | 說明 |
+|----------------------|------|------|
+| `points_promo_space_layout_gemini` | 30 | ISO 2K 點／張 |
+| `points_promo_space_layout_gemini_4k` | 50 | ISO 4K 點／張 |
+| `points_promo_space_eye_level_gemini` | 30 | 平視 2K 點／張 |
+| `points_promo_space_eye_level_gemini_4k` | 50 | 平視 4K 點／張 |
+
+Seed：`docs/add-promo-space-gemini-config.sql`。
 
 **環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`、`GEMINI_MODEL_PRINT_ASSET`。
 
@@ -72,6 +87,8 @@
 | `gemini_model_material_combo_lite` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_material_combo_flash` | `gemini-3.1-flash-image` |
 | `gemini_model_print_asset` | `gemini-3.1-flash-lite-image` |
+| `gemini_model_promo_space_layout` | `gemini-3-pro-image` |
+| `gemini_model_promo_space_eye_level` | `gemini-3-pro-image` |
 
 材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。  
 點數（與其他 AI 相同）：`/admin/membership.html` →「點數規則」→ `points_material_dual_color_flux`、`points_print_asset_flux`。  

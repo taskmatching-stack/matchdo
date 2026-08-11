@@ -101,6 +101,48 @@
     return { w: w, h: h, ratio: usedRatio, mp: megapixelsFromDims(w, h) };
   }
 
+  /** 空間模式：4 MP（Gemini 2K）或 16 MP（Gemini 4K）；長邊 2048／4096 */
+  var SPACE_MP_TIERS = [4, 16];
+
+  function spaceTierFromMegapixels(mp) {
+    return parseInt(mp, 10) >= 16 ? '4k' : '2k';
+  }
+
+  function spaceMegapixelsFromTier(tier) {
+    return String(tier || '2k').trim().toLowerCase() === '4k' ? 16 : 4;
+  }
+
+  function dimsForSpaceRatio(ratio, tier) {
+    var t = String(tier || '2k').trim().toLowerCase() === '4k' ? '4k' : '2k';
+    var minLong = t === '4k' ? 4096 : 2048;
+    var usedRatio = RATIO_PRESETS[ratio] ? ratio : '1:1';
+    var p = RATIO_PRESETS[usedRatio];
+    var aspect = p.w / p.h;
+    var w;
+    var h;
+    if (aspect >= 1) {
+      w = minLong;
+      h = Math.round(minLong / aspect);
+    } else {
+      h = minLong;
+      w = Math.round(minLong * aspect);
+    }
+    w = Math.max(512, Math.round(w / 8) * 8);
+    h = Math.max(512, Math.round(h / 8) * 8);
+    /* 勿用 megapixelsFromDims（會把邊長 clamp 到 2048，4K 會算錯成 4MP） */
+    var mp = Math.max(1, Math.ceil((w * h) / ONE_MP));
+    return {
+      w: w,
+      h: h,
+      width: w,
+      height: h,
+      ratio: usedRatio,
+      space_resolution_tier: t,
+      tier: t,
+      mp: mp
+    };
+  }
+
   function estimatePointsLocal(width, height, base, perExtra) {
     var mp = megapixelsFromDims(width, height);
     var b = Math.max(0, parseInt(base, 10) || 20);
@@ -426,19 +468,56 @@
     container.innerHTML = '';
     var inner = document.createElement('div');
     inner.className = 'scene-sim-result-inner';
-    var img = document.createElement('img');
-    img.src = displayUrl;
-    img.alt = opts.imageAlt || '情境圖';
-    img.className = 'img-fluid rounded js-preview-enlarge matchdo-enlarge-trigger';
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    img.style.display = 'block';
-    img.style.cursor = 'zoom-in';
-    img.setAttribute('aria-label', opts.imageAlt || '生成結果');
-    if (opts.lightboxCaption) {
-      img.setAttribute('data-lightbox-caption', opts.lightboxCaption);
+
+    if (meta && meta.compare_ref_url) {
+      var compareWrap = document.createElement('div');
+      compareWrap.className = 'pc-space-compare row g-2 mb-2';
+      var refCol = document.createElement('div');
+      refCol.className = 'col-md-6';
+      var refLabel = document.createElement('p');
+      refLabel.className = 'small text-muted mb-1';
+      refLabel.textContent = meta.compare_ref_label || '對照圖';
+      var refImg = document.createElement('img');
+      refImg.src = meta.compare_ref_url;
+      refImg.alt = meta.compare_ref_label || '對照圖';
+      refImg.className = 'img-fluid rounded border';
+      refImg.style.cursor = 'zoom-in';
+      refCol.appendChild(refLabel);
+      refCol.appendChild(refImg);
+      var outCol = document.createElement('div');
+      outCol.className = 'col-md-6';
+      var outLabel = document.createElement('p');
+      outLabel.className = 'small text-muted mb-1';
+      outLabel.textContent = meta.compare_result_label || '生成結果';
+      var img = document.createElement('img');
+      img.src = displayUrl;
+      img.alt = opts.imageAlt || meta.compare_result_label || '生成結果';
+      img.className = 'img-fluid rounded js-preview-enlarge matchdo-enlarge-trigger border';
+      img.style.cursor = 'zoom-in';
+      img.setAttribute('aria-label', opts.imageAlt || '生成結果');
+      if (opts.lightboxCaption) {
+        img.setAttribute('data-lightbox-caption', opts.lightboxCaption);
+      }
+      outCol.appendChild(outLabel);
+      outCol.appendChild(img);
+      compareWrap.appendChild(refCol);
+      compareWrap.appendChild(outCol);
+      inner.appendChild(compareWrap);
+    } else {
+      var img = document.createElement('img');
+      img.src = displayUrl;
+      img.alt = opts.imageAlt || '情境圖';
+      img.className = 'img-fluid rounded js-preview-enlarge matchdo-enlarge-trigger';
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.cursor = 'zoom-in';
+      img.setAttribute('aria-label', opts.imageAlt || '生成結果');
+      if (opts.lightboxCaption) {
+        img.setAttribute('data-lightbox-caption', opts.lightboxCaption);
+      }
+      inner.appendChild(img);
     }
-    inner.appendChild(img);
 
     if (meta && meta.points_deducted != null) {
       var pts = document.createElement('p');
@@ -561,7 +640,11 @@
   global.MatchdoPromoImage = {
     RATIO_PRESETS: RATIO_PRESETS,
     MP_TIERS: MP_TIERS,
+    SPACE_MP_TIERS: SPACE_MP_TIERS,
+    spaceTierFromMegapixels: spaceTierFromMegapixels,
+    spaceMegapixelsFromTier: spaceMegapixelsFromTier,
     dimsForRatio: dimsForRatio,
+    dimsForSpaceRatio: dimsForSpaceRatio,
     megapixelsFromDims: megapixelsFromDims,
     clampDim: clampDim,
     estimatePointsLocal: estimatePointsLocal,

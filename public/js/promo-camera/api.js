@@ -27,9 +27,16 @@
     });
   }
 
-  function pointsPreview(width, height) {
+  function pointsPreview(width, height, opts) {
+    opts = opts || {};
+    var q = '?width=' + encodeURIComponent(width || 1024) + '&height=' + encodeURIComponent(height || 1024);
+    if (opts.shoot_mode) q += '&shoot_mode=' + encodeURIComponent(opts.shoot_mode);
+    if (opts.space_output_type) q += '&space_output_type=' + encodeURIComponent(opts.space_output_type);
+    if (opts.space_resolution_tier) q += '&space_resolution_tier=' + encodeURIComponent(opts.space_resolution_tier);
+    if (opts.aspect_ratio) q += '&aspect_ratio=' + encodeURIComponent(opts.aspect_ratio);
+    if (opts.shot_count) q += '&shot_count=' + encodeURIComponent(opts.shot_count);
+    if (opts.output_count) q += '&output_count=' + encodeURIComponent(opts.output_count);
     return authHeaders(false).then(function (headers) {
-      var q = '?width=' + encodeURIComponent(width || 1024) + '&height=' + encodeURIComponent(height || 1024);
       return fetch('/api/promo-camera/points-preview' + q, { headers: headers }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, data: data }; });
       });

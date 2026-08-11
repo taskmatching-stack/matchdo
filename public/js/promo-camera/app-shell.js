@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-  window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-20260802f';
+        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-space-res-20260811';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -66,20 +66,58 @@
     obs.observe(el, { attributes: true, attributeFilter: ['class'] });
   }
 
+  function getShootMode() {
+    return (St.get && St.get().shootMode) ? St.get().shootMode : 'product';
+  }
+
+  function syncAppShootModeChrome() {
+    var mode = getShootMode();
+    var title = document.getElementById('pcAppSourceTitle');
+    if (title) {
+      if (mode === 'space') title.textContent = '平面配置圖';
+      else if (mode === 'portrait') title.textContent = '人像參考圖';
+      else title.textContent = t('promoCamera.appSectionSource', '產品圖');
+    }
+    var themeLabel = document.getElementById('pcThemeLabel');
+    if (themeLabel) {
+      themeLabel.textContent = mode === 'portrait' ? '拍攝主題（必填）' : t('promoCamera.theme', '主題');
+    }
+    updateComposeSummary();
+    syncAppPickerLabels();
+  }
+
   function updateComposeSummary() {
     var el = document.getElementById('pcComposeSummary');
     if (!el) return;
     var st = St.get();
+    var mode = st.shootMode || 'product';
     var parts = [];
+
+    if (mode === 'space') {
+      var useSel = document.getElementById('pcSpaceUseType');
+      if (useSel && useSel.selectedIndex >= 0 && useSel.options[useSel.selectedIndex]) {
+        var useLabel = (useSel.options[useSel.selectedIndex].textContent || '').trim();
+        if (useLabel) parts.push(useLabel);
+      }
+      var st = St.get();
+      parts.push(st.width + '×' + st.height);
+      parts.push(st.megapixels + ' MP');
+      el.textContent = parts.join(' · ');
+      el.classList.remove('is-placeholder');
+      return;
+    }
+
     var themeEl = document.getElementById('pcThemeSelect');
     if (themeEl && themeEl.selectedIndex >= 0 && themeEl.options[themeEl.selectedIndex]) {
       var themeLabel = (themeEl.options[themeEl.selectedIndex].textContent || '').trim();
       if (themeLabel) parts.push(themeLabel);
     }
-    var subjectEl = document.getElementById('pcPreserveSubjects');
-    if (subjectEl && subjectEl.selectedIndex >= 0 && subjectEl.options[subjectEl.selectedIndex]) {
-      var subjectLabel = (subjectEl.options[subjectEl.selectedIndex].textContent || '').trim();
-      if (subjectLabel) parts.push(subjectLabel);
+    if (mode === 'product') {
+      var subjectEl = document.getElementById('pcPreserveSubjects');
+      if (subjectEl && subjectEl.selectedIndex >= 0 && subjectEl.options[subjectEl.selectedIndex]) {
+        var subjectLabel = (subjectEl.options[subjectEl.selectedIndex].textContent || '').trim();
+        if (subjectLabel) parts.push(subjectLabel);
+      }
     }
     var ratio = (document.getElementById('pcRatioSelect') || {}).value || st.aspectRatio || '';
     if (ratio) parts.push(ratio);
@@ -181,13 +219,16 @@
   function setupAppFormPickers() {
     renderAppSelectChips('pcRatioSelect', 'pcRatioChips');
     renderAppSelectChips('pcMpSelect', 'pcMpChips');
+    renderAppSelectChips('pcSpaceMpSelect', 'pcSpaceMpChips');
     syncAppPickerLabels();
     var themeBtn = document.getElementById('pcThemePickerBtn');
     var sceneBtn = document.getElementById('pcScenePickerBtn');
     if (themeBtn && themeBtn.getAttribute('data-pc-bound') !== '1') {
       themeBtn.setAttribute('data-pc-bound', '1');
       themeBtn.addEventListener('click', function () {
-        openAppPicker('pcThemeSelect', t('promoCamera.theme', '主題'));
+        var mode = getShootMode();
+        var title = mode === 'portrait' ? '拍攝主題（必填）' : t('promoCamera.theme', '主題');
+        openAppPicker('pcThemeSelect', title);
       });
     }
     if (sceneBtn && sceneBtn.getAttribute('data-pc-bound') !== '1') {
@@ -448,13 +489,39 @@
     });
   }
 
+  function hookSpaceUseSummary() {
+    var sel = document.getElementById('pcSpaceUseType');
+    if (!sel || sel.getAttribute('data-pc-app-summary-bound') === '1') return;
+    sel.setAttribute('data-pc-app-summary-bound', '1');
+    sel.addEventListener('change', updateComposeSummary);
+  }
+
+  function hookShootModeChrome() {
+    ['pcModeProduct', 'pcModeSpace', 'pcModePortrait'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (!btn || btn.getAttribute('data-pc-app-mode-bound') === '1') return;
+      btn.setAttribute('data-pc-app-mode-bound', '1');
+      btn.addEventListener('click', function () {
+        setTimeout(syncAppShootModeChrome, 0);
+      });
+    });
+  }
+
   function hookThumbSummary() {
     var wrap = document.getElementById('pcSelectedThumbs');
-    if (!wrap || typeof MutationObserver === 'undefined') return;
-    var obs = new MutationObserver(function () {
-      updateComposeSummary();
-    });
-    obs.observe(wrap, { childList: true, subtree: true });
+    if (wrap && typeof MutationObserver !== 'undefined') {
+      var obs = new MutationObserver(function () {
+        updateComposeSummary();
+      });
+      obs.observe(wrap, { childList: true, subtree: true });
+    }
+    var spaceWrap = document.getElementById('pcSpaceThumbs');
+    if (spaceWrap && typeof MutationObserver !== 'undefined') {
+      var obs2 = new MutationObserver(function () {
+        updateComposeSummary();
+      });
+      obs2.observe(spaceWrap, { childList: true, subtree: true });
+    }
   }
 
   function waitForThemeOptions(cb) {
@@ -474,12 +541,21 @@
     }, 250);
   }
 
+  window.PromoCameraAppShell = {
+    setComposeExpanded: setComposeExpanded,
+    renderSpaceMpChips: function () {
+      renderAppSelectChips('pcSpaceMpSelect', 'pcSpaceMpChips');
+    }
+  };
+
   function bootAppShell() {
     setupAppLangSwitch();
     syncAppLoginLinks();
     setupGenerateDock();
     setupComposeCollapse();
     hookPreserveSubjectsSummary();
+    hookShootModeChrome();
+    hookSpaceUseSummary();
     setupAppCreditsPanel();
     setupAppAssetLibrary();
     setupAppFormPickers();
@@ -491,6 +567,7 @@
     decorateAngleChips();
     waitForThemeOptions(function () {
       syncAppPickerLabels();
+      syncAppShootModeChrome();
       setupAppFormPickers();
       updateComposeSummary();
       decorateAngleChips();
@@ -505,6 +582,9 @@
   document.addEventListener('matchdo-pc-preset-applied', onPresetApplied);
   document.addEventListener('matchdo-pc-options-ready', function () {
     hookPreserveSubjectsSummary();
+    hookSpaceUseSummary();
+    syncAppShootModeChrome();
+    renderAppSelectChips('pcSpaceMpSelect', 'pcSpaceMpChips');
     updateComposeSummary();
   });
 

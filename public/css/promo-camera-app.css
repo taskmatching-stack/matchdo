@@ -894,3 +894,41 @@ body.pc-app-shell.pc-embed-design.pc-has-generate-dock .pc-app-container {
 body.pc-pwa-install-open.pc-has-generate-dock .pc-generate-dock {
   z-index: 1070;
 }
+
+/* 三模式 Tab（產品／空間／人像） */
+body.pc-app-shell .pc-app-block--modes {
+  margin-bottom: 0.5rem;
+}
+body.pc-app-shell .pc-shoot-mode-tabs {
+  display: flex;
+  width: 100%;
+}
+body.pc-app-shell .pc-shoot-mode-tabs .btn {
+  flex: 1 1 0;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.25rem;
+  white-space: nowrap;
+}
+body.pc-app-shell .pc-space-only.d-none,
+body.pc-app-shell .pc-flux-shoot-only.d-none,
+body.pc-app-shell .pc-product-only.d-none,
+body.pc-app-shell .pc-space-layout-only.d-none,
+body.pc-app-shell .pc-space-eye-only.d-none {
+  display: none !important;
+}
+body.pc-app-shell .pc-portrait-only.d-none {
+  display: none !important;
+}
+body.pc-app-shell .pc-staging-product-only.d-none,
+body.pc-app-shell .pc-space-output-only.d-none,
+body.pc-app-shell .pc-portrait-batch-only.d-none {
+  display: none !important;
+}
+
+body.pc-app-shell .pc-space-compare img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  background: #f8f9fa;
+}

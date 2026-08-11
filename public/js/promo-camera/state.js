@@ -30,6 +30,17 @@
     images: [],
     sourceType: 'upload',
     sourceId: null,
+    shootMode: 'product',
+    spaceOutputType: 'layout_plan',
+    spaceStyleSource: 'prompt',
+    spaceUseType: 'residential',
+    spaceResolutionTier: '2k',
+    spaceZoneIntentKeys: [],
+    floorPlanImage: '',
+    layoutReferenceImage: '',
+    layoutGenerationId: null,
+    styleImage: '',
+    stagingProductImage: '',
     themeKey: '',
     sceneKey: '',
     aspectRatio: '1:1',
@@ -37,6 +48,7 @@
     width: 1024,
     height: 1024,
     userPrompt: '',
+    outputCount: 1,
     camera: {},
     lookMode: 'digital',
     messages: [],
@@ -142,8 +154,11 @@
     state.lookMode = inferLookModeFromCamera();
     applyLookModeDefaults();
     clampApertureToLens();
-    if (data && data.themes && data.themes.length && !state.themeKey) {
-      state.themeKey = data.themes[0].key || '';
+    if (data) {
+      var themes = getThemesForMode(state.shootMode);
+      if (themes.length && !state.themeKey) {
+        state.themeKey = themes[0].key || '';
+      }
     }
   }
 
@@ -229,6 +244,11 @@
   }
 
   function setDims(w, h, ratio, mp) {
+    /* 空間模式禁止被產品 1024 覆寫 */
+    if (state.shootMode === 'space') {
+      applySpaceDimensions(ratio || state.aspectRatio || '1:1', state.spaceResolutionTier || '2k');
+      return;
+    }
     state.width = w;
     state.height = h;
     if (ratio) state.aspectRatio = ratio;
@@ -241,9 +261,21 @@
     return list.some(function (r) { return r.key === key; });
   }
 
+  function getThemesForMode(mode) {
+    if (!state.options) return [];
+    var m = mode || state.shootMode || 'product';
+    if (m === 'portrait') {
+      return state.options.themes_portrait || state.options.themes || [];
+    }
+    if (m === 'product') {
+      return state.options.themes_product || state.options.themes || [];
+    }
+    return state.options.themes || [];
+  }
+
   function themeKeyExists(key) {
-    if (!key || !state.options || !state.options.themes) return false;
-    return state.options.themes.some(function (r) { return r.key === key; });
+    if (!key) return false;
+    return getThemesForMode(state.shootMode).some(function (r) { return r.key === key; });
   }
 
   function sceneKeyExists(key) {
@@ -294,8 +326,238 @@
     });
   }
 
+  function setShootMode(mode) {
+    var m = String(mode || 'product').trim().toLowerCase();
+    if (m === 'space') state.shootMode = 'space';
+    else if (m === 'portrait') state.shootMode = 'portrait';
+    else state.shootMode = 'product';
+
+    if (state.shootMode === 'space') {
+      applySpaceDimensions(state.aspectRatio || '1:1', state.spaceResolutionTier || '2k');
+    } else if (state.width >= 2048 && state.height >= 2048 && state.megapixels >= 4) {
+      state.width = 1024;
+      state.height = 1024;
+      state.aspectRatio = '1:1';
+      state.megapixels = 1;
+    }
+
+    var themes = getThemesForMode(state.shootMode);
+    if (state.shootMode !== 'space' && themes.length) {
+      if (!themes.some(function (t) { return t.key === state.themeKey; })) {
+        state.themeKey = themes[0].key || '';
+      }
+    }
+  }
+
+  function setSpaceStyleSource(src) {
+    state.spaceStyleSource = src === 'image' ? 'image' : 'prompt';
+    if (state.spaceStyleSource === 'prompt') {
+      state.styleImage = '';
+    }
+  }
+
+  function setSpaceUseType(key) {
+    state.spaceUseType = key ? String(key) : 'residential';
+    state.spaceZoneIntentKeys = [];
+  }
+
+  function getSpaceZoneIntentsForUseType(useType) {
+    var opts = state.options || {};
+    var byType = opts.zone_intents_by_type || {};
+    var key = useType || state.spaceUseType || 'residential';
+    if (byType[key] && byType[key].length) return byType[key];
+    if (opts.zone_intents && opts.zone_intents.length) return opts.zone_intents;
+    return [];
+  }
+
+  function setSpaceZoneIntentKeys(keys) {
+    var list = Array.isArray(keys) ? keys : [];
+    state.spaceZoneIntentKeys = list.map(function (k) { return String(k || '').trim(); }).filter(Boolean);
+  }
+
+  function toggleSpaceZoneIntent(key, checked) {
+    var k = String(key || '').trim();
+    if (!k) return;
+    var cur = (state.spaceZoneIntentKeys || []).slice();
+    var idx = cur.indexOf(k);
+    if (checked && idx < 0) cur.push(k);
+    if (!checked && idx >= 0) cur.splice(idx, 1);
+    state.spaceZoneIntentKeys = cur;
+  }
+
+  function normalizeSpaceResolutionTier(raw) {
+    return String(raw || '2k').trim().toLowerCase() === '4k' ? '4k' : '2k';
+  }
+
+  function applySpaceDimensions(ratio, tier) {
+    var Promo = global.MatchdoPromoImage;
+    if (!Promo || typeof Promo.dimsForSpaceRatio !== 'function') {
+      var t = normalizeSpaceResolutionTier(tier);
+      var edge = t === '4k' ? 4096 : 2048;
+      state.width = edge;
+      state.height = edge;
+      state.aspectRatio = ratio || '1:1';
+      state.megapixels = Promo && Promo.megapixelsFromDims
+        ? Promo.megapixelsFromDims(edge, edge)
+        : Math.ceil((edge * edge) / (1024 * 1024));
+      state.spaceResolutionTier = t;
+      return;
+    }
+    var d = Promo.dimsForSpaceRatio(ratio || state.aspectRatio || '1:1', tier || state.spaceResolutionTier);
+    state.width = d.w;
+    state.height = d.h;
+    state.aspectRatio = d.ratio;
+    state.megapixels = d.mp;
+    state.spaceResolutionTier = d.tier || '2k';
+  }
+
+  function setSpaceResolutionTier(tier) {
+    state.spaceResolutionTier = normalizeSpaceResolutionTier(tier);
+    applySpaceDimensions(state.aspectRatio, state.spaceResolutionTier);
+  }
+
+  function setSpaceMegapixels(mp) {
+    var Promo = global.MatchdoPromoImage;
+    var tier = Promo && Promo.spaceTierFromMegapixels
+      ? Promo.spaceTierFromMegapixels(mp)
+      : (parseInt(mp, 10) >= 16 ? '4k' : '2k');
+    setSpaceResolutionTier(tier);
+  }
+
+  function setSpaceAspectRatio(ratio) {
+    state.aspectRatio = ratio || '1:1';
+    applySpaceDimensions(state.aspectRatio, state.spaceResolutionTier);
+  }
+
+  function setFloorPlanImage(url) {
+    state.floorPlanImage = url || '';
+  }
+
+  function setLayoutReference(url, generationId) {
+    state.layoutReferenceImage = url || '';
+    state.layoutGenerationId = generationId ? String(generationId) : null;
+  }
+
+  function clearLayoutReference() {
+    state.layoutReferenceImage = '';
+    state.layoutGenerationId = null;
+  }
+
+  function setSpaceOutputType(type) {
+    state.spaceOutputType = String(type || 'layout_plan').trim().toLowerCase() === 'eye_level' ? 'eye_level' : 'layout_plan';
+  }
+
+  function setOutputCount(n) {
+    state.outputCount = normalizePortraitOutputCount(n);
+  }
+
+  function normalizePortraitOutputCount(n) {
+    var v = parseInt(n, 10);
+    if (!isFinite(v) || v < 1) return 1;
+    return Math.min(4, Math.max(1, v));
+  }
+
+  function setStyleImage(url) {
+    state.styleImage = url || '';
+  }
+
+  function setStagingProductImage(url) {
+    state.stagingProductImage = url || '';
+  }
+
+  function clearStagingProductImage() {
+    state.stagingProductImage = '';
+  }
+
+  function canGenerate() {
+    if (state.generating) return false;
+    if (state.shootMode === 'space') {
+      if (state.spaceOutputType === 'eye_level') {
+        /* 僅缺 ISO 對照圖時禁用；視角／區域改由送出時檢核 */
+        return !!(state.layoutReferenceImage || state.layoutGenerationId);
+      }
+      /* 僅缺平面配置圖時禁用；風格描述改由送出時檢核 */
+      return !!state.floorPlanImage;
+    }
+    if (state.shootMode === 'portrait') {
+      if (!state.images.length) return false;
+      return !!String(state.themeKey || '').trim();
+    }
+    return state.images.length > 0;
+  }
+
   function buildGeneratePayload() {
     applyLookModeDefaults();
+    var clientChannel = 'web';
+    if (document.body && document.body.classList) {
+      if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
+      else if (document.body.classList.contains('pc-app-shell')) clientChannel = 'app';
+    }
+    var showOnHomepage = (global.MatchdoShowOnHomepageControl
+      ? global.MatchdoShowOnHomepageControl.readChecked('pcShowOnHomepage')
+      : true);
+
+    if (state.shootMode === 'space') {
+      applySpaceDimensions(state.aspectRatio || '1:1', state.spaceResolutionTier || '2k');
+      if (state.spaceOutputType === 'eye_level') {
+        applyLookModeDefaults();
+        var camEye = Object.assign({}, state.camera);
+        camEye._look_mode = state.lookMode;
+        var hiddenEye = getUiConfig().ui_hidden_categories || [];
+        hiddenEye.forEach(function (cat) { delete camEye[cat]; });
+        var eyePayload = {
+          shoot_mode: 'space',
+          space_output_type: 'eye_level',
+          space_use_type: state.spaceUseType || 'residential',
+          space_resolution_tier: state.spaceResolutionTier || '2k',
+          layout_generation_id: state.layoutGenerationId || undefined,
+          layout_image: state.layoutReferenceImage || undefined,
+          user_prompt: state.userPrompt || undefined,
+          width: state.width,
+          height: state.height,
+          aspect_ratio: state.aspectRatio,
+          camera: camEye,
+          client_channel: clientChannel,
+          show_on_homepage: showOnHomepage
+        };
+        if (state.stagingProductImage) eyePayload.product_image = state.stagingProductImage;
+        var zoneKeys = (state.spaceZoneIntentKeys || []).slice();
+        if (zoneKeys.length) {
+          eyePayload.view_mode = 'guided';
+          eyePayload.shot_intent_keys = zoneKeys;
+          if (state.userPrompt) eyePayload.user_prompt = state.userPrompt;
+        } else {
+          eyePayload.user_prompt = state.userPrompt || undefined;
+        }
+        return eyePayload;
+      }
+      applyLookModeDefaults();
+      var camSpace = Object.assign({}, state.camera);
+      camSpace._look_mode = state.lookMode;
+      var hiddenSpace = getUiConfig().ui_hidden_categories || [];
+      hiddenSpace.forEach(function (cat) { delete camSpace[cat]; });
+      var spacePayload = {
+        shoot_mode: 'space',
+        space_output_type: state.spaceOutputType || 'layout_plan',
+        space_style_source: state.spaceStyleSource,
+        space_use_type: state.spaceUseType || 'residential',
+        space_resolution_tier: state.spaceResolutionTier || '2k',
+        floor_plan: state.floorPlanImage,
+        style_image: state.spaceStyleSource === 'image' ? state.styleImage : undefined,
+        user_prompt: state.userPrompt || undefined,
+        width: state.width,
+        height: state.height,
+        aspect_ratio: state.aspectRatio,
+        camera: camSpace,
+        client_channel: clientChannel,
+        show_on_homepage: showOnHomepage
+      };
+      if (state.stagingProductImage) {
+        spacePayload.product_image = state.stagingProductImage;
+      }
+      return spacePayload;
+    }
+
     var cam = Object.assign({}, state.camera);
     cam._look_mode = state.lookMode;
     var hidden = getUiConfig().ui_hidden_categories || [];
@@ -305,7 +567,8 @@
       if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
       else if (document.body.classList.contains('pc-app-shell')) clientChannel = 'app';
     }
-    return {
+    var fluxPayload = {
+      shoot_mode: state.shootMode === 'portrait' ? 'portrait' : 'product',
       images: state.images.slice(),
       theme_key: state.themeKey || undefined,
       scene_key: state.sceneKey || undefined,
@@ -313,6 +576,7 @@
       width: state.width,
       height: state.height,
       user_prompt: state.userPrompt || undefined,
+      output_count: state.shootMode === 'portrait' ? normalizePortraitOutputCount(state.outputCount) : 1,
       source_type: state.sourceType,
       source_id: state.sourceId || undefined,
       client_channel: clientChannel,
@@ -321,6 +585,10 @@
         ? global.MatchdoShowOnHomepageControl.readChecked('pcShowOnHomepage')
         : true)
     };
+    if (state.shootMode === 'portrait' && state.stagingProductImage) {
+      fluxPayload.product_image = state.stagingProductImage;
+    }
+    return fluxPayload;
   }
 
   function labelFor(cat, key) {
@@ -360,6 +628,26 @@
     getSubjectPreservationCategory: getSubjectPreservationCategory,
     getCategoryLabel: getCategoryLabel,
     visibleCategories: visibleCategories,
+    getThemesForMode: getThemesForMode,
+    setShootMode: setShootMode,
+    setSpaceStyleSource: setSpaceStyleSource,
+    setSpaceUseType: setSpaceUseType,
+    getSpaceZoneIntentsForUseType: getSpaceZoneIntentsForUseType,
+    setSpaceZoneIntentKeys: setSpaceZoneIntentKeys,
+    toggleSpaceZoneIntent: toggleSpaceZoneIntent,
+    setSpaceResolutionTier: setSpaceResolutionTier,
+    setSpaceMegapixels: setSpaceMegapixels,
+    setSpaceAspectRatio: setSpaceAspectRatio,
+    applySpaceDimensions: applySpaceDimensions,
+    setFloorPlanImage: setFloorPlanImage,
+    setLayoutReference: setLayoutReference,
+    clearLayoutReference: clearLayoutReference,
+    setSpaceOutputType: setSpaceOutputType,
+    setOutputCount: setOutputCount,
+    setStagingProductImage: setStagingProductImage,
+    clearStagingProductImage: clearStagingProductImage,
+    setStyleImage: setStyleImage,
+    canGenerate: canGenerate,
     get: function () { return state; },
     cloneMessages: cloneMessages,
     setOptions: setOptions,

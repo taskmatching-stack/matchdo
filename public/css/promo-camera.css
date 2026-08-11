@@ -285,3 +285,45 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   opacity: 0.65;
   user-select: all;
 }
+
+/* 全站 .btn-primary !important 會蓋掉 Bootstrap disabled 樣式 */
+#promo-camera-app #pcGenerateBtn:disabled,
+#promo-camera-app #pcGenerateBtn.disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  background-color: #7A8FA3 !important;
+  border-color: #7A8FA3 !important;
+  color: #fff !important;
+}
+#promo-camera-app #pcGenerateBtn:not(:disabled) {
+  cursor: pointer;
+  opacity: 1;
+}
+
+.pc-space-compare img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  background: #f8f9fa;
+}
+
+@media (max-width: 767px) {
+  .pc-space-compare .col-md-6 + .col-md-6 {
+    margin-top: 0.5rem;
+  }
+}
+
+.pc-portrait-batch {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.pc-portrait-batch-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0.375rem;
+  cursor: zoom-in;
+}

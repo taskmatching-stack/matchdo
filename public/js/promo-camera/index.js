@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-no-model-names-20260804';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-2kb-20260811';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -231,18 +231,78 @@
   }
 
   function showResultArea(url, data, payload) {
+    if (data && data.batch && Array.isArray(data.results) && data.results.length > 1) {
+      showPortraitBatchResults(data, payload);
+      return;
+    }
     var el = document.getElementById('pcResultArea');
     var panel = getChatPanel();
     if (!el || !url || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
+    var compareRef = (data && data.compare_ref_url) || null;
+    if (!compareRef && payload && payload.shoot_mode === 'space' && payload.space_output_type === 'layout_plan' && St.get().floorPlanImage) {
+      compareRef = St.get().floorPlanImage;
+    }
     var meta = Object.assign({}, data || {}, {
       aspect_ratio: payload.aspect_ratio,
       theme_key: payload.theme_key,
       scene_key: payload.scene_key,
-      user_prompt: payload.user_prompt
+      user_prompt: payload.user_prompt,
+      compare_ref_url: compareRef,
+      compare_ref_label: (data && data.compare_ref_label) || (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖'),
+      compare_result_label: (data && data.compare_result_label) || (payload.space_output_type === 'eye_level' ? '平視攝影' : 'ISO 空間地圖')
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+    if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
+      St.setLayoutReference(data.image_url || url, data.layout_generation_id || data.id || null);
+      renderLayoutRefThumbs();
+    }
+  }
+
+  function showPortraitBatchResults(data, payload) {
+    var el = document.getElementById('pcResultArea');
+    var panel = getChatPanel();
+    if (!el) return;
+    el.classList.remove('d-none');
+    if (panel) panel.classList.add('has-result');
+    var ok = (data.results || []).filter(function (r) { return r.success && (r.image_url || r.imageData); });
+    if (!ok.length) {
+      showResultError('人像套圖生成失敗');
+      return;
+    }
+    el.classList.add('has-result');
+    el.innerHTML = '';
+    var inner = document.createElement('div');
+    inner.className = 'scene-sim-result-inner';
+    var title = document.createElement('p');
+    title.className = 'small text-muted mb-2';
+    title.textContent = '人像套圖 ' + ok.length + ' 張（構圖自動變化；描述欄為共用造型）';
+    inner.appendChild(title);
+    var grid = document.createElement('div');
+    grid.className = 'pc-portrait-batch';
+    ok.forEach(function (r, idx) {
+      var item = document.createElement('div');
+      item.className = 'pc-portrait-batch-item';
+      var label = document.createElement('p');
+      label.className = 'small text-muted mb-1';
+      label.textContent = '第 ' + (r.shot_index || (idx + 1)) + ' 張';
+      var img = document.createElement('img');
+      img.src = r.image_url || r.imageData;
+      img.alt = '人像套圖 ' + (r.shot_index || (idx + 1));
+      img.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger';
+      item.appendChild(label);
+      item.appendChild(img);
+      grid.appendChild(item);
+    });
+    inner.appendChild(grid);
+    if (data.points_deducted != null) {
+      var pts = document.createElement('p');
+      pts.className = 'small text-muted mt-2 mb-0';
+      pts.textContent = '已扣除 ' + data.points_deducted + ' 點';
+      inner.appendChild(pts);
+    }
+    el.appendChild(inner);
   }
 
   function showResultError(msg) {
@@ -259,7 +319,7 @@
     if (!wrap) return;
     var msgs = St.cloneMessages();
     if (!msgs.length) {
-      wrap.innerHTML = '<div class="pc-msg pc-msg-system">' + t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。') + '</div>';
+      wrap.innerHTML = '<div class="pc-msg pc-msg-system">' + chatWelcomeHtml() + '</div>';
       return;
     }
     wrap.innerHTML = msgs.map(function (m) {
@@ -277,6 +337,463 @@
       return html;
     }).join('');
     wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  function getShootMode() {
+    return St.get().shootMode || 'product';
+  }
+
+  function isSpaceMode() {
+    return getShootMode() === 'space';
+  }
+
+  function isPortraitMode() {
+    return getShootMode() === 'portrait';
+  }
+
+  function isFluxShootMode() {
+    return !isSpaceMode();
+  }
+
+  function isSpaceEyeLevel() {
+    return isSpaceMode() && (St.get().spaceOutputType === 'eye_level');
+  }
+
+  function themesForCurrentMode() {
+    return St.getThemesForMode ? St.getThemesForMode(getShootMode()) : ((St.get().options && St.get().options.themes) || []);
+  }
+
+  function chatWelcomeHtml() {
+    if (isSpaceMode()) {
+      if (isSpaceEyeLevel()) {
+        return '請選 <strong>ISO 空間地圖</strong>，勾選<strong>拍攝區域</strong>（每區 1 張），或填寫<strong>明確視角</strong>生成單張平視攝影。';
+      }
+      return '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。';
+    }
+    if (isPortraitMode()) {
+      return '請上傳<strong>一張</strong>人像參考圖，選擇<strong>拍攝主題</strong>（必填），並在描述中調整服裝／髮型。右側可調相機光學參數。';
+    }
+    return t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。');
+  }
+
+  function fillSpaceUseTypes() {
+    var sel = document.getElementById('pcSpaceUseType');
+    var opts = St.get().options;
+    if (!sel || !opts || !opts.space_use_types) return;
+    Promo.fillSelect(sel, opts.space_use_types, 'key', 'name', '');
+    sel.value = St.get().spaceUseType || 'residential';
+  }
+
+  function applySpaceOutputUi() {
+    var space = isSpaceMode();
+    var eye = isSpaceEyeLevel();
+    document.querySelectorAll('.pc-space-layout-only').forEach(function (el) {
+      el.classList.toggle('d-none', !space || eye);
+    });
+    document.querySelectorAll('.pc-space-eye-only').forEach(function (el) {
+      el.classList.toggle('d-none', !space || !eye);
+    });
+    var outLayout = document.getElementById('pcSpaceOutLayout');
+    var outEye = document.getElementById('pcSpaceOutEye');
+    if (outLayout) outLayout.checked = !eye;
+    if (outEye) outEye.checked = eye;
+
+    var promptEl = document.getElementById('pcPromptInput');
+    var hintEl = document.getElementById('pcPromptHint');
+    var promptLabel = document.querySelector('label[for="pcPromptInput"]');
+    var genBtn = document.getElementById('pcGenerateBtn');
+    if (!space) return;
+    if (eye) {
+      if (promptLabel) promptLabel.textContent = '明確視角（未勾區域時必填）';
+      if (promptEl) promptEl.placeholder = '例：站在門口看沙發';
+      if (hintEl) hintEl.textContent = '可勾選上方區域批次；或只填視角生成單張。';
+      if (genBtn) {
+        var spanEye = genBtn.querySelector('span');
+        if (spanEye) spanEye.textContent = '生成平視攝影';
+      }
+    } else {
+      if (promptLabel) promptLabel.textContent = St.get().spaceStyleSource === 'image' ? '補充描述（選填）' : '風格描述';
+      if (promptEl) promptEl.placeholder = promptEl.getAttribute('data-space-placeholder') || '例：莫蘭迪配色';
+      if (hintEl) hintEl.textContent = '';
+      if (genBtn) {
+        var spanLay = genBtn.querySelector('span');
+        if (spanLay) spanLay.textContent = '生成 ISO 空間地圖';
+      }
+      var styleImgRow = document.getElementById('pcSpaceStyleImageRow');
+      if (styleImgRow) styleImgRow.classList.toggle('d-none', St.get().spaceStyleSource !== 'image');
+    }
+    renderLayoutRefThumbs();
+    updateSpaceOutputPanel();
+    refreshSpaceMpSelectLabels();
+    updateGenerateBtn();
+  }
+
+  function syncOutputCountSelects() {
+    var n = String(St.get().outputCount || 1);
+    var portraitEl = document.getElementById('pcPortraitCount');
+    if (portraitEl) portraitEl.value = n;
+  }
+
+  function spacePointsForTier(opts, outputType, tier) {
+    var o = opts || {};
+    var t = String(tier || '2k').toLowerCase() === '4k' ? '4k' : '2k';
+    if (outputType === 'eye_level') {
+      return t === '4k'
+        ? (o.points_space_eye_level_4k != null ? o.points_space_eye_level_4k : 50)
+        : (o.points_space_eye_level != null ? o.points_space_eye_level : 30);
+    }
+    return t === '4k'
+      ? (o.points_space_layout_4k != null ? o.points_space_layout_4k : 50)
+      : (o.points_space_layout != null ? o.points_space_layout : 30);
+  }
+
+  function refreshSpaceMpSelectLabels() {
+    var mpEl = document.getElementById('pcSpaceMpSelect');
+    if (!mpEl) return;
+    var opts = St.get().options || {};
+    var eye = isSpaceEyeLevel();
+    var pts4 = spacePointsForTier(opts, eye ? 'eye_level' : 'layout_plan', '2k');
+    var pts16 = spacePointsForTier(opts, eye ? 'eye_level' : 'layout_plan', '4k');
+    Array.prototype.forEach.call(mpEl.options, function (opt) {
+      if (opt.value === '4') opt.textContent = '4 MP（' + pts4 + ' 點／張）';
+      if (opt.value === '16') opt.textContent = '16 MP（' + pts16 + ' 點／張）';
+    });
+    if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.renderSpaceMpChips === 'function') {
+      window.PromoCameraAppShell.renderSpaceMpChips();
+    }
+  }
+
+  function formatSpaceDimsHint(st) {
+    var opts = St.get().options || {};
+    var outputType = isSpaceEyeLevel() ? 'eye_level' : 'layout_plan';
+    var tier = st.spaceResolutionTier || '2k';
+    var pts = spacePointsForTier(opts, outputType, tier);
+    var dims = Promo && typeof Promo.dimsForSpaceRatio === 'function'
+      ? Promo.dimsForSpaceRatio(st.aspectRatio || '1:1', tier)
+      : { w: st.width, h: st.height, mp: st.megapixels };
+    var mp = dims.mp || (Promo && Promo.spaceMegapixelsFromTier ? Promo.spaceMegapixelsFromTier(tier) : (tier === '4k' ? 16 : 4));
+    return dims.w + '×' + dims.h + ' · ' + mp + ' MP · ' + pts + ' 點／張';
+  }
+
+  function updateSpaceDimsHint() {
+    var ratioEl = document.getElementById('pcSpaceRatioSelect');
+    var mpEl = document.getElementById('pcSpaceMpSelect');
+    var hint = document.getElementById('pcSpaceDimsHint');
+    var ratio = (ratioEl && ratioEl.value) || St.get().aspectRatio || '1:1';
+    var mp = (mpEl && mpEl.value) || '4';
+    St.setSpaceAspectRatio(ratio);
+    St.setSpaceMegapixels(mp);
+    var st = St.get();
+    if (hint) {
+      hint.textContent = formatSpaceDimsHint(st);
+    }
+    refreshSpaceMpSelectLabels();
+    updateSpaceOutputPanel();
+    updatePoints();
+  }
+
+  function syncSpaceResolutionControls() {
+    if (St.applySpaceDimensions) {
+      St.applySpaceDimensions(St.get().aspectRatio || '1:1', St.get().spaceResolutionTier || '2k');
+    }
+    var ratioEl = document.getElementById('pcSpaceRatioSelect');
+    var mpEl = document.getElementById('pcSpaceMpSelect');
+    var st = St.get();
+    if (ratioEl) ratioEl.value = st.aspectRatio || '1:1';
+    if (mpEl) {
+      var mpVal = Promo && Promo.spaceMegapixelsFromTier
+        ? String(Promo.spaceMegapixelsFromTier(st.spaceResolutionTier || '2k'))
+        : (st.spaceResolutionTier === '4k' ? '16' : '4');
+      mpEl.value = mpVal;
+    }
+    var hint = document.getElementById('pcSpaceDimsHint');
+    if (hint) {
+      hint.textContent = formatSpaceDimsHint(st);
+    }
+    refreshSpaceMpSelectLabels();
+  }
+  function updateSpaceEyeBatchHint() {
+    var hint = document.getElementById('pcSpaceEyeBatchHint');
+    if (!hint || !isSpaceEyeLevel()) return;
+    var n = (St.get().spaceZoneIntentKeys || []).length;
+    hint.textContent = '已選 ' + n + ' 區 → ' + n + ' 張';
+  }
+
+  function updateSpaceOutputPanel() {
+    var space = isSpaceMode();
+    document.querySelectorAll('.pc-space-output-only').forEach(function (el) {
+      el.classList.toggle('d-none', !space);
+    });
+    document.querySelectorAll('.pc-space-resolution-only').forEach(function (el) {
+      el.classList.toggle('d-none', !space);
+    });
+    if (!space) return;
+
+    var eye = isSpaceEyeLevel();
+    var opts = St.get().options || {};
+
+    document.querySelectorAll('.pc-space-eye-batch-only').forEach(function (el) {
+      el.classList.toggle('d-none', !eye);
+    });
+
+    var zoneWrap = document.getElementById('pcSpaceZoneIntents');
+    if (eye && zoneWrap) {
+      var zonesList = St.getSpaceZoneIntentsForUseType
+        ? St.getSpaceZoneIntentsForUseType(St.get().spaceUseType)
+        : [];
+      if (zonesList.length) {
+        var selected = St.get().spaceZoneIntentKeys || [];
+        zoneWrap.innerHTML = zonesList.map(function (z) {
+          var key = esc(z.key || '');
+          var name = esc(z.name || z.key || '');
+          var checked = selected.indexOf(z.key) >= 0 ? ' checked' : '';
+          return '<div class="form-check form-check-inline mb-0">' +
+            '<input class="form-check-input pc-space-zone-intent" type="checkbox"' + checked +
+            ' id="pcZone_' + key + '" data-zone-key="' + key + '" />' +
+            '<label class="form-check-label small" for="pcZone_' + key + '">' + name + '</label></div>';
+        }).join('');
+        zoneWrap.querySelectorAll('.pc-space-zone-intent').forEach(function (cb) {
+          cb.addEventListener('change', function () {
+            St.toggleSpaceZoneIntent(cb.getAttribute('data-zone-key'), cb.checked);
+            updateSpaceEyeBatchHint();
+            updateGenerateBtn();
+            updatePoints();
+          });
+        });
+      } else {
+        zoneWrap.innerHTML = '<span class="small text-muted">無區域選項</span>';
+      }
+    }
+    updateSpaceEyeBatchHint();
+    syncSpaceResolutionControls();
+  }
+
+  function updatePortraitBatchUi() {
+    var portrait = isPortraitMode();
+    document.querySelectorAll('.pc-portrait-batch-only').forEach(function (el) {
+      el.classList.toggle('d-none', !portrait);
+    });
+    var hintEl = document.getElementById('pcPortraitCountHint');
+    if (hintEl) hintEl.textContent = '';
+    syncOutputCountSelects();
+  }
+
+  function applyShootModeUi() {
+    var mode = getShootMode();
+    var space = mode === 'space';
+    var portrait = mode === 'portrait';
+    var flux = !space;
+
+    applySpaceOutputUi();
+
+    document.querySelectorAll('.pc-flux-shoot-only').forEach(function (el) {
+      el.classList.toggle('d-none', !flux);
+    });
+    document.querySelectorAll('.pc-product-only').forEach(function (el) {
+      el.classList.toggle('d-none', mode !== 'product');
+    });
+    document.querySelectorAll('.pc-space-only').forEach(function (el) {
+      el.classList.toggle('d-none', !space);
+    });
+    document.querySelectorAll('.pc-portrait-only').forEach(function (el) {
+      el.classList.toggle('d-none', !portrait);
+    });
+    updateSpaceOutputPanel();
+    updatePortraitBatchUi();
+    document.querySelectorAll('.pc-staging-product-only').forEach(function (el) {
+      el.classList.toggle('d-none', !(portrait || space));
+    });
+
+    if (space) {
+      syncSpaceResolutionControls();
+      updateSpaceDimsHint();
+    }
+
+    var prodBtn = document.getElementById('pcModeProduct');
+    var spaceBtn = document.getElementById('pcModeSpace');
+    var portraitBtn = document.getElementById('pcModePortrait');
+    if (prodBtn) prodBtn.classList.toggle('active', mode === 'product');
+    if (spaceBtn) spaceBtn.classList.toggle('active', space);
+    if (portraitBtn) portraitBtn.classList.toggle('active', portrait);
+
+    refreshThemesForMode();
+
+    var uploadLabel = document.getElementById('pcUploadLabel');
+    if (uploadLabel) {
+      uploadLabel.textContent = portrait ? '上傳人像參考圖' : t('promoCamera.uploadImage', '上傳圖片');
+    }
+
+    var themeLabel = document.getElementById('pcThemeLabel');
+    if (themeLabel) {
+      themeLabel.textContent = portrait ? '拍攝主題（必填）' : t('promoCamera.theme', '主題');
+    }
+
+    var promptEl = document.getElementById('pcPromptInput');
+    var hintEl = document.getElementById('pcPromptHint');
+    var promptLabel = document.querySelector('label[for="pcPromptInput"]');
+    if (space) {
+      /* applySpaceOutputUi 已在函式開頭執行 */
+    } else if (portrait) {
+      if (promptLabel) promptLabel.textContent = '描述（服裝／髮型等）';
+      if (promptEl) promptEl.placeholder = '例：白色西裝、俐落短髮、自然妝感';
+      if (hintEl) hintEl.textContent = '';
+      var genBtnP = document.getElementById('pcGenerateBtn');
+      if (genBtnP) {
+        var spanP = genBtnP.querySelector('span');
+        if (spanP) spanP.textContent = t('promoCamera.generateBtn', '拍照');
+      }
+    } else {
+      if (promptLabel) promptLabel.textContent = t('promoCamera.description', '描述');
+      if (promptEl) promptEl.placeholder = t('promoCamera.descriptionPlaceholder', '例：皮革手提包，溫暖午後陽光、柔和陰影');
+      if (hintEl) hintEl.textContent = t('promoCamera.descriptionHint', '請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免誤判品項。');
+      var genBtnD = document.getElementById('pcGenerateBtn');
+      if (genBtnD) {
+        var spanD = genBtnD.querySelector('span');
+        if (spanD) spanD.textContent = t('promoCamera.generateBtn', '拍照');
+      }
+    }
+
+    renderSpaceThumbs();
+    renderStagingProductThumbs();
+    renderSelectedThumbs();
+    updateGenerateBtn();
+    updatePoints();
+    renderMessages();
+
+    if (space && window.PromoCameraAppShell && typeof window.PromoCameraAppShell.setComposeExpanded === 'function') {
+      window.PromoCameraAppShell.setComposeExpanded(true);
+    }
+  }
+
+  function refreshThemesForMode() {
+    if (isSpaceMode()) return;
+    var themes = themesForCurrentMode();
+    var st = St.get();
+    if (themes.length && !themes.some(function (t) { return t.key === st.themeKey; })) {
+      st.themeKey = themes[0].key || '';
+    }
+    fillThemeSceneSelects(themes);
+    var themeEl = document.getElementById('pcThemeSelect');
+    if (themeEl && st.themeKey) themeEl.value = st.themeKey;
+  }
+
+  function setShootMode(mode) {
+    St.setShootMode(mode);
+    if (mode === 'space') {
+      updateSpaceDimsHint();
+    } else {
+      updateDimsHint();
+    }
+    applyShootModeUi();
+    renderMessages();
+  }
+
+  function renderLayoutRefThumbs() {
+    var wrap = document.getElementById('pcLayoutThumbs');
+    if (!wrap) return;
+    if (!isSpaceEyeLevel()) {
+      wrap.innerHTML = '';
+      return;
+    }
+    var url = St.get().layoutReferenceImage;
+    if (!url) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-layout" style="line-height:1;font-size:10px;">×</button>' +
+      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">ISO</span></div>';
+    var rm = wrap.querySelector('.pc-remove-layout');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.clearLayoutReference();
+        renderLayoutRefThumbs();
+        updateGenerateBtn();
+      });
+    }
+  }
+
+  function renderSpaceThumbs() {
+    var wrap = document.getElementById('pcSpaceThumbs');
+    if (!wrap) return;
+    if (!isSpaceMode()) {
+      wrap.innerHTML = '';
+      wrap.classList.add('d-none');
+      return;
+    }
+    wrap.classList.remove('d-none');
+    var fp = St.get().floorPlanImage;
+    if (!fp) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(fp) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-floor" style="line-height:1;font-size:10px;">×</button>' +
+      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">平面</span></div>';
+    var rm = wrap.querySelector('.pc-remove-floor');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.setFloorPlanImage('');
+        renderSpaceThumbs();
+        updateGenerateBtn();
+      });
+    }
+  }
+
+  function renderStyleThumb() {
+    var wrap = document.getElementById('pcStyleThumb');
+    if (!wrap) return;
+    var url = St.get().styleImage;
+    if (!url) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-style" style="line-height:1;font-size:10px;">×</button></div>';
+    var rm = wrap.querySelector('.pc-remove-style');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.setStyleImage('');
+        renderStyleThumb();
+        updateGenerateBtn();
+      });
+    }
+  }
+
+  function renderStagingProductThumbs() {
+    var wrap = document.getElementById('pcStagingProductThumbs');
+    if (!wrap) return;
+    if (!isPortraitMode() && !isSpaceMode()) {
+      wrap.innerHTML = '';
+      return;
+    }
+    var url = St.get().stagingProductImage;
+    if (!url) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-staging-product" style="line-height:1;font-size:10px;">×</button>' +
+      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">產品</span></div>';
+    var rm = wrap.querySelector('.pc-remove-staging-product');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.clearStagingProductImage();
+        renderStagingProductThumbs();
+        updateGenerateBtn();
+      });
+    }
+  }
+
+  function readFileAsDataUrl(file, cb) {
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) { cb(ev.target.result); };
+    reader.readAsDataURL(file);
   }
 
   function renderSelectedThumbs() {
@@ -497,17 +1014,22 @@
     updateLcd();
   }
 
-  function fillThemeSceneSelects() {
+  function fillThemeSceneSelects(themesOverride) {
     var opts = St.get().options;
     if (!opts) return;
+    var themes = themesOverride || themesForCurrentMode();
     var themeEl = document.getElementById('pcThemeSelect');
     var sceneEl = document.getElementById('pcSceneSelect');
-    Promo.fillSelect(themeEl, opts.themes || [], 'key', 'name', '');
+    Promo.fillSelect(themeEl, themes, 'key', 'name', '');
     Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', t('promoCamera.sceneNone', '（不選）'));
     if (themeEl && St.get().themeKey) themeEl.value = St.get().themeKey;
   }
 
   function updateDimsHint() {
+    if (isSpaceMode()) {
+      updateSpaceDimsHint();
+      return;
+    }
     var ratio = document.getElementById('pcRatioSelect');
     var mp = document.getElementById('pcMpSelect');
     var hint = document.getElementById('pcDimsHint');
@@ -535,14 +1057,32 @@
     var el = document.getElementById('pcPointsDisplay');
     if (!el) return;
     var opts = st.options || {};
-    var localEst = Promo.estimatePromoCameraPointsLocal
-      ? Promo.estimatePromoCameraPointsLocal(st.width, st.height, opts)
-      : Promo.estimatePointsLocal(st.width, st.height, opts.points_standard, opts.points_per_extra_mp);
-    el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst });
-    Api.pointsPreview(st.width, st.height).then(function (res) {
+    var previewOpts = {
+      shoot_mode: isSpaceMode() ? 'space' : (isPortraitMode() ? 'portrait' : 'product')
+    };
+    if (isSpaceMode()) {
+      previewOpts.space_output_type = St.get().spaceOutputType || 'layout_plan';
+      previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
+      previewOpts.aspect_ratio = St.get().aspectRatio || '1:1';
+      var zoneCount = (St.get().spaceZoneIntentKeys || []).length;
+      if (isSpaceEyeLevel() && zoneCount > 0) {
+        previewOpts.shot_count = zoneCount;
+      }
+      var spacePts = spacePointsForTier(opts, previewOpts.space_output_type, previewOpts.space_resolution_tier);
+      if (isSpaceEyeLevel() && zoneCount > 0) spacePts = spacePts * zoneCount;
+      el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: spacePts });
+    } else {
+      var localEst = Promo.estimatePromoCameraPointsLocal
+        ? Promo.estimatePromoCameraPointsLocal(st.width, st.height, opts)
+        : Promo.estimatePointsLocal(st.width, st.height, opts.points_standard, opts.points_per_extra_mp);
+      var portraitMul = isPortraitMode() ? Math.max(1, parseInt(St.get().outputCount, 10) || 1) : 1;
+      el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst * portraitMul });
+      if (isPortraitMode()) previewOpts.output_count = St.get().outputCount || 1;
+    }
+    Api.pointsPreview(st.width, st.height, previewOpts).then(function (res) {
       if (res.ok && res.data && res.data.points != null) {
         var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
-        var text = res.data.megapixels
+        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed'
           ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
           : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
         el.textContent = text + note;
@@ -550,10 +1090,18 @@
     });
   }
 
+  function syncPromptFromDom() {
+    var promptEl = document.getElementById('pcPromptInput');
+    if (promptEl) St.get().userPrompt = (promptEl.value || '').trim();
+  }
+
   function updateGenerateBtn() {
     var btn = document.getElementById('pcGenerateBtn');
     if (!btn) return;
-    btn.disabled = St.get().generating || !St.get().images.length;
+    syncPromptFromDom();
+    /* 全站 .btn-primary { background !important } 會蓋掉 Bootstrap disabled 灰色，
+       導致看起來能按、游標卻不變 —— 必須正確切 disabled，並靠下方 CSS 顯示不可點 */
+    btn.disabled = !St.canGenerate();
   }
 
   function onImagesAdded(urls, sourceType, sourceId) {
@@ -566,7 +1114,10 @@
     updateGenerateBtn();
   }
 
-  function openAssetPicker() {
+  var assetPickTarget = 'product';
+
+  function openAssetPicker(target) {
+    assetPickTarget = target || 'product';
     var modalEl = document.getElementById('pcAssetModal');
     if (!modalEl) return;
     showBootstrapModal(modalEl);
@@ -580,42 +1131,198 @@
       }
       return;
     }
-    window.__pcAssetPickerMount = window.MatchdoDigitalAssetPicker.mount({
+    var pickerOpts = {
       tabsEl: document.getElementById('pcAssetPickerTabs'),
       listEl: document.getElementById('pcAssetList'),
       emptyEl: document.getElementById('pcAssetEmpty'),
       loadingEl: document.getElementById('pcAssetLoading'),
+      initialTab: assetPickTarget === 'layout' ? 'promo' : 'designs',
       onPick: function (pick) {
         var u = pick && pick.url;
         if (!u) return;
+        if (assetPickTarget === 'floor') {
+          St.setFloorPlanImage(u);
+          renderSpaceThumbs();
+          updateGenerateBtn();
+          hideBootstrapModal(modalEl);
+          return;
+        }
+        if (assetPickTarget === 'layout') {
+          St.setLayoutReference(u, pick.sourceId || null);
+          renderLayoutRefThumbs();
+          updateGenerateBtn();
+          hideBootstrapModal(modalEl);
+          return;
+        }
+        if (assetPickTarget === 'staging_product') {
+          St.setStagingProductImage(u);
+          renderStagingProductThumbs();
+          updateGenerateBtn();
+          hideBootstrapModal(modalEl);
+          return;
+        }
         var st = pick.sourceType || 'digital_asset';
         var sid = pick.sourceId || null;
         St.clearImages();
         onImagesAdded([u], st === 'custom_product' ? 'custom_product' : 'digital_asset', sid);
         hideBootstrapModal(modalEl);
       }
-    });
+    };
+    if (assetPickTarget === 'layout') {
+      pickerOpts.allowedTabs = ['promo'];
+      pickerOpts.filterItem = function (item) {
+        if (item.asset_kind === 'promo_camera_space_layout') return true;
+        return item.shoot_mode === 'space'
+          && (!item.space_output_type || item.space_output_type === 'layout_plan');
+      };
+    }
+    window.__pcAssetPickerMount = window.MatchdoDigitalAssetPicker.mount(pickerOpts);
   }
 
   function bindEvents() {
     updateBackLink();
     bindPreserveSubjectsSelect();
 
-    document.getElementById('pcUploadInput').addEventListener('change', function (e) {
-      var files = e.target.files;
-      if (!files || !files.length) return;
-      var file = files[0];
-      if (!file.type || file.type.indexOf('image/') !== 0) return;
-      var reader = new FileReader();
-      reader.onload = function (ev) {
-        St.clearImages();
-        onImagesAdded([ev.target.result], 'upload', null);
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
+    var modeProduct = document.getElementById('pcModeProduct');
+    var modeSpace = document.getElementById('pcModeSpace');
+    var modePortrait = document.getElementById('pcModePortrait');
+    if (modeProduct) modeProduct.addEventListener('click', function () { setShootMode('product'); });
+    if (modeSpace) modeSpace.addEventListener('click', function () { setShootMode('space'); });
+    if (modePortrait) modePortrait.addEventListener('click', function () { setShootMode('portrait'); });
+
+    var spaceUseSel = document.getElementById('pcSpaceUseType');
+    if (spaceUseSel) {
+      spaceUseSel.addEventListener('change', function () {
+        St.setSpaceUseType(spaceUseSel.value);
+        updateSpaceOutputPanel();
+        updateGenerateBtn();
+        updatePoints();
+      });
+    }
+
+    document.querySelectorAll('input[name="pcSpaceStyleSource"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        if (!radio.checked) return;
+        St.setSpaceStyleSource(radio.value);
+        applyShootModeUi();
+        updateGenerateBtn();
+      });
     });
 
-    document.getElementById('pcPickAssetBtn').addEventListener('click', openAssetPicker);
+    document.querySelectorAll('input[name="pcSpaceOutputType"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        if (!radio.checked) return;
+        St.setSpaceOutputType(radio.value);
+        applyShootModeUi();
+        renderMessages();
+        updateGenerateBtn();
+        updatePoints();
+      });
+    });
+
+    var pickFloorBtn = document.getElementById('pcPickFloorPlanBtn');
+    if (pickFloorBtn) pickFloorBtn.addEventListener('click', function () { openAssetPicker('floor'); });
+
+    var pickLayoutBtn = document.getElementById('pcPickLayoutBtn');
+    if (pickLayoutBtn) pickLayoutBtn.addEventListener('click', function () { openAssetPicker('layout'); });
+
+    var pickStagingBtn = document.getElementById('pcPickStagingProductBtn');
+    if (pickStagingBtn) pickStagingBtn.addEventListener('click', function () { openAssetPicker('staging_product'); });
+    document.querySelectorAll('.pc-staging-pick-alt').forEach(function (btn) {
+      btn.addEventListener('click', function () { openAssetPicker('staging_product'); });
+    });
+    document.querySelectorAll('.pc-staging-upload-alt').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = document.getElementById('pcStagingProductInput');
+        if (inp) inp.click();
+      });
+    });
+
+    var stagingInput = document.getElementById('pcStagingProductInput');
+    if (stagingInput) {
+      stagingInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          St.setStagingProductImage(url);
+          renderStagingProductThumbs();
+          updateGenerateBtn();
+        });
+        e.target.value = '';
+      });
+    }
+
+    var floorInput = document.getElementById('pcFloorPlanInput');
+    if (floorInput) {
+      floorInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          St.setFloorPlanImage(url);
+          renderSpaceThumbs();
+          updateGenerateBtn();
+        });
+        e.target.value = '';
+      });
+    }
+
+    var layoutRefInput = document.getElementById('pcLayoutRefInput');
+    if (layoutRefInput) {
+      layoutRefInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          St.setLayoutReference(url, null);
+          renderLayoutRefThumbs();
+          updateGenerateBtn();
+        });
+        e.target.value = '';
+      });
+    }
+
+    var styleInput = document.getElementById('pcStyleImageInput');
+    if (styleInput) {
+      styleInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          St.setStyleImage(url);
+          renderStyleThumb();
+          updateGenerateBtn();
+        });
+        e.target.value = '';
+      });
+    }
+
+    var promptInput = document.getElementById('pcPromptInput');
+    if (promptInput) {
+      ['input', 'change', 'blur', 'keyup'].forEach(function (evName) {
+        promptInput.addEventListener(evName, function () {
+          syncPromptFromDom();
+          updateGenerateBtn();
+        });
+      });
+    }
+
+    var uploadInput = document.getElementById('pcUploadInput');
+    if (uploadInput) {
+      uploadInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files.length) return;
+        var file = files[0];
+        if (!file.type || file.type.indexOf('image/') !== 0) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          St.clearImages();
+          onImagesAdded([ev.target.result], 'upload', null);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      });
+    }
+
+    var pickAssetBtn = document.getElementById('pcPickAssetBtn');
+    if (pickAssetBtn) pickAssetBtn.addEventListener('click', function () { openAssetPicker('product'); });
 
     ['pcLookDigital', 'pcLookFilm'].forEach(function (id) {
       var el = document.getElementById(id);
@@ -665,22 +1372,69 @@
       if (!el) return;
       el.addEventListener('change', function () {
         var st = St.get();
-        if (id === 'pcThemeSelect') st.themeKey = el.value;
+        if (id === 'pcThemeSelect') {
+          st.themeKey = el.value;
+          updateGenerateBtn();
+          return;
+        }
         if (id === 'pcSceneSelect') st.sceneKey = el.value;
         updateDimsHint();
       });
     });
 
+    ['pcSpaceRatioSelect', 'pcSpaceMpSelect'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function () {
+        updateSpaceDimsHint();
+        updateGenerateBtn();
+      });
+    });
+
+    var portraitCountEl = document.getElementById('pcPortraitCount');
+    if (portraitCountEl) {
+      portraitCountEl.addEventListener('change', function () {
+        St.setOutputCount(portraitCountEl.value);
+        updatePortraitBatchUi();
+        updateGenerateBtn();
+        updatePoints();
+      });
+    }
+
     document.getElementById('pcGenerateBtn').addEventListener('click', function () {
       var st = St.get();
-      if (!st.images.length || st.generating) return;
-      st.userPrompt = (document.getElementById('pcPromptInput').value || '').trim();
+      syncPromptFromDom();
+      if (!St.canGenerate() || st.generating) return;
+      if (isSpaceMode()) {
+        if (isSpaceEyeLevel()) {
+          var zones = (st.spaceZoneIntentKeys || []).length;
+          if (!zones && !String(st.userPrompt || '').trim()) {
+            showResultError('請勾選拍攝區域，或填寫明確視角（例：站在門口看沙發）');
+            return;
+          }
+        } else if (st.spaceStyleSource === 'image') {
+          if (!st.styleImage) {
+            showResultError('請上傳風格參考圖');
+            return;
+          }
+        } else if (!String(st.userPrompt || '').trim()) {
+          showResultError('請填寫風格描述（例：莫蘭迪配色）');
+          return;
+        }
+      }
       st.generating = true;
       updateGenerateBtn();
       clearResultArea();
       showResultLoading();
-
-      var payload = St.buildGeneratePayload();
+      var payload;
+      try {
+        payload = St.buildGeneratePayload();
+      } catch (err) {
+        st.generating = false;
+        updateGenerateBtn();
+        showResultError((err && err.message) ? err.message : t('promoCamera.generateFailedShort', '生成失敗'));
+        return;
+      }
       Api.generate(payload).then(function (res) {
         st.generating = false;
         updateGenerateBtn();
@@ -724,6 +1478,8 @@
     if (sceneEl) sceneEl.value = st.sceneKey || '';
     if (ratioEl && st.aspectRatio) ratioEl.value = st.aspectRatio;
     if (mpEl && st.megapixels) mpEl.value = String(st.megapixels);
+    var portraitCountEl = document.getElementById('pcPortraitCount');
+    syncOutputCountSelects();
     if (promptEl) promptEl.value = st.userPrompt || '';
     fillCameraSelects();
     renderAngleButtons();
@@ -759,6 +1515,7 @@
     }
     var buildTag = document.getElementById('pcBuildTag');
     if (buildTag) buildTag.textContent = window.__MATCHDO_PROMO_CAMERA_BUILD;
+    St.get().generating = false;
     updateLcd();
     bindEvents();
     initFromQuery();
@@ -767,6 +1524,7 @@
     }
     renderMessages();
     renderAngleButtons();
+    updateGenerateBtn();
     Api.loadOptions(apiLang()).then(function (res) {
       if (!res.ok || !res.data) {
         St.pushMessage('system', t('promoCamera.loadOptionsFailed', '無法載入選項，請確認已登入並執行 docs/add-promo-camera-params.sql'));
@@ -774,18 +1532,26 @@
         return;
       }
       St.setOptions(res.data);
+      fillSpaceUseTypes();
       updatePricingIntro();
+      refreshSpaceMpSelectLabels();
+      syncSpaceResolutionControls();
       fillThemeSceneSelects();
       fillCameraSelects();
       renderAngleButtons();
       fillPreserveSubjectsSelect();
-      updateDimsHint();
+      if (St.get().shootMode === 'space') {
+        updateSpaceDimsHint();
+      } else {
+        updateDimsHint();
+      }
       updateLcd();
       if (res.data.camera_migration_hint) {
         St.pushMessage('system', res.data.camera_migration_hint);
         renderMessages();
       }
       document.dispatchEvent(new CustomEvent('matchdo-pc-options-ready'));
+      applyShootModeUi();
     });
   }
 
