@@ -26,7 +26,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build param-defaults-by-mode-20260811</small></h4>
+        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build param-defaults-mutex-20260811</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -93,7 +93,8 @@
             </div>
           </div>
           <ul class="nav nav-tabs px-3 border-bottom" id="optionCategoryTabs" role="tablist"></ul>
-          <div class="card-body pt-3">
+            <div class="card-body pt-3">
+            <p class="small text-muted mb-2">同一參數 TAB、同一攝影主題（產／空／人）只能有一個預設；儲存後會自動取消其他選項的相同主題預設。</p>
             <div id="groupableHint" class="alert alert-info py-2 small mb-3 d-none">
               此 TAB 需分組：請在上方「分組管理」建立分組，再於新增／編輯選項時選擇分組。
             </div>
@@ -735,7 +736,8 @@
       document.getElementById('addFragment').value = '';
       document.getElementById('addDesc').value = '';
       document.getElementById('addDescEn').value = '';
-      document.getElementById('addDefault').checked = false;
+      applyDefaultModesToForm('add', { default_for_modes: [] });
+      document.getElementById('addActive').checked = true;
       if (activeOptionTab === 'lens') fillApertureCompatChecks('addApertureCompat', null);
       await loadList();
     } finally {
@@ -760,14 +762,7 @@
       }
       showInlineFeedback('editModalFeedback', '✓ 已儲存', true);
       showStatus('已儲存', true);
-      if (d.item) {
-        mergeSavedItem(d.item);
-        applyEditFormFromRow(d.item);
-        renderList();
-        renderGroupList();
-      } else {
-        await loadList();
-      }
+      await loadList();
       setTimeout(function () { closeModal(getEditModal()); }, 450);
     } finally {
       btn.disabled = false;

@@ -18721,6 +18721,44 @@ async function clearPromoCameraDefaultForModesExcept(category, modesToSet, excep
             updated_at: now
         }).eq('id', row.id);
     }
+    await dedupePromoCameraDefaultsInCategory(cat, exceptId || null);
+}
+
+/** 同一 category + 同一主題只保留一筆預設（修復歷史重複或 clear 順序錯誤） */
+async function dedupePromoCameraDefaultsInCategory(category, preferId) {
+    const cat = String(category || '').trim();
+    if (!cat) return;
+    const { data: rows, error } = await supabase.from('promo_camera_param_options')
+        .select('id, meta, is_default, sort_order, key')
+        .eq('category', cat);
+    if (error || !rows || !rows.length) return;
+    const now = new Date().toISOString();
+    for (let mi = 0; mi < PROMO_CAMERA_SHOOT_MODES.length; mi++) {
+        const mode = PROMO_CAMERA_SHOOT_MODES[mi];
+        const holders = rows.filter(function (r) { return isPromoCameraDefaultForMode(r, mode); });
+        if (holders.length <= 1) continue;
+        holders.sort(function (a, b) {
+            if (preferId && String(a.id) === String(preferId)) return -1;
+            if (preferId && String(b.id) === String(preferId)) return 1;
+            const sa = Number(a.sort_order) || 0;
+            const sb = Number(b.sort_order) || 0;
+            if (sa !== sb) return sa - sb;
+            return String(a.key || '').localeCompare(String(b.key || ''));
+        });
+        for (let hi = 1; hi < holders.length; hi++) {
+            const row = holders[hi];
+            let rowModes = getPromoCameraDefaultForModesFromRow(row).filter(function (m) { return m !== mode; });
+            const meta = row.meta && typeof row.meta === 'object' ? Object.assign({}, row.meta) : {};
+            const nextMeta = applyDefaultForModesToMeta(meta, rowModes);
+            await supabase.from('promo_camera_param_options').update({
+                meta: nextMeta,
+                is_default: rowModes.indexOf('product') >= 0,
+                updated_at: now
+            }).eq('id', row.id);
+            row.meta = nextMeta;
+            row.is_default = rowModes.indexOf('product') >= 0;
+        }
+    }
 }
 
 function buildPromoCameraDefaultsForShootMode(cameraParams, categoryKeys, shootMode) {
@@ -18728,7 +18766,14 @@ function buildPromoCameraDefaultsForShootMode(cameraParams, categoryKeys, shootM
     const defaults = {};
     categoryKeys.forEach(function (cat) {
         const list = cameraParams[cat] || [];
-        const def = list.find(function (r) { return isPromoCameraDefaultForMode(r, mode); });
+        const matched = list.filter(function (r) { return isPromoCameraDefaultForMode(r, mode); });
+        matched.sort(function (a, b) {
+            const sa = Number(a.sort_order) || 0;
+            const sb = Number(b.sort_order) || 0;
+            if (sa !== sb) return sa - sb;
+            return String(a.key || '').localeCompare(String(b.key || ''));
+        });
+        const def = matched[0];
         defaults[cat] = def ? def.key : (list[0] ? list[0].key : '');
     });
     return defaults;
@@ -37101,6 +37146,17 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             console.error('GET /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
+        const catsToRepair = category ? [category] : categoryKeys;
+        for (let ci = 0; ci < catsToRepair.length; ci++) {
+            await dedupePromoCameraDefaultsInCategory(catsToRepair[ci], null);
+        }
+        if (catsToRepair.length) {
+            ({ data, error } = await queryPromoCameraParamOptionsList(category, categoryKeys));
+            if (error) {
+                console.error('GET /api/admin/promo-camera-params (re-fetch):', error);
+                return res.status(500).json({ error: '查詢失敗' });
+            }
+        }
         const groupsRes = await fetchPromoCameraParamGroups(false, category || null);
         const groupsIndex = buildPromoCameraGroupsIndex(groupsRes.items || []);
         const enrichedItems = (data || []).map(function (row) {
@@ -37165,9 +37221,6 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
         };
         if (groupResolved) payload.group_id = groupResolved.group_id;
         appendPromoCameraCategoryMultilangFields(payload, body);
-        if (bodyTouchesPromoCameraDefaultModes(body) && defaultModes.length) {
-            await clearPromoCameraDefaultForModesExcept(category, defaultModes, null);
-        }
         let { data, error } = await insertPromoCameraParamOptionRow(payload);
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
@@ -37176,6 +37229,9 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });
             console.error('POST /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '新增失敗' });
+        }
+        if (bodyTouchesPromoCameraDefaultModes(body) && defaultModes.length && data && data.id) {
+            await clearPromoCameraDefaultForModesExcept(category, defaultModes, data.id);
         }
         const groupsResPost = await fetchPromoCameraParamGroups(false, null);
         const groupsIndexPost = buildPromoCameraGroupsIndex(groupsResPost.items || []);
@@ -37246,10 +37302,6 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             const defaultModes = buildPromoCameraDefaultForModesFromBody(body, prevRow || {});
             updates.meta = applyDefaultForModesToMeta(curMeta, defaultModes);
             updates.is_default = defaultModes.indexOf('product') >= 0;
-            const catForClear = updates.category || (prevRow && prevRow.category) || categoryForGroup;
-            if (catForClear && defaultModes.length) {
-                await clearPromoCameraDefaultForModesExcept(catForClear, defaultModes, id);
-            }
         }
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
@@ -37259,6 +37311,15 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             if (error.code === 'PGRST116') return res.status(404).json({ error: '找不到此選項' });
             console.error('PUT /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '更新失敗' });
+        }
+        if (bodyTouchesPromoCameraDefaultModes(body)) {
+            const defaultModesPut = buildPromoCameraDefaultForModesFromBody(body, prevRow || {});
+            const catForClear = updates.category || (prevRow && prevRow.category) || categoryForGroup;
+            if (catForClear && defaultModesPut.length) {
+                await clearPromoCameraDefaultForModesExcept(catForClear, defaultModesPut, id);
+            } else if (catForClear && !defaultModesPut.length) {
+                await dedupePromoCameraDefaultsInCategory(catForClear, null);
+            }
         }
         const groupsResPut = await fetchPromoCameraParamGroups(false, null);
         const groupsIndexPut = buildPromoCameraGroupsIndex(groupsResPut.items || []);

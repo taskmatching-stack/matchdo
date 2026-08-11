@@ -2038,6 +2038,9 @@
         return;
       }
       St.setOptions(res.data);
+      if (!res.data.camera_defaults_by_mode) {
+        St.pushMessage('system', '伺服器版本較舊，無法依產品／空間／人像分別套用參數預設。請重啟本機 Node 或部署含 e3780f3 以後的版本。');
+      }
       fillSpaceUseTypes();
       updatePricingIntro();
       refreshSpaceMpSelectLabels();
