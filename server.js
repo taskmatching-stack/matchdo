@@ -15964,12 +15964,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
         const cameraCategoryKeys = cameraCategoryRows.length
             ? cameraCategoryRows.filter(function (c) { return c.is_active !== false; }).map(function (c) { return c.key; })
             : PROMO_CAMERA_PARAM_CATEGORIES.slice();
-        const cameraDefaults = {};
-        cameraCategoryKeys.forEach(function (cat) {
-            const list = cameraParams[cat] || [];
-            const def = list.find(function (r) { return r.is_default === true; });
-            cameraDefaults[cat] = def ? def.key : (list[0] ? list[0].key : '');
-        });
+        const shootModeNorm = normalizePromoCameraShootMode(shootModeQuery);
+        const cameraDefaultsByMode = buildPromoCameraDefaultsByMode(cameraParams, cameraCategoryKeys);
+        const cameraDefaults = cameraDefaultsByMode[shootModeNorm] || cameraDefaultsByMode.product || {};
 
         const pointsCfg = await getPromoCameraPointsConfig();
         let pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, null);
@@ -15989,6 +15986,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
             scenes,
             camera_params: cameraParams,
             camera_defaults: cameraDefaults,
+            camera_defaults_by_mode: cameraDefaultsByMode,
             camera_categories: cameraCategoryKeys,
             camera_category_defs: cameraCategoryRows,
             camera_ui: cameraUi,
@@ -18611,6 +18609,138 @@ function mergePromoCameraOptionMetaExtras(meta, body) {
     return m;
 }
 
+const PROMO_CAMERA_SHOOT_MODES = ['product', 'space', 'portrait'];
+
+function normalizePromoCameraShootMode(raw) {
+    const m = String(raw || 'product').trim().toLowerCase();
+    if (m === 'space' || m === 'portrait') return m;
+    return 'product';
+}
+
+function getPromoCameraDefaultForModesFromRow(row) {
+    if (!row) return [];
+    const meta = row.meta && typeof row.meta === 'object' ? row.meta : {};
+    let modes = Array.isArray(meta.default_for_modes)
+        ? meta.default_for_modes.map(function (x) { return normalizePromoCameraShootMode(x); })
+            .filter(function (m) { return PROMO_CAMERA_SHOOT_MODES.indexOf(m) >= 0; })
+        : [];
+    modes = modes.filter(function (m, i, arr) { return arr.indexOf(m) === i; });
+    if (!modes.length && row.is_default === true) modes = ['product'];
+    return modes;
+}
+
+function isPromoCameraDefaultForMode(row, shootMode) {
+    return getPromoCameraDefaultForModesFromRow(row).indexOf(normalizePromoCameraShootMode(shootMode)) >= 0;
+}
+
+function applyDefaultForModesToMeta(meta, modes) {
+    const m = meta && typeof meta === 'object' ? Object.assign({}, meta) : {};
+    const list = (modes || []).slice().filter(function (x, i, arr) {
+        return PROMO_CAMERA_SHOOT_MODES.indexOf(x) >= 0 && arr.indexOf(x) === i;
+    });
+    if (list.length) m.default_for_modes = list;
+    else delete m.default_for_modes;
+    return m;
+}
+
+function buildPromoCameraDefaultForModesFromBody(body, prevRow) {
+    const prevModes = getPromoCameraDefaultForModesFromRow(prevRow || {});
+    if (body && body.default_for_modes !== undefined) {
+        const raw = Array.isArray(body.default_for_modes) ? body.default_for_modes : [];
+        return raw.map(function (x) { return normalizePromoCameraShootMode(x); })
+            .filter(function (m, i, arr) { return PROMO_CAMERA_SHOOT_MODES.indexOf(m) >= 0 && arr.indexOf(m) === i; });
+    }
+    if (body && (body.is_default_product !== undefined || body.is_default_space !== undefined || body.is_default_portrait !== undefined)) {
+        let modes = prevModes.slice();
+        if (body.is_default_product !== undefined) {
+            modes = body.is_default_product
+                ? (modes.indexOf('product') >= 0 ? modes : modes.concat(['product']))
+                : modes.filter(function (m) { return m !== 'product'; });
+        }
+        if (body.is_default_space !== undefined) {
+            modes = body.is_default_space
+                ? (modes.indexOf('space') >= 0 ? modes : modes.concat(['space']))
+                : modes.filter(function (m) { return m !== 'space'; });
+        }
+        if (body.is_default_portrait !== undefined) {
+            modes = body.is_default_portrait
+                ? (modes.indexOf('portrait') >= 0 ? modes : modes.concat(['portrait']))
+                : modes.filter(function (m) { return m !== 'portrait'; });
+        }
+        return modes.filter(function (m, i, arr) { return arr.indexOf(m) === i; });
+    }
+    if (body && body.is_default !== undefined) {
+        let modes = prevModes.slice();
+        if (body.is_default) {
+            if (modes.indexOf('product') < 0) modes.push('product');
+        } else {
+            modes = modes.filter(function (m) { return m !== 'product'; });
+        }
+        return modes.filter(function (m, i, arr) { return arr.indexOf(m) === i; });
+    }
+    return prevModes;
+}
+
+function bodyTouchesPromoCameraDefaultModes(body) {
+    if (!body || typeof body !== 'object') return false;
+    return body.default_for_modes !== undefined
+        || body.is_default !== undefined
+        || body.is_default_product !== undefined
+        || body.is_default_space !== undefined
+        || body.is_default_portrait !== undefined;
+}
+
+async function clearPromoCameraDefaultForModesExcept(category, modesToSet, exceptId) {
+    const cat = String(category || '').trim();
+    const modes = (modesToSet || []).filter(function (m) { return PROMO_CAMERA_SHOOT_MODES.indexOf(m) >= 0; });
+    if (!cat || !modes.length) return;
+    const { data: rows, error } = await supabase.from('promo_camera_param_options')
+        .select('id, meta, is_default')
+        .eq('category', cat);
+    if (error || !rows || !rows.length) return;
+    const now = new Date().toISOString();
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (exceptId && String(row.id) === String(exceptId)) continue;
+        let rowModes = getPromoCameraDefaultForModesFromRow(row);
+        let changed = false;
+        modes.forEach(function (mode) {
+            const idx = rowModes.indexOf(mode);
+            if (idx >= 0) {
+                rowModes.splice(idx, 1);
+                changed = true;
+            }
+        });
+        if (!changed) continue;
+        const meta = row.meta && typeof row.meta === 'object' ? Object.assign({}, row.meta) : {};
+        const nextMeta = applyDefaultForModesToMeta(meta, rowModes);
+        await supabase.from('promo_camera_param_options').update({
+            meta: nextMeta,
+            is_default: rowModes.indexOf('product') >= 0,
+            updated_at: now
+        }).eq('id', row.id);
+    }
+}
+
+function buildPromoCameraDefaultsForShootMode(cameraParams, categoryKeys, shootMode) {
+    const mode = normalizePromoCameraShootMode(shootMode);
+    const defaults = {};
+    categoryKeys.forEach(function (cat) {
+        const list = cameraParams[cat] || [];
+        const def = list.find(function (r) { return isPromoCameraDefaultForMode(r, mode); });
+        defaults[cat] = def ? def.key : (list[0] ? list[0].key : '');
+    });
+    return defaults;
+}
+
+function buildPromoCameraDefaultsByMode(cameraParams, categoryKeys) {
+    const out = {};
+    PROMO_CAMERA_SHOOT_MODES.forEach(function (mode) {
+        out[mode] = buildPromoCameraDefaultsForShootMode(cameraParams, categoryKeys, mode);
+    });
+    return out;
+}
+
 function normalizePromoCameraOptionRow(row, groupsById) {
     if (!row) return row;
     let out = Object.assign({}, row);
@@ -18631,6 +18761,7 @@ function normalizePromoCameraOptionRow(row, groupsById) {
     if ((out.description_en == null || out.description_en === '') && meta.description_en) {
         out = Object.assign({}, out, { description_en: String(meta.description_en) });
     }
+    out.default_for_modes = getPromoCameraDefaultForModesFromRow(out);
     return out;
 }
 
@@ -37009,6 +37140,14 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             }
             return res.status(400).json({ error: groupResolved.error });
         }
+        let metaBase = groupResolved
+            ? mergePromoCameraOptionMetaFromGroup(buildPromoCameraOptionMetaFromBody(body, {}), groupResolved.meta)
+            : buildPromoCameraOptionMetaFromBody(body, {});
+        metaBase = mergePromoCameraOptionMetaExtras(metaBase, body);
+        const defaultModes = buildPromoCameraDefaultForModesFromBody(body, null);
+        if (bodyTouchesPromoCameraDefaultModes(body)) {
+            metaBase = applyDefaultForModesToMeta(metaBase, defaultModes);
+        }
         const payload = {
             category,
             key,
@@ -37017,21 +37156,16 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
             prompt_fragment: body.prompt_fragment != null ? String(body.prompt_fragment) : '',
             description: body.description != null ? String(body.description).trim() || null : null,
             description_en: body.description_en != null ? String(body.description_en).trim() || null : null,
-            meta: mergePromoCameraOptionMetaExtras(
-                groupResolved
-                    ? mergePromoCameraOptionMetaFromGroup(buildPromoCameraOptionMetaFromBody(body, {}), groupResolved.meta)
-                    : buildPromoCameraOptionMetaFromBody(body, {}),
-                body
-            ),
+            meta: metaBase,
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
-            is_default: !!body.is_default,
+            is_default: defaultModes.indexOf('product') >= 0,
             updated_at: new Date().toISOString()
         };
         if (groupResolved) payload.group_id = groupResolved.group_id;
         appendPromoCameraCategoryMultilangFields(payload, body);
-        if (payload.is_default) {
-            await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', category);
+        if (bodyTouchesPromoCameraDefaultModes(body) && defaultModes.length) {
+            await clearPromoCameraDefaultForModesExcept(category, defaultModes, null);
         }
         let { data, error } = await insertPromoCameraParamOptionRow(payload);
         if (error) {
@@ -37083,6 +37217,7 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
         if (body.description !== undefined) updates.description = String(body.description || '').trim() || null;
         if (body.description_en !== undefined) updates.description_en = String(body.description_en || '').trim() || null;
         const categoryForGroup = updates.category || (await supabase.from('promo_camera_param_options').select('category').eq('id', id).maybeSingle()).data?.category;
+        const { data: prevRow } = await supabase.from('promo_camera_param_options').select('category, meta, is_default').eq('id', id).maybeSingle();
         const groupResolved = await resolvePromoCameraOptionGroupFields(body, categoryForGroup);
         if (groupResolved && groupResolved.error) {
             if (groupResolved.error === 'MIGRATION_REQUIRED') {
@@ -37103,18 +37238,20 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
             }
             updates.meta = mergePromoCameraOptionMetaExtras(meta, body);
         }
-        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
-        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
-        if (body.is_default !== undefined) {
-            updates.is_default = !!body.is_default;
-            if (updates.is_default) {
-                const { data: cur } = await supabase.from('promo_camera_param_options').select('category').eq('id', id).maybeSingle();
-                const cat = (cur && cur.category) || updates.category;
-                if (cat) {
-                    await supabase.from('promo_camera_param_options').update({ is_default: false }).eq('category', cat).neq('id', id);
-                }
+        if (bodyTouchesPromoCameraDefaultModes(body)) {
+            const curMeta = (updates.meta && typeof updates.meta === 'object')
+                ? updates.meta
+                : ((prevRow && prevRow.meta && typeof prevRow.meta === 'object') ? Object.assign({}, prevRow.meta) : {});
+            const defaultModes = buildPromoCameraDefaultForModesFromBody(body, prevRow || {});
+            updates.meta = applyDefaultForModesToMeta(curMeta, defaultModes);
+            updates.is_default = defaultModes.indexOf('product') >= 0;
+            const catForClear = updates.category || (prevRow && prevRow.category) || categoryForGroup;
+            if (catForClear && defaultModes.length) {
+                await clearPromoCameraDefaultForModesExcept(catForClear, defaultModes, id);
             }
         }
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
         const { data, error } = await updatePromoCameraParamOptionRow(id, updates);
         if (error) {
             if (error.code === '23505') return res.status(400).json({ error: '此 category + key 已存在' });

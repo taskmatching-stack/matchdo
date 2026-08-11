@@ -675,6 +675,10 @@
     } else {
       updateDimsHint();
     }
+    fillCameraSelects();
+    renderAngleButtons();
+    fillPreserveSubjectsSelect();
+    updateLcd();
     applyShootModeUi();
     renderMessages();
   }

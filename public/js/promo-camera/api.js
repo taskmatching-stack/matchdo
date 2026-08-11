@@ -18,8 +18,12 @@
     });
   }
 
-  function loadOptions(lang) {
-    var q = lang ? '?lang=' + encodeURIComponent(String(lang).trim()) : '';
+  function loadOptions(lang, opts) {
+    opts = opts || {};
+    var qParts = [];
+    if (lang) qParts.push('lang=' + encodeURIComponent(String(lang).trim()));
+    if (opts.shoot_mode) qParts.push('shoot_mode=' + encodeURIComponent(String(opts.shoot_mode).trim()));
+    var q = qParts.length ? '?' + qParts.join('&') : '';
     return authHeaders(false).then(function (headers) {
       return fetch('/api/promo-camera/options' + q, { headers: headers, cache: 'no-store' }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });

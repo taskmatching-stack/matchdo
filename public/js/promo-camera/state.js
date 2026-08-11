@@ -122,10 +122,16 @@
     return 'digital';
   }
 
+  function getCameraDefaultsForMode(mode) {
+    var m = mode || state.shootMode || 'product';
+    var byMode = (state.options && state.options.camera_defaults_by_mode) || {};
+    return byMode[m] || (state.options && state.options.camera_defaults) || {};
+  }
+
   function applyLookModeDefaults() {
     var digitalCat = getDigitalLookCategory();
     var filmCat = getFilmLookCategory();
-    var defs = (state.options && state.options.camera_defaults) || {};
+    var defs = getCameraDefaultsForMode();
     var params = (state.options && state.options.camera_params) || {};
     var lensCat = getLensCategory();
     if (state.lookMode === 'film') {
@@ -154,10 +160,19 @@
     delete state.camera.lens_type;
   }
 
+  function applyShootModeCameraDefaults() {
+    var defs = getCameraDefaultsForMode();
+    if (!Object.keys(defs).length && !(state.options && state.options.camera_defaults_by_mode)) return;
+    state.camera = Object.assign({}, defs);
+    state.lookMode = inferLookModeFromCamera();
+    applyLookModeDefaults();
+    clampApertureToLens();
+  }
+
   function setOptions(data) {
     state.options = data || null;
-    if (data && data.camera_defaults) {
-      state.camera = Object.assign({}, data.camera_defaults);
+    if (data && (data.camera_defaults || data.camera_defaults_by_mode)) {
+      state.camera = Object.assign({}, getCameraDefaultsForMode());
     }
     state.lookMode = inferLookModeFromCamera();
     applyLookModeDefaults();
@@ -242,7 +257,7 @@
     if (!filtered.length) return;
     var cur = (state.camera || {}).aperture || '';
     if (filtered.some(function (r) { return r.key === cur; })) return;
-    var defs = (state.options && state.options.camera_defaults) || {};
+    var defs = getCameraDefaultsForMode();
     var prefer = defs.aperture;
     if (prefer && filtered.some(function (r) { return r.key === prefer; })) {
       state.camera.aperture = prefer;
@@ -355,6 +370,7 @@
         state.themeKey = themes[0].key || '';
       }
     }
+    applyShootModeCameraDefaults();
   }
 
   function setSpaceStyleSource(src) {
@@ -772,6 +788,8 @@
     get: function () { return state; },
     cloneMessages: cloneMessages,
     setOptions: setOptions,
+    applyShootModeCameraDefaults: applyShootModeCameraDefaults,
+    getCameraDefaultsForMode: getCameraDefaultsForMode,
     addImage: addImage,
     removeImage: removeImage,
     clearImages: clearImages,

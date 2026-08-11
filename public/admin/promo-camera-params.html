@@ -26,7 +26,7 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build lens-aperture-link-20260805</small></h4>
+        <h4 class="mb-3">商攝導演參數 <small class="text-muted fs-6" id="pageBuildTag">build param-defaults-by-mode-20260811</small></h4>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <div class="card mb-3 d-none" id="groupManageCard">
@@ -61,8 +61,11 @@
               <div class="col-md-2"><label class="form-label small mb-0">英文名</label><input id="addNameEn" class="form-control form-control-sm"></div>
               <div class="col-md-2"><label class="form-label small mb-0">排序</label><input id="addSort" type="number" class="form-control form-control-sm" value="10"></div>
               <div class="col-md-2" id="addGroupCol"><label class="form-label small mb-0">分組</label><select id="addGroupId" class="form-select form-select-sm"><option value="">（無分組）</option></select></div>
-              <div class="col-md-3 d-flex align-items-end gap-3">
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefault"><label class="form-check-label small" for="addDefault">此類預設</label></div>
+              <div class="col-md-5 d-flex align-items-end flex-wrap gap-3">
+                <span class="small text-muted mb-1 w-100">預設（依攝影主題）</span>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefaultProduct"><label class="form-check-label small" for="addDefaultProduct">產品</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefaultSpace"><label class="form-check-label small" for="addDefaultSpace">空間</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="addDefaultPortrait"><label class="form-check-label small" for="addDefaultPortrait">人像</label></div>
                 <div class="form-check"><input class="form-check-input" type="checkbox" id="addActive" checked><label class="form-check-label small" for="addActive">啟用</label></div>
               </div>
               <div class="col-12"><label class="form-label small mb-0">prompt_fragment（英文，進 FLUX）</label><textarea id="addFragment" class="form-control form-control-sm" rows="2"></textarea></div>
@@ -97,7 +100,7 @@
             <div class="table-responsive">
               <table class="table table-sm table-bordered mb-0 align-middle">
                 <thead class="table-light">
-                  <tr><th id="thGroup">分組</th><th>key</th><th>名稱</th><th>EN</th><th>prompt</th><th>預設</th><th>排序</th><th>狀態</th><th></th></tr>
+                  <tr><th id="thGroup">分組</th><th>key</th><th>名稱</th><th>EN</th><th>prompt</th><th>預設（產／空／人）</th><th>排序</th><th>狀態</th><th></th></tr>
                 </thead>
                 <tbody id="listBody"></tbody>
               </table>
@@ -126,8 +129,11 @@
             <div class="col-md-4"><label class="form-label small">英文名</label><input id="editNameEn" class="form-control form-control-sm"></div>
             <div class="col-md-4"><label class="form-label small">排序</label><input id="editSort" type="number" class="form-control form-control-sm"></div>
             <div class="col-md-4" id="editGroupCol"><label class="form-label small">分組</label><select id="editGroupId" class="form-select form-select-sm"><option value="">（無分組）</option></select></div>
-            <div class="col-md-4 d-flex align-items-end gap-3">
-              <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefault"><label class="form-check-label small" for="editDefault">預設</label></div>
+            <div class="col-md-8 d-flex align-items-end flex-wrap gap-3">
+              <span class="small text-muted mb-1 w-100">預設（依攝影主題）</span>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefaultProduct"><label class="form-check-label small" for="editDefaultProduct">產品</label></div>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefaultSpace"><label class="form-check-label small" for="editDefaultSpace">空間</label></div>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="editDefaultPortrait"><label class="form-check-label small" for="editDefaultPortrait">人像</label></div>
               <div class="form-check"><input class="form-check-input" type="checkbox" id="editActive"><label class="form-check-label small" for="editActive">啟用</label></div>
             </div>
             <div class="col-12"><label class="form-label small">prompt_fragment</label><textarea id="editFragment" class="form-control form-control-sm" rows="4"></textarea></div>
@@ -181,6 +187,8 @@
   var CAT_API = '/api/admin/promo-camera-param-categories';
   var GROUP_API = '/api/admin/promo-camera-param-groups';
   var GROUPABLE_KEYS = ['film_simulation', 'lens'];
+  var SHOOT_MODES = ['product', 'space', 'portrait'];
+  var SHOOT_MODE_LABELS = { product: '產', space: '空', portrait: '人' };
   var FALLBACK_CATEGORIES = [
     { key: 'camera_brand', name: '品牌色彩', sort_order: 10, is_active: true, meta: { ui_type: 'dropdown' } },
     { key: 'film_simulation', name: '底片模擬', sort_order: 20, is_active: true, meta: { ui_type: 'dropdown', groupable: true } },
@@ -198,6 +206,31 @@
   var editGroupModal = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+  function defaultModesFromRow(row) {
+    if (!row) return [];
+    if (Array.isArray(row.default_for_modes) && row.default_for_modes.length) return row.default_for_modes.slice();
+    return row.is_default ? ['product'] : [];
+  }
+  function formatDefaultModesCell(row) {
+    var modes = defaultModesFromRow(row);
+    return SHOOT_MODES.map(function (m) {
+      var on = modes.indexOf(m) >= 0;
+      return '<span class="' + (on ? 'text-success fw-semibold' : 'text-muted') + '">' + esc(SHOOT_MODE_LABELS[m]) + (on ? '✓' : '—') + '</span>';
+    }).join(' ');
+  }
+  function readDefaultForModes(prefix) {
+    var modes = [];
+    if (document.getElementById(prefix + 'DefaultProduct').checked) modes.push('product');
+    if (document.getElementById(prefix + 'DefaultSpace').checked) modes.push('space');
+    if (document.getElementById(prefix + 'DefaultPortrait').checked) modes.push('portrait');
+    return modes;
+  }
+  function applyDefaultModesToForm(prefix, row) {
+    var modes = defaultModesFromRow(row);
+    document.getElementById(prefix + 'DefaultProduct').checked = modes.indexOf('product') >= 0;
+    document.getElementById(prefix + 'DefaultSpace').checked = modes.indexOf('space') >= 0;
+    document.getElementById(prefix + 'DefaultPortrait').checked = modes.indexOf('portrait') >= 0;
+  }
   function catMeta(row, k) {
     var m = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
     return m[k];
@@ -507,7 +540,7 @@
         return '<tr>' +
           '<td class="small' + (groupable ? '' : ' d-none') + '">' + esc(g || '—') + (ge ? ('<div class="text-muted">EN: ' + esc(ge) + '</div>') : '') + '</td>' +
           '<td><code>' + esc(row.key) + '</code></td><td>' + esc(row.name) + '</td><td class="small">' + esc(row.name_en || '—') + '</td>' +
-          '<td class="small">' + esc(short) + '</td><td>' + (row.is_default ? '✓' : '') + '</td><td>' + esc(row.sort_order) + '</td>' +
+          '<td class="small">' + esc(short) + '</td><td class="small">' + formatDefaultModesCell(row) + '</td><td>' + esc(row.sort_order) + '</td>' +
           '<td>' + (row.is_active !== false ? '啟用' : '停用') + '</td>' +
           '<td><button type="button" class="btn btn-sm btn-outline-primary btn-edit" data-id="' + esc(row.id) + '">編輯</button> ' +
           '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(row.id) + '">刪</button></td></tr>';
@@ -533,7 +566,7 @@
     document.getElementById('editName').value = row.name || '';
     document.getElementById('editNameEn').value = row.name_en || '';
     document.getElementById('editSort').value = row.sort_order || 0;
-    document.getElementById('editDefault').checked = !!row.is_default;
+    applyDefaultModesToForm('edit', row);
     document.getElementById('editActive').checked = row.is_active !== false;
     document.getElementById('editFragment').value = row.prompt_fragment || '';
     document.getElementById('editDesc').value = row.description || '';
@@ -583,7 +616,7 @@
       description: document.getElementById(prefix + 'Desc').value,
       description_en: document.getElementById(prefix + 'DescEn').value,
       sort_order: parseInt(document.getElementById(prefix + 'Sort').value, 10) || 0,
-      is_default: document.getElementById(prefix + 'Default').checked,
+      default_for_modes: readDefaultForModes(prefix),
       is_active: document.getElementById(prefix + 'Active').checked
     };
     if (isCategoryGroupable(cat)) {
