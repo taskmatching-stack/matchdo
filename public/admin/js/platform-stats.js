@@ -212,7 +212,10 @@
   function renderPromoGrandTotal(summary) {
     if (!summary) return '';
     return '<tr><td class="col-main">總計</td><td class="col-sub"></td>'
-      + numCell(summary.promo_page, 'col-promo-page') + numCell(summary.promo_camera, 'col-promo-camera') + '</tr>';
+      + numCell(summary.promo_page, 'col-promo-page')
+      + numCell(summary.promo_camera_product, 'col-promo-product')
+      + numCell(summary.promo_camera_space, 'col-promo-space')
+      + numCell(summary.promo_camera_portrait, 'col-promo-portrait') + '</tr>';
   }
 
   function renderCountGrandTotal(label, total, colSpan) {
@@ -348,16 +351,19 @@
   }
 
   function hasPromoRowData(row) {
-    return row && (row.promo_page || row.promo_camera);
+    return row && (row.promo_page || row.promo_camera || row.promo_camera_product || row.promo_camera_space || row.promo_camera_portrait);
   }
 
   function promoNumCells(row) {
-    return numCell(row.promo_page, 'col-promo-page') + numCell(row.promo_camera, 'col-promo-camera');
+    return numCell(row.promo_page, 'col-promo-page')
+      + numCell(row.promo_camera_product, 'col-promo-product')
+      + numCell(row.promo_camera_space, 'col-promo-space')
+      + numCell(row.promo_camera_portrait, 'col-promo-portrait');
   }
 
   function renderPromoRows(categories, orphanMode) {
     if (!categories || !categories.length) {
-      return '<tr><td colspan="4" class="text-muted p-2">尚無分類或資料</td></tr>';
+      return '<tr><td colspan="6" class="text-muted p-2">尚無分類或資料</td></tr>';
     }
     var html = [];
     categories.forEach(function (cat) {
@@ -451,12 +457,17 @@
     $('ddRec').textContent = (dd.summary && dd.summary.records != null) ? dd.summary.records : '—';
     $('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
     $('psPromoPage').textContent = (ps.summary && ps.summary.promo_page != null) ? ps.summary.promo_page : '—';
-    $('psPromoCamera').textContent = (ps.summary && ps.summary.promo_camera != null) ? ps.summary.promo_camera : '—';
+    $('psPromoProduct').textContent = (ps.summary && ps.summary.promo_camera_product != null) ? ps.summary.promo_camera_product : '—';
+    $('psPromoSpace').textContent = (ps.summary && ps.summary.promo_camera_space != null) ? ps.summary.promo_camera_space : '—';
+    $('psPromoPortrait').textContent = (ps.summary && ps.summary.promo_camera_portrait != null) ? ps.summary.promo_camera_portrait : '—';
     $('tabMetaVendor').textContent =
       '· 官 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
       + ' / 廠 ' + (vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—');
     $('tabMetaDesign').textContent = '· ' + ((dd.summary && dd.summary.records != null) ? dd.summary.records : '—') + ' 筆';
-    var promoTotal = ((ps.summary && ps.summary.promo_page) || 0) + ((ps.summary && ps.summary.promo_camera) || 0);
+    var promoTotal = ((ps.summary && ps.summary.promo_page) || 0)
+      + ((ps.summary && ps.summary.promo_camera_product) || 0)
+      + ((ps.summary && ps.summary.promo_camera_space) || 0)
+      + ((ps.summary && ps.summary.promo_camera_portrait) || 0);
     $('tabMetaPromo').textContent = '· ' + (promoTotal || '—') + ' 張';
     $('secMetaCategory').textContent =
       '官原型 ' + (vs.official_prototype_records != null ? vs.official_prototype_records : '—')
@@ -498,14 +509,16 @@
         images: sumRowCounts(dd.orphan_categories, 'images')
       }) : '');
     if (ps.promo_table_missing) {
-      $('tblPromo').innerHTML = '<tr><td colspan="4" class="text-muted p-2">表不存在</td></tr>';
+      $('tblPromo').innerHTML = '<tr><td colspan="6" class="text-muted p-2">表不存在</td></tr>';
       setTableFoot('tfootPromo', '');
     } else {
       fillCategoryTable('tblPromo', renderPromoRows(ps.categories, false), 'tfootPromo', renderPromoGrandTotal(ps.summary));
       fillPromoOrphan('orphanPromoWrap', 'tblOrphanPromo', ps.orphan_categories, 'tfootOrphanPromo',
         ps.orphan_categories && ps.orphan_categories.length ? renderPromoGrandTotal({
           promo_page: sumRowCounts(ps.orphan_categories, 'promo_page'),
-          promo_camera: sumRowCounts(ps.orphan_categories, 'promo_camera')
+          promo_camera_product: sumRowCounts(ps.orphan_categories, 'promo_camera_product'),
+          promo_camera_space: sumRowCounts(ps.orphan_categories, 'promo_camera_space'),
+          promo_camera_portrait: sumRowCounts(ps.orphan_categories, 'promo_camera_portrait')
         }) : '');
     }
   }

@@ -27,7 +27,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、商攝導演（網站／App 分開統計）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、商攝導演（網站／App；產品／空間／人像分開統計）</p>
 
         <div class="row g-2 mb-3" id="summaryRow">
           <div class="col-6 col-md-4 col-lg">
@@ -56,13 +56,31 @@
           </div>
           <div class="col-6 col-md-4 col-lg">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">商攝導演（網站）</div>
+              <div class="text-muted small">商攝・產品</div>
+              <div class="stat-num" style="color:#fd7e14" id="sumPromoCameraProduct">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">商攝・空間</div>
+              <div class="stat-num" style="color:#e67e22" id="sumPromoCameraSpace">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">商攝・人像</div>
+              <div class="stat-num" style="color:#d35400" id="sumPromoCameraPortrait">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4 col-lg">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">商攝（網站）</div>
               <div class="stat-num" style="color:#fd7e14" id="sumPromoCameraWeb">—</div>
             </div></div>
           </div>
           <div class="col-6 col-md-4 col-lg">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">商攝導演（App）</div>
+              <div class="text-muted small">商攝（App）</div>
               <div class="stat-num" style="color:#e8590c" id="sumPromoCameraApp">—</div>
             </div></div>
           </div>
@@ -80,6 +98,9 @@
                   <option value="embed">Embed</option>
                   <option value="promo">情境圖</option>
                   <option value="promo_camera">商攝導演（全部）</option>
+                  <option value="promo_camera_product">商攝・產品攝影</option>
+                  <option value="promo_camera_space">商攝・空間攝影</option>
+                  <option value="promo_camera_portrait">商攝・人像攝影</option>
                   <option value="promo_camera_web">商攝導演（網站）</option>
                   <option value="promo_camera_app">商攝導演（App）</option>
                 </select>
@@ -210,8 +231,14 @@
 
     function sourceBadge(row) {
       if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
-      if (row.source === 'promo_camera_app') return '<span class="badge badge-promo-camera-app">攝影 App</span>';
-      if (row.source === 'promo_camera_web') return '<span class="badge badge-promo-camera-web">攝影 網站</span>';
+      if (row.source === 'promo_camera_app') {
+        var appLabel = row.shoot_mode_label ? ('商攝・' + row.shoot_mode_label + ' App') : '攝影 App';
+        return '<span class="badge badge-promo-camera-app">' + esc(appLabel) + '</span>';
+      }
+      if (row.source === 'promo_camera_web') {
+        var webLabel = row.shoot_mode_label ? ('商攝・' + row.shoot_mode_label + ' 網站') : '攝影 網站';
+        return '<span class="badge badge-promo-camera-web">' + esc(webLabel) + '</span>';
+      }
       if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera-web">商攝導演</span>';
       if (row.source === 'promo') return '<span class="badge badge-promo">情境圖</span>';
       return '<span class="badge badge-site">主站</span>';
@@ -262,6 +289,9 @@
       document.getElementById('sumSite').textContent = summary.filtered ? '—' : String(summary.site != null ? summary.site : '—');
       document.getElementById('sumEmbed').textContent = summary.filtered ? '—' : String(summary.embed != null ? summary.embed : '—');
       document.getElementById('sumPromo').textContent = summary.filtered ? '—' : String(summary.promo != null ? summary.promo : '—');
+      document.getElementById('sumPromoCameraProduct').textContent = summary.filtered ? '—' : String(summary.promo_camera_product != null ? summary.promo_camera_product : '—');
+      document.getElementById('sumPromoCameraSpace').textContent = summary.filtered ? '—' : String(summary.promo_camera_space != null ? summary.promo_camera_space : '—');
+      document.getElementById('sumPromoCameraPortrait').textContent = summary.filtered ? '—' : String(summary.promo_camera_portrait != null ? summary.promo_camera_portrait : '—');
       document.getElementById('sumPromoCameraWeb').textContent = summary.filtered ? '—' : String(summary.promo_camera_web != null ? summary.promo_camera_web : '—');
       document.getElementById('sumPromoCameraApp').textContent = summary.filtered ? '—' : String(summary.promo_camera_app != null ? summary.promo_camera_app : '—');
       document.getElementById('summaryFilteredHint').classList.toggle('d-none', !summary.filtered);
@@ -331,6 +361,12 @@
         html += '<dt class="col-sm-3">帳號</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id || '—') + '</dd>';
         if (row.source === 'promo_camera_web' || row.source === 'promo_camera_app' || row.source === 'promo_camera') {
           html += '<dt class="col-sm-3">入口</dt><dd class="col-sm-9">' + esc(row.client_channel || (row.source === 'promo_camera_app' ? 'app' : 'web')) + '</dd>';
+          if (row.shoot_mode_label) {
+            html += '<dt class="col-sm-3">攝影模式</dt><dd class="col-sm-9">' + esc(row.shoot_mode_label) + '</dd>';
+          }
+          if (row.space_output_type) {
+            html += '<dt class="col-sm-3">空間輸出</dt><dd class="col-sm-9">' + esc(row.space_output_type) + '</dd>';
+          }
         }
         html += '<dt class="col-sm-3">主題</dt><dd class="col-sm-9">' + esc(row.scene_template_key || '—') + '</dd>' +
           '<dt class="col-sm-3">場景</dt><dd class="col-sm-9">' + esc(row.scene_key || '—') + '</dd>' +

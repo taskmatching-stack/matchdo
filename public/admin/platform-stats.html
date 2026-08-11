@@ -54,10 +54,10 @@
     .table-cat-stats .col-num { width: 8.75%; }
     .table-cat-stats .col-promo-page { border-right: 2px solid #adb5bd !important; }
     .table-cat-stats.table-promo-stats th.col-main,
-    .table-cat-stats.table-promo-stats td.col-main { width: 18%; }
+    .table-cat-stats.table-promo-stats td.col-main { width: 14%; }
     .table-cat-stats.table-promo-stats th.col-sub,
-    .table-cat-stats.table-promo-stats td.col-sub { width: 34%; }
-    .table-cat-stats.table-promo-stats .col-num { width: 24%; }
+    .table-cat-stats.table-promo-stats td.col-sub { width: 22%; }
+    .table-cat-stats.table-promo-stats .col-num { width: 11%; }
     .table-cat-stats .col-group-end { border-right: 2px solid #adb5bd !important; }
     .col-num { text-align: right; white-space: nowrap; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
     .col-num-group { text-align: center; font-size: 0.75rem; border-bottom: 0 !important; }
@@ -224,13 +224,23 @@
             <div class="panel-head">
               <span class="ph-title">情境圖</span>
               <span class="ph-nums text-muted">成功且有結果圖；依生成入口</span>
-              <span class="ph-nums">情境圖頁 <strong id="psPromoPage">—</strong>｜商攝導演 <strong id="psPromoCamera">—</strong></span>
+              <span class="ph-nums">情境圖頁 <strong id="psPromoPage">—</strong>｜產品 <strong id="psPromoProduct">—</strong>｜空間 <strong id="psPromoSpace">—</strong>｜人像 <strong id="psPromoPortrait">—</strong></span>
             </div>
             <div class="stats-table-wrap">
               <table class="table table-sm table-hover mb-0 table-cat-stats table-promo-stats">
-                <thead class="table-light"><tr>
-                  <th class="col-main">主分類</th><th class="col-sub">子分類</th><th class="col-num col-promo-page">情境圖頁</th><th class="col-num col-promo-camera">商攝導演</th>
-                </tr></thead>
+                <thead class="table-light">
+                  <tr>
+                    <th class="col-main" rowspan="2">主分類</th>
+                    <th class="col-sub" rowspan="2">子分類</th>
+                    <th class="col-num col-promo-page" rowspan="2">情境圖頁</th>
+                    <th class="col-num-group" colspan="3">商攝導演</th>
+                  </tr>
+                  <tr>
+                    <th class="col-num col-promo-product">產品</th>
+                    <th class="col-num col-promo-space">空間</th>
+                    <th class="col-num col-promo-portrait">人像</th>
+                  </tr>
+                </thead>
                 <tbody id="tblPromo"></tbody>
                 <tfoot id="tfootPromo"></tfoot>
               </table>
@@ -348,6 +358,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
-  <script src="/admin/js/platform-stats.js?v=20260811-subcats"></script>
+  <script src="/admin/js/platform-stats.js?v=20260811-promo-shoot-modes"></script>
 </body>
 </html>
