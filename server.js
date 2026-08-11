@@ -347,7 +347,7 @@ async function getPointsPromoSpaceEyeLevelGemini(userId, tier) {
     return fallback;
 }
 
-/** 空間 Gemini：僅送鏡頭／曝光；排除 shooting_angle（keep_reference 會鎖定參考圖 ISO 視角）與 subject_preservation */
+/** 空間平視 Gemini：與產品相同組裝鏡頭／曝光／底片 fragments（. 串接）；不含拍攝角度／人物 */
 async function buildPromoSpaceEyeLevelCameraBlock(cameraKeys) {
     const raw = cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {};
     const filtered = Object.assign({}, raw);
@@ -356,7 +356,14 @@ async function buildPromoSpaceEyeLevelCameraBlock(cameraKeys) {
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
     const cam = await resolvePromoCameraPromptFragments(filtered, cameraUi);
-    return (cam.fragments || []).filter(Boolean).join(' ');
+    const parts = (cam.fragments || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean);
+    const block = parts.join('. ');
+    if (!block) {
+        console.warn('[promo-space eye_level] cameraBlock empty; keys=', Object.keys(filtered));
+    } else {
+        console.log('[promo-space eye_level] cameraBlock chars=', block.length, 'parts=', parts.length);
+    }
+    return block;
 }
 
 async function buildPromoSpaceLayoutCameraBlock(cameraKeys) {
@@ -368,8 +375,11 @@ async function resolvePromoSpaceEyeLevelReferences(body, userId) {
     const b = body && typeof body === 'object' ? body : {};
     const layoutGenId = String(b.layout_generation_id || b.layout_id || '').trim();
     let layoutUrl = String(b.layout_image || b.layout_reference || '').trim();
+    const hasClientLayoutImage = !!layoutUrl;
     let layoutMeta = null;
     let inheritedSpaceUse = null;
+    /** 入庫用：僅保留原圖 URL；有字母的合成圖（data URL）不當資產存 */
+    let layoutPersistUrl = null;
 
     if (layoutGenId) {
         const { data: row, error } = await supabase
@@ -380,9 +390,15 @@ async function resolvePromoSpaceEyeLevelReferences(body, userId) {
         if (error || !row || String(row.user_id) !== String(userId)) {
             return { error: '找不到 ISO 空間地圖，請從數位資產重新選擇' };
         }
-        layoutUrl = String(row.result_image_url || '').trim();
+        layoutPersistUrl = String(row.result_image_url || '').trim() || null;
+        /* 前端已標字母的 layout_image 優先給 Gemini；否則用資產庫原圖 */
+        if (!hasClientLayoutImage) {
+            layoutUrl = layoutPersistUrl || '';
+        }
         layoutMeta = parsePromoGenerationMetaJson(row.generation_meta_json);
         inheritedSpaceUse = layoutMeta.space_use_type || null;
+    } else if (layoutUrl && !/^data:/i.test(layoutUrl)) {
+        layoutPersistUrl = layoutUrl;
     }
     if (!layoutUrl) {
         return { error: '請選擇或生成 ISO 空間地圖作為對照參考' };
@@ -395,21 +411,49 @@ async function resolvePromoSpaceEyeLevelReferences(body, userId) {
     const viewMode = String(b.view_mode || '').trim().toLowerCase();
     const guided = shotKeys.length > 0 || viewMode === 'guided';
     const viewpoint = String(b.user_prompt || b.prompt || b.viewpoint || '').trim();
-    if (!guided && !viewpoint) {
-        return { error: '請填寫拍攝視角（例：站在門口望向客廳）' };
-    }
+    const lookFrom = String(b.look_from || b.from || 'B').trim().toUpperCase();
+    const lookTo = String(b.look_to || b.to || 'C').trim().toUpperCase();
     let stagingProduct = null;
     const prodResolved = await resolvePromoStagingProductImage(b);
     if (prodResolved && prodResolved.error) return { error: prodResolved.error };
     if (prodResolved && prodResolved.base64) stagingProduct = prodResolved;
     return {
         layoutImage: { base64: layoutB64, mime: mimeFromPromoImageRef(layoutUrl) },
-        layoutUrl,
+        layoutUrl: layoutPersistUrl || null,
         layoutGenerationId: layoutGenId || null,
         layoutMeta,
         inheritedSpaceUse,
         viewpoint,
+        lookFrom,
+        lookTo,
+        mapMarkers: b.map_markers && typeof b.map_markers === 'object' ? b.map_markers : null,
+        usedLabeledMap: hasClientLayoutImage && /^data:/i.test(String(b.layout_image || b.layout_reference || '')),
         stagingProduct
+    };
+}
+
+/** 空間生圖：Interactions API（response_format.image_size）；需 @google/genai >= 2 */
+async function generatePromoSpaceImageViaInteractions(model, promptText, imageRefs, geminiOpts) {
+    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    const input = promoSpaceGemini.buildPromoSpaceInteractionsInput(promptText, imageRefs);
+    console.log('[promo-space interactions] model=', model, 'response_format=', JSON.stringify(responseFormat), 'refs=', input.length - 1);
+    const interaction = await runInGeminiImageQueue(() => genAI.interactions.create({
+        model,
+        input,
+        response_format: responseFormat
+    }));
+    const oi = interaction && interaction.output_image;
+    if (!oi || !oi.data) {
+        throw new Error('Gemini Interactions 未回傳圖片');
+    }
+    const buffer = Buffer.from(String(oi.data), 'base64');
+    if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
+    return {
+        buffer,
+        mime: oi.mime_type || oi.mimeType || 'image/jpeg',
+        response_format: responseFormat,
+        api: 'interactions'
     };
 }
 
@@ -420,25 +464,39 @@ async function generatePromoSpaceEyeLevelImageWithGemini(layoutImage, promptText
     const prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('平視攝影提示詞為空');
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
-    const minEdge = opts.minEdge || promoSpaceGemini.minEdgeForSpaceTier(opts.tier);
     const model = await getPromoSpaceEyeLevelModelName();
-    const parts = [
-        { inlineData: { mimeType: layoutImage.mime || 'image/jpeg', data: layoutImage.base64 } }
-    ];
+    /* 文字在前，再地圖／道具（Interactions multimodal） */
+    const imageRefs = [{ base64: layoutImage.base64, mime: layoutImage.mime || 'image/jpeg' }];
     if (stagingProduct && stagingProduct.base64) {
-        parts.push({ inlineData: { mimeType: stagingProduct.mime || 'image/jpeg', data: stagingProduct.base64 } });
+        imageRefs.push({ base64: stagingProduct.base64, mime: stagingProduct.mime || 'image/jpeg' });
     }
-    parts.push({ text: prompt });
-    const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
-        model,
-        contents: [{ role: 'user', parts }],
-        config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
-    }));
-    const extracted = await extractLargestGeminiResponseImageBuffer(result);
-    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
-        throw new Error('Gemini 未回傳平視攝影圖，請稍後重試');
+    let extracted;
+    let apiUsed = 'interactions';
+    let responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    try {
+        extracted = await generatePromoSpaceImageViaInteractions(model, prompt, imageRefs, opts);
+        responseFormat = extracted.response_format || responseFormat;
+    } catch (interErr) {
+        console.warn('[promo-space eye_level] interactions failed, fallback generateContent:', interErr && interErr.message);
+        apiUsed = 'generateContent';
+        const parts = [{ text: prompt }];
+        parts.push({ inlineData: { mimeType: layoutImage.mime || 'image/jpeg', data: layoutImage.base64 } });
+        if (stagingProduct && stagingProduct.base64) {
+            parts.push({ inlineData: { mimeType: stagingProduct.mime || 'image/jpeg', data: stagingProduct.base64 } });
+        }
+        const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
+            model,
+            contents: [{ role: 'user', parts }],
+            config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
+        }));
+        const hit = await extractLargestGeminiResponseImageBuffer(result);
+        if (!hit || !hit.buffer || !hit.buffer.length) {
+            throw interErr;
+        }
+        extracted = { buffer: hit.buffer, response_format: responseFormat };
     }
-    return promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
+    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
         extracted.buffer,
         opts.targetWidth || opts.width,
         opts.targetHeight || opts.height,
@@ -447,6 +505,13 @@ async function generatePromoSpaceEyeLevelImageWithGemini(layoutImage, promptText
             aspect_ratio: opts.aspectRatio || opts.aspect_ratio
         }
     );
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: responseFormat,
+        api: apiUsed
+    };
 }
 
 function mimeFromPromoImageRef(ref) {
@@ -522,28 +587,46 @@ async function generatePromoSpaceLayoutImageWithGemini(floorPlan, styleImage, pr
     const prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('空間配置提示詞為空');
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
-    const minEdge = opts.minEdge || promoSpaceGemini.minEdgeForSpaceTier(opts.tier);
     const model = await getPromoSpaceLayoutModelName();
-    const parts = [
-        { inlineData: { mimeType: floorPlan.mime || 'image/jpeg', data: floorPlan.base64 } }
-    ];
+    const imageRefs = [{ base64: floorPlan.base64, mime: floorPlan.mime || 'image/jpeg' }];
     if (styleImage && styleImage.base64) {
-        parts.push({ inlineData: { mimeType: styleImage.mime || 'image/jpeg', data: styleImage.base64 } });
+        imageRefs.push({ base64: styleImage.base64, mime: styleImage.mime || 'image/jpeg' });
     }
     if (stagingProduct && stagingProduct.base64) {
-        parts.push({ inlineData: { mimeType: stagingProduct.mime || 'image/jpeg', data: stagingProduct.base64 } });
+        imageRefs.push({ base64: stagingProduct.base64, mime: stagingProduct.mime || 'image/jpeg' });
     }
-    parts.push({ text: prompt });
-    const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
-        model,
-        contents: [{ role: 'user', parts }],
-        config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
-    }));
-    const extracted = await extractLargestGeminiResponseImageBuffer(result);
-    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
-        throw new Error('Gemini 未回傳 ISO 空間配置圖，請稍後重試');
+    let extracted;
+    let apiUsed = 'interactions';
+    let responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    try {
+        extracted = await generatePromoSpaceImageViaInteractions(model, prompt, imageRefs, opts);
+        responseFormat = extracted.response_format || responseFormat;
+    } catch (interErr) {
+        console.warn('[promo-space layout] interactions failed, fallback generateContent:', interErr && interErr.message);
+        apiUsed = 'generateContent';
+        const parts = [
+            { inlineData: { mimeType: floorPlan.mime || 'image/jpeg', data: floorPlan.base64 } }
+        ];
+        if (styleImage && styleImage.base64) {
+            parts.push({ inlineData: { mimeType: styleImage.mime || 'image/jpeg', data: styleImage.base64 } });
+        }
+        if (stagingProduct && stagingProduct.base64) {
+            parts.push({ inlineData: { mimeType: stagingProduct.mime || 'image/jpeg', data: stagingProduct.base64 } });
+        }
+        parts.push({ text: prompt });
+        const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
+            model,
+            contents: [{ role: 'user', parts }],
+            config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
+        }));
+        const hit = await extractLargestGeminiResponseImageBuffer(result);
+        if (!hit || !hit.buffer || !hit.buffer.length) {
+            throw interErr;
+        }
+        extracted = { buffer: hit.buffer, response_format: responseFormat };
     }
-    return promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
+    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
         extracted.buffer,
         opts.targetWidth || opts.width,
         opts.targetHeight || opts.height,
@@ -552,6 +635,13 @@ async function generatePromoSpaceLayoutImageWithGemini(floorPlan, styleImage, pr
             aspect_ratio: opts.aspectRatio || opts.aspect_ratio
         }
     );
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: responseFormat,
+        api: apiUsed
+    };
 }
 
 function normalizePortraitOutputCount(raw) {
@@ -1006,11 +1096,16 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
     let cameraBlock = '';
     try {
         cameraBlock = await buildPromoSpaceEyeLevelCameraBlock(cameraKeys);
-    } catch (_) { cameraBlock = ''; }
+    } catch (camErr) {
+        console.warn('[promo-space eye_level] cameraBlock build failed:', camErr && camErr.message);
+        cameraBlock = '';
+    }
     let finalPrompt;
     try {
         finalPrompt = promoSpaceGemini.buildPromoSpaceEyeLevelExplicitGeminiPrompt({
             viewpoint: userPrompt,
+            look_from: eyeRefs.lookFrom,
+            look_to: eyeRefs.lookTo,
             spaceUseType,
             cameraBlock,
             width: w,
@@ -1023,8 +1118,12 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
     }
     let buffer;
+    let geminiNativeWidth = 0;
+    let geminiNativeHeight = 0;
+    let imageConfigSent = null;
+    let apiUsed = null;
     try {
-        buffer = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
+        const gen = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
             tier: spaceResTier,
             aspectRatio,
             minEdge,
@@ -1032,6 +1131,11 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
             targetHeight: h,
             aspect_ratio: aspectRatio
         });
+        buffer = gen && gen.buffer;
+        geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
+        geminiNativeHeight = (gen && gen.gemini_native_height) || 0;
+        imageConfigSent = (gen && gen.image_config) || null;
+        apiUsed = (gen && gen.api) || null;
     } catch (geminiErr) {
         console.error('promo-camera space eye_level Gemini:', geminiErr);
         return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
@@ -1078,6 +1182,10 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         space_use_type: spaceUseType,
         layout_generation_id: eyeRefs.layoutGenerationId || null,
         layout_reference_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
+        labeled_map_ephemeral: true,
+        look_from: eyeRefs.lookFrom || null,
+        look_to: eyeRefs.lookTo || null,
+        map_markers: eyeRefs.mapMarkers || null,
         image_provider: 'gemini',
         gemini_model: geminiModel,
         reference_count: 1 + (eyeRefs.stagingProduct && eyeRefs.stagingProduct.base64 ? 1 : 0),
@@ -1142,6 +1250,13 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         height: h,
         output_width: measured.width || w,
         output_height: measured.height || h,
+        gemini_native_width: geminiNativeWidth,
+        gemini_native_height: geminiNativeHeight,
+        image_config: imageConfigSent,
+        gemini_api: apiUsed,
+        camera_block: cameraBlock || null,
+        aspect_ratio: aspectRatio,
+        final_prompt: finalPrompt,
         megapixels: promoImageMegapixelsFromResolution(w, h),
         reference_count: 1,
         generation_mode: 'camera_advanced',
@@ -1228,6 +1343,8 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
                 intentKey,
                 zoneLabel: zoneRow.name,
                 intentBrief: zoneRow.intent_brief,
+                look_from: eyeRefs.lookFrom,
+                look_to: eyeRefs.lookTo,
                 supplement,
                 cameraBlock,
                 width: w,
@@ -1241,8 +1358,10 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             continue;
         }
         let buffer;
+        let geminiNativeWidth = 0;
+        let geminiNativeHeight = 0;
         try {
-            buffer = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
+            const gen = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
                 tier: spaceResTier,
                 aspectRatio,
                 minEdge,
@@ -1250,6 +1369,9 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
                 targetHeight: h,
                 aspect_ratio: aspectRatio
             });
+            buffer = gen && gen.buffer;
+            geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
+            geminiNativeHeight = (gen && gen.gemini_native_height) || 0;
         } catch (geminiErr) {
             console.error('promo-camera space eye_level batch Gemini:', geminiErr);
             results.push({ success: false, intent_key: intentKey, zone_name: zoneRow.name, error: geminiErr.message || '生成失敗' });
@@ -1299,6 +1421,10 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             shot_intent_key: intentKey,
             layout_generation_id: eyeRefs.layoutGenerationId || null,
             layout_reference_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
+            labeled_map_ephemeral: true,
+            look_from: eyeRefs.lookFrom || null,
+            look_to: eyeRefs.lookTo || null,
+            map_markers: eyeRefs.mapMarkers || null,
             image_provider: 'gemini',
             gemini_model: geminiModel,
             aspect_ratio: aspectRatio,
@@ -1346,6 +1472,10 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             height: h,
             output_width: measured.width || w,
             output_height: measured.height || h,
+            gemini_native_width: geminiNativeWidth,
+            gemini_native_height: geminiNativeHeight,
+            aspect_ratio: aspectRatio,
+            final_prompt: finalPrompt,
             shot_index_in_set: i,
             compare_ref_url: eyeRefs.layoutUrl || null,
             compare_ref_label: 'ISO 空間地圖',
@@ -1463,8 +1593,12 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
     }
 
     let buffer;
+    let geminiNativeWidth = 0;
+    let geminiNativeHeight = 0;
+    let imageConfigSent = null;
+    let apiUsed = null;
     try {
-        buffer = await generatePromoSpaceLayoutImageWithGemini(refs.floorPlan, refs.styleImage, finalPrompt, refs.stagingProduct, {
+        const gen = await generatePromoSpaceLayoutImageWithGemini(refs.floorPlan, refs.styleImage, finalPrompt, refs.stagingProduct, {
             tier: spaceResTier,
             aspectRatio,
             minEdge,
@@ -1472,6 +1606,11 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
             targetHeight: h,
             aspect_ratio: aspectRatio
         });
+        buffer = gen && gen.buffer;
+        geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
+        geminiNativeHeight = (gen && gen.gemini_native_height) || 0;
+        imageConfigSent = (gen && gen.image_config) || null;
+        apiUsed = (gen && gen.api) || null;
     } catch (geminiErr) {
         console.error('promo-camera space Gemini:', geminiErr);
         return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
@@ -1592,6 +1731,10 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
         height: h,
         output_width: measuredLayout.width || w,
         output_height: measuredLayout.height || h,
+        gemini_native_width: geminiNativeWidth,
+        gemini_native_height: geminiNativeHeight,
+        image_config: imageConfigSent,
+        gemini_api: apiUsed,
         megapixels: promoImageMegapixelsFromResolution(w, h),
         reference_count: generationMeta.reference_count,
         generation_mode: 'camera_advanced',

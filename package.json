@@ -12,7 +12,7 @@
     "test:media-wall-queries": "node scripts/test-media-wall-queries.js"
   },
   "dependencies": {
-    "@google/genai": "^1.42.0",
+    "@google/genai": "^2.16.0",
     "@google/generative-ai": "^0.24.1",
     "@paypal/checkout-server-sdk": "^1.0.3",
     "@supabase/supabase-js": "^2.39.7",

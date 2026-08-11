@@ -10,10 +10,12 @@
 
 | 項目 | 狀態 |
 |------|------|
-| **eye_level prompt** | 主訴求句固定：`***{視角}***，***捨棄原圖視角***，…{區}***商業攝影圖***`；**可附加** `鏡頭與曝光：…`（官網加鏡頭OK）。禁止刪 ***／捨棄原圖視角。 |
-| **解析度 1024 根因（官網）** | Gemini 圖**預設 1K＝1024×1024**；須 `imageConfig.imageSize: "2K"`（**K 大寫**）。未生效＝1024。見 [image-generation](https://ai.google.dev/gemini-api/docs/image-generation)。本機另以 sharp 強制 ≥2048。 |
+| **eye_level prompt（凍結）** | `***捨棄原圖ISO視角***，***禁止俯視圖***，解讀這個地圖後幫我重繪呈現***人在此場景內從{from}看向{to}的低視角***，視角內的格局和結構不能和原圖衝突，室內設計用的商業攝影圖，***不需要任何文字和標註***`；其後可接 `，鏡頭與曝光：…`。禁止改 *** 範圍。 |
+| **解析度** | **Interactions API**（需 `@google/genai` **≥2.0**，現 **2.16**）：`response_format: { type:'image', aspect_ratio, image_size:'2K' }`。舊 1.x SDK 的 Interactions 會 400。sharp 仍作硬保險。 |
 | **送出鈕修法** | ① click 先同步 textarea→`userPrompt` 再 `canGenerate`；② guided 批次後端不再強制要視角文案 |
 | **平視可測** | 可 **上傳 ISO 地圖**（不依賴資產庫已有 layout） |
+| **地圖標註** | 打字母 → 選站點／望向 → 按**確定標註**才算選完；之後才可生成。字母＝區域，已移除「拍攝區域」勾選。 |
+| **線上 PWA 空間平視** | `promo-camera-app.html` 已補地圖標註／確定鈕／上傳 ISO；與共用 `index.js`／`state.js` 對齊。build：`promo-camera-app-eye-mark-20260811`。Store L4 需再跑 `sync-www`。 |
 | **尚需瀏覽器** | checklist #2～#4；Node 須已載入本輪 `server.js` |
 
 **本機重啟指令（PowerShell）：**

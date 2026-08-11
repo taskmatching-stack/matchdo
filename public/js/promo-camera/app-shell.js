@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-space-res-20260811';
+        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-eye-mark-20260811';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -73,9 +73,11 @@
   function syncAppShootModeChrome() {
     var mode = getShootMode();
     var title = document.getElementById('pcAppSourceTitle');
+    var st = St.get ? St.get() : {};
     if (title) {
-      if (mode === 'space') title.textContent = '平面配置圖';
-      else if (mode === 'portrait') title.textContent = '人像參考圖';
+      if (mode === 'space') {
+        title.textContent = (st.spaceOutputType === 'eye_level') ? 'ISO 空間地圖' : '平面配置圖';
+      } else if (mode === 'portrait') title.textContent = '人像參考圖';
       else title.textContent = t('promoCamera.appSectionSource', '產品圖');
     }
     var themeLabel = document.getElementById('pcThemeLabel');
@@ -99,7 +101,10 @@
         var useLabel = (useSel.options[useSel.selectedIndex].textContent || '').trim();
         if (useLabel) parts.push(useLabel);
       }
-      var st = St.get();
+      parts.push(st.spaceOutputType === 'eye_level' ? '平視' : 'ISO');
+      if (st.spaceOutputType === 'eye_level' && st.spaceMapMarkConfirmed) {
+        parts.push((st.spaceLookFrom || '?') + '→' + (st.spaceLookTo || '?'));
+      }
       parts.push(st.width + '×' + st.height);
       parts.push(st.megapixels + ' MP');
       el.textContent = parts.join(' · ');
@@ -502,6 +507,13 @@
       if (!btn || btn.getAttribute('data-pc-app-mode-bound') === '1') return;
       btn.setAttribute('data-pc-app-mode-bound', '1');
       btn.addEventListener('click', function () {
+        setTimeout(syncAppShootModeChrome, 0);
+      });
+    });
+    document.querySelectorAll('input[name="pcSpaceOutputType"]').forEach(function (radio) {
+      if (radio.getAttribute('data-pc-app-space-out-bound') === '1') return;
+      radio.setAttribute('data-pc-app-space-out-bound', '1');
+      radio.addEventListener('change', function () {
         setTimeout(syncAppShootModeChrome, 0);
       });
     });

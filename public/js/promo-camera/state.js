@@ -39,6 +39,12 @@
     floorPlanImage: '',
     layoutReferenceImage: '',
     layoutGenerationId: null,
+    spaceMapMarkers: {},
+    spaceMarkActiveLetter: 'A',
+    spaceLookFrom: 'B',
+    spaceLookTo: 'C',
+    spaceLabeledLayoutImage: '',
+    spaceMapMarkConfirmed: false,
     styleImage: '',
     stagingProductImage: '',
     themeKey: '',
@@ -436,11 +442,90 @@
   function setLayoutReference(url, generationId) {
     state.layoutReferenceImage = url || '';
     state.layoutGenerationId = generationId ? String(generationId) : null;
+    state.spaceMapMarkers = {};
+    state.spaceLabeledLayoutImage = '';
+    state.spaceMapMarkConfirmed = false;
   }
 
   function clearLayoutReference() {
     state.layoutReferenceImage = '';
     state.layoutGenerationId = null;
+    state.spaceMapMarkers = {};
+    state.spaceLabeledLayoutImage = '';
+    state.spaceMapMarkConfirmed = false;
+  }
+
+  function setSpaceMarkActiveLetter(letter) {
+    var L = String(letter || '').trim().toUpperCase();
+    if (/^[A-Z]$/.test(L)) state.spaceMarkActiveLetter = L;
+  }
+
+  function invalidateSpaceMapMarkConfirm() {
+    state.spaceMapMarkConfirmed = false;
+    state.spaceLabeledLayoutImage = '';
+  }
+
+  function setSpaceMapMarker(letter, nx, ny) {
+    var L = String(letter || '').trim().toUpperCase();
+    if (!/^[A-Z]$/.test(L)) return;
+    var x = Math.max(0, Math.min(1, Number(nx)));
+    var y = Math.max(0, Math.min(1, Number(ny)));
+    if (!isFinite(x) || !isFinite(y)) return;
+    var next = Object.assign({}, state.spaceMapMarkers);
+    next[L] = { x: x, y: y };
+    state.spaceMapMarkers = next;
+    invalidateSpaceMapMarkConfirm();
+    /* 自動對齊站點／望向到已標字母 */
+    var keys = Object.keys(next);
+    if (keys.length === 1) {
+      state.spaceLookFrom = keys[0];
+    } else if (keys.length >= 2) {
+      if (!next[state.spaceLookFrom]) state.spaceLookFrom = keys[0];
+      if (!next[state.spaceLookTo] || state.spaceLookTo === state.spaceLookFrom) {
+        state.spaceLookTo = keys.find(function (k) { return k !== state.spaceLookFrom; }) || keys[1];
+      }
+    }
+  }
+
+  function clearSpaceMapMarkers() {
+    state.spaceMapMarkers = {};
+    state.spaceMarkActiveLetter = 'A';
+    invalidateSpaceMapMarkConfirm();
+  }
+
+  function setSpaceLookFrom(letter) {
+    var L = String(letter || '').trim().toUpperCase();
+    if (/^[A-Z]$/.test(L)) {
+      state.spaceLookFrom = L;
+      invalidateSpaceMapMarkConfirm();
+    }
+  }
+
+  function setSpaceLookTo(letter) {
+    var L = String(letter || '').trim().toUpperCase();
+    if (/^[A-Z]$/.test(L)) {
+      state.spaceLookTo = L;
+      invalidateSpaceMapMarkConfirm();
+    }
+  }
+
+  function setSpaceLabeledLayoutImage(url) {
+    state.spaceLabeledLayoutImage = url || '';
+  }
+
+  function setSpaceMapMarkConfirmed(ok) {
+    state.spaceMapMarkConfirmed = !!ok;
+  }
+
+  function hasSpaceLookMarkers() {
+    var from = state.spaceLookFrom || 'B';
+    var to = state.spaceLookTo || 'C';
+    var m = state.spaceMapMarkers || {};
+    return !!(m[from] && m[to] && from !== to);
+  }
+
+  function isSpaceMapMarkConfirmed() {
+    return !!state.spaceMapMarkConfirmed && hasSpaceLookMarkers() && !!state.spaceLabeledLayoutImage;
   }
 
   function setSpaceOutputType(type) {
@@ -473,8 +558,8 @@
     if (state.generating) return false;
     if (state.shootMode === 'space') {
       if (state.spaceOutputType === 'eye_level') {
-        /* 僅缺 ISO 對照圖時禁用；視角／區域改由送出時檢核 */
-        return !!(state.layoutReferenceImage || state.layoutGenerationId);
+        /* ISO 地圖 + 已按「確定標註」 */
+        return !!(state.layoutReferenceImage || state.layoutGenerationId) && isSpaceMapMarkConfirmed();
       }
       /* 僅缺平面配置圖時禁用；風格描述改由送出時檢核 */
       return !!state.floorPlanImage;
@@ -505,13 +590,18 @@
         camEye._look_mode = state.lookMode;
         var hiddenEye = getUiConfig().ui_hidden_categories || [];
         hiddenEye.forEach(function (cat) { delete camEye[cat]; });
+        delete camEye.shooting_angle;
+        delete camEye.subject_preservation;
         var eyePayload = {
           shoot_mode: 'space',
           space_output_type: 'eye_level',
           space_use_type: state.spaceUseType || 'residential',
           space_resolution_tier: state.spaceResolutionTier || '2k',
           layout_generation_id: state.layoutGenerationId || undefined,
-          layout_image: state.layoutReferenceImage || undefined,
+          layout_image: state.spaceLabeledLayoutImage || state.layoutReferenceImage || undefined,
+          look_from: state.spaceLookFrom || 'B',
+          look_to: state.spaceLookTo || 'C',
+          map_markers: state.spaceMapMarkers || undefined,
           user_prompt: state.userPrompt || undefined,
           width: state.width,
           height: state.height,
@@ -521,14 +611,7 @@
           show_on_homepage: showOnHomepage
         };
         if (state.stagingProductImage) eyePayload.product_image = state.stagingProductImage;
-        var zoneKeys = (state.spaceZoneIntentKeys || []).slice();
-        if (zoneKeys.length) {
-          eyePayload.view_mode = 'guided';
-          eyePayload.shot_intent_keys = zoneKeys;
-          if (state.userPrompt) eyePayload.user_prompt = state.userPrompt;
-        } else {
-          eyePayload.user_prompt = state.userPrompt || undefined;
-        }
+        /* 字母標註＝區域；不再送區域批次勾選 */
         return eyePayload;
       }
       applyLookModeDefaults();
@@ -536,6 +619,8 @@
       camSpace._look_mode = state.lookMode;
       var hiddenSpace = getUiConfig().ui_hidden_categories || [];
       hiddenSpace.forEach(function (cat) { delete camSpace[cat]; });
+      delete camSpace.shooting_angle;
+      delete camSpace.subject_preservation;
       var spacePayload = {
         shoot_mode: 'space',
         space_output_type: state.spaceOutputType || 'layout_plan',
@@ -642,6 +727,15 @@
     setFloorPlanImage: setFloorPlanImage,
     setLayoutReference: setLayoutReference,
     clearLayoutReference: clearLayoutReference,
+    setSpaceMarkActiveLetter: setSpaceMarkActiveLetter,
+    setSpaceMapMarker: setSpaceMapMarker,
+    clearSpaceMapMarkers: clearSpaceMapMarkers,
+    setSpaceLookFrom: setSpaceLookFrom,
+    setSpaceLookTo: setSpaceLookTo,
+    setSpaceLabeledLayoutImage: setSpaceLabeledLayoutImage,
+    setSpaceMapMarkConfirmed: setSpaceMapMarkConfirmed,
+    hasSpaceLookMarkers: hasSpaceLookMarkers,
+    isSpaceMapMarkConfirmed: isSpaceMapMarkConfirmed,
     setSpaceOutputType: setSpaceOutputType,
     setOutputCount: setOutputCount,
     setStagingProductImage: setStagingProductImage,

@@ -119,14 +119,14 @@
               <p class="form-text small text-muted mb-0"><code>/pattern-extract/</code> 圖樣提取（<code>gemini_model_pattern_extract</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX（<code>bfl_flux_model_scene_pattern</code>）。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">商攝・空間 ISO 配置圖</label>
+              <label class="form-label small mb-1">空間攝影・ISO 空間地圖</label>
               <input type="text" id="aiConfigGeminiModelPromoSpaceLayout" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
-              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 <code>layout_plan</code>（<code>gemini_model_promo_space_layout</code>）。預設 <code>gemini-3-pro-image</code>；解析度由前台 tier 經官方 <code>imageConfig.imageSize</code>（<code>2K</code>／<code>4K</code>）送出；點數見會員管理→點數規則。</p>
+              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 tab → <code>layout_plan</code>。<code>payment_config.gemini_model_promo_space_layout</code>；未存則預設 <code>gemini-3-pro-image</code>。解析度走 Interactions <code>response_format.image_size</code>（2K／4K）。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">商攝・空間切換視角（P1）</label>
+              <label class="form-label small mb-1">空間攝影・平視攝影（對照 ISO）</label>
               <input type="text" id="aiConfigGeminiModelPromoSpaceEyeLevel" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
-              <p class="form-text small text-muted mb-0">空間 <code>eye_level</code>（<code>gemini_model_promo_space_eye_level</code>）。可與 ISO 分模型；<code>imageSize</code>／點數同上。</p>
+              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 tab → <code>eye_level</code>。<code>payment_config.gemini_model_promo_space_eye_level</code>；可與 ISO 分模型；未存則預設 <code>gemini-3-pro-image</code>。</p>
             </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
@@ -341,8 +341,8 @@
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       if (s.gemini_model_print_asset) parts.push('印花');
       if (s.gemini_model_pattern_extract) parts.push('圖樣提取');
-      if (s.gemini_model_promo_space_layout) parts.push('空間ISO');
-      if (s.gemini_model_promo_space_eye_level) parts.push('空間平視');
+      if (s.gemini_model_promo_space_layout) parts.push('空間攝影ISO');
+      if (s.gemini_model_promo_space_eye_level) parts.push('空間攝影平視');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyEngineConfigToForm(data);
@@ -565,7 +565,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存：組合Lite「' + (data.gemini_model_material_combo_lite || payload.gemini_model_material_combo_lite) + '」，組合Flash「' + (data.gemini_model_material_combo_flash || payload.gemini_model_material_combo_flash) + '」，印花「' + (data.gemini_model_print_asset || payload.gemini_model_print_asset) + '」，圖樣提取「' + (data.gemini_model_pattern_extract || payload.gemini_model_pattern_extract) + '」');
+      showMsg('已儲存 Gemini 模型（含空間攝影 ISO／平視：' + (data.gemini_model_promo_space_layout || payload.gemini_model_promo_space_layout) + '／' + (data.gemini_model_promo_space_eye_level || payload.gemini_model_promo_space_eye_level) + '）');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

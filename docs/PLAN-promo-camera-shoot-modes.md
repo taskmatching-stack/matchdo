@@ -1124,7 +1124,7 @@ runInGeminiImageQueue(() => genAI.models.generateContent({
 | 前台 Gemini／FLUX／4K | **2K**、`ISO 空間地圖`、`平視攝影`、點數 |
 | 空間 1～4 張下拉 | layout：**無張數**；eye：**區域勾選數**（P1） |
 | 空間張數放在 `pc-flux-shoot-only` | 空間用 `pc-space-output-only`；人像張數在 `pc-portrait-batch-only` |
-| layout_plan 顯示相機 | 隱藏 `pc-camera-shell`；eye_level 才顯示 |
+| layout_plan 顯示相機 | 空間模式一律顯示右側相機殼；**不**顯示產品拍攝角度／人物按鈕 |
 
 ### 14.4 部署檢查
 

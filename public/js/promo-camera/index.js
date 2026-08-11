@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-2kb-20260811';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-space-eye-cam-20260811';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -255,8 +255,15 @@
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
     if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
-      St.setLayoutReference(data.image_url || url, data.layout_generation_id || data.id || null);
-      renderLayoutRefThumbs();
+      var layoutSrc = data.image_url || url;
+      var layoutGenId = data.layout_generation_id || data.id || null;
+      ensureLayoutImageDataUrl(layoutSrc).then(function (dataUrl) {
+        St.setLayoutReference(dataUrl, layoutGenId);
+        renderLayoutRefThumbs();
+      }).catch(function () {
+        St.setLayoutReference(layoutSrc, layoutGenId);
+        renderLayoutRefThumbs();
+      });
     }
   }
 
@@ -366,7 +373,7 @@
   function chatWelcomeHtml() {
     if (isSpaceMode()) {
       if (isSpaceEyeLevel()) {
-        return '請選 <strong>ISO 空間地圖</strong>，勾選<strong>拍攝區域</strong>（每區 1 張），或填寫<strong>明確視角</strong>生成單張平視攝影。';
+        return '請選 <strong>ISO 空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。';
       }
       return '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。';
     }
@@ -404,13 +411,15 @@
     var genBtn = document.getElementById('pcGenerateBtn');
     if (!space) return;
     if (eye) {
-      if (promptLabel) promptLabel.textContent = '明確視角（未勾區域時必填）';
-      if (promptEl) promptEl.placeholder = '例：站在門口看沙發';
-      if (hintEl) hintEl.textContent = '可勾選上方區域批次；或只填視角生成單張。';
+      if (promptLabel) promptLabel.textContent = '補充描述（選填）';
+      if (promptEl) promptEl.placeholder = '選填';
+      if (hintEl) hintEl.textContent = '打字母→確定標註→右側調相機參數→生成。相機參數會組進提示詞（鏡頭／光圈／EV／底片）。';
       if (genBtn) {
         var spanEye = genBtn.querySelector('span');
         if (spanEye) spanEye.textContent = '生成平視攝影';
       }
+      renderSpaceMapMarkStage();
+      syncSpaceMarkConfirmUi();
     } else {
       if (promptLabel) promptLabel.textContent = St.get().spaceStyleSource === 'image' ? '補充描述（選填）' : '風格描述';
       if (promptEl) promptEl.placeholder = promptEl.getAttribute('data-space-placeholder') || '例：莫蘭迪配色';
@@ -513,10 +522,7 @@
     refreshSpaceMpSelectLabels();
   }
   function updateSpaceEyeBatchHint() {
-    var hint = document.getElementById('pcSpaceEyeBatchHint');
-    if (!hint || !isSpaceEyeLevel()) return;
-    var n = (St.get().spaceZoneIntentKeys || []).length;
-    hint.textContent = '已選 ' + n + ' 區 → ' + n + ' 張';
+    /* 區域批次已移除：字母＝區域 */
   }
 
   function updateSpaceOutputPanel() {
@@ -529,42 +535,9 @@
     });
     if (!space) return;
 
-    var eye = isSpaceEyeLevel();
-    var opts = St.get().options || {};
-
     document.querySelectorAll('.pc-space-eye-batch-only').forEach(function (el) {
-      el.classList.toggle('d-none', !eye);
+      el.classList.add('d-none');
     });
-
-    var zoneWrap = document.getElementById('pcSpaceZoneIntents');
-    if (eye && zoneWrap) {
-      var zonesList = St.getSpaceZoneIntentsForUseType
-        ? St.getSpaceZoneIntentsForUseType(St.get().spaceUseType)
-        : [];
-      if (zonesList.length) {
-        var selected = St.get().spaceZoneIntentKeys || [];
-        zoneWrap.innerHTML = zonesList.map(function (z) {
-          var key = esc(z.key || '');
-          var name = esc(z.name || z.key || '');
-          var checked = selected.indexOf(z.key) >= 0 ? ' checked' : '';
-          return '<div class="form-check form-check-inline mb-0">' +
-            '<input class="form-check-input pc-space-zone-intent" type="checkbox"' + checked +
-            ' id="pcZone_' + key + '" data-zone-key="' + key + '" />' +
-            '<label class="form-check-label small" for="pcZone_' + key + '">' + name + '</label></div>';
-        }).join('');
-        zoneWrap.querySelectorAll('.pc-space-zone-intent').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            St.toggleSpaceZoneIntent(cb.getAttribute('data-zone-key'), cb.checked);
-            updateSpaceEyeBatchHint();
-            updateGenerateBtn();
-            updatePoints();
-          });
-        });
-      } else {
-        zoneWrap.innerHTML = '<span class="small text-muted">無區域選項</span>';
-      }
-    }
-    updateSpaceEyeBatchHint();
     syncSpaceResolutionControls();
   }
 
@@ -592,6 +565,12 @@
     document.querySelectorAll('.pc-product-only').forEach(function (el) {
       el.classList.toggle('d-none', mode !== 'product');
     });
+    /* 平視：右側相機參數（鏡頭／光圈／EV／底片）顯示並組進 prompt；ISO 地圖隱藏相機殼 */
+    var spaceEye = space && isSpaceEyeLevel();
+    var camShell = document.querySelector('#promo-camera-app .pc-camera-shell');
+    if (camShell) {
+      camShell.classList.toggle('d-none', space && !spaceEye);
+    }
     document.querySelectorAll('.pc-space-only').forEach(function (el) {
       el.classList.toggle('d-none', !space);
     });
@@ -693,11 +672,13 @@
     if (!wrap) return;
     if (!isSpaceEyeLevel()) {
       wrap.innerHTML = '';
+      renderSpaceMapMarkStage();
       return;
     }
     var url = St.get().layoutReferenceImage;
     if (!url) {
       wrap.innerHTML = '';
+      renderSpaceMapMarkStage();
       return;
     }
     wrap.innerHTML = '<div class="position-relative d-inline-block">' +
@@ -708,9 +689,360 @@
     if (rm) {
       rm.addEventListener('click', function () {
         St.clearLayoutReference();
+        if (St.setSpaceLabeledLayoutImage) St.setSpaceLabeledLayoutImage('');
         renderLayoutRefThumbs();
         updateGenerateBtn();
       });
+    }
+    renderSpaceMapMarkStage();
+  }
+
+  var _spaceMarkImg = null;
+  var _spaceMarkImgUrl = '';
+  var _spaceMarkNaturalW = 0;
+  var _spaceMarkNaturalH = 0;
+
+  function spaceMarkAlphabet() {
+    var out = [];
+    for (var i = 0; i < 26; i++) out.push(String.fromCharCode(65 + i));
+    return out;
+  }
+
+  function fillSpaceLookSelects() {
+    var fromEl = document.getElementById('pcSpaceLookFrom');
+    var toEl = document.getElementById('pcSpaceLookTo');
+    var letters = spaceMarkAlphabet();
+    var fromVal = St.get().spaceLookFrom || 'B';
+    var toVal = St.get().spaceLookTo || 'C';
+    function fill(sel, cur) {
+      if (!sel) return;
+      sel.innerHTML = letters.map(function (L) {
+        return '<option value="' + L + '"' + (L === cur ? ' selected' : '') + '>' + L + '</option>';
+      }).join('');
+      if (letters.indexOf(cur) >= 0) sel.value = cur;
+    }
+    fill(fromEl, fromVal);
+    fill(toEl, toVal);
+  }
+
+  function syncSpaceMarkConfirmUi() {
+    var confirmBtn = document.getElementById('pcSpaceMarkConfirm');
+    var hint = document.getElementById('pcSpaceMapMarkHint');
+    var ready = !!(St.hasSpaceLookMarkers && St.hasSpaceLookMarkers());
+    var confirmed = !!(St.isSpaceMapMarkConfirmed && St.isSpaceMapMarkConfirmed());
+    if (confirmBtn) {
+      confirmBtn.disabled = !St.get().layoutReferenceImage || !ready || confirmed;
+      confirmBtn.textContent = confirmed ? '已確定標註' : '確定標註';
+      confirmBtn.classList.toggle('btn-primary', !confirmed);
+      confirmBtn.classList.toggle('btn-success', confirmed);
+    }
+    if (hint) {
+      var m = St.get().spaceMapMarkers || {};
+      var placed = Object.keys(m).sort();
+      if (confirmed) {
+        hint.innerHTML = '已確定：從 <strong>' + (St.get().spaceLookFrom || '') +
+          '</strong> 看向 <strong>' + (St.get().spaceLookTo || '') +
+          '</strong>。可按「生成平視攝影」。改字母／站點後需再按確定。';
+      } else if (!placed.length) {
+        hint.textContent = '打完字母並選好站點／望向後，按「確定標註」。';
+      } else if (!ready) {
+        hint.innerHTML = '已標 <strong>' + placed.join('、') +
+          '</strong>。請標齊站點與望向（且兩者不同），再按「確定標註」。';
+      } else {
+        hint.innerHTML = '已標 <strong>' + placed.join('、') +
+          '</strong> · 從 <strong>' + (St.get().spaceLookFrom || 'B') +
+          '</strong> 看向 <strong>' + (St.get().spaceLookTo || 'C') +
+          '</strong> → 請按<strong>確定標註</strong>才算選完。';
+      }
+    }
+    var dl = document.getElementById('pcSpaceMarkDownload');
+    if (dl) {
+      var hasMarks = Object.keys(St.get().spaceMapMarkers || {}).length > 0;
+      dl.disabled = !St.get().layoutReferenceImage || !hasMarks;
+    }
+  }
+
+  function syncSpaceMarkLetterButtons() {
+    var letterEl = document.getElementById('pcSpaceMarkLetter');
+    var active = (St.get().spaceMarkActiveLetter || 'A');
+    if (letterEl && document.activeElement !== letterEl) letterEl.value = active;
+    fillSpaceLookSelects();
+    syncSpaceMarkConfirmUi();
+  }
+
+  function drawSpaceMapMarkersOnCanvas(ctx, w, h, markers) {
+    var m = markers || {};
+    Object.keys(m).sort().forEach(function (L) {
+      var p = m[L];
+      if (!p) return;
+      var x = p.x * w;
+      var y = p.y * h;
+      var r = Math.max(16, Math.min(w, h) * 0.032);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(220, 53, 69, 0.95)';
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, r * 0.18);
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold ' + Math.round(r * 1.2) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(L, x, y + 1);
+    });
+  }
+
+  /** 遠端圖轉 data URL，避免跨域無法把字母畫進參考圖 */
+  function ensureLayoutImageDataUrl(url) {
+    function blobToDataUrl(blob) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result || '')); };
+        reader.onerror = function () { reject(new Error('讀取地圖失敗')); };
+        reader.readAsDataURL(blob);
+      });
+    }
+    function fetchToDataUrl(fetchUrl, withCreds) {
+      return fetch(fetchUrl, {
+        credentials: withCreds ? 'include' : 'omit',
+        mode: 'cors',
+        cache: 'force-cache'
+      }).then(function (r) {
+        if (!r.ok) throw new Error('fetch_failed');
+        return r.blob();
+      }).then(blobToDataUrl);
+    }
+    return new Promise(function (resolve, reject) {
+      var src = String(url || '').trim();
+      if (!src) return reject(new Error('缺少 ISO 地圖'));
+      if (/^data:/i.test(src)) return resolve(src);
+      if (src.indexOf(window.location.origin) === 0 || src.charAt(0) === '/') {
+        fetchToDataUrl(src, true).then(resolve).catch(function () {
+          reject(new Error('地圖讀取失敗'));
+        });
+        return;
+      }
+      /* 公開 CDN 回 ACAO:*，不可 credentials:include；失敗則走同源 proxy */
+      fetchToDataUrl(src, false).then(resolve).catch(function () {
+        var proxy = '/api/proxy-image?url=' + encodeURIComponent(src);
+        fetchToDataUrl(proxy, true).then(resolve).catch(function () {
+          reject(new Error('地圖跨域無法標註，請改用「上傳 ISO 地圖」'));
+        });
+      });
+    });
+  }
+
+  function renderSpaceMapMarkStage() {
+    var wrap = document.getElementById('pcSpaceMapMarkPaintWrap');
+    var canvas = document.getElementById('pcSpaceMapMarkCanvas');
+    var empty = document.getElementById('pcSpaceMapMarkEmpty');
+    if (!wrap || !canvas) return;
+    syncSpaceMarkLetterButtons();
+    if (!isSpaceEyeLevel()) {
+      wrap.classList.add('d-none');
+      if (empty) empty.classList.add('d-none');
+      return;
+    }
+    var url = St.get().layoutReferenceImage;
+    if (!url) {
+      wrap.classList.add('d-none');
+      if (empty) {
+        empty.classList.remove('d-none');
+        empty.textContent = '請先選／上傳 ISO 地圖，再於圖上打字母';
+      }
+      return;
+    }
+    if (empty) empty.classList.add('d-none');
+    wrap.classList.remove('d-none');
+
+    function paintFromImg() {
+      if (!_spaceMarkImg || !_spaceMarkImg.complete) return;
+      _spaceMarkNaturalW = _spaceMarkImg.naturalWidth || 0;
+      _spaceMarkNaturalH = _spaceMarkImg.naturalHeight || 0;
+      if (!_spaceMarkNaturalW || !_spaceMarkNaturalH) return;
+      /* 畫布像素＝原圖尺寸，CSS 不強制縮小（框內可捲動） */
+      canvas.width = _spaceMarkNaturalW;
+      canvas.height = _spaceMarkNaturalH;
+      canvas.style.width = _spaceMarkNaturalW + 'px';
+      canvas.style.height = _spaceMarkNaturalH + 'px';
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(_spaceMarkImg, 0, 0, canvas.width, canvas.height);
+      drawSpaceMapMarkersOnCanvas(ctx, canvas.width, canvas.height, St.get().spaceMapMarkers);
+    }
+
+    if (_spaceMarkImgUrl !== url) {
+      _spaceMarkImgUrl = url;
+      _spaceMarkImg = new Image();
+      _spaceMarkImg.onload = paintFromImg;
+      _spaceMarkImg.onerror = function () {
+        wrap.classList.add('d-none');
+        if (empty) {
+          empty.classList.remove('d-none');
+          empty.textContent = '地圖載入失敗，請改上傳檔案後再標註';
+        }
+      };
+      _spaceMarkImg.src = url;
+    } else {
+      paintFromImg();
+    }
+  }
+
+  function compositeSpaceMapLabeledImage() {
+    function drawLabeled(src) {
+      return new Promise(function (resolve, reject) {
+        var markers = St.get().spaceMapMarkers || {};
+        var img = new Image();
+        img.onload = function () {
+          var c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          drawSpaceMapMarkersOnCanvas(ctx, c.width, c.height, markers);
+          try {
+            resolve(c.toDataURL('image/jpeg', 0.92));
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = function () { reject(new Error('地圖無法讀取')); };
+        img.src = src;
+      });
+    }
+    var cached = _spaceMarkImg;
+    if (cached && cached.complete && cached.naturalWidth && /^data:/i.test(String(cached.src || ''))) {
+      return drawLabeled(cached.src);
+    }
+    return ensureLayoutImageDataUrl(St.get().layoutReferenceImage).then(drawLabeled);
+  }
+
+  function placeSpaceMarkAtClient(clientX, clientY) {
+    var canvas = document.getElementById('pcSpaceMapMarkCanvas');
+    if (!canvas || !St.get().layoutReferenceImage) return;
+    var rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var x = (clientX - rect.left) * scaleX;
+    var y = (clientY - rect.top) * scaleY;
+    var nx = x / canvas.width;
+    var ny = y / canvas.height;
+    var letterEl = document.getElementById('pcSpaceMarkLetter');
+    if (letterEl && letterEl.value) St.setSpaceMarkActiveLetter(letterEl.value);
+    var letter = St.get().spaceMarkActiveLetter || 'A';
+    St.setSpaceMapMarker(letter, nx, ny);
+    /* 自動跳下一個尚未標的字母（A–Z） */
+    var order = spaceMarkAlphabet();
+    var m = St.get().spaceMapMarkers || {};
+    var next = order.find(function (L) { return !m[L]; });
+    if (next) {
+      St.setSpaceMarkActiveLetter(next);
+      if (letterEl) letterEl.value = next;
+    }
+    renderSpaceMapMarkStage();
+    syncSpaceMarkConfirmUi();
+    updateGenerateBtn();
+  }
+
+  function bindSpaceMapMarkUi() {
+    fillSpaceLookSelects();
+    var letterEl = document.getElementById('pcSpaceMarkLetter');
+    if (letterEl) {
+      letterEl.addEventListener('input', function () {
+        var v = String(letterEl.value || '').replace(/[^a-zA-Z]/g, '').slice(0, 1).toUpperCase();
+        letterEl.value = v;
+        if (v) St.setSpaceMarkActiveLetter(v);
+      });
+      letterEl.addEventListener('change', function () {
+        var v = String(letterEl.value || '').trim().toUpperCase();
+        if (/^[A-Z]$/.test(v)) St.setSpaceMarkActiveLetter(v);
+        else letterEl.value = St.get().spaceMarkActiveLetter || 'A';
+      });
+    }
+    var clearBtn = document.getElementById('pcSpaceMarkClear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        St.clearSpaceMapMarkers();
+        if (St.setSpaceLabeledLayoutImage) St.setSpaceLabeledLayoutImage('');
+        if (St.setSpaceMapMarkConfirmed) St.setSpaceMapMarkConfirmed(false);
+        renderSpaceMapMarkStage();
+        syncSpaceMarkConfirmUi();
+        updateGenerateBtn();
+      });
+    }
+    var confirmBtn = document.getElementById('pcSpaceMarkConfirm');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function () {
+        if (!St.hasSpaceLookMarkers || !St.hasSpaceLookMarkers()) {
+          showResultError('請先在地圖標齊站點與望向（兩者字母不同）');
+          return;
+        }
+        if ((St.get().spaceLookFrom || 'B') === (St.get().spaceLookTo || 'C')) {
+          showResultError('站點與望向不可相同');
+          return;
+        }
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '合成中…';
+        compositeSpaceMapLabeledImage().then(function (dataUrl) {
+          if (St.setSpaceLabeledLayoutImage) St.setSpaceLabeledLayoutImage(dataUrl);
+          if (St.setSpaceMapMarkConfirmed) St.setSpaceMapMarkConfirmed(true);
+          syncSpaceMarkConfirmUi();
+          updateGenerateBtn();
+        }).catch(function (err) {
+          if (St.setSpaceMapMarkConfirmed) St.setSpaceMapMarkConfirmed(false);
+          syncSpaceMarkConfirmUi();
+          showResultError((err && err.message) ? err.message : '標註合成失敗，請改上傳 ISO 檔再標');
+        });
+      });
+    }
+    var dlBtn = document.getElementById('pcSpaceMarkDownload');
+    if (dlBtn) {
+      dlBtn.addEventListener('click', function () {
+        if (!St.get().layoutReferenceImage || !Object.keys(St.get().spaceMapMarkers || {}).length) return;
+        dlBtn.disabled = true;
+        compositeSpaceMapLabeledImage().then(function (dataUrl) {
+          var a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = 'space-map-marked-' + (St.get().spaceLookFrom || 'B') + '-to-' + (St.get().spaceLookTo || 'C') + '.jpg';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }).catch(function (err) {
+          showResultError((err && err.message) ? err.message : '下載失敗');
+        }).then(function () {
+          syncSpaceMarkConfirmUi();
+        });
+      });
+    }
+    var fromEl = document.getElementById('pcSpaceLookFrom');
+    var toEl = document.getElementById('pcSpaceLookTo');
+    if (fromEl) {
+      fromEl.addEventListener('change', function () {
+        St.setSpaceLookFrom(fromEl.value);
+        syncSpaceMarkConfirmUi();
+        updateGenerateBtn();
+      });
+    }
+    if (toEl) {
+      toEl.addEventListener('change', function () {
+        St.setSpaceLookTo(toEl.value);
+        syncSpaceMarkConfirmUi();
+        updateGenerateBtn();
+      });
+    }
+    var canvas = document.getElementById('pcSpaceMapMarkCanvas');
+    if (canvas) {
+      canvas.addEventListener('click', function (ev) {
+        placeSpaceMarkAtClient(ev.clientX, ev.clientY);
+      });
+      canvas.addEventListener('touchend', function (ev) {
+        if (!ev.changedTouches || !ev.changedTouches[0]) return;
+        ev.preventDefault();
+        var t = ev.changedTouches[0];
+        placeSpaceMarkAtClient(t.clientX, t.clientY);
+      }, { passive: false });
     }
   }
 
@@ -1064,12 +1396,7 @@
       previewOpts.space_output_type = St.get().spaceOutputType || 'layout_plan';
       previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
       previewOpts.aspect_ratio = St.get().aspectRatio || '1:1';
-      var zoneCount = (St.get().spaceZoneIntentKeys || []).length;
-      if (isSpaceEyeLevel() && zoneCount > 0) {
-        previewOpts.shot_count = zoneCount;
-      }
       var spacePts = spacePointsForTier(opts, previewOpts.space_output_type, previewOpts.space_resolution_tier);
-      if (isSpaceEyeLevel() && zoneCount > 0) spacePts = spacePts * zoneCount;
       el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: spacePts });
     } else {
       var localEst = Promo.estimatePromoCameraPointsLocal
@@ -1148,9 +1475,16 @@
           return;
         }
         if (assetPickTarget === 'layout') {
-          St.setLayoutReference(u, pick.sourceId || null);
-          renderLayoutRefThumbs();
-          updateGenerateBtn();
+          var genId = pick.sourceId || null;
+          ensureLayoutImageDataUrl(u).then(function (dataUrl) {
+            St.setLayoutReference(dataUrl, genId);
+            renderLayoutRefThumbs();
+            updateGenerateBtn();
+          }).catch(function () {
+            St.setLayoutReference(u, genId);
+            renderLayoutRefThumbs();
+            updateGenerateBtn();
+          });
           hideBootstrapModal(modalEl);
           return;
         }
@@ -1182,6 +1516,7 @@
   function bindEvents() {
     updateBackLink();
     bindPreserveSubjectsSelect();
+    bindSpaceMapMarkUi();
 
     var modeProduct = document.getElementById('pcModeProduct');
     var modeSpace = document.getElementById('pcModeSpace');
@@ -1407,9 +1742,12 @@
       if (!St.canGenerate() || st.generating) return;
       if (isSpaceMode()) {
         if (isSpaceEyeLevel()) {
-          var zones = (st.spaceZoneIntentKeys || []).length;
-          if (!zones && !String(st.userPrompt || '').trim()) {
-            showResultError('請勾選拍攝區域，或填寫明確視角（例：站在門口看沙發）');
+          if (!St.isSpaceMapMarkConfirmed || !St.isSpaceMapMarkConfirmed()) {
+            showResultError('請先按「確定標註」完成地圖選點');
+            return;
+          }
+          if ((St.get().spaceLookFrom || 'B') === (St.get().spaceLookTo || 'C')) {
+            showResultError('站點與望向不可相同');
             return;
           }
         } else if (st.spaceStyleSource === 'image') {
@@ -1426,30 +1764,50 @@
       updateGenerateBtn();
       clearResultArea();
       showResultLoading();
-      var payload;
-      try {
-        payload = St.buildGeneratePayload();
-      } catch (err) {
-        st.generating = false;
-        updateGenerateBtn();
-        showResultError((err && err.message) ? err.message : t('promoCamera.generateFailedShort', '生成失敗'));
-        return;
+
+      function runGenerate(payload) {
+        Api.generate(payload).then(function (res) {
+          st.generating = false;
+          updateGenerateBtn();
+          if (!res.ok || !res.data || !res.data.success) {
+            showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'));
+            return;
+          }
+          var d = res.data;
+          St.get().lastResult = d;
+          var url = d.image_url || d.imageData || '';
+          showResultArea(url, d, payload);
+        }).catch(function () {
+          st.generating = false;
+          updateGenerateBtn();
+          showResultError(t('promoCamera.generateFailed', '生成失敗，請稍後再試。'));
+        });
       }
-      Api.generate(payload).then(function (res) {
-        st.generating = false;
-        updateGenerateBtn();
-        if (!res.ok || !res.data || !res.data.success) {
-          showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'));
+
+      var prep = Promise.resolve();
+      if (isSpaceMode() && isSpaceEyeLevel()) {
+        /* 已用「確定標註」合成過；若缺圖再補一次 */
+        if (!St.get().spaceLabeledLayoutImage) {
+          prep = compositeSpaceMapLabeledImage().then(function (dataUrl) {
+            if (St.setSpaceLabeledLayoutImage) St.setSpaceLabeledLayoutImage(dataUrl);
+          });
+        }
+      }
+      prep.then(function () {
+        var payload;
+        try {
+          payload = St.buildGeneratePayload();
+        } catch (err) {
+          st.generating = false;
+          updateGenerateBtn();
+          showResultError((err && err.message) ? err.message : t('promoCamera.generateFailedShort', '生成失敗'));
           return;
         }
-        var d = res.data;
-        St.get().lastResult = d;
-        var url = d.image_url || d.imageData || '';
-        showResultArea(url, d, payload);
-      }).catch(function () {
+        runGenerate(payload);
+      }).catch(function (err) {
         st.generating = false;
         updateGenerateBtn();
-        showResultError(t('promoCamera.generateFailed', '生成失敗，請稍後再試。'));
+        showResultError((err && err.message) ? err.message : '地圖標註合成失敗，請改上傳 ISO 檔再標');
       });
     });
   }

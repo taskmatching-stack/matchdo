@@ -932,3 +932,12 @@ body.pc-app-shell .pc-space-compare img {
   object-fit: contain;
   background: #f8f9fa;
 }
+
+/* 平視地圖標註：APP 框內可橫向／縱向捲動 */
+body.pc-app-shell .pc-space-map-mark-frame {
+  max-height: min(55vh, 480px);
+  max-width: 100%;
+}
+body.pc-app-shell .pc-space-map-mark-canvas {
+  max-width: none;
+}

@@ -519,6 +519,23 @@
       inner.appendChild(img);
     }
 
+    if (meta && (meta.output_width || meta.width || meta.gemini_native_width)) {
+      var dimP = document.createElement('p');
+      dimP.className = 'small text-muted mt-1 mb-0';
+      var ow = meta.output_width || meta.width;
+      var oh = meta.output_height || meta.height;
+      var dimTxt = '輸出 ' + ow + '×' + oh;
+      if (meta.gemini_native_width && meta.gemini_native_height) {
+        dimTxt += '（Gemini 原生 ' + meta.gemini_native_width + '×' + meta.gemini_native_height + '）';
+      }
+      if (meta.image_config && (meta.image_config.image_size || meta.image_config.imageSize)) {
+        dimTxt += ' · image_size ' + (meta.image_config.image_size || meta.image_config.imageSize);
+      }
+      if (meta.gemini_api) dimTxt += ' · ' + meta.gemini_api;
+      dimP.textContent = dimTxt;
+      inner.appendChild(dimP);
+    }
+
     if (meta && meta.points_deducted != null) {
       var pts = document.createElement('p');
       pts.className = 'small text-muted mt-2 mb-0';

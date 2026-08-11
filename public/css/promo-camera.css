@@ -327,3 +327,40 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   border-radius: 0.375rem;
   cursor: zoom-in;
 }
+
+#promo-camera-app .pc-space-map-mark-paint {
+  margin-bottom: 0.25rem;
+}
+#promo-camera-app .pc-space-map-mark-frame {
+  border: 1px solid rgba(88, 100, 112, 0.25);
+  border-radius: 8px;
+  background: #1a1a1a;
+  overflow: auto;
+  max-width: 100%;
+  max-height: min(70vh, 720px);
+}
+#promo-camera-app .pc-space-map-mark-canvas {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  cursor: crosshair;
+  touch-action: none;
+  vertical-align: top;
+}
+#promo-camera-app .pc-space-map-mark-instructions ul {
+  margin-top: 0.25rem;
+}
+#promo-camera-app .pc-space-map-mark-stage {
+  border: 1px solid rgba(88, 100, 112, 0.2);
+  border-radius: 8px;
+  background: #f7f8fa;
+  overflow: auto;
+  max-width: 100%;
+}
+#promo-camera-app .pc-space-map-mark-stage canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: top;
+}
