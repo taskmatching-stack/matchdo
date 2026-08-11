@@ -325,7 +325,7 @@
     if (!preset || preset.v !== 1 || !state.options) return false;
     if (preset.themeKey && themeKeyExists(preset.themeKey)) state.themeKey = preset.themeKey;
     else if (preset.themeKey === '') state.themeKey = '';
-    if (sceneKeyExists(preset.sceneKey)) state.sceneKey = preset.sceneKey || '';
+    if (sceneKeyExists(preset.sceneKey)) setSceneKey(preset.sceneKey || '');
     state.aspectRatio = preset.aspectRatio || state.aspectRatio || '1:1';
     state.megapixels = parseInt(preset.megapixels, 10) || 1;
     state.userPrompt = String(preset.userPrompt || '');
@@ -584,10 +584,20 @@
 
   function setSceneReferenceImage(url) {
     state.sceneReferenceImage = url || '';
+    if (state.shootMode === 'portrait' && state.sceneReferenceImage) {
+      state.sceneKey = '';
+    }
   }
 
   function clearSceneReferenceImage() {
     state.sceneReferenceImage = '';
+  }
+
+  function setSceneKey(key) {
+    state.sceneKey = key ? String(key).trim() : '';
+    if (state.shootMode === 'portrait' && state.sceneKey) {
+      state.sceneReferenceImage = '';
+    }
   }
 
   function canGenerate() {
@@ -693,7 +703,9 @@
       shoot_mode: state.shootMode === 'portrait' ? 'portrait' : 'product',
       images: state.images.slice(),
       theme_key: state.themeKey || undefined,
-      scene_key: state.sceneKey || undefined,
+      scene_key: (state.shootMode === 'portrait' && state.sceneReferenceImage)
+        ? undefined
+        : (state.sceneKey || undefined),
       aspect_ratio: state.aspectRatio,
       width: state.width,
       height: state.height,
@@ -783,6 +795,7 @@
     clearStagingProductImage: clearStagingProductImage,
     setSceneReferenceImage: setSceneReferenceImage,
     clearSceneReferenceImage: clearSceneReferenceImage,
+    setSceneKey: setSceneKey,
     setStyleImage: setStyleImage,
     canGenerate: canGenerate,
     get: function () { return state; },

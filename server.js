@@ -800,7 +800,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
     const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
     const themeKey = String(body.theme_key || body.scene_template_key || '').trim();
-    const sceneKey = String(body.scene_key || '').trim();
+    let sceneKey = String(body.scene_key || '').trim();
+    if (resolvedRefs.hasSceneImage) sceneKey = '';
     if (!themeKey) {
         return res.status(400).json({ success: false, error: '請選擇拍攝主題' });
     }

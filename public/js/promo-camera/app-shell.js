@@ -6,7 +6,7 @@
 
   if (!document.body || !document.body.classList.contains('pc-app-shell')) return;
 
-        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-portrait-scene-ref-20260811';
+        window.__MATCHDO_PROMO_CAMERA_APP_BUILD = 'promo-camera-app-portrait-scene-mutex-20260811';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -558,6 +558,7 @@
 
   window.PromoCameraAppShell = {
     setComposeExpanded: setComposeExpanded,
+    syncAppPickerLabels: syncAppPickerLabels,
     renderSpaceMpChips: function () {
       renderAppSelectChips('pcSpaceMpSelect', 'pcSpaceMpChips');
     }

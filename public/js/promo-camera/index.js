@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-portrait-scene-ref-20260811';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-portrait-scene-mutex-20260811';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -645,6 +645,7 @@
 
     renderSpaceThumbs();
     renderSceneRefThumbs();
+    syncPortraitSceneConflictUi();
     renderStagingProductThumbs();
     renderSelectedThumbs();
     updateGenerateBtn();
@@ -1124,6 +1125,53 @@
     }
   }
 
+  function syncPortraitSceneConflictUi() {
+    if (!isPortraitMode()) return;
+    var st = St.get();
+    var hasRef = !!String(st.sceneReferenceImage || '').trim();
+    var hasSceneKey = !!String(st.sceneKey || '').trim();
+    var sceneEl = document.getElementById('pcSceneSelect');
+    if (sceneEl) {
+      if (hasRef) {
+        sceneEl.value = '';
+        St.setSceneKey('');
+        hasSceneKey = false;
+      }
+      sceneEl.disabled = hasRef;
+    }
+    var sceneCol = sceneEl && sceneEl.closest('.col-md-6');
+    if (sceneCol) sceneCol.classList.toggle('opacity-50', hasRef);
+    var scenePickerBtn = document.getElementById('pcScenePickerBtn');
+    var scenePickerRow = scenePickerBtn && scenePickerBtn.closest('.pc-app-row');
+    if (scenePickerBtn) {
+      scenePickerBtn.disabled = hasRef;
+      scenePickerBtn.classList.toggle('disabled', hasRef);
+    }
+    if (scenePickerRow) scenePickerRow.classList.toggle('opacity-50', hasRef);
+    var pickSceneRefBtn = document.getElementById('pcPickSceneRefBtn');
+    if (pickSceneRefBtn) {
+      pickSceneRefBtn.disabled = hasSceneKey;
+      pickSceneRefBtn.classList.toggle('disabled', hasSceneKey);
+    }
+    document.querySelectorAll('label').forEach(function (lbl) {
+      if (!lbl.querySelector('#pcSceneRefInput')) return;
+      lbl.classList.toggle('disabled', hasSceneKey);
+      lbl.classList.toggle('pe-none', hasSceneKey);
+      lbl.classList.toggle('opacity-50', hasSceneKey);
+    });
+    var sceneRefHint = document.getElementById('pcSceneRefHint');
+    if (sceneRefHint) {
+      sceneRefHint.textContent = hasSceneKey
+        ? '已選官方場景，請先清空場景下拉才能上傳場景圖。'
+        : (hasRef
+          ? '已上傳場景圖，官方場景下拉已關閉。'
+          : '上傳或選圖作為人像背景；與官方場景下拉二擇一。');
+    }
+    if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.syncAppPickerLabels === 'function') {
+      window.PromoCameraAppShell.syncAppPickerLabels();
+    }
+  }
+
   function renderSceneRefThumbs() {
     var wrap = document.getElementById('pcSceneRefThumbs');
     if (!wrap) return;
@@ -1145,6 +1193,7 @@
       rm.addEventListener('click', function () {
         St.clearSceneReferenceImage();
         renderSceneRefThumbs();
+        syncPortraitSceneConflictUi();
         updateGenerateBtn();
       });
     }
@@ -1553,6 +1602,7 @@
         if (assetPickTarget === 'scene_ref') {
           St.setSceneReferenceImage(u);
           renderSceneRefThumbs();
+          syncPortraitSceneConflictUi();
           updateGenerateBtn();
           hideBootstrapModal(modalEl);
           return;
@@ -1668,6 +1718,7 @@
         readFileAsDataUrl(files[0], function (url) {
           St.setSceneReferenceImage(url);
           renderSceneRefThumbs();
+          syncPortraitSceneConflictUi();
           updateGenerateBtn();
         });
         e.target.value = '';
@@ -1799,7 +1850,11 @@
           updateGenerateBtn();
           return;
         }
-        if (id === 'pcSceneSelect') st.sceneKey = el.value;
+        if (id === 'pcSceneSelect') {
+          St.setSceneKey(el.value);
+          renderSceneRefThumbs();
+          syncPortraitSceneConflictUi();
+        }
         updateDimsHint();
       });
     });
@@ -1921,6 +1976,7 @@
     fillThemeSceneSelects();
     if (themeEl && st.themeKey) themeEl.value = st.themeKey;
     if (sceneEl) sceneEl.value = st.sceneKey || '';
+    syncPortraitSceneConflictUi();
     if (ratioEl && st.aspectRatio) ratioEl.value = st.aspectRatio;
     if (mpEl && st.megapixels) mpEl.value = String(st.megapixels);
     var portraitCountEl = document.getElementById('pcPortraitCount');
