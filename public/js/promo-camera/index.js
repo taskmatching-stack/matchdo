@@ -77,12 +77,142 @@
           saved: t('promoCamera.saved', '已儲存'),
           viewLibrary: t('promoCamera.viewLibrary', '查看情境圖')
         },
-        libraryHref: appendLangToUrl('/client/my-custom-products.html?tab=promo')
+        libraryHref: appendLangToUrl('/client/my-custom-products.html?tab=promo'),
+        onAfterActions: mountSpaceAppealButton
       }
     };
     if (!extra) return base;
-    Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    Object.keys(extra).forEach(function (k) {
+      if (k === 'actions' && extra.actions && typeof extra.actions === 'object') {
+        base.actions = Object.assign({}, base.actions, extra.actions);
+        if (extra.actions.labels) {
+          base.actions.labels = Object.assign({}, base.actions.labels, extra.actions.labels);
+        }
+      } else {
+        base[k] = extra[k];
+      }
+    });
     return base;
+  }
+
+  function formatAppealLockHint(lockUntil) {
+    if (!lockUntil) return t('promoCamera.appealLocked', '申訴冷卻中（24 小時內無法再申請）');
+    try {
+      var d = new Date(lockUntil);
+      if (!isNaN(d.getTime())) {
+        return t('promoCamera.appealLockedUntil', '申訴冷卻至 {time}').replace('{time}', d.toLocaleString());
+      }
+    } catch (_) {}
+    return t('promoCamera.appealLocked', '申訴冷卻中（24 小時內無法再申請）');
+  }
+
+  function mountSpaceAppealButton(row, meta) {
+    if (!row || !meta || !meta.id) return;
+    var shoot = String(meta.shoot_mode || '').toLowerCase();
+    var isSpace = shoot === 'space' || !!meta.space_output_type;
+    if (!isSpace) return;
+    var pts = parseInt(meta.points_deducted != null ? meta.points_deducted : meta.points_charged, 10) || 0;
+    if (pts <= 0) return;
+    if (!global.PromoCameraApi || typeof global.PromoCameraApi.spaceAppeal !== 'function') return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'w-100 mt-2 pc-space-appeal';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-warning';
+    btn.textContent = t('promoCamera.appealBtn', '結果不像／幾乎沒變？申請退點審核');
+    var hint = document.createElement('p');
+    hint.className = 'small text-muted mb-0 mt-1 pc-space-appeal-hint';
+    wrap.appendChild(btn);
+    wrap.appendChild(hint);
+    row.appendChild(wrap);
+
+    function setBusy(busy) {
+      btn.disabled = !!busy;
+      if (busy) {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' +
+          t('promoCamera.appealReviewing', '審核中…');
+      }
+    }
+
+    function applyStatus(data) {
+      if (!data) return;
+      if (data.already_refunded) {
+        btn.disabled = true;
+        btn.className = 'btn btn-sm btn-success';
+        btn.textContent = t('promoCamera.appealRefunded', '已退點') +
+          (data.refunded_points ? ('（' + data.refunded_points + '）') : '');
+        hint.textContent = '';
+        return;
+      }
+      if (data.locked) {
+        btn.disabled = true;
+        btn.className = 'btn btn-sm btn-outline-secondary';
+        btn.textContent = t('promoCamera.appealBtnLocked', '申訴冷卻中');
+        hint.textContent = formatAppealLockHint(data.lock_until);
+        return;
+      }
+      if (data.can_appeal === false) {
+        btn.disabled = true;
+        btn.className = 'btn btn-sm btn-outline-secondary';
+        btn.textContent = t('promoCamera.appealUnavailable', '無法申訴');
+        hint.textContent = '';
+        return;
+      }
+      btn.disabled = false;
+      btn.className = 'btn btn-sm btn-outline-warning';
+      btn.textContent = t('promoCamera.appealBtn', '結果不像／幾乎沒變？申請退點審核');
+      hint.textContent = t('promoCamera.appealHint', '系統會比對參考圖與結果圖；未通過將鎖定 24 小時。');
+    }
+
+    if (typeof global.PromoCameraApi.spaceAppealStatus === 'function') {
+      global.PromoCameraApi.spaceAppealStatus(meta.id).then(function (res) {
+        if (res && res.data) applyStatus(res.data);
+      }).catch(function () {});
+    } else {
+      applyStatus({ can_appeal: true });
+    }
+
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      if (!window.confirm(t('promoCamera.appealConfirm', '確定送出退點審核？未通過將 24 小時內無法再申訴。'))) return;
+      setBusy(true);
+      global.PromoCameraApi.spaceAppeal(meta.id).then(function (res) {
+        var data = (res && res.data) || {};
+        if (data.status === 'approved' || data.already_refunded) {
+          applyStatus({
+            already_refunded: true,
+            refunded_points: data.refunded_points
+          });
+          if (typeof St.refreshCredits === 'function') St.refreshCredits();
+          else if (global.PromoCameraApi.fetchMeCredits) {
+            global.PromoCameraApi.fetchMeCredits().catch(function () {});
+          }
+          alert(data.message || t('promoCamera.appealSuccess', '申訴通過，點數已退回'));
+          return;
+        }
+        if (data.status === 'rejected' || data.locked || res.status === 429) {
+          applyStatus({ locked: true, lock_until: data.lock_until });
+          alert(data.message || data.error || t('promoCamera.appealRejected', '審核未通過，24 小時內無法再申請'));
+          return;
+        }
+        if (data.status === 'inconclusive') {
+          btn.disabled = false;
+          btn.className = 'btn btn-sm btn-outline-warning';
+          btn.textContent = t('promoCamera.appealBtn', '結果不像／幾乎沒變？申請退點審核');
+          hint.textContent = data.message || t('promoCamera.appealInconclusive', '無法明確判定，本次不退點也不鎖定');
+          alert(hint.textContent);
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = t('promoCamera.appealBtn', '結果不像／幾乎沒變？申請退點審核');
+        alert(data.error || data.message || t('promoCamera.appealFailed', '申訴失敗，請稍後再試'));
+      }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = t('promoCamera.appealBtn', '結果不像／幾乎沒變？申請退點審核');
+        alert(t('promoCamera.appealFailed', '申訴失敗，請稍後再試'));
+      });
+    });
   }
 
   var SUBJECT_FALLBACK = [
@@ -277,7 +407,7 @@
     if (panel) panel.classList.add('has-result');
     var ok = (data.results || []).filter(function (r) { return r.success && (r.image_url || r.imageData); });
     if (!ok.length) {
-      showResultError('人像套圖生成失敗');
+      showResultError(isSpaceMode() ? '平視套圖生成失敗' : '人像套圖生成失敗');
       return;
     }
     el.classList.add('has-result');
@@ -286,7 +416,9 @@
     inner.className = 'scene-sim-result-inner';
     var title = document.createElement('p');
     title.className = 'small text-muted mb-2';
-    title.textContent = '人像套圖 ' + ok.length + ' 張（構圖自動變化；描述欄為共用造型）';
+    title.textContent = (payload && payload.shoot_mode === 'space')
+      ? ('平視套圖 ' + ok.length + ' 張')
+      : ('人像套圖 ' + ok.length + ' 張（構圖自動變化；描述欄為共用造型）');
     inner.appendChild(title);
     var grid = document.createElement('div');
     grid.className = 'pc-portrait-batch';
@@ -298,10 +430,21 @@
       label.textContent = '第 ' + (r.shot_index || (idx + 1)) + ' 張';
       var img = document.createElement('img');
       img.src = r.image_url || r.imageData;
-      img.alt = '人像套圖 ' + (r.shot_index || (idx + 1));
+      img.alt = '套圖 ' + (r.shot_index || (idx + 1));
       img.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger';
       item.appendChild(label);
       item.appendChild(img);
+      if (payload && payload.shoot_mode === 'space' && r.id) {
+        var actionsHost = document.createElement('div');
+        actionsHost.className = 'promo-result-actions mt-1';
+        item.appendChild(actionsHost);
+        mountSpaceAppealButton(actionsHost, {
+          id: r.id,
+          shoot_mode: 'space',
+          space_output_type: 'eye_level',
+          points_deducted: r.points_charged != null ? r.points_charged : (data.points_deducted != null ? Math.round(data.points_deducted / ok.length) : 0)
+        });
+      }
       grid.appendChild(item);
     });
     inner.appendChild(grid);

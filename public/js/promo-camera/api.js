@@ -107,6 +107,29 @@
     });
   }
 
+  function spaceAppealStatus(generationId) {
+    return authHeaders(false).then(function (headers) {
+      return fetch('/api/promo-camera/space-appeal/status?generation_id=' + encodeURIComponent(generationId), {
+        headers: headers,
+        cache: 'no-store'
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
+  function spaceAppeal(generationId) {
+    return authHeaders(true).then(function (headers) {
+      return fetch('/api/promo-camera/space-appeal', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ generation_id: generationId })
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
   global.PromoCameraApi = {
     authHeaders: authHeaders,
     loadOptions: loadOptions,
@@ -116,6 +139,8 @@
     fetchMeCredits: fetchMeCredits,
     listPresets: listPresets,
     savePreset: savePreset,
-    deletePreset: deletePreset
+    deletePreset: deletePreset,
+    spaceAppealStatus: spaceAppealStatus,
+    spaceAppeal: spaceAppeal
   };
 })(typeof window !== 'undefined' ? window : this);

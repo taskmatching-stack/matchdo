@@ -645,6 +645,10 @@
     viewLink.innerHTML = '<i class="bi bi-images me-1"></i>' + viewLabel;
     row.appendChild(viewLink);
 
+    if (typeof opts.onAfterActions === 'function') {
+      try { opts.onAfterActions(row, meta, imageDataUrl); } catch (e) { console.warn(e); }
+    }
+
     container.appendChild(row);
     return row;
   }

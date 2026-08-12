@@ -140,6 +140,7 @@ const designDirectionMarketSignals = require('./lib/design-direction-market-sign
 const designDirectionSeed = require('./lib/design-direction-seed');
 const promoSceneSeed = require('./lib/promo-scene-seed');
 const promoSpaceGemini = require('./lib/promo-space-gemini');
+const promoSpaceAppeal = require('./lib/promo-space-appeal');
 const mediaWallQueries = require('./lib/media-wall-queries');
 const manufacturerAudience = require('./lib/manufacturer-audience');
 
@@ -1511,6 +1512,9 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             aspect_ratio: aspectRatio,
             final_prompt: finalPrompt,
             shot_index_in_set: i,
+            points_charged: (!isAdmin && pointsPerShot > 0) ? pointsPerShot : 0,
+            shoot_mode: 'space',
+            space_output_type: 'eye_level',
             compare_ref_url: eyeRefs.layoutUrl || null,
             compare_ref_label: 'ISO 空間地圖',
             compare_result_label: '平視攝影'
@@ -16549,6 +16553,369 @@ app.delete('/api/promo-camera/presets/:id', async (req, res) => {
     } catch (e) {
         console.error('DELETE /api/promo-camera/presets:', e);
         res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
+function isPromoSpaceAppealsMigrationError(err) {
+    const msg = String((err && err.message) || err || '');
+    return /promo_space_appeals/i.test(msg) && /does not exist|relation|42P01/i.test(msg);
+}
+
+async function getPromoSpaceAppealLockState(userId) {
+    const { data, error } = await supabase
+        .from('promo_space_appeals')
+        .select('id, created_at, status')
+        .eq('user_id', userId)
+        .eq('status', 'rejected')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (error) throw error;
+    const lockUntil = promoSpaceAppeal.lockUntilFromRejectedAt(data && data.created_at);
+    const locked = promoSpaceAppeal.isAppealLocked(lockUntil);
+    return {
+        locked,
+        lock_until: locked ? lockUntil : null,
+        last_rejected_at: (data && data.created_at) || null
+    };
+}
+
+async function getPromoSpaceAppealForGeneration(userId, generationId) {
+    const { data, error } = await supabase
+        .from('promo_space_appeals')
+        .select('id, status, refunded_points, reason_zh, created_at')
+        .eq('user_id', userId)
+        .eq('generation_id', generationId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+    if (error) throw error;
+    const rows = data || [];
+    const approved = rows.find((r) => r.status === 'approved') || null;
+    return { rows, approved };
+}
+
+/** GET /api/promo-camera/space-appeal/status?generation_id= */
+app.get('/api/promo-camera/space-appeal/status', async (req, res) => {
+    try {
+        const user = await getRequestUserFromAuthHeader(req);
+        if (!user) return res.status(401).json({ success: false, error: '請先登入' });
+        const generationId = String(req.query.generation_id || '').trim();
+        if (!generationId) return res.status(400).json({ success: false, error: '缺少 generation_id' });
+
+        let lockState;
+        try {
+            lockState = await getPromoSpaceAppealLockState(user.id);
+        } catch (e) {
+            if (isPromoSpaceAppealsMigrationError(e)) {
+                return res.status(503).json({
+                    success: false,
+                    error: '請先執行 docs/add-promo-space-appeals.sql',
+                    code: 'MIGRATION_REQUIRED'
+                });
+            }
+            throw e;
+        }
+
+        const { data: row, error: rowErr } = await supabase
+            .from('product_promo_generations')
+            .select('id, user_id, points_charged, result_image_url, source_image_url, generation_meta_json, credit_transaction_id')
+            .eq('id', generationId)
+            .maybeSingle();
+        if (rowErr) {
+            console.error('GET space-appeal/status row:', rowErr);
+            return res.status(500).json({ success: false, error: '查詢失敗' });
+        }
+        if (!row || row.user_id !== user.id) {
+            return res.status(404).json({ success: false, error: '找不到此生成紀錄' });
+        }
+        const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
+        const isSpace = String(meta.shoot_mode || '').toLowerCase() === 'space'
+            || String(meta.space_output_type || '').trim() !== '';
+        const pointsCharged = Math.max(0, parseInt(row.points_charged, 10) || 0);
+        let appealInfo;
+        try {
+            appealInfo = await getPromoSpaceAppealForGeneration(user.id, generationId);
+        } catch (e) {
+            if (isPromoSpaceAppealsMigrationError(e)) {
+                return res.status(503).json({
+                    success: false,
+                    error: '請先執行 docs/add-promo-space-appeals.sql',
+                    code: 'MIGRATION_REQUIRED'
+                });
+            }
+            throw e;
+        }
+        const alreadyRefunded = !!appealInfo.approved;
+        const canAppeal = isSpace
+            && pointsCharged > 0
+            && !!row.result_image_url
+            && !!row.source_image_url
+            && !alreadyRefunded
+            && !lockState.locked;
+
+        return res.json({
+            success: true,
+            generation_id: generationId,
+            is_space: isSpace,
+            points_charged: pointsCharged,
+            already_refunded: alreadyRefunded,
+            refunded_points: appealInfo.approved ? (appealInfo.approved.refunded_points || pointsCharged) : 0,
+            locked: lockState.locked,
+            lock_until: lockState.lock_until,
+            can_appeal: canAppeal,
+            last_appeal: appealInfo.rows[0] || null
+        });
+    } catch (e) {
+        console.error('GET /api/promo-camera/space-appeal/status:', e);
+        res.status(500).json({ success: false, error: e.message || '查詢失敗' });
+    }
+});
+
+/** POST /api/promo-camera/space-appeal — 空間攝影 Beta 申訴（讀圖對比 JSON → 退點／24h 鎖） */
+app.post('/api/promo-camera/space-appeal', express.json({ limit: '32kb' }), async (req, res) => {
+    try {
+        const user = await getRequestUserFromAuthHeader(req);
+        if (!user) return res.status(401).json({ success: false, error: '請先登入' });
+        const body = req.body || {};
+        const generationId = String(body.generation_id || '').trim();
+        if (!generationId) return res.status(400).json({ success: false, error: '缺少 generation_id' });
+
+        let lockState;
+        try {
+            lockState = await getPromoSpaceAppealLockState(user.id);
+        } catch (e) {
+            if (isPromoSpaceAppealsMigrationError(e)) {
+                return res.status(503).json({
+                    success: false,
+                    error: '請先執行 docs/add-promo-space-appeals.sql',
+                    code: 'MIGRATION_REQUIRED'
+                });
+            }
+            throw e;
+        }
+        if (lockState.locked) {
+            return res.status(429).json({
+                success: false,
+                error: '申訴未通過，24 小時內無法再申請',
+                code: 'APPEAL_LOCKED',
+                locked: true,
+                lock_until: lockState.lock_until
+            });
+        }
+
+        const { data: row, error: rowErr } = await supabase
+            .from('product_promo_generations')
+            .select('id, user_id, points_charged, result_image_url, source_image_url, generation_meta_json, credit_transaction_id, status')
+            .eq('id', generationId)
+            .maybeSingle();
+        if (rowErr) {
+            console.error('POST space-appeal row:', rowErr);
+            return res.status(500).json({ success: false, error: '查詢失敗' });
+        }
+        if (!row || row.user_id !== user.id) {
+            return res.status(404).json({ success: false, error: '找不到此生成紀錄' });
+        }
+        const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
+        const isSpace = String(meta.shoot_mode || '').toLowerCase() === 'space'
+            || String(meta.space_output_type || '').trim() !== '';
+        if (!isSpace) {
+            return res.status(400).json({ success: false, error: '僅空間攝影 Beta 可申訴' });
+        }
+        const pointsCharged = Math.max(0, parseInt(row.points_charged, 10) || 0);
+        if (pointsCharged <= 0) {
+            return res.status(400).json({ success: false, error: '此筆無扣點可退' });
+        }
+        if (!row.result_image_url || !row.source_image_url) {
+            return res.status(400).json({ success: false, error: '缺少對照圖或結果圖，無法審核' });
+        }
+
+        let appealInfo;
+        try {
+            appealInfo = await getPromoSpaceAppealForGeneration(user.id, generationId);
+        } catch (e) {
+            if (isPromoSpaceAppealsMigrationError(e)) {
+                return res.status(503).json({
+                    success: false,
+                    error: '請先執行 docs/add-promo-space-appeals.sql',
+                    code: 'MIGRATION_REQUIRED'
+                });
+            }
+            throw e;
+        }
+        if (appealInfo.approved) {
+            return res.json({
+                success: true,
+                status: 'approved',
+                already_refunded: true,
+                refunded_points: appealInfo.approved.refunded_points || pointsCharged,
+                reason_zh: appealInfo.approved.reason_zh || '此筆已退點',
+                locked: false,
+                lock_until: null,
+                can_appeal: false
+            });
+        }
+
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(503).json({ success: false, error: '審核服務暫未設定，請稍後再試' });
+        }
+
+        let sourcePart;
+        let resultPart;
+        try {
+            sourcePart = await visualSemantics.fetchUrlToImagePart(globalThis.fetch, row.source_image_url);
+            resultPart = await visualSemantics.fetchUrlToImagePart(globalThis.fetch, row.result_image_url);
+        } catch (imgErr) {
+            console.error('space-appeal fetch images:', imgErr);
+            return res.status(400).json({ success: false, error: '無法讀取對照圖或結果圖' });
+        }
+
+        let compare;
+        try {
+            compare = await promoSpaceAppeal.compareSpaceAppealImages(getVisualSemanticsDeps(), sourcePart, resultPart);
+        } catch (cmpErr) {
+            console.error('space-appeal compare:', cmpErr);
+            return res.status(500).json({ success: false, error: '審核失敗，請稍後再試' });
+        }
+
+        const decision = compare.decision || promoSpaceAppeal.decideAppealFromJudge(compare.judge);
+        let refundedPoints = 0;
+        let refundTxId = null;
+        let balanceAfter = null;
+
+        if (decision.should_refund) {
+            if (row.credit_transaction_id) {
+                const { data: origTx } = await supabase
+                    .from('credit_transactions')
+                    .select('id, user_id, type, amount, metadata')
+                    .eq('id', row.credit_transaction_id)
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                const metaTx = (origTx && origTx.metadata && typeof origTx.metadata === 'object')
+                    ? origTx.metadata
+                    : {};
+                if (origTx && metaTx.refunded) {
+                    refundedPoints = Math.abs(origTx.amount || pointsCharged);
+                } else {
+                    const granted = await grantUserCredits(
+                        user.id,
+                        pointsCharged,
+                        'promo_space_appeal_refund',
+                        '空間攝影申訴退點',
+                        {
+                            generation_id: generationId,
+                            refunded_tx_id: row.credit_transaction_id || null,
+                            judge: compare.judge || null
+                        }
+                    );
+                    if (!granted.ok) {
+                        return res.status(500).json({ success: false, error: granted.error || '退點失敗' });
+                    }
+                    refundedPoints = pointsCharged;
+                    refundTxId = granted.transaction_id || null;
+                    balanceAfter = granted.balance_after;
+                    if (origTx) {
+                        await supabase
+                            .from('credit_transactions')
+                            .update({
+                                metadata: {
+                                    ...metaTx,
+                                    refunded: true,
+                                    refunded_at: new Date().toISOString(),
+                                    refund_source: 'promo_space_appeal'
+                                }
+                            })
+                            .eq('id', origTx.id);
+                    }
+                }
+            } else {
+                const granted = await grantUserCredits(
+                    user.id,
+                    pointsCharged,
+                    'promo_space_appeal_refund',
+                    '空間攝影申訴退點',
+                    {
+                        generation_id: generationId,
+                        judge: compare.judge || null
+                    }
+                );
+                if (!granted.ok) {
+                    return res.status(500).json({ success: false, error: granted.error || '退點失敗' });
+                }
+                refundedPoints = pointsCharged;
+                refundTxId = granted.transaction_id || null;
+                balanceAfter = granted.balance_after;
+            }
+        }
+
+        const insertPayload = {
+            user_id: user.id,
+            generation_id: generationId,
+            status: decision.status,
+            refunded_points: refundedPoints,
+            refund_transaction_id: refundTxId,
+            original_credit_transaction_id: row.credit_transaction_id || null,
+            judge_json: compare.judge || { raw: compare.raw_text || null },
+            judge_model: compare.model || null,
+            reason_zh: (compare.judge && compare.judge.reason_zh) || null
+        };
+        const { data: appealRow, error: insErr } = await supabase
+            .from('promo_space_appeals')
+            .insert(insertPayload)
+            .select('id, status, refunded_points, reason_zh, created_at')
+            .single();
+        if (insErr) {
+            if (isPromoSpaceAppealsMigrationError(insErr)) {
+                return res.status(503).json({
+                    success: false,
+                    error: '請先執行 docs/add-promo-space-appeals.sql',
+                    code: 'MIGRATION_REQUIRED'
+                });
+            }
+            // 競態：已有 approved
+            if (/uq_promo_space_appeals_generation_approved|duplicate/i.test(String(insErr.message || ''))) {
+                return res.json({
+                    success: true,
+                    status: 'approved',
+                    already_refunded: true,
+                    refunded_points: pointsCharged,
+                    locked: false,
+                    can_appeal: false
+                });
+            }
+            console.error('POST space-appeal insert:', insErr);
+            return res.status(500).json({ success: false, error: '無法寫入申訴紀錄' });
+        }
+
+        const newLockUntil = decision.lock_on_fail
+            ? promoSpaceAppeal.lockUntilFromRejectedAt(appealRow.created_at)
+            : null;
+        const locked = promoSpaceAppeal.isAppealLocked(newLockUntil);
+
+        let userMessage;
+        if (decision.status === 'approved') {
+            userMessage = `申訴通過，已退回 ${refundedPoints} 點`;
+        } else if (decision.status === 'rejected') {
+            userMessage = '審核未通過，24 小時內無法再申請';
+        } else {
+            userMessage = '無法明確判定，本次不退點也不鎖定，請稍後再試或換一張結果申訴';
+        }
+
+        return res.json({
+            success: true,
+            status: decision.status,
+            appeal_id: appealRow.id,
+            refunded_points: refundedPoints,
+            balance_after: balanceAfter,
+            reason_zh: (compare.judge && compare.judge.reason_zh) || null,
+            judge: compare.judge || null,
+            locked,
+            lock_until: locked ? newLockUntil : null,
+            can_appeal: decision.status === 'approved' ? false : (decision.status === 'inconclusive'),
+            message: userMessage
+        });
+    } catch (e) {
+        console.error('POST /api/promo-camera/space-appeal:', e);
+        res.status(500).json({ success: false, error: e.message || '申訴失敗' });
     }
 });
 
