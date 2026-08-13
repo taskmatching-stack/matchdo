@@ -511,8 +511,126 @@ async function generatePromoSpaceEyeLevelImageWithGemini(layoutImage, promptText
         gemini_native_width: native.width || 0,
         gemini_native_height: native.height || 0,
         image_config: responseFormat,
-        api: apiUsed
+        api: apiUsed,
+        image_provider: 'gemini'
     };
+}
+
+/** BFL 最長邊 2048；空間 4K 先以等比縮小送 FLUX，再 sharp 補到目標像素 */
+function clampBflFluxOutputSize(width, height, maxEdge) {
+    const max = Math.max(256, Number(maxEdge) || 2048);
+    let w = Math.max(1, Number(width) || 1024);
+    let h = Math.max(1, Number(height) || 1024);
+    const longest = Math.max(w, h);
+    if (longest > max) {
+        const scale = max / longest;
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+    }
+    return {
+        width: Math.min(max, Math.max(256, w)),
+        height: Math.min(max, Math.max(256, h))
+    };
+}
+
+async function generatePromoSpaceEyeLevelImageWithFlux(layoutImage, promptText, stagingProduct, geminiOpts) {
+    if (!process.env.BFL_API_KEY) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    const prompt = String(promptText || '').trim();
+    if (!prompt) throw new Error('平視攝影提示詞為空');
+    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const targetW = opts.targetWidth || opts.width;
+    const targetH = opts.targetHeight || opts.height;
+    const fluxSize = clampBflFluxOutputSize(targetW, targetH, 2048);
+    const refs = [layoutImage.base64];
+    if (stagingProduct && stagingProduct.base64) refs.push(stagingProduct.base64);
+    const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_space_eye_level');
+    const endpointUrl = getBflPlaygroundEndpoint(fluxModel);
+    const bufferRaw = await generateImageWithFlux2Pro(prompt, refs, null, 'jpeg', {
+        endpointUrl: endpointUrl,
+        width: fluxSize.width,
+        height: fluxSize.height,
+        promptUpsampling: false
+    });
+    if (!bufferRaw || !bufferRaw.length) throw new Error('FLUX 未回傳圖片');
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(bufferRaw);
+    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+        bufferRaw,
+        targetW,
+        targetH,
+        {
+            tier: opts.tier || opts.space_resolution_tier,
+            aspect_ratio: opts.aspectRatio || opts.aspect_ratio
+        }
+    );
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: { engine: 'flux', model: fluxModel, width: fluxSize.width, height: fluxSize.height },
+        api: 'bfl',
+        image_provider: 'flux',
+        flux_model: fluxModel
+    };
+}
+
+/**
+ * 空間平視：Gemini 優先，滿額／429 備援 FLUX.2 [max]（後台 promo_space_eye_level_engine）。
+ */
+async function generatePromoSpaceEyeLevelImage(layoutImage, promptText, stagingProduct, geminiOpts) {
+    const pref = await getPromoSpaceEyeLevelEngine();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    const hasFlux = !!process.env.BFL_API_KEY;
+
+    if (!forceFlux && hasGemini) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                const gen = await generatePromoSpaceEyeLevelImageWithGemini(
+                    layoutImage, promptText, stagingProduct, geminiOpts
+                );
+                const geminiModel = await getPromoSpaceEyeLevelModelName();
+                return Object.assign({}, gen, {
+                    image_provider: 'gemini',
+                    gemini_model: geminiModel
+                });
+            } catch (err) {
+                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
+                console.warn('[promo-space eye_level] Gemini rate-limited → FLUX.2:', err.message || err);
+            }
+        } else if (forceGemini) {
+            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            e.status = 429;
+            e.retry_after_sec = quota.retry_after_sec;
+            e.quota_reason = quota.reason;
+            throw e;
+        }
+    }
+
+    if (!hasFlux) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    return generatePromoSpaceEyeLevelImageWithFlux(layoutImage, promptText, stagingProduct, geminiOpts);
+}
+
+async function assertPromoSpaceEyeLevelProvidersReady() {
+    const pref = await getPromoSpaceEyeLevelEngine();
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    const hasFlux = !!process.env.BFL_API_KEY;
+    if (pref === 'gemini' && !hasGemini) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    if (pref === 'flux' && !hasFlux) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    if (pref === 'auto' && !hasGemini && !hasFlux) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    return { ok: true, pref: pref };
 }
 
 function mimeFromPromoImageRef(ref) {
@@ -1125,8 +1243,9 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
             return res.status(402).json({ success: false, error: '點數不足', required: pointsToDeduct });
         }
     }
-    if (!process.env.GEMINI_API_KEY) {
-        return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+    const providers = await assertPromoSpaceEyeLevelProvidersReady();
+    if (!providers.ok) {
+        return res.status(503).json({ success: false, error: providers.error });
     }
     let cameraBlock = '';
     try {
@@ -1157,8 +1276,11 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
     let geminiNativeHeight = 0;
     let imageConfigSent = null;
     let apiUsed = null;
+    let imageProvider = 'gemini';
+    let usedGeminiModel = null;
+    let usedFluxModel = null;
     try {
-        const gen = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
+        const gen = await generatePromoSpaceEyeLevelImage(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
             tier: spaceResTier,
             aspectRatio,
             minEdge,
@@ -1171,8 +1293,11 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         geminiNativeHeight = (gen && gen.gemini_native_height) || 0;
         imageConfigSent = (gen && gen.image_config) || null;
         apiUsed = (gen && gen.api) || null;
+        imageProvider = (gen && gen.image_provider) || 'gemini';
+        usedGeminiModel = (gen && gen.gemini_model) || null;
+        usedFluxModel = (gen && gen.flux_model) || null;
     } catch (geminiErr) {
-        console.error('promo-camera space eye_level Gemini:', geminiErr);
+        console.error('promo-camera space eye_level generate:', geminiErr);
         return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
     }
     if (!buffer || !buffer.length) {
@@ -1209,21 +1334,22 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         balanceAfter = consumed.balance_after;
         creditTransactionId = consumed.transaction_id || null;
     }
-    const geminiModel = await getPromoSpaceEyeLevelModelName();
-    const cameraParamsSnapshot = { keys: cameraKeys, resolved: {} };
-    const generationMeta = {
-        shoot_mode: 'space',
-        space_output_type: 'eye_level',
-        space_use_type: spaceUseType,
-        layout_generation_id: eyeRefs.layoutGenerationId || null,
-        layout_reference_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
-        labeled_map_ephemeral: true,
-        look_from: eyeRefs.lookFrom || null,
-        look_to: eyeRefs.lookTo || null,
-        map_markers: eyeRefs.mapMarkers || null,
-        image_provider: 'gemini',
-        gemini_model: geminiModel,
-        reference_count: 1 + (eyeRefs.stagingProduct && eyeRefs.stagingProduct.base64 ? 1 : 0),
+        const geminiModel = await getPromoSpaceEyeLevelModelName();
+        const cameraParamsSnapshot = { keys: cameraKeys, resolved: {} };
+        const generationMeta = {
+            shoot_mode: 'space',
+            space_output_type: 'eye_level',
+            space_use_type: spaceUseType,
+            layout_generation_id: eyeRefs.layoutGenerationId || null,
+            layout_reference_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
+            labeled_map_ephemeral: true,
+            look_from: eyeRefs.lookFrom || null,
+            look_to: eyeRefs.lookTo || null,
+            map_markers: eyeRefs.mapMarkers || null,
+            image_provider: imageProvider,
+            gemini_model: imageProvider === 'gemini' ? (usedGeminiModel || geminiModel) : null,
+            flux_model: imageProvider === 'flux' ? usedFluxModel : null,
+            reference_count: 1 + (eyeRefs.stagingProduct && eyeRefs.stagingProduct.base64 ? 1 : 0),
         staging_product: !!(eyeRefs.stagingProduct && eyeRefs.stagingProduct.base64),
         aspect_ratio: aspectRatio,
         generation_mode: 'camera_advanced',
@@ -1289,6 +1415,8 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         gemini_native_height: geminiNativeHeight,
         image_config: imageConfigSent,
         gemini_api: apiUsed,
+        image_provider: imageProvider,
+        flux_model: usedFluxModel || null,
         camera_block: cameraBlock || null,
         aspect_ratio: aspectRatio,
         final_prompt: finalPrompt,
@@ -1351,8 +1479,9 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             });
         }
     }
-    if (!process.env.GEMINI_API_KEY) {
-        return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+    const providers = await assertPromoSpaceEyeLevelProvidersReady();
+    if (!providers.ok) {
+        return res.status(503).json({ success: false, error: providers.error });
     }
     let cameraBlock = '';
     try {
@@ -1395,8 +1524,10 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
         let buffer;
         let geminiNativeWidth = 0;
         let geminiNativeHeight = 0;
+        let imageProvider = 'gemini';
+        let usedFluxModel = null;
         try {
-            const gen = await generatePromoSpaceEyeLevelImageWithGemini(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
+            const gen = await generatePromoSpaceEyeLevelImage(eyeRefs.layoutImage, finalPrompt, eyeRefs.stagingProduct, {
                 tier: spaceResTier,
                 aspectRatio,
                 minEdge,
@@ -1407,8 +1538,10 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             buffer = gen && gen.buffer;
             geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
             geminiNativeHeight = (gen && gen.gemini_native_height) || 0;
+            imageProvider = (gen && gen.image_provider) || 'gemini';
+            usedFluxModel = (gen && gen.flux_model) || null;
         } catch (geminiErr) {
-            console.error('promo-camera space eye_level batch Gemini:', geminiErr);
+            console.error('promo-camera space eye_level batch generate:', geminiErr);
             results.push({ success: false, intent_key: intentKey, zone_name: zoneRow.name, error: geminiErr.message || '生成失敗' });
             continue;
         }
@@ -1460,8 +1593,9 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             look_from: eyeRefs.lookFrom || null,
             look_to: eyeRefs.lookTo || null,
             map_markers: eyeRefs.mapMarkers || null,
-            image_provider: 'gemini',
-            gemini_model: geminiModel,
+            image_provider: imageProvider,
+            gemini_model: imageProvider === 'gemini' ? geminiModel : null,
+            flux_model: imageProvider === 'flux' ? usedFluxModel : null,
             aspect_ratio: aspectRatio,
             generation_mode: 'camera_advanced',
             client_channel: clientChannel,
@@ -1509,6 +1643,8 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             output_height: measured.height || h,
             gemini_native_width: geminiNativeWidth,
             gemini_native_height: geminiNativeHeight,
+            image_provider: imageProvider,
+            flux_model: usedFluxModel || null,
             aspect_ratio: aspectRatio,
             final_prompt: finalPrompt,
             shot_index_in_set: i,
@@ -1835,6 +1971,10 @@ async function getPatternExtractModelName() {
 
 async function getPatternExtractEngine() {
     return getOptimizeEnginePref('pattern_extract_engine', 'PATTERN_EXTRACT_ENGINE');
+}
+
+async function getPromoSpaceEyeLevelEngine() {
+    return getOptimizeEnginePref('promo_space_eye_level_engine', 'PROMO_SPACE_EYE_LEVEL_ENGINE');
 }
 
 function getVisualSemanticsDeps() {
@@ -10808,7 +10948,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
             'print_asset_engine',
-            'pattern_extract_engine'
+            'pattern_extract_engine',
+            'promo_space_eye_level_engine'
         ];
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
@@ -10825,6 +10966,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const comboEngine = await getMaterialDualColorEngine();
         const printEngine = await getPrintAssetEngine();
         const patternEngine = await getPatternExtractEngine();
+        const spaceEyeEngine = await getPromoSpaceEyeLevelEngine();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -10840,6 +10982,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             material_dual_color_engine: comboEngine,
             print_asset_engine: printEngine,
             pattern_extract_engine: patternEngine,
+            promo_space_eye_level_engine: spaceEyeEngine,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -10857,6 +11000,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 material_dual_color_engine: !!byKey.material_dual_color_engine,
                 print_asset_engine: !!byKey.print_asset_engine,
                 pattern_extract_engine: !!byKey.pattern_extract_engine,
+                promo_space_eye_level_engine: !!byKey.promo_space_eye_level_engine,
                 ...bfl.saved_in_db
             }
         });
@@ -10908,7 +11052,8 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
             'print_asset_engine',
-            'pattern_extract_engine'
+            'pattern_extract_engine',
+            'promo_space_eye_level_engine'
         ];
         for (const key of engineFields) {
             if (body[key] === undefined) continue;
@@ -10971,6 +11116,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 : null,
             pattern_extract_engine: byKey.pattern_extract_engine
                 ? normalizeOptimizeEnginePref(byKey.pattern_extract_engine)
+                : null,
+            promo_space_eye_level_engine: byKey.promo_space_eye_level_engine
+                ? normalizeOptimizeEnginePref(byKey.promo_space_eye_level_engine)
                 : null,
             ...bfl.models
         });
@@ -14565,7 +14713,7 @@ const BFL_PLAYGROUND_MODELS = {
     'flux-2-klein-4b': '/v1/flux-2-klein-4b'
 };
 
-/** payment_config 鍵 → 程式預設 model id（皆 pro；max 僅在後台手動改材料槽時使用） */
+/** payment_config 鍵 → 程式預設 model id（空間平視備援預設 max；其餘 pro） */
 const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_generate: 'flux-2-pro',
     bfl_flux_model_official: 'flux-2-pro',
@@ -14573,7 +14721,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_vendor_material: 'flux-2-pro',
     bfl_flux_model_scene_pattern: 'flux-2-pro',
     bfl_flux_model_design_to_physical: 'flux-2-pro',
-    bfl_flux_model_promo_image: 'flux-2-pro'
+    bfl_flux_model_promo_image: 'flux-2-pro',
+    bfl_flux_model_promo_space_eye_level: 'flux-2-max'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
@@ -14596,15 +14745,18 @@ function getBflPlaygroundEndpoint(model) {
     return BFL_BASE + '/v1/' + id;
 }
 
-async function getBflFluxEndpointForConfigKey(configKey) {
+async function getBflFluxModelIdForConfigKey(configKey) {
     const fallback = BFL_FLUX_MODEL_CONFIG[configKey] || 'flux-2-pro';
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', configKey).maybeSingle();
-        const modelId = normalizeBflFluxModelId(row && row.value, fallback);
-        return getBflPlaygroundEndpoint(modelId);
+        return normalizeBflFluxModelId(row && row.value, fallback);
     } catch (_) {
-        return getBflPlaygroundEndpoint(fallback);
+        return fallback;
     }
+}
+
+async function getBflFluxEndpointForConfigKey(configKey) {
+    return getBflPlaygroundEndpoint(await getBflFluxModelIdForConfigKey(configKey));
 }
 
 function resolveBflFluxModelsFromRows(rows) {

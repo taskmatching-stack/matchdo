@@ -25,6 +25,8 @@
 | 數位原型／零件／材料 AI 重繪 | `vendor_asset_optimize_engine` | `VENDOR_ASSET_OPTIMIZE_ENGINE` | 官方／廠商／供應商「AI 重繪」 |
 | 材料組合生圖 | `material_dual_color_engine` | `MATERIAL_DUAL_COLOR_ENGINE` | `material-dual-color` |
 | 印花資產 AI 重繪 | `print_asset_engine` | `PRINT_ASSET_ENGINE` | 印花資產重繪 |
+| 圖樣提取 | `pattern_extract_engine` | `PATTERN_EXTRACT_ENGINE` | `/pattern-extract/` |
+| 空間平視（對照 ISO） | `promo_space_eye_level_engine` | `PROMO_SPACE_EYE_LEVEL_ENGINE` | `/promo-camera` 空間 `eye_level`；備援 FLUX.2 [max] |
 
 可選值：`auto`（Gemini 優先，滿額／429 → FLUX）、`gemini`（僅 Gemini）、`flux`（僅 FLUX）。  
 **優先序**：DB 已存值 → 環境變數 → 預設 `auto`。儲存後立即生效。
@@ -42,6 +44,7 @@
 | 廠商材料／材料組合 FLUX | `bfl_flux_model_vendor_material` | `flux-2-pro` | 材料重繪與材料組合備援／強制 FLUX |
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
 | 寫實化 | `bfl_flux_model_design_to_physical` | `flux-2-pro` | 設計頁／廠商寫實化（獨立槽） |
+| 空間平視（對照 ISO）備援 | `bfl_flux_model_promo_space_eye_level` | **`flux-2-max`** | 商攝導演平視備援／強制 FLUX |
 
 可選 model id 與 Playground 相同（`flux-2-pro`、`flux-2-max` 等），亦支援**後台手填**新型號（`flux-2-*` → `POST /v1/{id}`），無需改程式或下拉枚舉。
 
@@ -72,7 +75,7 @@
 | `points_promo_space_eye_level_gemini` | 30 | 平視 2K 點／張 |
 | `points_promo_space_eye_level_gemini_4k` | 50 | 平視 4K 點／張 |
 
-Seed：`docs/add-promo-space-gemini-config.sql`。
+Seed：`docs/add-promo-space-gemini-config.sql`。空間平視 FLUX 備援：`docs/add-promo-space-eye-level-flux-backup.sql`（`promo_space_eye_level_engine`、`bfl_flux_model_promo_space_eye_level`）。
 
 **環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`、`GEMINI_MODEL_PRINT_ASSET`。
 
