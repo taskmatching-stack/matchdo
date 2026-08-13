@@ -7973,14 +7973,24 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
         const base = origin || BASE_URL || 'https://matchdo.cc';
         const categoryKey = String((req.query && req.query.category_key) || '').trim();
         const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const qText = String((req.query && req.query.q) || '').trim();
+        const hasAssetKindParam = !!(req.query && Object.prototype.hasOwnProperty.call(req.query, 'asset_kind'));
+        let assetKind;
+        if (hasAssetKindParam) {
+            assetKind = String(req.query.asset_kind || '').trim().toLowerCase();
+        } else {
+            assetKind = 'prototype';
+        }
         const { resolvePublicLang } = require('./lib/public-lang');
         const lang = resolvePublicLang({
-            queryLang: req.query && req.query.lang,
-            acceptLanguage: req.get('accept-language')
+            queryLang: req.query && req.query.lang
+            /* 版型列表預設中文；勿用 Accept-Language 把英文選單 SSR 進中文頁 */
         });
         const catalog = await listOfficialPublicCatalogForPage({
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
+            asset_kind: assetKind,
+            q: qText,
             limit: 72,
             offset: 0
         });
@@ -7991,6 +8001,9 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
             categories: catalog.categories || [],
             categoryKey,
             subcategoryKey,
+            assetKind: catalog.asset_kind != null ? catalog.asset_kind : assetKind,
+            assetKindExplicitAll: hasAssetKindParam && !String(req.query.asset_kind || '').trim(),
+            q: qText,
             total: catalog.total != null ? catalog.total : (catalog.items || []).length,
             proxyImage: proxyPublicImageUrl,
             lang
@@ -8011,14 +8024,20 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
         const base = origin || BASE_URL || 'https://matchdo.cc';
         const categoryKey = String((req.query && req.query.category_key) || '').trim();
         const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
+        const qText = String((req.query && req.query.q) || '').trim();
+        const manufacturerName = String((req.query && req.query.manufacturer_name) || '').trim();
+        const manufacturerId = String((req.query && req.query.manufacturer_id) || '').trim();
         const { resolvePublicLang } = require('./lib/public-lang');
         const lang = resolvePublicLang({
-            queryLang: req.query && req.query.lang,
-            acceptLanguage: req.get('accept-language')
+            queryLang: req.query && req.query.lang
+            /* 版型列表預設中文；勿用 Accept-Language 把英文選單 SSR 進中文頁 */
         });
         const catalog = await listVendorPublicCatalogForPage({
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
+            q: qText,
+            manufacturer_name: manufacturerName,
+            manufacturer_id: manufacturerId,
             limit: 72,
             offset: 0
         });
@@ -8029,6 +8048,8 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
             categories: catalog.categories || [],
             categoryKey,
             subcategoryKey,
+            q: qText,
+            manufacturerName,
             total: catalog.total != null ? catalog.total : (catalog.items || []).length,
             proxyImage: proxyPublicImageUrl,
             lang
@@ -8716,14 +8737,8 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
     return { items, total, name: OFFICIAL_ASSET_DISPLAY_NAME };
 }
 
-/** 官方版型公開列表頁（/official-templates/）用：可不帶 category_key */
-async function listOfficialPublicCatalogForPage(opts) {
-    opts = opts || {};
-    const categoryKey = String(opts.category_key || '').trim();
-    const subcategoryKey = String(opts.subcategory_key || '').trim();
-    const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
-    const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
-    const mfrIds = await listOfficialPlatformManufacturerIds();
+/** 官方／廠商公開列表頁：主分類＋子分類（供下拉，非 chip 牆） */
+async function loadBrowseCatalogCategoriesWithSubs() {
     let categories = [];
     try {
         let { data: catRows, error: catErr } = await supabase
@@ -8741,10 +8756,64 @@ async function listOfficialPublicCatalogForPage(opts) {
         categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
             key: c.key,
             name: c.name || c.key,
-            name_en: c.name_en || ''
+            name_en: c.name_en || '',
+            subcategories: []
         }));
-    } catch (_) { categories = []; }
-    if (!mfrIds.length) return { items: [], total: 0, categories };
+        const keys = categories.map((c) => c.key);
+        if (keys.length) {
+            let { data: subs, error: subErr } = await supabase
+                .from('custom_product_subcategories')
+                .select('category_key, key, name, name_en, sort_order')
+                .in('category_key', keys)
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+            if (subErr && subErr.code === '42703') {
+                ({ data: subs } = await supabase
+                    .from('custom_product_subcategories')
+                    .select('category_key, key, name, sort_order')
+                    .in('category_key', keys)
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }));
+            }
+            const map = {};
+            (subs || []).forEach((s) => {
+                if (!s || !s.category_key || !s.key) return;
+                if (!map[s.category_key]) map[s.category_key] = [];
+                map[s.category_key].push({
+                    key: s.key,
+                    name: s.name || s.key,
+                    name_en: s.name_en || ''
+                });
+            });
+            categories.forEach((c) => {
+                c.subcategories = map[c.key] || [];
+            });
+        }
+    } catch (_) {
+        categories = [];
+    }
+    return categories;
+}
+
+/** 官方版型公開列表頁（/official-templates/）用：可不帶 category_key */
+async function listOfficialPublicCatalogForPage(opts) {
+    opts = opts || {};
+    const categoryKey = String(opts.category_key || '').trim();
+    const subcategoryKey = String(opts.subcategory_key || '').trim();
+    const qText = String(opts.q || '').trim().toLowerCase();
+    let assetKind = opts.asset_kind;
+    if (assetKind === undefined || assetKind === null) assetKind = 'prototype';
+    else assetKind = String(assetKind).trim().toLowerCase();
+    if (assetKind && assetKind !== 'prototype' && assetKind !== 'part' && assetKind !== 'material') {
+        assetKind = 'prototype';
+    }
+    const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
+    const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+    const mfrIds = await listOfficialPlatformManufacturerIds();
+    const categories = await loadBrowseCatalogCategoriesWithSubs();
+    if (!mfrIds.length) {
+        return { items: [], total: 0, categories, asset_kind: assetKind };
+    }
     const selectCols = 'id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
     let q = supabase
         .from('vendor_assets')
@@ -8755,6 +8824,7 @@ async function listOfficialPublicCatalogForPage(opts) {
         .order('created_at', { ascending: false });
     if (categoryKey) q = q.eq('category_key', categoryKey);
     if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+    if (assetKind) q = q.eq('asset_kind', assetKind);
     let { data: rows, error } = await q;
     if (error && error.code === '42703') {
         let fq = supabase
@@ -8763,14 +8833,30 @@ async function listOfficialPublicCatalogForPage(opts) {
             .in('manufacturer_id', mfrIds)
             .eq('is_public', true);
         if (categoryKey) fq = fq.eq('category_key', categoryKey);
+        if (subcategoryKey) fq = fq.eq('subcategory_key', subcategoryKey);
         ({ data: rows, error } = await fq);
     }
     if (error) {
-        if (error.code === '42P01') return { items: [], total: 0, categories };
+        if (error.code === '42P01') return { items: [], total: 0, categories, asset_kind: assetKind };
         console.error('listOfficialPublicCatalogForPage:', error.message || error);
-        return { items: [], total: 0, categories };
+        return { items: [], total: 0, categories, asset_kind: assetKind };
     }
     let list = rows || [];
+    if (assetKind && list.length && list.some((r) => r.asset_kind != null)) {
+        list = list.filter((r) => {
+            try {
+                return normalizeVendorAssetKind(r.asset_kind) === assetKind;
+            } catch (_) {
+                return String(r.asset_kind || '').toLowerCase() === assetKind;
+            }
+        });
+    }
+    if (qText) {
+        list = list.filter((r) => {
+            const hay = [r.title, r.description, r.category_key, r.subcategory_key].join(' ').toLowerCase();
+            return hay.includes(qText);
+        });
+    }
     const total = list.length;
     list = list.slice(offset, offset + limit);
     let linkCounts = {};
@@ -8803,7 +8889,7 @@ async function listOfficialPublicCatalogForPage(opts) {
                 : null
         };
     });
-    return { items, total, categories };
+    return { items, total, categories, asset_kind: assetKind };
 }
 
 /** 廠商版型公開列表頁（/vendor-styles/）：公開 prototype，排除官方平台廠商 */
@@ -8811,28 +8897,12 @@ async function listVendorPublicCatalogForPage(opts) {
     opts = opts || {};
     const categoryKey = String(opts.category_key || '').trim();
     const subcategoryKey = String(opts.subcategory_key || '').trim();
+    const qText = String(opts.q || '').trim().toLowerCase();
+    const manufacturerName = String(opts.manufacturer_name || '').trim().toLowerCase();
+    const manufacturerId = String(opts.manufacturer_id || '').trim();
     const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
     const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
-    let categories = [];
-    try {
-        let { data: catRows, error: catErr } = await supabase
-            .from('custom_product_categories')
-            .select('key, name, name_en, sort_order')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true });
-        if (catErr && catErr.code === '42703') {
-            ({ data: catRows } = await supabase
-                .from('custom_product_categories')
-                .select('key, name, sort_order')
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true }));
-        }
-        categories = (catRows || []).filter((c) => c && c.key).map((c) => ({
-            key: c.key,
-            name: c.name || c.key,
-            name_en: c.name_en || ''
-        }));
-    } catch (_) { categories = []; }
+    const categories = await loadBrowseCatalogCategoriesWithSubs();
     const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));
     const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
     async function runQ(cols) {
@@ -8845,6 +8915,7 @@ async function listVendorPublicCatalogForPage(opts) {
         if (cols.includes('asset_kind')) q = q.eq('asset_kind', 'prototype');
         if (categoryKey) q = q.eq('category_key', categoryKey);
         if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+        if (manufacturerId) q = q.eq('manufacturer_id', manufacturerId);
         return q;
     }
     let { data: rows, error } = await runQ(selectCols);
@@ -8878,6 +8949,19 @@ async function listVendorPublicCatalogForPage(opts) {
         if (!mfr) return false;
         return vendorAssetVisibleToPublicAudience(mfr, r);
     });
+    if (manufacturerName) {
+        list = list.filter((r) => {
+            const name = String(manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id) || '').toLowerCase();
+            return name.includes(manufacturerName);
+        });
+    }
+    if (qText) {
+        list = list.filter((r) => {
+            const mfrName = manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id) || '';
+            const hay = [r.title, r.description, r.category_key, r.subcategory_key, mfrName].join(' ').toLowerCase();
+            return hay.includes(qText);
+        });
+    }
     const total = list.length;
     list = list.slice(offset, offset + limit);
     let linkCounts = {};
@@ -16594,6 +16678,62 @@ async function getPromoSpaceAppealForGeneration(userId, generationId) {
     return { rows, approved };
 }
 
+async function fetchPromoSpaceAppealSummaryMap(generationIds) {
+    const ids = [...new Set((generationIds || []).map((id) => String(id || '').trim()).filter(Boolean))];
+    if (!ids.length) return {};
+    const { data, error } = await supabase
+        .from('promo_space_appeals')
+        .select('id, generation_id, status, refunded_points, reason_zh, created_at')
+        .in('generation_id', ids)
+        .order('created_at', { ascending: false });
+    if (error) {
+        if (isPromoSpaceAppealsMigrationError(error)) return {};
+        throw error;
+    }
+    const map = {};
+    (data || []).forEach(function (row) {
+        const gid = String(row.generation_id || '').trim();
+        if (!gid) return;
+        if (!map[gid]) map[gid] = { appeal_count: 0, latest: null, approved: null };
+        const entry = map[gid];
+        entry.appeal_count += 1;
+        if (!entry.latest) entry.latest = row;
+        if (row.status === 'approved' && !entry.approved) entry.approved = row;
+    });
+    return map;
+}
+
+function mapPromoSpaceAppealSummary(entry) {
+    if (!entry || !entry.appeal_count) {
+        return {
+            has_appeal: false,
+            appeal_count: 0,
+            appeal_status: null,
+            appeal_refunded_points: 0,
+            appeal_reason_zh: null,
+            appeal_at: null
+        };
+    }
+    const latest = entry.latest || null;
+    const approved = entry.approved || null;
+    return {
+        has_appeal: true,
+        appeal_count: entry.appeal_count,
+        appeal_status: latest ? latest.status : null,
+        appeal_refunded_points: approved ? (parseInt(approved.refunded_points, 10) || 0) : 0,
+        appeal_reason_zh: latest && latest.reason_zh ? String(latest.reason_zh).trim() : null,
+        appeal_at: latest ? latest.created_at : null
+    };
+}
+
+function attachPromoSpaceAppealSummaries(items, appealMap) {
+    (items || []).forEach(function (item) {
+        if (!item || !item.id) return;
+        Object.assign(item, mapPromoSpaceAppealSummary((appealMap || {})[String(item.id)]));
+    });
+    return items;
+}
+
 /** GET /api/promo-camera/space-appeal/status?generation_id= */
 app.get('/api/promo-camera/space-appeal/status', async (req, res) => {
     try {
@@ -16938,7 +17078,16 @@ app.get('/api/promo-image/generations', async (req, res) => {
         }
         const rawList = data || [];
         const hasMore = rawList.length > limitN;
-        const items = (hasMore ? rawList.slice(0, limitN) : rawList).map(mapUserPromoGenerationListItem);
+        const pageRows = hasMore ? rawList.slice(0, limitN) : rawList;
+        let appealMap = {};
+        try {
+            appealMap = await fetchPromoSpaceAppealSummaryMap(pageRows.map(function (r) { return r.id; }));
+        } catch (appealErr) {
+            console.warn('GET /api/promo-image/generations appeals:', appealErr && appealErr.message);
+        }
+        const items = pageRows.map(function (row) {
+            return Object.assign(mapUserPromoGenerationListItem(row), mapPromoSpaceAppealSummary(appealMap[String(row.id)]));
+        });
         res.json({ success: true, items: items, count: items.length, offset: offsetN, hasMore: hasMore });
     } catch (e) {
         console.error('GET /api/promo-image/generations:', e);
@@ -25666,6 +25815,18 @@ async function listAdminGenerationRecords(opts) {
         }
     });
 
+    const promoItemIds = items.filter(function (item) {
+        return isPromoLikeGenerationRecordSource(item.source) && item.id;
+    }).map(function (item) { return item.id; });
+    if (promoItemIds.length) {
+        try {
+            const appealMap = await fetchPromoSpaceAppealSummaryMap(promoItemIds);
+            attachPromoSpaceAppealSummaries(items, appealMap);
+        } catch (appealErr) {
+            console.warn('listAdminGenerationRecords appeals:', appealErr && appealErr.message);
+        }
+    }
+
     const summary = await adminGenerationRecordSummaryCounts({ from, to, qText: qText });
 
     return {
@@ -25682,6 +25843,11 @@ function normalizePromoClientChannel(raw) {
     const v = String(raw || 'web').trim().toLowerCase();
     if (v === 'app' || v === 'embed' || v === 'web') return v;
     return 'web';
+}
+
+function isPromoLikeGenerationRecordSource(source) {
+    const s = String(source || '').trim();
+    return s === 'promo' || s === 'promo_camera' || s === 'promo_camera_web' || s === 'promo_camera_app';
 }
 
 function adminPromoGenerationRecordSource(row) {

@@ -46,6 +46,8 @@
             var stored = localStorage.getItem(STORAGE_KEY);
             if (stored) return normalizeLang(stored);
         } catch (e) {}
+        /* 版型列表 SSR 預設中文：勿因瀏覽器英文語系把選單翻成英文 */
+        if (typeof window !== 'undefined' && window.__MATCHDO_BROWSE_DEFAULT_ZH__) return DEFAULT_LANG;
         return detectBrowserLang();
     }
 
