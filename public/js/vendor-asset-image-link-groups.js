@@ -127,7 +127,7 @@
         };
     }
 
-    /** 預設選取：略過僅展示；有連動組則先整組（上限內），否則取前 N 張可選圖 */
+    /** 預設選取：略過僅展示；有連動組則先整組（上限內），否則只取第一張可選圖。 */
     function defaultLinkedSelection(imageItems, maxSelect, labelForItem) {
         maxSelect = maxSelect != null ? maxSelect : 3;
         labelForItem = labelForItem || function (it) {
@@ -161,15 +161,12 @@
             });
         }
         if (!pick.length) {
-            var take = Math.min(maxSelect, selectable.length);
-            for (var j = 0; j < take; j++) {
-                var it2 = selectable[j];
-                pick.push({
-                    url: it2.url,
-                    label: labelForItem(it2),
-                    link_group: normalizeLinkGroup(it2.link_group)
-                });
-            }
+            var it2 = selectable[0];
+            pick.push({
+                url: it2.url,
+                label: labelForItem(it2),
+                link_group: normalizeLinkGroup(it2.link_group)
+            });
         }
         return pick;
     }

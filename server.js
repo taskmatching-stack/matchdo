@@ -3375,6 +3375,10 @@ function parseGalleryImages(raw) {
                 const lg = normalizeImageLinkGroup(entry.link_group);
                 if (lg) row.link_group = lg;
             }
+            if (entry && typeof entry === 'object') {
+                const linkedAssetIds = normalizeImageLinkedAssetIds(entry.linked_asset_ids);
+                if (linkedAssetIds.length) row.linked_asset_ids = linkedAssetIds;
+            }
             // 僅存 false；省略／true＝設計者可引用（勿新增 DB 欄位）
             if (entry && typeof entry === 'object' && entry.designer_selectable !== undefined
                 && !normalizeDesignerSelectable(entry.designer_selectable)) {
@@ -3409,6 +3413,30 @@ function readCoverDesignerSelectableMeta(raw) {
         }
     }
     return true;
+}
+
+/** 原型封面圖的圖片層材料／配件覆寫，存於 gallery_images 無 url 的 meta。 */
+function readCoverLinkedAssetIdsMeta(raw) {
+    let arr = raw;
+    if (typeof raw === 'string') {
+        try { arr = JSON.parse(raw); } catch (_) { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    for (let i = 0; i < arr.length; i++) {
+        const e = arr[i];
+        if (e && typeof e === 'object' && !e.url
+            && Array.isArray(e.__cover_linked_asset_ids)) {
+            return [...new Set(e.__cover_linked_asset_ids
+                .map((id) => String(id || '').trim())
+                .filter(Boolean))];
+        }
+    }
+    return [];
+}
+
+function normalizeImageLinkedAssetIds(raw) {
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.map((id) => String(id || '').trim()).filter(Boolean))];
 }
 
 function applyCoverDesignerSelectableMeta(galleryArr, selectable) {
@@ -3563,6 +3591,8 @@ function buildVendorAssetImageItems(row) {
             designer_selectable: coverSelectable
         };
         if (coverLinkGroup) coverItem.link_group = coverLinkGroup;
+        const coverLinkedAssetIds = readCoverLinkedAssetIdsMeta(row.gallery_images);
+        if (coverLinkedAssetIds.length) coverItem.linked_asset_ids = coverLinkedAssetIds;
         items.push(coverItem);
     }
     parseGalleryImages(row.gallery_images).forEach(function (g, idx) {
@@ -3579,6 +3609,8 @@ function buildVendorAssetImageItems(row) {
         if (normalizeVendorAiDerivedKind(g.ai_derived)) item.ai_derived = normalizeVendorAiDerivedKind(g.ai_derived);
         if (g.source_url) item.source_url = String(g.source_url).trim();
         if (g.link_group) item.link_group = g.link_group;
+        const linkedAssetIds = normalizeImageLinkedAssetIds(g.linked_asset_ids);
+        if (linkedAssetIds.length) item.linked_asset_ids = linkedAssetIds;
         if (kind !== 'material' && g.designer_selectable === false) item.designer_selectable = false;
         items.push(item);
     });
@@ -3616,6 +3648,7 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
             ai_derived: normalizeVendorAiDerivedKind(it.ai_derived),
             source_url: it.source_url ? String(it.source_url).trim() : '',
             link_group: it.link_group ? String(it.link_group).trim() : '',
+            linked_asset_ids: normalizeImageLinkedAssetIds(it.linked_asset_ids),
             designer_selectable: it.designer_selectable !== false
         };
     });
@@ -3625,6 +3658,7 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
         if (meta.ai_derived) g.ai_derived = meta.ai_derived;
         if (meta.source_url) g.source_url = meta.source_url;
         if (meta.link_group) g.link_group = meta.link_group;
+        if (meta.linked_asset_ids && meta.linked_asset_ids.length) g.linked_asset_ids = meta.linked_asset_ids;
         if (meta.designer_selectable === false) g.designer_selectable = false;
         return g;
     });
@@ -3632,6 +3666,12 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
         ? false
         : (metaByUrl[reordered[0]] ? metaByUrl[reordered[0]].designer_selectable !== false : true);
     gallery_images = applyCoverDesignerSelectableMeta(gallery_images, coverSel);
+    const coverLinkedAssetIds = metaByUrl[reordered[0]]
+        ? normalizeImageLinkedAssetIds(metaByUrl[reordered[0]].linked_asset_ids)
+        : [];
+    if (coverLinkedAssetIds.length) {
+        gallery_images.push({ __cover_linked_asset_ids: coverLinkedAssetIds });
+    }
     return {
         image_url: reordered[0],
         cover_image_label: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].label) || '',
@@ -26570,7 +26610,11 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const capabilities = capabilityMap[proto.id] || [];
     
     const linkPack = await getLinkedAssetIdsForPrototype(proto.manufacturer_id, prototypeAssetId);
-    const linkedIds = linkPack.ids || [];
+    const cardLinkedIds = linkPack.ids || [];
+    /* 圖片層覆寫可帶入卡片預設以外的同廠材料／配件；卡片連結仍是 fallback。 */
+    const imageOverrideIds = [...new Set(buildVendorAssetImageItems(proto)
+        .flatMap((item) => normalizeImageLinkedAssetIds(item.linked_asset_ids)))];
+    const linkedIds = [...new Set(cardLinkedIds.concat(imageOverrideIds))];
     let linkedAssets = [];
     if (linkedIds.length) {
         const { data: rows } = await supabase
@@ -26579,7 +26623,10 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
             .eq('manufacturer_id', proto.manufacturer_id)
             .in('id', linkedIds);
         const byId = {};
-        (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+        (rows || []).forEach((r) => {
+            const kind = normalizeVendorAssetKind(r.asset_kind);
+            if (kind === 'material' || kind === 'part') byId[r.id] = mapVendorAssetLinkTreeNode(r);
+        });
         linkedAssets = linkedIds.map((id, idx) => {
             const node = byId[id];
             if (!node) return null;
@@ -26588,7 +26635,8 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
                 ...node,
                 sort_order: linkPack.sortById[id] != null ? linkPack.sortById[id] : idx,
                 allow_multi_pick: m.allow_multi_pick !== false,
-                pick_group: m.pick_group || null
+                pick_group: m.pick_group || null,
+                image_override_only: cardLinkedIds.indexOf(id) < 0
             };
         }).filter(Boolean);
     }
@@ -32625,6 +32673,30 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
         if (!vendorAssetSupportsGalleryImages(row.asset_kind) && body.entries && body.entries.length) {
             return res.status(400).json({ error: '僅數位原型或配件／零件可設定多角度圖名稱' });
         }
+        if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype'
+            && (body.cover_linked_asset_ids !== undefined
+                || (Array.isArray(body.entries) && body.entries.some((ent) => ent && ent.linked_asset_ids !== undefined)))) {
+            return res.status(400).json({ error: '僅數位原型圖片可設定材料／配件覆寫' });
+        }
+        const requestedOverrideIds = [...new Set([
+            ...normalizeImageLinkedAssetIds(body.cover_linked_asset_ids),
+            ...(Array.isArray(body.entries) ? body.entries.flatMap((ent) => normalizeImageLinkedAssetIds(ent && ent.linked_asset_ids)) : [])
+        ])];
+        if (requestedOverrideIds.length) {
+            const { data: overrideRows, error: overrideErr } = await supabase
+                .from('vendor_assets')
+                .select('id, asset_kind')
+                .eq('manufacturer_id', manufacturerId)
+                .in('id', requestedOverrideIds);
+            if (overrideErr) throw overrideErr;
+            const validOverrideIds = new Set((overrideRows || []).filter((asset) => {
+                const kind = normalizeVendorAssetKind(asset.asset_kind);
+                return kind === 'material' || kind === 'part';
+            }).map((asset) => String(asset.id)));
+            if (validOverrideIds.size !== requestedOverrideIds.length) {
+                return res.status(400).json({ error: '圖片覆寫只能選同一廠商的材料或配件' });
+            }
+        }
         const updates = { updated_at: new Date().toISOString() };
         if (body.cover_label !== undefined) {
             updates.cover_image_label = String(body.cover_label || '').trim() || null;
@@ -32648,6 +32720,9 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 if (ent.designer_selectable !== undefined) {
                     byUrl[key].designer_selectable = normalizeDesignerSelectable(ent.designer_selectable);
                 }
+                if (ent.linked_asset_ids !== undefined) {
+                    byUrl[key].linked_asset_ids = normalizeImageLinkedAssetIds(ent.linked_asset_ids);
+                }
             });
             galleryWorking = parseGalleryImages(row.gallery_images).map(function (g) {
                 const patch = byUrl[g.url];
@@ -32656,6 +32731,11 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 const derivedKeep = normalizeVendorAiDerivedKind(g.ai_derived);
                 if (derivedKeep) next.ai_derived = derivedKeep;
                 if (g.source_url) next.source_url = g.source_url;
+                if (patch.linked_asset_ids !== undefined) {
+                    if (patch.linked_asset_ids.length) next.linked_asset_ids = patch.linked_asset_ids;
+                } else if (normalizeImageLinkedAssetIds(g.linked_asset_ids).length) {
+                    next.linked_asset_ids = normalizeImageLinkedAssetIds(g.linked_asset_ids);
+                }
                 const selectable = patch.designer_selectable !== undefined
                     ? patch.designer_selectable
                     : (g.designer_selectable === undefined ? true : normalizeDesignerSelectable(g.designer_selectable));
@@ -32692,6 +32772,18 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 galleryWorking,
                 readCoverDesignerSelectableMeta(row.gallery_images)
             );
+        }
+        if ((galleryWorking || body.cover_linked_asset_ids !== undefined)
+            && normalizeVendorAssetKind(row.asset_kind) === 'prototype') {
+            if (!galleryWorking) galleryWorking = parseGalleryImages(row.gallery_images);
+            galleryWorking = galleryWorking.filter((entry) => !(entry && typeof entry === 'object'
+                && !entry.url && Object.prototype.hasOwnProperty.call(entry, '__cover_linked_asset_ids')));
+            const coverLinkedAssetIds = body.cover_linked_asset_ids !== undefined
+                ? normalizeImageLinkedAssetIds(body.cover_linked_asset_ids)
+                : readCoverLinkedAssetIdsMeta(row.gallery_images);
+            if (coverLinkedAssetIds.length) {
+                galleryWorking.push({ __cover_linked_asset_ids: coverLinkedAssetIds });
+            }
         }
         if (galleryWorking) updates.gallery_images = galleryWorking;
         if (Object.keys(updates).length <= 1) {

@@ -2189,19 +2189,25 @@
                         var labelIn = col.querySelector('.pending-card-label, .edit-gallery-label-input');
                         var linkIn = col.querySelector('.edit-cover-link-group, .edit-gallery-link-group-input');
                         var selIn = col.querySelector('.edit-cover-designer-selectable, .edit-gallery-designer-selectable');
+                        var overrideIn = col.querySelector('.edit-image-link-override');
                         var label = labelIn ? (labelIn.value || '') : '';
                         var link_group = linkIn ? (linkIn.value || '') : '';
                         var designer_selectable = selIn ? !!selIn.checked : undefined;
+                        var linked_asset_ids = overrideIn
+                            ? Array.prototype.slice.call(overrideIn.options).filter(function (o) { return o.selected; }).map(function (o) { return o.value; })
+                            : undefined;
                         if (idx === 0) {
                             live.hasCoverFields = true;
                             live.cover_label = label;
                             live.cover_link_group = link_group;
                             if (designer_selectable !== undefined) live.cover_designer_selectable = designer_selectable;
+                            if (linked_asset_ids !== undefined) live.cover_linked_asset_ids = linked_asset_ids;
                         } else {
                             if (!live.byUrl[url]) live.byUrl[url] = {};
                             live.byUrl[url].label = label;
                             live.byUrl[url].link_group = link_group;
                             if (designer_selectable !== undefined) live.byUrl[url].designer_selectable = designer_selectable;
+                            if (linked_asset_ids !== undefined) live.byUrl[url].linked_asset_ids = linked_asset_ids;
                         }
                     });
                     return live;
@@ -2257,6 +2263,7 @@
                     else if (live.cover_designer_selectable !== undefined) row.designer_selectable = live.cover_designer_selectable;
                     if (row.designer_selectable === false) row.link_group = '';
                     else if (live.cover_link_group !== undefined) row.link_group = live.cover_link_group;
+                    if (live.cover_linked_asset_ids !== undefined) row.linked_asset_ids = live.cover_linked_asset_ids;
                 } else if (it.url && live.byUrl[it.url]) {
                     var p = live.byUrl[it.url];
                     if (p.label !== undefined) row.label = p.label;
@@ -2267,6 +2274,7 @@
                     }
                     if (row.designer_selectable === false) row.link_group = '';
                     else if (p.link_group !== undefined) row.link_group = p.link_group;
+                    if (p.linked_asset_ids !== undefined) row.linked_asset_ids = p.linked_asset_ids;
                 }
                 return row;
             });
@@ -2344,6 +2352,7 @@
                     if (live.cover_designer_selectable !== undefined &&
                         !!live.cover_designer_selectable !== (cover.designer_selectable !== false)) return true;
                 }
+                if (JSON.stringify(live.cover_linked_asset_ids || []) !== JSON.stringify(cover.linked_asset_ids || [])) return true;
             }
             for (var i = 1; i < items.length; i++) {
                 var it = items[i];
@@ -2358,6 +2367,7 @@
                     if (p.designer_selectable !== undefined &&
                         !!p.designer_selectable !== (it.designer_selectable !== false)) return true;
                 }
+                if (JSON.stringify(p.linked_asset_ids || []) !== JSON.stringify(it.linked_asset_ids || [])) return true;
             }
             return false;
         }
@@ -2406,7 +2416,8 @@
                         url: url,
                         label: (p.label != null ? p.label : '').trim(),
                         link_group: (p.link_group != null ? p.link_group : '').trim(),
-                        designer_selectable: p.designer_selectable
+                        designer_selectable: p.designer_selectable,
+                        linked_asset_ids: Array.isArray(p.linked_asset_ids) ? p.linked_asset_ids : undefined
                     };
                 });
             }
@@ -2434,6 +2445,9 @@
                 if (!tok) return;
                 var body = { entries: entries };
                 if (coverIn) body.cover_label = (coverIn.value || '').trim();
+                if (live && live.cover_linked_asset_ids !== undefined) {
+                    body.cover_linked_asset_ids = live.cover_linked_asset_ids;
+                }
                 var coverSelectableIn2 = coverSelectableIn || document.querySelector('.edit-cover-designer-selectable');
                 var coverSelectableOk = !coverSelectableIn2 || coverSelectableIn2.checked;
                 var mSave = materialsAll.find(function (x) { return x.id === assetId; });
@@ -4284,6 +4298,8 @@
                 else if (row.designer_selectable !== false) delete row.designer_selectable;
                 if (it.link_group) row.link_group = it.link_group;
                 else delete row.link_group;
+                if (Array.isArray(it.linked_asset_ids) && it.linked_asset_ids.length) row.linked_asset_ids = it.linked_asset_ids.slice();
+                else delete row.linked_asset_ids;
                 return row;
             });
             // 本機保留封面僅展示 meta（無 url 物件）
@@ -4296,6 +4312,9 @@
             if (normalizeKind(m.asset_kind) === 'material'
                 || (reordered[0] && reordered[0].designer_selectable === false)) {
                 next.gallery_images.push({ __cover_designer_selectable: false });
+            }
+            if (reordered[0] && Array.isArray(reordered[0].linked_asset_ids) && reordered[0].linked_asset_ids.length) {
+                next.gallery_images.push({ __cover_linked_asset_ids: reordered[0].linked_asset_ids.slice() });
             }
             next.image_count = reordered.length;
             return next;
@@ -5106,6 +5125,24 @@
                     localFooterHtml +
                     '</div></div></div>';
             }
+            function imageLinkOverrideFieldHtml(it) {
+                if (!m || normalizeKind(m.asset_kind) !== 'prototype') return '';
+                var selected = Array.isArray(it && it.linked_asset_ids) ? it.linked_asset_ids.map(String) : [];
+                var options = materialsAll.filter(function (candidate) {
+                    if (!candidate || candidate.id === m.id) return false;
+                    var kind = normalizeKind(candidate.asset_kind);
+                    return kind === 'material' || kind === 'part';
+                }).map(function (candidate) {
+                    var kindLabel = normalizeKind(candidate.asset_kind) === 'material' ? '材料' : '配件';
+                    return '<option value="' + esc(candidate.id) + '"' +
+                        (selected.indexOf(String(candidate.id)) >= 0 ? ' selected' : '') + '>' +
+                        esc(kindLabel + ' · ' + (candidate.title || candidate.id)) + '</option>';
+                }).join('');
+                return '<details class="mt-1"><summary class="small text-muted">此圖覆寫連動（留空＝卡片預設）</summary>' +
+                    '<select multiple class="form-select form-select-sm mt-1 edit-image-link-override" size="4">' +
+                    options + '</select></details>';
+            }
+
             function buildEditSavedCardHtml(it, idx, isCover) {
                 var url = it.url;
                 var slot = getEditGallerySlot(url);
@@ -5177,6 +5214,7 @@
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
                     labelField +
                     linkGroupField +
+                    imageLinkOverrideFieldHtml(it) +
                     selectableField +
                     actions +
                     '</div></div>';
@@ -5243,6 +5281,13 @@
                 });
                 inp.addEventListener('input', function () { onEditGalleryMetaTextInput(editId); });
                 inp.addEventListener('blur', function () { onEditGalleryMetaTextBlur(editId); });
+            });
+            grid.querySelectorAll('.edit-image-link-override').forEach(function (inp) {
+                inp.addEventListener('change', function () {
+                    syncEditGalleryLiveMetaToMaterialsAll(editId);
+                    scheduleSaveImageLabels(editId);
+                    setEditGalleryStatus('已更新此圖連動覆寫，按「儲存」後寫入', 'info');
+                });
             });
             grid.querySelectorAll('.btn-gallery-set-cover').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {

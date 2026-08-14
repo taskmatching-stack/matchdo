@@ -168,10 +168,12 @@
             clearGuideVariantPreview(assetId);
         }
         refreshVariantCardVisuals(assetId);
+        seedGuideLinkedSelectionForPrototypeImage();
+        renderCanvas();
         renderGuidePanel();
     }
 
-    /** 看可搭配：主產品多圖時預選第一連動組（或前 N 張，上限 3） */
+    /** 看可搭配：主產品多圖時預選第一連動組；沒有組時只預選第一張。 */
     function pickSeedablePrototypeItems(p) {
         if (!p) return [];
         var items = variantImageItems(p);
@@ -198,20 +200,54 @@
         if (typeof MatchdoImageLinkGroups !== 'undefined') {
             state.guideSelectedPrototypeVariants = MatchdoImageLinkGroups.defaultLinkedSelection(items, 3, labelFor);
         } else {
-            var take = Math.min(3, items.length);
-            state.guideSelectedPrototypeVariants = [];
-            for (var i = 0; i < take; i++) {
-                var it = items[i];
-                state.guideSelectedPrototypeVariants.push({
-                    url: it.url,
-                    label: labelFor(it)
-                });
-            }
+            var it = items[0];
+            state.guideSelectedPrototypeVariants = [{
+                url: it.url,
+                label: labelFor(it)
+            }];
         }
         var last = state.guideSelectedPrototypeVariants[state.guideSelectedPrototypeVariants.length - 1];
         if (last) {
             state.guideVariantByAssetId[prototypeId] = { url: last.url, label: last.label || '' };
         }
+    }
+
+    /** 圖片層 linked_asset_ids 會覆寫卡片預設；未設定時回到卡片預設關聯。 */
+    function guideVisibleLinkedIds() {
+        var p = prototypeById(state.selectedPrototypeId);
+        if (!p || !state.guideSelectedPrototypeVariants.length) {
+            return linkedIdsForPrototype(state.selectedPrototypeId);
+        }
+        var byUrl = {};
+        assetImageItems(p).forEach(function (item) {
+            if (item && item.url) byUrl[item.url] = item;
+        });
+        var ids = [];
+        state.guideSelectedPrototypeVariants.forEach(function (variant) {
+            var item = byUrl[variant && variant.url];
+            if (!item || !Array.isArray(item.linked_asset_ids)) return;
+            item.linked_asset_ids.forEach(function (id) {
+                id = String(id || '').trim();
+                if (id && ids.indexOf(id) < 0 && assetById(id)) ids.push(id);
+            });
+        });
+        return ids.length ? ids : linkedIdsForPrototype(state.selectedPrototypeId);
+    }
+
+    function seedGuideLinkedSelectionForPrototypeImage() {
+        if (IS_VENDOR) return;
+        var ids = guideVisibleLinkedIds();
+        var firstMaterial = ids.find(function (id) {
+            var asset = assetById(id);
+            return asset && asset.asset_kind === 'material';
+        });
+        var firstPart = ids.find(function (id) {
+            var asset = assetById(id);
+            return asset && asset.asset_kind === 'part';
+        });
+        state.guideSelectedIds = [];
+        if (firstMaterial) state.guideSelectedIds.push(firstMaterial);
+        if (firstPart) state.guideSelectedIds.push(firstPart);
     }
 
     function assetDisplayImageUrl(a, assetId) {
@@ -1125,10 +1161,11 @@
         var protoTiles = guideTilesForAsset(proto, proto.id, 'prototype', false).join('');
         sections += guideSectionHtml('prototype', guideSectionHeadingHtml('prototype', proto), protoTiles);
 
-        sections += renderLinkedKindSections('part', linkedIds);
-        sections += renderLinkedKindSections('material', linkedIds);
+        var visibleLinkedIds = IS_VENDOR ? linkedIds : guideVisibleLinkedIds();
+        sections += renderLinkedKindSections('part', visibleLinkedIds);
+        sections += renderLinkedKindSections('material', visibleLinkedIds);
 
-        if (!linkedIds.length && !IS_VENDOR) {
+        if (!visibleLinkedIds.length && !IS_VENDOR) {
             sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
                 esc(tr('productTree.noLinksYet', '尚未關聯材料或配件')) + '</p>';
         } else if (!linkedIds.length && IS_VENDOR) {
@@ -1874,6 +1911,8 @@
         updateGuideChrome(data);
         selectPrototype(p.id);
         seedDefaultPrototypeVariantSelection(p.id);
+        seedGuideLinkedSelectionForPrototypeImage();
+        renderCanvas();
         refreshVariantCardVisuals(p.id);
         renderGuidePanel();
     }
