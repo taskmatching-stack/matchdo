@@ -6,7 +6,7 @@
 
 - Node.js 18+
 - Android Studio + JDK（Android 本機建置）
-- iOS：需 macOS 或 Codemagic（見 `docs/PLAN-promo-camera-capacitor-app.md` §7）
+- iOS：需 macOS 或 Codemagic — **實作步驟見** [`docs/HOW-TO-promo-camera-ios-xcode-and-cloud.md`](../../docs/HOW-TO-promo-camera-ios-xcode-and-cloud.md)（Mac Xcode／雲端打包手冊）；費用與定案見 `docs/PLAN-promo-camera-capacitor-app.md` §7
 
 ### Windows 路徑含中文
 
@@ -52,8 +52,16 @@ npm run cap:open:android
 
 Store 版打 **`https://matchdo.cc/api/*`**（`store/capacitor-boot.js` 改寫 fetch）。後端仍用現有 Cloud Run，無需另 deploy API。
 
+## iOS（Mac／雲端）
+
+見 **[`docs/HOW-TO-promo-camera-ios-xcode-and-cloud.md`](../../docs/HOW-TO-promo-camera-ios-xcode-and-cloud.md)**：
+
+- **A.** 本機 Mac + Xcode（`cap add ios` → Archive → TestFlight）
+- **B.** Codemagic 雲端（無 Mac、偶爾打包；本專案定案首選）
+
 ## 參考
 
+- **iOS 打包手冊：** `docs/HOW-TO-promo-camera-ios-xcode-and-cloud.md`
 - **進度 handoff：** `docs/PROGRESS-promo-camera-app-store.md`
 - 隔離層：`docs/PLAN-promo-camera-app-isolation-layer.md`
 - 完整規劃：`docs/PLAN-promo-camera-capacitor-app.md`

@@ -1,8 +1,9 @@
 # 攝影模擬 Store App（Capacitor · 作法 B）— 規劃與工時
 
-> **更新**：2026-08-01  
+> **更新**：2026-08-01（2026-08-15 補連結：iOS 打包手冊）  
 > **狀態**：已決案 · **C0～C1 部分完成**（Android 本機可跑；上架／IAP 日後）  
-> **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)
+> **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)  
+> **iOS 實作步驟（Mac／雲端）：** [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md)
 > **範圍**：**只包** [`https://matchdo.cc/promo-camera-app`](https://matchdo.cc/promo-camera-app) 一頁（及其靜態依賴），**不包**整站 MatchDO。  
 > **相關**：[PLAN-promo-advanced-camera.md §8](PLAN-promo-advanced-camera.md)、[promo-camera-app-isolation](../.cursor/rules/promo-camera-app-isolation.mdc)
 

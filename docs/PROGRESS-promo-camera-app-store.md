@@ -1,7 +1,8 @@
 # 攝影模擬 App／Store 進度（handoff · 2026-08-01）
 
 > **給日後接續用**：摘要 L4 Capacitor、線上 PWA 嵌入、iOS「加入主畫面」引導之已完成項、**未推送本機改動**、下一步 backlog。  
-> **規格母本：** [`PLAN-promo-camera-app-isolation-layer.md`](PLAN-promo-camera-app-isolation-layer.md)、[`PLAN-promo-camera-capacitor-app.md`](PLAN-promo-camera-capacitor-app.md)
+> **規格母本：** [`PLAN-promo-camera-app-isolation-layer.md`](PLAN-promo-camera-app-isolation-layer.md)、[`PLAN-promo-camera-capacitor-app.md`](PLAN-promo-camera-capacitor-app.md)  
+> **iOS 打包照做：** [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md)（Mac Xcode／Codemagic）
 
 ---
 
@@ -141,7 +142,7 @@ npm run cap:open:android  # 或 cap:run:android
 1. Cloud Shell deploy §3 → iPhone Safari 實測 PWA 引導
 2. **Capacitor C2**：登入 deep link、選項／上傳／生圖在真機／模擬器端到端
 3. **Capacitor C3**：IAP + `POST /api/payment/iap/verify`（送審必備）
-4. **Codemagic** iOS IPA → TestFlight（§7.4 輕量、500 免費分鐘）
+4. **Codemagic** iOS IPA → TestFlight（照 [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md) §B；費用見 Capacitor 規劃 §7.4）
 5. **Android AAB** Play 內測（Windows 本機可出）
 6. **`sync-www.mjs`**：若 L3b 新增依賴（例 `pwa-install-prompt.js`），確認允許清單有 copy 進 Store bundle
 
