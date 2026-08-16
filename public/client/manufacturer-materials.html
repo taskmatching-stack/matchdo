@@ -243,6 +243,44 @@
             border-bottom: 1px solid rgba(100, 116, 139, 0.18);
             margin-bottom: 0.35rem;
         }
+        .proto-link-catalog-group-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            width: 100%;
+            text-align: left;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            padding: 0.25rem 0.35rem;
+            border-radius: 6px;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+            margin-bottom: 0.35rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .proto-link-catalog-group-toggle:hover {
+            background: rgba(122, 143, 163, 0.08);
+            color: #475569;
+        }
+        .proto-link-catalog-group-toggle .proto-link-fold-icon {
+            flex-shrink: 0;
+            font-size: 0.7rem;
+            transition: transform 0.15s ease;
+        }
+        .proto-link-catalog-group.is-collapsed .proto-link-fold-icon {
+            transform: rotate(-90deg);
+        }
+        .proto-link-catalog-group.is-collapsed .proto-link-catalog-group-items {
+            display: none;
+        }
+        .proto-link-catalog-group-toggle .proto-link-fold-count {
+            margin-left: auto;
+            font-weight: 500;
+            color: #94a3b8;
+            font-size: 0.75rem;
+        }
         .proto-link-source-section-title {
             font-size: 0.875rem;
             font-weight: 700;
@@ -1176,7 +1214,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-official-cat-20260816';
+        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-fold-cats-20260816';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -9212,16 +9250,43 @@
             return row;
         }
 
-        function appendGroupedLinkRows(listEl, groups, rowBuilder) {
+        function appendGroupedLinkRows(listEl, groups, rowBuilder, opts) {
+            opts = opts || {};
+            var collapsible = !!opts.collapsible;
+            var selectedIds = opts.selectedIds instanceof Set ? opts.selectedIds : null;
             (groups || []).forEach(function (grp) {
                 if (!grp.items || !grp.items.length) return;
                 var section = document.createElement('div');
                 section.className = 'proto-link-catalog-group';
+                var hasSelected = !!(selectedIds && grp.items.some(function (c) {
+                    return c && c.id != null && selectedIds.has(String(c.id));
+                }));
+                /* 可收合：有已勾選則展開，其餘預設收合，方便產品多時查找 */
+                var startCollapsed = collapsible && !!grp.groupLabel && !hasSelected
+                    && opts.defaultCollapsed !== false;
+                if (startCollapsed) section.classList.add('is-collapsed');
                 if (grp.groupLabel && (grp.items.length > 0 || grp.groupId)) {
-                    var heading = document.createElement('div');
-                    heading.className = 'proto-link-catalog-group-title';
-                    heading.textContent = grp.groupLabel;
-                    section.appendChild(heading);
+                    if (collapsible) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'proto-link-catalog-group-toggle';
+                        btn.setAttribute('aria-expanded', startCollapsed ? 'false' : 'true');
+                        btn.innerHTML = '<i class="bi bi-caret-down-fill proto-link-fold-icon" aria-hidden="true"></i>' +
+                            '<span class="proto-link-fold-label text-truncate"></span>' +
+                            '<span class="proto-link-fold-count"></span>';
+                        btn.querySelector('.proto-link-fold-label').textContent = grp.groupLabel;
+                        btn.querySelector('.proto-link-fold-count').textContent = String(grp.items.length);
+                        btn.addEventListener('click', function () {
+                            var collapsed = section.classList.toggle('is-collapsed');
+                            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                        });
+                        section.appendChild(btn);
+                    } else {
+                        var heading = document.createElement('div');
+                        heading.className = 'proto-link-catalog-group-title';
+                        heading.textContent = grp.groupLabel;
+                        section.appendChild(heading);
+                    }
                 }
                 var inner = document.createElement('div');
                 inner.className = 'proto-link-catalog-group-items d-flex flex-column gap-2';
@@ -9233,7 +9298,8 @@
             });
         }
 
-        function appendSourceSectionedLinkRows(listEl, sections, rowBuilder) {
+        function appendSourceSectionedLinkRows(listEl, sections, rowBuilder, opts) {
+            opts = opts || {};
             (sections || []).forEach(function (sec) {
                 var hasItems = (sec.groups || []).some(function (g) { return g.items && g.items.length; });
                 if (!hasItems) return;
@@ -9244,7 +9310,7 @@
                 title.className = 'proto-link-source-section-title';
                 title.textContent = sec.sourceLabel || '';
                 wrap.appendChild(title);
-                appendGroupedLinkRows(wrap, sec.groups, rowBuilder);
+                appendGroupedLinkRows(wrap, sec.groups, rowBuilder, opts);
                 listEl.appendChild(wrap);
             });
         }
@@ -9271,7 +9337,7 @@
             });
             appendSourceSectionedLinkRows(listEl, sections, function (c) {
                 return buildPrototypeLinkRowElement(c, selected, metaMap);
-            });
+            }, { collapsible: true, selectedIds: selected });
         }
 
         function renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds) {
@@ -9284,14 +9350,14 @@
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            /* 材料／配件關聯主產品：官方｜廠商，其下再依產品官方分類 */
+            /* 材料／配件關聯主產品：官方｜廠商，其下再依產品官方分類（可收合） */
             var sections = groupLinkCandidatesBySourceSections(enriched, {
                 allowSupplier: false,
                 subgroup: 'official_category'
             });
             appendSourceSectionedLinkRows(listEl, sections, function (c) {
                 return buildSimpleLinkCheckboxElement(c, selected);
-            });
+            }, { collapsible: true, selectedIds: selected });
         }
 
         function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds, linkedLinks) {
