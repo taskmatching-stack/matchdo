@@ -1235,6 +1235,12 @@
             const spaceUseBadge = item.space_use_label
                 ? ('<span class="badge bg-light text-dark border mb-1">' + escapeHtml(item.space_use_label) + '</span>')
                 : '';
+            const appealBadge = item.has_appeal
+                ? ('<span class="badge ' + (item.appeal_status === 'approved' ? 'bg-warning text-dark' : (item.appeal_status === 'rejected' ? 'bg-secondary' : 'bg-light text-dark border')) + ' mb-1">' +
+                    escapeHtml(item.appeal_status === 'approved' ? '申訴退點' : (item.appeal_status === 'rejected' ? '申訴駁回' : (item.appeal_status === 'inconclusive' ? '申訴未定' : '已申訴'))) +
+                    (item.appeal_refunded_points ? (' +' + item.appeal_refunded_points + '點') : '') +
+                    '</span>')
+                : '';
             const descFull = String(item.description || '').trim();
             const descHtml = descFull
                 ? ('<p class="design-desc-text" data-role="promo-desc">' + escapeHtml(descFull) + '</p>')
@@ -1275,7 +1281,7 @@
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start gap-1 mb-1 flex-wrap">
                             <h6 class="card-title mb-0">${escapeHtml(title)}</h6>
-                            <div class="d-flex flex-wrap gap-1 justify-content-end">${kindBadge}${spaceUseBadge}${ratioBadge}</div>
+                            <div class="d-flex flex-wrap gap-1 justify-content-end">${kindBadge}${spaceUseBadge}${appealBadge}${ratioBadge}</div>
                         </div>
                         ${sizeLine ? ('<p class="text-muted small mb-1">' + escapeHtml(sizeLine) + '</p>') : ''}
                         <div data-role="promo-desc-wrap">${descHtml}</div>

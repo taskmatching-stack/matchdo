@@ -230,18 +230,34 @@
     };
 
     function sourceBadge(row) {
-      if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
-      if (row.source === 'promo_camera_app') {
+      var html = '';
+      if (row.source === 'embed') html = '<span class="badge badge-embed">Embed</span>';
+      else if (row.source === 'promo_camera_app') {
         var appLabel = row.shoot_mode_label ? ('商攝・' + row.shoot_mode_label + ' App') : '攝影 App';
-        return '<span class="badge badge-promo-camera-app">' + esc(appLabel) + '</span>';
-      }
-      if (row.source === 'promo_camera_web') {
+        html = '<span class="badge badge-promo-camera-app">' + esc(appLabel) + '</span>';
+      } else if (row.source === 'promo_camera_web') {
         var webLabel = row.shoot_mode_label ? ('商攝・' + row.shoot_mode_label + ' 網站') : '攝影 網站';
-        return '<span class="badge badge-promo-camera-web">' + esc(webLabel) + '</span>';
-      }
-      if (row.source === 'promo_camera') return '<span class="badge badge-promo-camera-web">商攝導演</span>';
-      if (row.source === 'promo') return '<span class="badge badge-promo">情境圖</span>';
-      return '<span class="badge badge-site">主站</span>';
+        html = '<span class="badge badge-promo-camera-web">' + esc(webLabel) + '</span>';
+      } else if (row.source === 'promo_camera') html = '<span class="badge badge-promo-camera-web">商攝導演</span>';
+      else if (row.source === 'promo') html = '<span class="badge badge-promo">情境圖</span>';
+      else html = '<span class="badge badge-site">主站</span>';
+      if (row.has_appeal) html += ' ' + appealBadge(row);
+      return html;
+    }
+
+    function appealStatusLabel(status) {
+      if (status === 'approved') return '申訴退點';
+      if (status === 'rejected') return '申訴駁回';
+      if (status === 'inconclusive') return '申訴未定';
+      return '已申訴';
+    }
+
+    function appealBadge(row) {
+      var cls = 'bg-secondary';
+      if (row.appeal_status === 'approved') cls = 'bg-warning text-dark';
+      else if (row.appeal_status === 'rejected') cls = 'bg-dark';
+      else if (row.appeal_status === 'inconclusive') cls = 'bg-light text-dark border';
+      return '<span class="badge ' + cls + '">' + esc(appealStatusLabel(row.appeal_status)) + '</span>';
     }
 
     function sourceLabel(row) {
@@ -375,6 +391,14 @@
           '<dt class="col-sm-3">MP</dt><dd class="col-sm-9">' + esc(row.megapixels != null ? row.megapixels : '—') + '</dd>' +
           '<dt class="col-sm-3">參考來源</dt><dd class="col-sm-9">' + esc(row.source_type || '—') + (row.source_id ? (' · ' + esc(row.source_id)) : '') + '</dd>' +
           '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? row.points_charged + ' 點' : '—') + '</dd>';
+        if (row.has_appeal) {
+          html += '<dt class="col-sm-3">申訴</dt><dd class="col-sm-9">' + appealBadge(row);
+          if (row.appeal_refunded_points) html += '（已退 ' + esc(String(row.appeal_refunded_points)) + ' 點）';
+          if (row.appeal_at) html += '<div class="text-muted small mt-1">' + esc(fmtTime(row.appeal_at)) + '</div>';
+          if (row.appeal_reason_zh) html += '<div class="mt-1">' + esc(row.appeal_reason_zh) + '</div>';
+          if (row.appeal_count > 1) html += '<div class="text-muted small mt-1">共 ' + esc(String(row.appeal_count)) + ' 次申訴紀錄</div>';
+          html += '</dd>';
+        }
         html += formatCameraParamsHtml(row);
       }
       html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
