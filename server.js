@@ -33100,20 +33100,33 @@ app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
         const kind = normalizeVendorAssetKind(row.asset_kind);
         const { data: allRows, error: allErr } = await supabase
             .from('vendor_assets')
-            .select('id, title, image_url, asset_kind, sort_order, created_at')
+            .select('id, title, image_url, asset_kind, category_key, subcategory_key, source_catalog_item_id, sort_order, created_at')
             .eq('manufacturer_id', manufacturerId)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (allErr) return res.status(500).json({ error: '查詢失敗' });
-        const candidatesRaw = (allRows || [])
+        let candidates = (allRows || [])
             .filter((r) => r.id !== id)
             .map((r) => ({
                 id: r.id,
                 title: r.title,
                 image_url: r.image_url,
-                asset_kind: normalizeVendorAssetKind(r.asset_kind)
+                asset_kind: normalizeVendorAssetKind(r.asset_kind),
+                category_key: r.category_key || null,
+                subcategory_key: r.subcategory_key || null,
+                source_catalog_item_id: r.source_catalog_item_id || null
             }));
-        let candidates = candidatesRaw;
+        if (candidates.length) {
+            try {
+                candidates = await enrichVendorAssetsWithSupplierMeta(manufacturerId, candidates);
+            } catch (supErr) {
+                console.warn('GET prototype-links supplier meta:', supErr && supErr.message);
+            }
+            candidates = candidates.map((c) => ({
+                ...c,
+                asset_origin: vendorAssetOriginForApi(c)
+            }));
+        }
         if (candidates.length && (await vendorCatalogGroupsTableReady()) && (await vendorAssetGroupLinksTableReady())) {
             try {
                 candidates = await attachCatalogGroupIdsToAssets(candidates);

@@ -243,6 +243,20 @@
             border-bottom: 1px solid rgba(100, 116, 139, 0.18);
             margin-bottom: 0.35rem;
         }
+        .proto-link-source-section-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #475569;
+            padding: 0.35rem 0.4rem;
+            margin-bottom: 0.4rem;
+            background: rgba(122, 143, 163, 0.12);
+            border-radius: 8px;
+        }
+        .proto-link-source-section + .proto-link-source-section {
+            margin-top: 0.85rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed rgba(100, 116, 139, 0.2);
+        }
         .proto-link-catalog-group + .proto-link-catalog-group {
             margin-top: 0.65rem;
             padding-top: 0.35rem;
@@ -1162,7 +1176,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-catalog-groups-20260809';
+        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-official-cat-20260816';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -8974,13 +8988,127 @@
                 var groups = (m && Array.isArray(m.catalog_groups) && m.catalog_groups.length)
                     ? m.catalog_groups
                     : (Array.isArray(c.catalog_groups) ? c.catalog_groups : []);
+                var fromSupplier = !!(m && m.from_supplier_catalog) || !!(c && c.from_supplier_catalog);
+                var origin = (m && m.asset_origin) || (c && c.asset_origin) || (fromSupplier ? 'supplier_import' : 'self_upload');
                 return {
                     id: c.id,
                     title: c.title,
                     image_url: c.image_url,
                     asset_kind: c.asset_kind,
-                    catalog_groups: groups
+                    category_key: (m && m.category_key) || c.category_key || null,
+                    subcategory_key: (m && m.subcategory_key) || c.subcategory_key || null,
+                    catalog_groups: groups,
+                    from_supplier_catalog: fromSupplier,
+                    supplier_name: (m && m.supplier_name) || c.supplier_name || null,
+                    asset_origin: origin
                 };
+            });
+        }
+
+        function officialCategoryLabel(categoryKey) {
+            var key = String(categoryKey || '').trim();
+            if (!key) return tr('baseModels.catalogGroupUncategorized', '未分類');
+            var cat = categories.find(function (c) { return c.key === key; });
+            return (cat && (cat.name || cat.key)) || key;
+        }
+
+        /** 材料／配件「關聯主產品」：依產品官方主分類分組（非廠商自建資料夾） */
+        function groupLinkCandidatesByOfficialCategory(candidates) {
+            var items = enrichLinkCandidates(candidates);
+            var groupOrder = [];
+            var groupMap = Object.create(null);
+            var ungrouped = [];
+            var catOrder = Object.create(null);
+            categories.forEach(function (c, i) {
+                if (c && c.key) catOrder[String(c.key)] = i;
+            });
+            items.forEach(function (c) {
+                var key = String(c.category_key || '').trim();
+                if (!key) {
+                    ungrouped.push(c);
+                    return;
+                }
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        groupId: key,
+                        groupLabel: officialCategoryLabel(key),
+                        items: []
+                    };
+                    groupOrder.push(groupMap[key]);
+                }
+                groupMap[key].items.push(c);
+            });
+            groupOrder.sort(function (a, b) {
+                var ia = catOrder[a.groupId] != null ? catOrder[a.groupId] : 9999;
+                var ib = catOrder[b.groupId] != null ? catOrder[b.groupId] : 9999;
+                if (ia !== ib) return ia - ib;
+                return String(a.groupLabel || '').localeCompare(String(b.groupLabel || ''), 'zh-Hant');
+            });
+            if (ungrouped.length) {
+                groupOrder.push({
+                    groupId: '',
+                    groupLabel: tr('baseModels.catalogGroupUncategorized', '未分類'),
+                    items: ungrouped,
+                    isUncategorized: true
+                });
+            }
+            return groupOrder;
+        }
+
+        function linkSourceSectionKey(c) {
+            if (c && (c.asset_origin === 'supplier_import' || c.from_supplier_catalog)) return 'supplier';
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) return 'official';
+            return 'vendor';
+        }
+
+        function linkSourceSectionLabel(key) {
+            if (key === 'official') return '官方版型';
+            if (key === 'supplier') return '供應商';
+            return '廠商版型';
+        }
+
+        /**
+         * 候選來源分區（同廠內）：
+         * - 主產品／原型：官方版型｜廠商版型（官方版型庫頁＝官方；個人廠商頁＝廠商）
+         * - 材料：官方版型｜廠商版型｜供應商（供應商＝匯入之供應商目錄）
+         */
+        function groupLinkCandidatesBySourceSections(candidates, opts) {
+            opts = opts || {};
+            var allowSupplier = opts.allowSupplier !== false;
+            var items = enrichLinkCandidates(candidates);
+            var sectionDefs = window.__MATCHDO_OFFICIAL_PLATFORM_LIB
+                ? [{ key: 'official', label: linkSourceSectionLabel('official') }].concat(
+                    allowSupplier ? [{ key: 'supplier', label: linkSourceSectionLabel('supplier') }] : []
+                )
+                : [{ key: 'vendor', label: linkSourceSectionLabel('vendor') }].concat(
+                    allowSupplier ? [{ key: 'supplier', label: linkSourceSectionLabel('supplier') }] : []
+                );
+            var buckets = Object.create(null);
+            sectionDefs.forEach(function (s) { buckets[s.key] = []; });
+            items.forEach(function (c) {
+                var key = linkSourceSectionKey(c);
+                if (!buckets[key]) {
+                    if (key === 'supplier' && !allowSupplier) key = 'vendor';
+                    if (!buckets[key]) buckets[key] = [];
+                }
+                buckets[key].push(c);
+            });
+            return sectionDefs.map(function (s) {
+                return {
+                    sourceKey: s.key,
+                    sourceLabel: s.label,
+                    groups: (opts.subgroup === 'official_category')
+                        ? groupLinkCandidatesByOfficialCategory(buckets[s.key] || [])
+                        : (opts.subgroup === 'catalog'
+                            ? groupLinkCandidatesByCatalog(buckets[s.key] || [])
+                            : [{
+                                groupId: s.key,
+                                groupLabel: '',
+                                items: buckets[s.key] || []
+                            }])
+                };
+            }).filter(function (sec) {
+                return (sec.groups || []).some(function (g) { return g.items && g.items.length; });
             });
         }
 
@@ -9084,12 +9212,12 @@
             return row;
         }
 
-        function appendCatalogGroupedLinkRows(listEl, candidates, rowBuilder) {
-            var groups = groupLinkCandidatesByCatalog(candidates);
-            groups.forEach(function (grp) {
+        function appendGroupedLinkRows(listEl, groups, rowBuilder) {
+            (groups || []).forEach(function (grp) {
+                if (!grp.items || !grp.items.length) return;
                 var section = document.createElement('div');
                 section.className = 'proto-link-catalog-group';
-                if (grp.groupLabel && (grp.items.length > 1 || grp.groupId)) {
+                if (grp.groupLabel && (grp.items.length > 0 || grp.groupId)) {
                     var heading = document.createElement('div');
                     heading.className = 'proto-link-catalog-group-title';
                     heading.textContent = grp.groupLabel;
@@ -9105,6 +9233,26 @@
             });
         }
 
+        function appendSourceSectionedLinkRows(listEl, sections, rowBuilder) {
+            (sections || []).forEach(function (sec) {
+                var hasItems = (sec.groups || []).some(function (g) { return g.items && g.items.length; });
+                if (!hasItems) return;
+                var wrap = document.createElement('div');
+                wrap.className = 'proto-link-source-section';
+                wrap.setAttribute('data-source', sec.sourceKey || '');
+                var title = document.createElement('div');
+                title.className = 'proto-link-source-section-title';
+                title.textContent = sec.sourceLabel || '';
+                wrap.appendChild(title);
+                appendGroupedLinkRows(wrap, sec.groups, rowBuilder);
+                listEl.appendChild(wrap);
+            });
+        }
+
+        function appendCatalogGroupedLinkRows(listEl, candidates, rowBuilder) {
+            appendGroupedLinkRows(listEl, groupLinkCandidatesByCatalog(candidates), rowBuilder);
+        }
+
         function renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks) {
             if (!listEl) return;
             listEl.innerHTML = '';
@@ -9116,7 +9264,12 @@
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            appendCatalogGroupedLinkRows(listEl, enriched, function (c) {
+            /* 主產品關聯材料／配件：官方｜廠商｜供應商（材料有供應商；零件同規則） */
+            var sections = groupLinkCandidatesBySourceSections(enriched, {
+                allowSupplier: true,
+                subgroup: 'catalog'
+            });
+            appendSourceSectionedLinkRows(listEl, sections, function (c) {
                 return buildPrototypeLinkRowElement(c, selected, metaMap);
             });
         }
@@ -9131,7 +9284,12 @@
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            appendCatalogGroupedLinkRows(listEl, enriched, function (c) {
+            /* 材料／配件關聯主產品：官方｜廠商，其下再依產品官方分類 */
+            var sections = groupLinkCandidatesBySourceSections(enriched, {
+                allowSupplier: false,
+                subgroup: 'official_category'
+            });
+            appendSourceSectionedLinkRows(listEl, sections, function (c) {
                 return buildSimpleLinkCheckboxElement(c, selected);
             });
         }
@@ -9192,7 +9350,18 @@
                     var k = normalizeKind(m.asset_kind);
                     return k === 'material' || k === 'part';
                 }).map(function (m) {
-                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind, catalog_groups: m.catalog_groups || [] };
+                    return {
+                        id: m.id,
+                        title: m.title,
+                        image_url: m.image_url,
+                        asset_kind: m.asset_kind,
+                        category_key: m.category_key || null,
+                        subcategory_key: m.subcategory_key || null,
+                        catalog_groups: m.catalog_groups || [],
+                        from_supplier_catalog: !!m.from_supplier_catalog,
+                        supplier_name: m.supplier_name || null,
+                        asset_origin: m.asset_origin || (m.from_supplier_catalog ? 'supplier_import' : 'self_upload')
+                    };
                 });
                 var listEl = form.querySelector('.add-prototype-links-list');
                 var emptyEl = form.querySelector('.add-prototype-links-empty');
@@ -9201,7 +9370,18 @@
                 var protoCandidates = materialsAll.filter(function (m) {
                     return normalizeKind(m.asset_kind) === 'prototype';
                 }).map(function (m) {
-                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind, catalog_groups: m.catalog_groups || [] };
+                    return {
+                        id: m.id,
+                        title: m.title,
+                        image_url: m.image_url,
+                        asset_kind: m.asset_kind,
+                        category_key: m.category_key || null,
+                        subcategory_key: m.subcategory_key || null,
+                        catalog_groups: m.catalog_groups || [],
+                        from_supplier_catalog: !!m.from_supplier_catalog,
+                        supplier_name: m.supplier_name || null,
+                        asset_origin: m.asset_origin || (m.from_supplier_catalog ? 'supplier_import' : 'self_upload')
+                    };
                 });
                 var lpList = form.querySelector('.add-linked-prototypes-list');
                 var lpEmpty = form.querySelector('.add-linked-prototypes-empty');
