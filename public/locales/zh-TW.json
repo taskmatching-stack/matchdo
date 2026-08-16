@@ -245,7 +245,7 @@
   "baseModels.filterSiteCategory": "平台媒合分類",
   "baseModels.filterSiteCategoryAll": "全部",
   "baseModels.listFilterHint": "篩選僅作用於上方清單（皆為您的本廠素材）。「平台媒合分類」為全站訂製類別名稱（如手機殼），用來分類與篩選，不是別家廠商的產品。",
-  "baseModels.prototypeLinksTitle": "關聯材料／配件",
+  "baseModels.prototypeLinksTitle": "預設 材料／配件 聯結",
   "baseModels.prototypeLinksHint": "可複選同廠材料或配件；設計端選圖時會優先標示。若需更細結構請另建主產品。",
   "baseModels.prototypeLinksUploadHint": "上傳前可預先勾選（亦可上傳後在「編輯」調整）；不勾選也能直接發布。",
   "baseModels.linkedPrototypesUploadHint": "上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）；不勾選也能直接發布。",

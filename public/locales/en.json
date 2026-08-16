@@ -245,7 +245,7 @@
   "baseModels.filterSiteCategory": "Site matching category",
   "baseModels.filterSiteCategoryAll": "All",
   "baseModels.listFilterHint": "Filters apply only to your list below. Platform categories (e.g. phone cases) are shared product-type labels—not other manufacturers' items.",
-  "baseModels.prototypeLinksTitle": "Linked materials & parts",
+  "baseModels.prototypeLinksTitle": "Default material / part links",
   "baseModels.prototypeLinksHint": "Select materials or parts for this main product. They appear first in the design picker. For deeper structure, create another main product.",
   "baseModels.prototypeLinksUploadHint": "You can select links before upload (or edit later).",
   "baseModels.linkedPrototypesUploadHint": "You can select applicable main products before upload (or edit later).",
