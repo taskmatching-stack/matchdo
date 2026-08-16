@@ -121,6 +121,8 @@
             line-height: 1.25;
         }
         .material-cover-compose-slot--spacer { visibility: hidden; pointer-events: none; }
+        .compose-into-cover-wrap { line-height: 1.3; }
+        .compose-into-cover-wrap .form-check-label { color: #5C6670; cursor: pointer; }
         .edit-gallery-col > .pending-image-card, .pending-list-col > .pending-image-card { flex: 1 1 auto; width: 100%; }
         .pending-image-card.is-new-redraw { border-color: #8FA89E; box-shadow: 0 0 0 2px rgba(143, 168, 158, 0.35); }
         .pending-redraw-badge { font-size: 0.65rem; }
@@ -1207,14 +1209,14 @@
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/matchdo-promo-image.js?v=20260812nomodel"></script>
-    <script src="/js/material-cover-grid-compose.js?v=20260809a"></script>
+    <script src="/js/material-cover-grid-compose.js?v=compose-pick-20260816"></script>
     <script src="/js/material-dual-color-import.js?v=20260804b"></script>
     <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'override-details-no-lb-20260816';
+        window.__MATCHDO_MATERIALS_BUILD = 'compose-pick-20260816';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3190,6 +3192,30 @@
             });
         }
 
+        /** 圖卡「拼入封面」勾選（可含封面欄的單色；已拼多色預設不勾） */
+        function composeIntoCoverCheckHtml(kindOrAsset, item, isCover) {
+            if (!coverGridComposeEnabledForKind(kindOrAsset)) return '';
+            var Compose = materialCoverComposeApi();
+            if (!Compose || !Compose.composeSwatchCheckHtml) return '';
+            var checked = Compose.defaultComposeCheckChecked
+                ? Compose.defaultComposeCheckChecked(item, isCover)
+                : !(item && (item.coverGridCompose || (Compose.isComposedCoverGridLabel && Compose.isComposedCoverGridLabel(item.label))));
+            return Compose.composeSwatchCheckHtml({
+                checked: checked,
+                labelText: '拼入封面',
+                title: '勾選要拼進封面色卡的顏色（2～9 張）'
+            });
+        }
+
+        function wireComposeIntoCoverChecks(rootEl, syncFn) {
+            if (!rootEl) return;
+            rootEl.querySelectorAll('.compose-into-cover-check').forEach(function (cb) {
+                cb.addEventListener('change', function () {
+                    if (typeof syncFn === 'function') syncFn();
+                });
+            });
+        }
+
         /** 數位原型／配件／材料：可勾選「設計者可選／僅展示」（材料封面強制僅展示） */
         function vendorDesignerSelectableEnabledForKind(kindOrAsset) {
             var k = typeof kindOrAsset === 'string' ? normalizeKind(kindOrAsset) : normalizeKind(kindOrAsset && kindOrAsset.asset_kind);
@@ -4532,6 +4558,7 @@
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending', upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    composeIntoCoverCheckHtml(formKind, item, idx === 0) +
                     (formKind === 'prototype' && item.designer_selectable !== false ? pendingLinkGroupFieldHtml(item) : '') +
                     designerSelectableFieldHtmlForItem(formKind, item, idx === 0) +
                     '<div class="pending-actions">' +
@@ -4629,6 +4656,7 @@
                 updateAddFormPointsEstimate(form);
                 schedulePendingDraftSave(form);
             });
+            wireComposeIntoCoverChecks(wrap, function () { syncMaterialComposeCoverButtonForForm(form); });
             syncMaterialComposeCoverButtonForForm(form);
         }
 
@@ -4669,8 +4697,9 @@
             var grid = document.getElementById('edit-gallery-grid');
             if (grid && Compose.collectMaterialSwatchSourcesFromGrid) {
                 var cols = grid.querySelectorAll(':scope > [class*="col-"]');
-                if (cols.length > 1) {
+                if (cols.length > 0) {
                     return Compose.collectMaterialSwatchSourcesFromGrid(grid, {
+                        includeCoverColumn: true,
                         resolveLocalFile: function (id) {
                             var loc = findEditLocalById(id);
                             return loc && loc.file ? loc.file : null;
@@ -4681,16 +4710,29 @@
             var sources = [];
             var orderKeys = normalizeEditGalleryDisplayOrder(m);
             orderKeys.forEach(function (key, ordIdx) {
-                if (ordIdx === 0) return;
                 if (String(key).indexOf('local:') === 0) {
                     var loc = findEditLocalById(String(key).slice(6));
+                    if (loc && Compose.isComposedCoverGridItem && Compose.isComposedCoverGridItem(loc) && ordIdx === 0) return;
                     if (loc && loc.file) sources.push(loc.file);
                     return;
+                }
+                if (ordIdx === 0) {
+                    var coverIt = cardsByUrlSafe(m, key);
+                    if (coverIt && Compose.isComposedCoverGridItem && Compose.isComposedCoverGridItem(coverIt)) return;
+                    if (coverIt && Compose.isComposedCoverGridLabel && Compose.isComposedCoverGridLabel(coverIt.label)) return;
                 }
                 var url = String(key || '').trim();
                 if (url) sources.push(url);
             });
             return sources.slice(0, Compose.MAX_COUNT);
+        }
+
+        function cardsByUrlSafe(m, key) {
+            var items = assetImageItems(m);
+            for (var i = 0; i < items.length; i++) {
+                if (items[i] && items[i].url === key) return items[i];
+            }
+            return null;
         }
 
         async function handleComposeMaterialCoverPending(form) {
@@ -4701,6 +4743,7 @@
             var grid = form.querySelector('.add-pending-images');
             var sources = grid && Compose.collectMaterialSwatchSourcesFromGrid
                 ? Compose.collectMaterialSwatchSourcesFromGrid(grid, {
+                    includeCoverColumn: true,
                     resolvePendingFile: function (id) {
                         var p = getPendingImages(form).find(function (x) { return x.id === id; });
                         return p && p.file ? p.file : null;
@@ -4708,10 +4751,22 @@
                 })
                 : [];
             if (!sources.length) {
-                sources = Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false });
+                var selectedIds = [];
+                if (grid) {
+                    grid.querySelectorAll(':scope > [class*="col-"]').forEach(function (col) {
+                        var cb = col.querySelector('.compose-into-cover-check');
+                        if (cb && !cb.checked) return;
+                        var pid = col.getAttribute('data-pending-id');
+                        if (pid) selectedIds.push(pid);
+                    });
+                }
+                sources = Compose.collectPendingSwatchSources(getPendingImages(form), {
+                    requireSelectable: false,
+                    selectedIds: selectedIds.length ? selectedIds : null
+                });
             }
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
+                showToast('請勾選至少 ' + Compose.MIN_COUNT + ' 張要拼入的顏色', 'warning');
                 return;
             }
             if (sources.length > Compose.MAX_COUNT) {
@@ -4728,11 +4783,16 @@
                 var coverLabel = Compose.coverLabelForKind
                     ? Compose.coverLabelForKind(formKind, sources.length)
                     : Compose.coverLabelForCount(sources.length);
+                if (list[0] && list[0].coverGridCompose) {
+                    revokePendingItemObjectUrl(list[0]);
+                    list.shift();
+                }
                 list.unshift({
                     id: 'p' + Date.now() + '-cover-' + Math.random().toString(36).slice(2),
                     file: file,
                     optimize: false,
                     label: coverLabel,
+                    coverGridCompose: true,
                     link_group: '',
                     designer_selectable: isMaterial ? false : true,
                     uploadOriginal: true,
@@ -4760,7 +4820,7 @@
             var isMaterial = assetKind === 'material';
             var sources = collectEditMaterialSwatchSources(m);
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('需至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
+                showToast('請勾選至少 ' + Compose.MIN_COUNT + ' 張要拼入的顏色', 'warning');
                 return;
             }
             var btn = document.getElementById('btn-edit-compose-material-cover');
@@ -4782,6 +4842,7 @@
                     file: file,
                     optimize: false,
                     label: coverLabel,
+                    coverGridCompose: true,
                     link_group: '',
                     designer_selectable: isMaterial ? false : true,
                     uploadOriginal: true,
@@ -4807,7 +4868,13 @@
                 editGalleryLocalAsCoverId = newItem.id;
                 var newKey = editGalleryLocalKey(newItem.id);
                 editGalleryDisplayOrder = [newKey].concat((editGalleryDisplayOrder || []).filter(function (k) { return k !== newKey; }));
-                refreshCurrentEditGallery();
+                var mid = document.getElementById('edit-id').value;
+                var cur = materialsAll.find(function (x) { return x.id === mid; }) || m;
+                /* skipLiveMeta：避免重繪時把舊封面檔名寫回新拼圖的名稱 */
+                renderEditGallery(cur, { skipLiveMeta: true, force: true });
+                newItem.label = coverLabel;
+                var labelEl = document.querySelector('.edit-gallery-local-col[data-local-id="' + newItem.id + '"] .edit-local-image-label');
+                if (labelEl) labelEl.value = coverLabel;
                 setEditGalleryStatus('已產生 1:1 封面預覽，按「儲存」寫入', 'info');
                 showToast('已產生 1:1 封面（' + loaded.length + ' 張）', 'success');
             } catch (err) {
@@ -5167,7 +5234,10 @@
                     pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, localPrefix) + pendingDerivedThumbsHtml(item, localPrefix, upscaleOn) + '</div>' +
-                    '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-local-image-label" data-local-id="' + esc(item.id) + '" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-local-image-label"' +
+                    (asCover ? ' id="edit-cover-label"' : '') +
+                    ' data-local-id="' + esc(item.id) + '" placeholder="' + (asCover ? '封面名稱' : '圖片名稱') + '" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    composeIntoCoverCheckHtml(m && m.asset_kind, item, asCover) +
                     (showLinkGroup && item.designer_selectable !== false ? pendingLinkGroupFieldHtml(item) : '') +
                     designerSelectableFieldHtmlForItem(m && m.asset_kind, item, asCover) +
                     '<div class="pending-actions">' +
@@ -5203,6 +5273,9 @@
                 var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success" style="font-size:0.65rem">新上傳</span>' : '';
                 var displayLabel = displayGalleryImageLabel(it);
+                if (isCover && (!displayLabel || !String(displayLabel).trim()) && m && m.cover_image_label) {
+                    displayLabel = String(m.cover_image_label).trim();
+                }
                 var labelField = isCover
                     ? '<input type="text" class="form-control form-control-sm mt-1 pending-card-label" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
@@ -5216,6 +5289,7 @@
                 var selectableField = designerSelectableFieldHtmlForItem(m && m.asset_kind, it, isCover, isCover
                     ? 'edit-cover-designer-selectable'
                     : 'edit-gallery-designer-selectable', isCover ? undefined : url);
+                var composeCheckField = composeIntoCoverCheckHtml(m && m.asset_kind, it, isCover);
                 var slotPrefix = 'egslot-' + idx;
                 var displayUrl = editGalleryDisplayUrl(url, slot);
                 var imgHtml = (slot && slot.imageBusy)
@@ -5265,6 +5339,7 @@
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
                     labelField +
+                    composeCheckField +
                     linkGroupField +
                     imageLinkOverrideFieldHtml(it) +
                     selectableField +
@@ -5289,6 +5364,7 @@
             closeMatchdoLightboxIfOpen();
             grid.innerHTML = html;
             grid.setAttribute('data-live-asset-id', editId ? String(editId) : '');
+            wireComposeIntoCoverChecks(grid, function () { syncEditMaterialComposeCoverButton(m); });
             var coverLabelIn = document.getElementById('edit-cover-label');
             if (coverLabelIn) {
                 coverLabelIn.addEventListener('compositionstart', function () { editGalleryImeComposing = true; });

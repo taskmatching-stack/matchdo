@@ -9,6 +9,7 @@
   var BG = '#EAEEF3';
   var MIN_COUNT = 2;
   var MAX_COUNT = 9;
+  var COMPOSE_CHECK_CLASS = 'compose-into-cover-check';
 
   function getRowLayout(count) {
     var map = {
@@ -103,6 +104,39 @@
     return d === 'redraw' || d === 'upscale' || d === 'design_to_physical';
   }
 
+  /** 已是拼好的多色封面（不應再當單色樣張預設勾選） */
+  function isComposedCoverGridLabel(label) {
+    var s = String(label || '').trim();
+    return /^多色色卡|^多色展示/.test(s);
+  }
+
+  function isComposedCoverGridItem(item) {
+    if (!item) return false;
+    if (item.coverGridCompose) return true;
+    return isComposedCoverGridLabel(item.label);
+  }
+
+  /**
+   * 拼入封面勾選框。預設：單色樣張勾選；已是多色拼圖的封面不勾選。
+   * （舊邏輯一律跳過封面欄 → 封面若是第一色，第一次會少那張、第二次才對）
+   */
+  function composeSwatchCheckHtml(opts) {
+    opts = opts || {};
+    var checked = opts.checked !== false;
+    var title = opts.title || '勾選後會拼進封面色卡';
+    return '<div class="form-check mt-1 mb-0 compose-into-cover-wrap">' +
+      '<input class="form-check-input ' + COMPOSE_CHECK_CLASS + '" type="checkbox" value="1"' +
+      (checked ? ' checked' : '') + ' title="' + String(title).replace(/"/g, '&quot;') + '">' +
+      '<label class="form-check-label small">' +
+      (opts.labelText || '拼入封面') +
+      '</label></div>';
+  }
+
+  function defaultComposeCheckChecked(item, isCover) {
+    if (isComposedCoverGridItem(item)) return false;
+    return true;
+  }
+
   async function composeGrid(imageSources) {
     var count = imageSources.length;
     if (count < MIN_COUNT || count > MAX_COUNT) {
@@ -132,14 +166,28 @@
     });
   }
 
-  /** 待傳清單：跳過封面（index 0），取有原圖的單色樣張 */
+  function gridHasComposeChecks(gridEl) {
+    return !!(gridEl && gridEl.querySelector('.' + COMPOSE_CHECK_CLASS));
+  }
+
+  function colComposeChecked(col) {
+    if (!col) return false;
+    var cb = col.querySelector('.' + COMPOSE_CHECK_CLASS);
+    if (!cb) return true;
+    return !!cb.checked;
+  }
+
+  /** 待傳清單：有 selectedIds 則依勾選；否則略過已拼多色封面，其餘單色都納入（含原封面色） */
   function collectPendingSwatchSources(list, opts) {
     opts = opts || {};
     var sources = [];
     (list || []).forEach(function (item, idx) {
-      if (idx === 0) return;
-      if (opts.requireSelectable && item.designer_selectable === false) return;
       if (isAiDerivedItem(item)) return;
+      if (opts.selectedIds) {
+        if (opts.selectedIds.indexOf(item.id) < 0) return;
+      } else if (opts.skipComposedCover !== false && isComposedCoverGridItem(item) && idx === 0) {
+        return;
+      }
       if (item.file) sources.push(item.file);
     });
     return sources.slice(0, MAX_COUNT);
@@ -187,39 +235,54 @@
   function countMaterialSwatchCols(gridEl) {
     if (!gridEl) return 0;
     var cols = gridEl.querySelectorAll(':scope > [class*="col-"]');
+    if (gridHasComposeChecks(gridEl)) {
+      var n = 0;
+      cols.forEach(function (col) {
+        if (colComposeChecked(col)) n++;
+      });
+      return n;
+    }
     return Math.max(0, cols.length - 1);
   }
 
-  /** 編輯／待傳 grid：跳過封面欄（index 0），依 DOM 欄位取樣張來源 */
+  function resolveColSource(col, opts) {
+    opts = opts || {};
+    if (opts.resolveLocalFile) {
+      var localId = col.getAttribute('data-local-id');
+      if (localId) {
+        var localFile = opts.resolveLocalFile(localId);
+        if (localFile) return localFile;
+      }
+    }
+    if (opts.resolvePendingFile) {
+      var pendingId = col.getAttribute('data-pending-id');
+      if (pendingId) {
+        var pendingFile = opts.resolvePendingFile(pendingId);
+        if (pendingFile) return pendingFile;
+      }
+    }
+    var url = col.getAttribute('data-gallery-url');
+    return url || null;
+  }
+
+  /**
+   * 編輯／待傳 grid：有「拼入封面」勾選則依勾選（可含封面欄）。
+   * 無勾選框時：略過已是多色拼圖的封面欄，其餘欄都納入（含單色封面＝第一色）。
+   */
   function collectMaterialSwatchSourcesFromGrid(gridEl, opts) {
     opts = opts || {};
     var sources = [];
     if (!gridEl) return sources;
     var cols = gridEl.querySelectorAll(':scope > [class*="col-"]');
+    var useChecks = gridHasComposeChecks(gridEl);
     cols.forEach(function (col, idx) {
-      if (idx === 0) return;
-      if (opts.resolveLocalFile) {
-        var localId = col.getAttribute('data-local-id');
-        if (localId) {
-          var localFile = opts.resolveLocalFile(localId);
-          if (localFile) {
-            sources.push(localFile);
-            return;
-          }
-        }
+      if (useChecks) {
+        if (!colComposeChecked(col)) return;
+      } else if (idx === 0 && !opts.includeCoverColumn) {
+        return;
       }
-      if (opts.resolvePendingFile) {
-        var pendingId = col.getAttribute('data-pending-id');
-        if (pendingId) {
-          var pendingFile = opts.resolvePendingFile(pendingId);
-          if (pendingFile) {
-            sources.push(pendingFile);
-            return;
-          }
-        }
-      }
-      var url = col.getAttribute('data-gallery-url');
-      if (url) sources.push(url);
+      var src = resolveColSource(col, opts);
+      if (src) sources.push(src);
     });
     return sources.slice(0, MAX_COUNT);
   }
@@ -230,13 +293,14 @@
     btn.disabled = n < MIN_COUNT;
     btn.title = n >= MIN_COUNT
       ? ('將 ' + Math.min(n, MAX_COUNT) + ' 張圖片拼成 1:1 封面（不扣點）')
-      : ('需至少 ' + MIN_COUNT + ' 張圖片（不含封面）；目前 ' + n + ' 張');
+      : ('請勾選至少 ' + MIN_COUNT + ' 張要拼入的顏色；目前 ' + n + ' 張');
   }
 
   global.MatchdoMaterialCoverGridCompose = {
     CANVAS_SIZE: CANVAS_SIZE,
     MIN_COUNT: MIN_COUNT,
     MAX_COUNT: MAX_COUNT,
+    COMPOSE_CHECK_CLASS: COMPOSE_CHECK_CLASS,
     getRowLayout: getRowLayout,
     composeGrid: composeGrid,
     collectPendingSwatchSources: collectPendingSwatchSources,
@@ -248,6 +312,11 @@
     coverGridComposeEnabledForKind: coverGridComposeEnabledForKind,
     coverComposeButtonLabel: coverComposeButtonLabel,
     coverLabelForKind: coverLabelForKind,
-    isAiDerivedItem: isAiDerivedItem
+    isAiDerivedItem: isAiDerivedItem,
+    isComposedCoverGridLabel: isComposedCoverGridLabel,
+    isComposedCoverGridItem: isComposedCoverGridItem,
+    composeSwatchCheckHtml: composeSwatchCheckHtml,
+    defaultComposeCheckChecked: defaultComposeCheckChecked,
+    gridHasComposeChecks: gridHasComposeChecks
   };
 })(typeof window !== 'undefined' ? window : this);
