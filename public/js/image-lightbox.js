@@ -317,7 +317,7 @@
     }
 
     function isInteractiveClickTarget(el) {
-        return !!(el && el.closest('button, input, select, textarea, label, a'));
+        return !!(el && el.closest('button, input, select, textarea, label, a, details, summary'));
     }
 
     /** 編輯彈窗內待傳／圖庫卡片：點圖或卡片空白區可放大預覽（避開按鈕、勾選） */
