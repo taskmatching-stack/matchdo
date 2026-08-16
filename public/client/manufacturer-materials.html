@@ -272,8 +272,8 @@
         .proto-link-catalog-group.is-collapsed .proto-link-fold-icon {
             transform: rotate(-90deg);
         }
-        .proto-link-catalog-group.is-collapsed .proto-link-catalog-group-items {
-            display: none;
+        .proto-link-catalog-group.is-collapsed > .proto-link-catalog-group-items {
+            display: none !important;
         }
         .proto-link-catalog-group-toggle .proto-link-fold-count {
             margin-left: auto;
@@ -1214,7 +1214,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-fold-cats-20260816';
+        window.__MATCHDO_MATERIALS_BUILD = 'proto-link-fold-fix-20260816';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
