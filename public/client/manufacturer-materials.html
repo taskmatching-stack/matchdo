@@ -1216,11 +1216,15 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-only-20260820';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-unified-20260820';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
-        /** Cloud Run / Google Frontend 單次請求 body 約 32MB；僅超過才分批 */
-        var VENDOR_UPLOAD_BATCH_MAX_BYTES = 30 * 1024 * 1024;
+        /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
+        var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
         var VENDOR_UPLOAD_BATCH_MAX_FILES = 12;
+        /** 純圖 gallery-images：整包 body ≈ 圖檔 */
+        var VENDOR_UPLOAD_GALLERY_BATCH_MAX_BYTES = 28 * 1024 * 1024;
+        /** POST 新建首批：同一包還含表單欄位，圖檔上限較小 */
+        var VENDOR_UPLOAD_CREATE_FIRST_BATCH_MAX_BYTES = 22 * 1024 * 1024;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
         var materialsGridRenderGen = 0;
@@ -1249,15 +1253,33 @@
             return mb >= 0.1 ? mb.toFixed(1) : '';
         }
 
-        function splitVendorUploadBatches(files, labels, linkGroups, designerSelectable, derived, optGlobalIndices, sourceUrls) {
+        function validateVendorUploadFileSizes(files) {
+            var maxOne = VENDOR_UPLOAD_GALLERY_BATCH_MAX_BYTES;
+            for (var i = 0; i < (files || []).length; i++) {
+                var sz = vendorUploadFileBytes(files[i]);
+                if (sz > maxOne) {
+                    var mb = (sz / (1024 * 1024)).toFixed(1);
+                    var cap = (maxOne / (1024 * 1024)).toFixed(0);
+                    return '單張圖片太大（約 ' + mb + ' MB），超過單次可傳上限（約 ' + cap + ' MB）。請壓縮後再試。';
+                }
+            }
+            return '';
+        }
+
+        function splitVendorUploadBatches(files, labels, linkGroups, designerSelectable, derived, optGlobalIndices, sourceUrls, batchOpts) {
             labels = labels || [];
             linkGroups = linkGroups || [];
             designerSelectable = designerSelectable || [];
             derived = derived || [];
             optGlobalIndices = optGlobalIndices || [];
             sourceUrls = sourceUrls || [];
+            batchOpts = batchOpts || {};
+            var maxBytes = batchOpts.maxBytes != null ? batchOpts.maxBytes : VENDOR_UPLOAD_GALLERY_BATCH_MAX_BYTES;
+            var maxFiles = batchOpts.maxFiles != null ? batchOpts.maxFiles : VENDOR_UPLOAD_BATCH_MAX_FILES;
+            var startAt = batchOpts.startAt != null ? batchOpts.startAt : 0;
+            var onlyFirstBatch = !!batchOpts.onlyFirstBatch;
             var slices = [];
-            var globalStart = 0;
+            var globalStart = startAt;
             while (globalStart < files.length) {
                 var batchFiles = [];
                 var batchLabels = [];
@@ -1272,8 +1294,8 @@
                     var f = files[gi];
                     var sz = vendorUploadFileBytes(f);
                     if (batchFiles.length > 0 && (
-                        batchFiles.length >= VENDOR_UPLOAD_BATCH_MAX_FILES ||
-                        batchBytes + sz > VENDOR_UPLOAD_BATCH_MAX_BYTES
+                        batchFiles.length >= maxFiles ||
+                        batchBytes + sz > maxBytes
                     )) break;
                     batchFiles.push(f);
                     batchLabels.push(labels[gi] != null ? labels[gi] : '');
@@ -1295,8 +1317,43 @@
                     optIndices: batchOpt
                 });
                 globalStart += batchFiles.length;
+                if (onlyFirstBatch) break;
             }
             return slices;
+        }
+
+        /** 新建：首批用較小圖檔上限（含表單欄位），其餘走 gallery 上限 */
+        function splitVendorUploadForCreate(files, labels, linkGroups, designerSelectable, derived, optGlobalIndices) {
+            var firstSlices = splitVendorUploadBatches(
+                files, labels, linkGroups, designerSelectable, derived, optGlobalIndices, [], {
+                    maxBytes: VENDOR_UPLOAD_CREATE_FIRST_BATCH_MAX_BYTES,
+                    onlyFirstBatch: true
+                }
+            );
+            if (!firstSlices.length) return [];
+            var first = firstSlices[0];
+            var offset = first.files.length;
+            if (offset >= files.length) return [first];
+            var restOpt = optGlobalIndices.filter(function (i) { return i >= offset; }).map(function (i) { return i - offset; });
+            var restSlices = splitVendorUploadBatches(
+                files.slice(offset),
+                labels.slice(offset),
+                linkGroups.slice(offset),
+                designerSelectable.slice(offset),
+                derived.slice(offset),
+                restOpt,
+                []
+            );
+            return [first].concat(restSlices);
+        }
+
+        function appendSliceDesignerSelectableToFormData(fd, slice, assetKind) {
+            if (!slice.designerSelectable.length) return;
+            if (assetKind === 'prototype' || assetKind === 'part' || assetKind === 'material') {
+                var sel = slice.designerSelectable.slice();
+                if (assetKind === 'material') sel[0] = false;
+                fd.append('image_designer_selectable', JSON.stringify(sel));
+            }
         }
 
         function parseVendorUploadHttpError(r, rawBody, uploadFilesForHint) {
@@ -4080,6 +4137,8 @@
             var id = document.getElementById('edit-id').value;
             var tok = token || (await getToken());
             if (!tok) throw new Error('請先登入');
+            var sizeErr = validateVendorUploadFileSizes(files);
+            if (sizeErr) throw new Error(sizeErr);
             var slices = splitVendorUploadBatches(
                 files, labels, [], [], derivedKinds || [], [], sourceUrls || []
             );
@@ -6317,6 +6376,12 @@
                 setEditGalleryStatus('未選擇圖片', 'warning');
                 return false;
             }
+            var uploadSizeErr = validateVendorUploadFileSizes(uploadFiles);
+            if (uploadSizeErr) {
+                setEditGalleryStatus(uploadSizeErr, 'danger');
+                showToast(uploadSizeErr, 'danger');
+                return false;
+            }
             if (!opts.skipConfirm && optIdx.length) {
                 var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
                 if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
@@ -6348,7 +6413,7 @@
                         fd.append('image_link_groups', JSON.stringify(sl.linkGroups));
                     }
                     if (vendorDesignerSelectableEnabledForKind(mBefore) && sl.designerSelectable.length) {
-                        fd.append('image_designer_selectable', JSON.stringify(sl.designerSelectable));
+                        appendSliceDesignerSelectableToFormData(fd, sl, normalizeKind(mBefore && mBefore.asset_kind));
                     }
                     if (sl.derived.some(function (d) { return d === 'redraw' || d === 'upscale' || d === 'design_to_physical'; })) {
                         fd.append('image_ai_derived', JSON.stringify(sl.derived));
@@ -9005,8 +9070,14 @@
                 optIdx = payload.optIdx;
             }
             msgEl.textContent = '';
+            var uploadSizeErr = (kind === 'prototype' || kind === 'part' || kind === 'material')
+                ? validateVendorUploadFileSizes(uploadFiles) : '';
+            if (uploadSizeErr) {
+                msgEl.textContent = uploadSizeErr;
+                return;
+            }
             var uploadSlices = (kind === 'prototype' || kind === 'part' || kind === 'material')
-                ? splitVendorUploadBatches(uploadFiles, uploadLabels, uploadLinkGroups, uploadDesignerSelectable, uploadDerived, optIdx)
+                ? splitVendorUploadForCreate(uploadFiles, uploadLabels, uploadLinkGroups, uploadDesignerSelectable, uploadDerived, optIdx)
                 : [{ files: uploadFiles, labels: uploadLabels, linkGroups: uploadLinkGroups, designerSelectable: uploadDesignerSelectable, derived: uploadDerived, optIndices: optIdx }];
             var firstSlice = uploadSlices[0];
             function appendCreateSliceFilesToFormData(fd, slice) {
@@ -9018,9 +9089,7 @@
                     fd.append('image_link_groups', JSON.stringify(slice.linkGroups));
                 }
                 if ((kind === 'prototype' || kind === 'part' || kind === 'material') && slice.designerSelectable.length) {
-                    var sel = slice.designerSelectable.slice();
-                    if (kind === 'material') sel[0] = false;
-                    fd.append('image_designer_selectable', JSON.stringify(sel));
+                    appendSliceDesignerSelectableToFormData(fd, slice, kind);
                 }
                 if (slice.derived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                     fd.append('image_ai_derived', JSON.stringify(slice.derived));
@@ -9118,7 +9187,7 @@
                         appendFd.append('image_link_groups', JSON.stringify(sl.linkGroups));
                     }
                     if ((kind === 'prototype' || kind === 'part' || kind === 'material') && sl.designerSelectable.length) {
-                        appendFd.append('image_designer_selectable', JSON.stringify(sl.designerSelectable));
+                        appendSliceDesignerSelectableToFormData(appendFd, sl, kind);
                     }
                     if (sl.derived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                         appendFd.append('image_ai_derived', JSON.stringify(sl.derived));
