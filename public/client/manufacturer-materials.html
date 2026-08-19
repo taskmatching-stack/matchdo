@@ -1216,10 +1216,9 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-hint-20260820';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-only-20260820';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
-        /** Cloud Run / Google Frontend 單次請求 body 約 32MB；僅超過才分批，且每批盡量大包 */
-        var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
+        /** Cloud Run / Google Frontend 單次請求 body 約 32MB；僅超過才分批 */
         var VENDOR_UPLOAD_BATCH_MAX_BYTES = 30 * 1024 * 1024;
         var VENDOR_UPLOAD_BATCH_MAX_FILES = 12;
         var editGalleryRenderDeferred = false;
@@ -1250,11 +1249,6 @@
             return mb >= 0.1 ? mb.toFixed(1) : '';
         }
 
-        function vendorUploadSliceCount(files) {
-            return splitVendorUploadBatches(files, [], [], [], [], []).length;
-        }
-
-        /** 依檔案大小／張數切批（保留全域 index 對應的 labels／optimize 等） */
         function splitVendorUploadBatches(files, labels, linkGroups, designerSelectable, derived, optGlobalIndices, sourceUrls) {
             labels = labels || [];
             linkGroups = linkGroups || [];
@@ -4082,7 +4076,7 @@
             return data;
         }
 
-        async function postGalleryImageFiles(files, labels, derivedKinds, sourceUrls, assetKind) {
+        async function postGalleryImageFiles(files, labels, derivedKinds, sourceUrls) {
             var id = document.getElementById('edit-id').value;
             var tok = token || (await getToken());
             if (!tok) throw new Error('請先登入');
@@ -6343,7 +6337,7 @@
                 for (var bi = 0; bi < uploadSlices.length; bi++) {
                     var sl = uploadSlices[bi];
                     if (uploadSlices.length > 1 && bi > 0) {
-                        setEditGalleryStatus('圖片較多，續傳第 ' + (bi + 1) + ' 次（' + sl.files.length + ' 張）…', 'info');
+                        setEditGalleryStatus('圖片續傳（第 ' + (bi + 1) + ' 次，' + sl.files.length + ' 張）…', 'info');
                     }
                     var fd = new FormData();
                     for (var ui = 0; ui < sl.files.length; ui++) {
