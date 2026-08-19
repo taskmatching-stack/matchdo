@@ -1216,11 +1216,10 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-quiet-20260820';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-bytes-only-20260820';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
-        var VENDOR_UPLOAD_BATCH_MAX_FILES = 12;
         /** 純圖 gallery-images：整包 body ≈ 圖檔 */
         var VENDOR_UPLOAD_GALLERY_BATCH_MAX_BYTES = 28 * 1024 * 1024;
         /** POST 新建首批：同一包還含表單欄位，圖檔上限較小 */
@@ -1260,7 +1259,6 @@
             sourceUrls = sourceUrls || [];
             batchOpts = batchOpts || {};
             var maxBytes = batchOpts.maxBytes != null ? batchOpts.maxBytes : VENDOR_UPLOAD_GALLERY_BATCH_MAX_BYTES;
-            var maxFiles = batchOpts.maxFiles != null ? batchOpts.maxFiles : VENDOR_UPLOAD_BATCH_MAX_FILES;
             var startAt = batchOpts.startAt != null ? batchOpts.startAt : 0;
             var onlyFirstBatch = !!batchOpts.onlyFirstBatch;
             var slices = [];
@@ -1278,10 +1276,7 @@
                     var gi = globalStart + batchFiles.length;
                     var f = files[gi];
                     var sz = vendorUploadFileBytes(f);
-                    if (batchFiles.length > 0 && (
-                        batchFiles.length >= maxFiles ||
-                        batchBytes + sz > maxBytes
-                    )) break;
+                    if (batchFiles.length > 0 && batchBytes + sz > maxBytes) break;
                     batchFiles.push(f);
                     batchLabels.push(labels[gi] != null ? labels[gi] : '');
                     batchLinkGroups.push(linkGroups[gi] != null ? linkGroups[gi] : '');
