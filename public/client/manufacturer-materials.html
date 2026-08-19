@@ -1216,7 +1216,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-unified-20260820';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-quiet-20260820';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1236,21 +1236,8 @@
             return (file && file.size) ? file.size : 0;
         }
 
-        function vendorUploadTotalBytes(files) {
-            var total = 0;
-            (files || []).forEach(function (f) { total += vendorUploadFileBytes(f); });
-            return total;
-        }
-
-        function vendorUpload413Message(approxMb) {
-            var mbHint = approxMb ? ('（本次約 ' + approxMb + ' MB）') : '';
-            return '上傳失敗：單次傳送的圖片總容量太大' + mbHint + '，超過伺服器上限（約 32 MB）。' +
-                '請壓縮單張圖片、減少一次選取的張數，或改分兩次發布／儲存。';
-        }
-
-        function vendorUploadApproxMb(files) {
-            var mb = vendorUploadTotalBytes(files) / (1024 * 1024);
-            return mb >= 0.1 ? mb.toFixed(1) : '';
+        function vendorUpload413Message() {
+            return '上傳失敗：圖片太多或太大，請減少張數或壓縮後再試。';
         }
 
         function validateVendorUploadFileSizes(files) {
@@ -1258,9 +1245,7 @@
             for (var i = 0; i < (files || []).length; i++) {
                 var sz = vendorUploadFileBytes(files[i]);
                 if (sz > maxOne) {
-                    var mb = (sz / (1024 * 1024)).toFixed(1);
-                    var cap = (maxOne / (1024 * 1024)).toFixed(0);
-                    return '單張圖片太大（約 ' + mb + ' MB），超過單次可傳上限（約 ' + cap + ' MB）。請壓縮後再試。';
+                    return '有圖片太大，請壓縮後再試。';
                 }
             }
             return '';
@@ -1360,7 +1345,7 @@
             var data = {};
             try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (_) {}
             if (r.status === 413) {
-                return { data: data, message: vendorUpload413Message(vendorUploadApproxMb(uploadFilesForHint)) };
+                return { data: data, message: vendorUpload413Message() };
             }
             var msg = data.error || data.message || (rawBody && rawBody.length < 200 ? rawBody : ('上傳失敗 (HTTP ' + r.status + ')'));
             return { data: data, message: msg };
@@ -5061,7 +5046,7 @@
         }
 
         function uploadFailureMessage(form, data, status, uploadFilesForHint) {
-            if (status === 413) return vendorUpload413Message(vendorUploadApproxMb(uploadFilesForHint));
+            if (status === 413) return vendorUpload413Message();
             var failMsg = (data && data.error) || '上傳失敗';
             if (data && data.preview_points_refunded > 0) {
                 if (data.balance_after != null) {
@@ -6391,7 +6376,6 @@
             var uploadSlices = splitVendorUploadBatches(
                 uploadFiles, uploadLabels, uploadLinkGroups, uploadDesignerSelectable, uploadDerived, optIdx
             );
-            setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + uploadFiles.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -6401,9 +6385,6 @@
                 var data = null;
                 for (var bi = 0; bi < uploadSlices.length; bi++) {
                     var sl = uploadSlices[bi];
-                    if (uploadSlices.length > 1 && bi > 0) {
-                        setEditGalleryStatus('圖片續傳（第 ' + (bi + 1) + ' 次，' + sl.files.length + ' 張）…', 'info');
-                    }
                     var fd = new FormData();
                     for (var ui = 0; ui < sl.files.length; ui++) {
                         fd.append('images', sl.files[ui]);
@@ -6466,9 +6447,7 @@
                     return false;
                 }
                 urlCount = effectiveCount;
-                setEditGalleryStatus(optIdx.length
-                    ? '已上傳並重繪，目前共 ' + urlCount + ' 張'
-                    : ('已上傳原圖，目前共 ' + urlCount + ' 張；若要白底請對各圖按「AI 重繪」'), 'success');
+                setEditGalleryStatus('');
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
@@ -9156,9 +9135,6 @@
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
-                if (uploadSlices.length > 1) {
-                    msgEl.textContent = '上傳中（共 ' + uploadFiles.length + ' 張；總容量約 ' + vendorUploadApproxMb(uploadFiles) + ' MB，將分 ' + uploadSlices.length + ' 次傳送）…';
-                }
                 var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, body: fd });
                 var rawBody = await r.text();
                 var parsed = parseVendorUploadHttpError(r, rawBody, uploadFiles);
@@ -9179,7 +9155,6 @@
                         return;
                     }
                     var sl = uploadSlices[si];
-                    msgEl.textContent = '續傳其餘圖片（第 ' + (si + 1) + ' 次，' + sl.files.length + ' 張）…';
                     var appendFd = new FormData();
                     for (var aj = 0; aj < sl.files.length; aj++) appendFd.append('images', sl.files[aj]);
                     appendFd.append('image_labels', JSON.stringify(sl.labels));
@@ -9219,6 +9194,7 @@
                 var okMsg = tr('baseModels.uploadSuccess', '上傳成功');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                msgEl.textContent = '';
                 showToast(okMsg);
                 if (kind === 'prototype' && data.id) {
                     showToast(tr('productTree.uploadLinkHint', '已發布。若要設定材料／配件關聯，可稍後點頁面上方「產品關聯圖」（選填，不影響上架）。'), 'info');
