@@ -1216,13 +1216,103 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'link-labels-20260816';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-batch-hint-20260820';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
+        /** Cloud Run / Google Frontend 單次請求 body 約 32MB；僅超過才分批，且每批盡量大包 */
+        var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
+        var VENDOR_UPLOAD_BATCH_MAX_BYTES = 30 * 1024 * 1024;
+        var VENDOR_UPLOAD_BATCH_MAX_FILES = 12;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
         var materialsGridRenderGen = 0;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
+        }
+
+        function vendorUploadFileBytes(file) {
+            return (file && file.size) ? file.size : 0;
+        }
+
+        function vendorUploadTotalBytes(files) {
+            var total = 0;
+            (files || []).forEach(function (f) { total += vendorUploadFileBytes(f); });
+            return total;
+        }
+
+        function vendorUpload413Message(approxMb) {
+            var mbHint = approxMb ? ('（本次約 ' + approxMb + ' MB）') : '';
+            return '上傳失敗：單次傳送的圖片總容量太大' + mbHint + '，超過伺服器上限（約 32 MB）。' +
+                '請壓縮單張圖片、減少一次選取的張數，或改分兩次發布／儲存。';
+        }
+
+        function vendorUploadApproxMb(files) {
+            var mb = vendorUploadTotalBytes(files) / (1024 * 1024);
+            return mb >= 0.1 ? mb.toFixed(1) : '';
+        }
+
+        function vendorUploadSliceCount(files) {
+            return splitVendorUploadBatches(files, [], [], [], [], []).length;
+        }
+
+        /** 依檔案大小／張數切批（保留全域 index 對應的 labels／optimize 等） */
+        function splitVendorUploadBatches(files, labels, linkGroups, designerSelectable, derived, optGlobalIndices, sourceUrls) {
+            labels = labels || [];
+            linkGroups = linkGroups || [];
+            designerSelectable = designerSelectable || [];
+            derived = derived || [];
+            optGlobalIndices = optGlobalIndices || [];
+            sourceUrls = sourceUrls || [];
+            var slices = [];
+            var globalStart = 0;
+            while (globalStart < files.length) {
+                var batchFiles = [];
+                var batchLabels = [];
+                var batchLinkGroups = [];
+                var batchDesignerSelectable = [];
+                var batchDerived = [];
+                var batchSourceUrls = [];
+                var batchOpt = [];
+                var batchBytes = 0;
+                while (globalStart + batchFiles.length < files.length) {
+                    var gi = globalStart + batchFiles.length;
+                    var f = files[gi];
+                    var sz = vendorUploadFileBytes(f);
+                    if (batchFiles.length > 0 && (
+                        batchFiles.length >= VENDOR_UPLOAD_BATCH_MAX_FILES ||
+                        batchBytes + sz > VENDOR_UPLOAD_BATCH_MAX_BYTES
+                    )) break;
+                    batchFiles.push(f);
+                    batchLabels.push(labels[gi] != null ? labels[gi] : '');
+                    batchLinkGroups.push(linkGroups[gi] != null ? linkGroups[gi] : '');
+                    batchDesignerSelectable.push(designerSelectable[gi] !== undefined ? designerSelectable[gi] : true);
+                    batchDerived.push(derived[gi] != null ? derived[gi] : '');
+                    batchSourceUrls.push(sourceUrls[gi] != null ? sourceUrls[gi] : '');
+                    if (optGlobalIndices.indexOf(gi) >= 0) batchOpt.push(batchFiles.length - 1);
+                    batchBytes += sz;
+                }
+                if (!batchFiles.length) break;
+                slices.push({
+                    files: batchFiles,
+                    labels: batchLabels,
+                    linkGroups: batchLinkGroups,
+                    designerSelectable: batchDesignerSelectable,
+                    derived: batchDerived,
+                    sourceUrls: batchSourceUrls,
+                    optIndices: batchOpt
+                });
+                globalStart += batchFiles.length;
+            }
+            return slices;
+        }
+
+        function parseVendorUploadHttpError(r, rawBody, uploadFilesForHint) {
+            var data = {};
+            try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (_) {}
+            if (r.status === 413) {
+                return { data: data, message: vendorUpload413Message(vendorUploadApproxMb(uploadFilesForHint)) };
+            }
+            var msg = data.error || data.message || (rawBody && rawBody.length < 200 ? rawBody : ('上傳失敗 (HTTP ' + r.status + ')'));
+            return { data: data, message: msg };
         }
 
         function isMatchdoCollapsibleHintEl(el) {
@@ -3992,29 +4082,38 @@
             return data;
         }
 
-        async function postGalleryImageFiles(files, labels, derivedKinds, sourceUrls) {
+        async function postGalleryImageFiles(files, labels, derivedKinds, sourceUrls, assetKind) {
             var id = document.getElementById('edit-id').value;
             var tok = token || (await getToken());
             if (!tok) throw new Error('請先登入');
-            var fd = new FormData();
-            for (var i = 0; i < files.length; i++) fd.append('images', files[i]);
-            if (labels && labels.length) fd.append('image_labels', JSON.stringify(labels));
-            if (derivedKinds && derivedKinds.some(function (d) { return d === 'redraw' || d === 'upscale' || d === 'design_to_physical'; })) {
-                fd.append('image_ai_derived', JSON.stringify(derivedKinds));
+            var slices = splitVendorUploadBatches(
+                files, labels, [], [], derivedKinds || [], [], sourceUrls || []
+            );
+            var lastData = null;
+            for (var bi = 0; bi < slices.length; bi++) {
+                var sl = slices[bi];
+                var fd = new FormData();
+                for (var i = 0; i < sl.files.length; i++) fd.append('images', sl.files[i]);
+                if (sl.labels.length) fd.append('image_labels', JSON.stringify(sl.labels));
+                if (sl.derived.some(function (d) { return d === 'redraw' || d === 'upscale' || d === 'design_to_physical'; })) {
+                    fd.append('image_ai_derived', JSON.stringify(sl.derived));
+                }
+                if (sl.sourceUrls.some(function (u) { return !!u; })) {
+                    fd.append('image_source_urls', JSON.stringify(sl.sourceUrls));
+                }
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var rawBody = await r.text();
+                var parsed = parseVendorUploadHttpError(r, rawBody, sl.files);
+                if (r.status === 402) throw new Error((parsed.data.error || '點數不足') + ' (' + (parsed.data.required || '') + ')');
+                if (!r.ok) throw new Error(parsed.message);
+                lastData = parsed.data;
+                patchMaterialsAllItem(id, lastData);
             }
-            if (sourceUrls && sourceUrls.length) {
-                fd.append('image_source_urls', JSON.stringify(sourceUrls));
-            }
-            var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
-                method: 'POST',
-                headers: { Authorization: 'Bearer ' + tok },
-                body: fd
-            });
-            var data = await r.json().catch(function () { return {}; });
-            if (r.status === 402) throw new Error((data.error || '點數不足') + ' (' + (data.required || '') + ')');
-            if (!r.ok) throw new Error(data.error || data.message || '上傳失敗');
-            patchMaterialsAllItem(id, data);
-            return data;
+            return lastData;
         }
 
         async function applyEditGallerySlotPreview(sourceUrl, slot) {
@@ -4908,7 +5007,8 @@
             }, []);
         }
 
-        function uploadFailureMessage(form, data, status) {
+        function uploadFailureMessage(form, data, status, uploadFilesForHint) {
+            if (status === 413) return vendorUpload413Message(vendorUploadApproxMb(uploadFilesForHint));
             var failMsg = (data && data.error) || '上傳失敗';
             if (data && data.preview_points_refunded > 0) {
                 if (data.balance_after != null) {
@@ -6229,26 +6329,9 @@
             }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
-            var fd = new FormData();
-            for (var ui = 0; ui < uploadFiles.length; ui++) {
-                fd.append('images', uploadFiles[ui]);
-            }
-            if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
-            if (prototypeShowsLinkGroup(mBefore) && uploadLinkGroups.length) {
-                fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
-            }
-            if (vendorDesignerSelectableEnabledForKind(mBefore) && uploadDesignerSelectable.length) {
-                fd.append('image_designer_selectable', JSON.stringify(uploadDesignerSelectable));
-            }
-            if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale' || d === 'design_to_physical'; })) {
-                fd.append('image_ai_derived', JSON.stringify(uploadDerived));
-            }
-            if (optIdx.length) {
-                fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                fd.append('optimize_background', getEditGalleryOptimizeBackground());
-                appendEditGalleryUseDisplayStandToFormData(fd);
-                appendEditGalleryOptimizeProductNameToFormData(fd);
-            }
+            var uploadSlices = splitVendorUploadBatches(
+                uploadFiles, uploadLabels, uploadLinkGroups, uploadDesignerSelectable, uploadDerived, optIdx
+            );
             setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + uploadFiles.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
@@ -6256,28 +6339,55 @@
                     setEditGalleryStatus('請先登入', 'danger');
                     return false;
                 }
-                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + tok },
-                    body: fd
-                });
-                var rawBody = await r.text();
-                var data = {};
-                try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (parseErr) { data = {}; }
-                if (r.status === 402) {
-                    var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
-                    setEditGalleryStatus(msg402, 'danger');
-                    showToast(msg402, 'danger');
-                    return false;
-                }
-                if (!r.ok) {
-                    var errMsg = data.error || data.message || (rawBody && rawBody.length < 200 ? rawBody : ('上傳失敗 (HTTP ' + r.status + ')'));
-                    if (r.status === 500 && /gallery_images|多角度/.test(errMsg)) {
-                        errMsg += ' — 請至 Supabase 執行 docs/add-vendor-asset-gallery-images.sql';
+                var data = null;
+                for (var bi = 0; bi < uploadSlices.length; bi++) {
+                    var sl = uploadSlices[bi];
+                    if (uploadSlices.length > 1 && bi > 0) {
+                        setEditGalleryStatus('圖片較多，續傳第 ' + (bi + 1) + ' 次（' + sl.files.length + ' 張）…', 'info');
                     }
-                    setEditGalleryStatus(errMsg, 'danger');
-                    showToast(errMsg, 'danger');
-                    return false;
+                    var fd = new FormData();
+                    for (var ui = 0; ui < sl.files.length; ui++) {
+                        fd.append('images', sl.files[ui]);
+                    }
+                    if (sl.labels.length) fd.append('image_labels', JSON.stringify(sl.labels));
+                    if (prototypeShowsLinkGroup(mBefore) && sl.linkGroups.length) {
+                        fd.append('image_link_groups', JSON.stringify(sl.linkGroups));
+                    }
+                    if (vendorDesignerSelectableEnabledForKind(mBefore) && sl.designerSelectable.length) {
+                        fd.append('image_designer_selectable', JSON.stringify(sl.designerSelectable));
+                    }
+                    if (sl.derived.some(function (d) { return d === 'redraw' || d === 'upscale' || d === 'design_to_physical'; })) {
+                        fd.append('image_ai_derived', JSON.stringify(sl.derived));
+                    }
+                    if (sl.optIndices.length) {
+                        fd.append('optimize_image_indices', JSON.stringify(sl.optIndices));
+                        fd.append('optimize_background', getEditGalleryOptimizeBackground());
+                        appendEditGalleryUseDisplayStandToFormData(fd);
+                        appendEditGalleryOptimizeProductNameToFormData(fd);
+                    }
+                    var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + tok },
+                        body: fd
+                    });
+                    var rawBody = await r.text();
+                    var parsed = parseVendorUploadHttpError(r, rawBody, sl.files);
+                    data = parsed.data;
+                    if (r.status === 402) {
+                        var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
+                        setEditGalleryStatus(msg402, 'danger');
+                        showToast(msg402, 'danger');
+                        return false;
+                    }
+                    if (!r.ok) {
+                        var errMsg = parsed.message;
+                        if (r.status === 500 && /gallery_images|多角度/.test(errMsg)) {
+                            errMsg += ' — 請至 Supabase 執行 docs/add-vendor-asset-gallery-images.sql';
+                        }
+                        setEditGalleryStatus(errMsg, 'danger');
+                        showToast(errMsg, 'danger');
+                        return false;
+                    }
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 var urlsBeforeUpload = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
@@ -8901,6 +9011,33 @@
                 optIdx = payload.optIdx;
             }
             msgEl.textContent = '';
+            var uploadSlices = (kind === 'prototype' || kind === 'part' || kind === 'material')
+                ? splitVendorUploadBatches(uploadFiles, uploadLabels, uploadLinkGroups, uploadDesignerSelectable, uploadDerived, optIdx)
+                : [{ files: uploadFiles, labels: uploadLabels, linkGroups: uploadLinkGroups, designerSelectable: uploadDesignerSelectable, derived: uploadDerived, optIndices: optIdx }];
+            var firstSlice = uploadSlices[0];
+            function appendCreateSliceFilesToFormData(fd, slice) {
+                if (!slice.files.length) return;
+                fd.append('image', slice.files[0]);
+                for (var pi = 1; pi < slice.files.length; pi++) fd.append('gallery', slice.files[pi]);
+                fd.append('image_labels', JSON.stringify(slice.labels));
+                if (kind === 'prototype' && slice.linkGroups.length) {
+                    fd.append('image_link_groups', JSON.stringify(slice.linkGroups));
+                }
+                if ((kind === 'prototype' || kind === 'part' || kind === 'material') && slice.designerSelectable.length) {
+                    var sel = slice.designerSelectable.slice();
+                    if (kind === 'material') sel[0] = false;
+                    fd.append('image_designer_selectable', JSON.stringify(sel));
+                }
+                if (slice.derived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                    fd.append('image_ai_derived', JSON.stringify(slice.derived));
+                }
+                if (slice.optIndices.length) {
+                    fd.append('optimize_image_indices', JSON.stringify(slice.optIndices));
+                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                    appendUseDisplayStandToFormData(fd, form);
+                    appendAddFormOptimizeProductNameToFormData(fd, form);
+                }
+            }
             var fd = new FormData();
             fd.append('asset_kind', kind);
             fd.append('category_key', catSel.value);
@@ -8910,29 +9047,11 @@
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
-                if (!uploadFiles.length) {
+                if (!firstSlice.files.length) {
                     msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
                 }
-                fd.append('image', uploadFiles[0]);
-                for (var pi = 1; pi < uploadFiles.length; pi++) fd.append('gallery', uploadFiles[pi]);
-                fd.append('image_labels', JSON.stringify(uploadLabels));
-                if (kind === 'prototype' && uploadLinkGroups.length) {
-                    fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
-                }
-                if ((kind === 'prototype' || kind === 'part' || kind === 'material') && uploadDesignerSelectable.length) {
-                    if (kind === 'material') uploadDesignerSelectable[0] = false;
-                    fd.append('image_designer_selectable', JSON.stringify(uploadDesignerSelectable));
-                }
-                if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
-                    fd.append('image_ai_derived', JSON.stringify(uploadDerived));
-                }
-                if (optIdx.length) {
-                    fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                    appendUseDisplayStandToFormData(fd, form);
-                    appendAddFormOptimizeProductNameToFormData(fd, form);
-                }
+                appendCreateSliceFilesToFormData(fd, firstSlice);
             }
             var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
             if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
@@ -8974,8 +9093,13 @@
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
+                if (uploadSlices.length > 1) {
+                    msgEl.textContent = '上傳中（共 ' + uploadFiles.length + ' 張；總容量約 ' + vendorUploadApproxMb(uploadFiles) + ' MB，將分 ' + uploadSlices.length + ' 次傳送）…';
+                }
                 var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, body: fd });
-                var data = await r.json().catch(function () { return {}; });
+                var rawBody = await r.text();
+                var parsed = parseVendorUploadHttpError(r, rawBody, uploadFiles);
+                var data = parsed.data;
                 if (r.status === 401) {
                     msgEl.textContent = '登入已過期，請重新整理頁面後再發布';
                     return;
@@ -8985,7 +9109,50 @@
                         ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
                     return;
                 }
-                if (!r.ok) { msgEl.textContent = uploadFailureMessage(form, data, r.status); return; }
+                if (!r.ok) { msgEl.textContent = uploadFailureMessage(form, data, r.status, uploadFiles); return; }
+                for (var si = 1; si < uploadSlices.length; si++) {
+                    if (!data.id) {
+                        msgEl.textContent = '首批已建立，但無法取得素材 ID 以續傳其餘圖片';
+                        return;
+                    }
+                    var sl = uploadSlices[si];
+                    msgEl.textContent = '續傳其餘圖片（第 ' + (si + 1) + ' 次，' + sl.files.length + ' 張）…';
+                    var appendFd = new FormData();
+                    for (var aj = 0; aj < sl.files.length; aj++) appendFd.append('images', sl.files[aj]);
+                    appendFd.append('image_labels', JSON.stringify(sl.labels));
+                    if (kind === 'prototype' && sl.linkGroups.length) {
+                        appendFd.append('image_link_groups', JSON.stringify(sl.linkGroups));
+                    }
+                    if ((kind === 'prototype' || kind === 'part' || kind === 'material') && sl.designerSelectable.length) {
+                        appendFd.append('image_designer_selectable', JSON.stringify(sl.designerSelectable));
+                    }
+                    if (sl.derived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                        appendFd.append('image_ai_derived', JSON.stringify(sl.derived));
+                    }
+                    if (sl.optIndices.length) {
+                        appendFd.append('optimize_image_indices', JSON.stringify(sl.optIndices));
+                        appendFd.append('optimize_background', getOptimizeBackgroundValue(form));
+                        appendUseDisplayStandToFormData(appendFd, form);
+                        appendAddFormOptimizeProductNameToFormData(appendFd, form);
+                    }
+                    var ar = await fetch('/api/me/vendor-assets/' + encodeURIComponent(data.id) + '/gallery-images', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + tok },
+                        body: appendFd
+                    });
+                    var appendRaw = await ar.text();
+                    var appendParsed = parseVendorUploadHttpError(ar, appendRaw, sl.files);
+                    if (ar.status === 402) {
+                        msgEl.textContent = (appendParsed.data.error || tr('baseModels.insufficientPoints', '點數不足')) +
+                            ' (' + tr('baseModels.needPoints', '需要') + ' ' + (appendParsed.data.required || '') + ')';
+                        return;
+                    }
+                    if (!ar.ok) {
+                        msgEl.textContent = uploadFailureMessage(form, appendParsed.data, ar.status, sl.files);
+                        return;
+                    }
+                    data = appendParsed.data;
+                }
                 var okMsg = tr('baseModels.uploadSuccess', '上傳成功');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
