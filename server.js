@@ -8994,7 +8994,7 @@ async function listOfficialPublicCatalogForPage(opts) {
     if (!mfrIds.length) {
         return { items: [], total: 0, categories, asset_kind: assetKind };
     }
-    const selectCols = 'id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
+    const selectCols = 'id, category_key, subcategory_key, title, description, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
     let q = supabase
         .from('vendor_assets')
         .select(selectCols)
@@ -9048,6 +9048,7 @@ async function listOfficialPublicCatalogForPage(opts) {
     }
     const items = list.map((r) => {
         const kind = normalizeVendorAssetKind(r.asset_kind);
+        const mapped = mapVendorAssetForApi(r);
         const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
         const linkCount = kind === 'prototype'
             ? ((counts.material_count || 0) + (counts.part_count || 0))
@@ -9059,6 +9060,10 @@ async function listOfficialPublicCatalogForPage(opts) {
             title: r.title || '',
             description: r.description || '',
             image_url: r.image_url,
+            gallery_images: mapped.gallery_images,
+            image_urls: mapped.image_urls,
+            image_items: mapped.image_items,
+            image_count: mapped.image_count,
             asset_kind: kind,
             official: true,
             material_count: kind === 'prototype' ? (counts.material_count || 0) : undefined,
@@ -9084,7 +9089,7 @@ async function listVendorPublicCatalogForPage(opts) {
     const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
     const categories = await loadBrowseCatalogCategoriesWithSubs();
     const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));
-    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, asset_kind, sort_order, created_at, is_public';
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
     async function runQ(cols) {
         let q = supabase
             .from('vendor_assets')
@@ -9155,6 +9160,7 @@ async function listVendorPublicCatalogForPage(opts) {
         const kind = typeof normalizeVendorAssetKind === 'function'
             ? normalizeVendorAssetKind(r.asset_kind)
             : 'prototype';
+        const mapped = mapVendorAssetForApi(r);
         const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
         const linkCount = (counts.material_count || 0) + (counts.part_count || 0);
         const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
@@ -9171,6 +9177,10 @@ async function listVendorPublicCatalogForPage(opts) {
             title: r.title || '',
             description: r.description || '',
             image_url: r.image_url,
+            gallery_images: mapped.gallery_images,
+            image_urls: mapped.image_urls,
+            image_items: mapped.image_items,
+            image_count: mapped.image_count,
             asset_kind: kind || 'prototype',
             material_count: counts.material_count || 0,
             part_count: counts.part_count || 0,
