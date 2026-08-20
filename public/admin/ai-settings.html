@@ -85,7 +85,7 @@
                   <option value="auto">auto（Gemini → FLUX 備援）</option>
                   <option value="flux">flux（僅 FLUX・情境圖槽）</option>
                 </select>
-                <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 預設 Banana Pro；FLUX 用下方「產品情境圖」槽</p>
+                <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 預設 Banana Pro；FLUX 用下方「人像攝影」獨立槽</p>
               </div>
             </div>
             <button type="button" class="btn btn-sm btn-warning mt-3" id="btnSaveEngineConfig">儲存引擎切換</button>
@@ -198,6 +198,11 @@
               <label class="form-label small mb-1">空間平視（對照 ISO）FLUX 備援</label>
               <input type="text" id="bflFluxModelPromoSpaceEyeLevel" class="form-control form-control-sm" placeholder="flux-2-max" />
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_space_eye_level</code> — 商攝導演平視在備援／強制 FLUX 時使用。程式預設 <code>flux-2-max</code>，可改 <code>flux-2-pro</code> 等。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">人像攝影 FLUX 備援</label>
+              <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — <code>/promo-camera</code> 人像 tab 在備援／強制 FLUX 時使用（與產品情境圖分開）。</p>
             </div>
             <button type="button" class="btn btn-sm btn-success" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
@@ -320,6 +325,7 @@
     var d2p = document.getElementById('bflFluxModelDesignToPhysical');
     var promo = document.getElementById('bflFluxModelPromoImage');
     var spaceEyeFlux = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
+    var portraitFlux = document.getElementById('bflFluxModelPromoPortrait');
     if (data.bfl_flux_model_generate != null && gen) gen.value = data.bfl_flux_model_generate;
     if (data.bfl_flux_model_official != null && official) official.value = data.bfl_flux_model_official;
     if (data.bfl_flux_model_vendor_product != null && prod) prod.value = data.bfl_flux_model_vendor_product;
@@ -328,6 +334,7 @@
     if (data.bfl_flux_model_design_to_physical != null && d2p) d2p.value = data.bfl_flux_model_design_to_physical;
     if (data.bfl_flux_model_promo_image != null && promo) promo.value = data.bfl_flux_model_promo_image;
     if (data.bfl_flux_model_promo_space_eye_level != null && spaceEyeFlux) spaceEyeFlux.value = data.bfl_flux_model_promo_space_eye_level;
+    if (data.bfl_flux_model_promo_portrait != null && portraitFlux) portraitFlux.value = data.bfl_flux_model_promo_portrait;
     var hint = document.getElementById('bflFluxConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -340,6 +347,7 @@
       if (s.bfl_flux_model_design_to_physical) parts.push('寫實化');
       if (s.bfl_flux_model_promo_image) parts.push('情境圖');
       if (s.bfl_flux_model_promo_space_eye_level) parts.push('空間平視');
+      if (s.bfl_flux_model_promo_portrait) parts.push('人像');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設 flux-2-pro／空間平視 flux-2-max，儲存後寫入 DB）';
     }
   }
@@ -537,7 +545,8 @@
       bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_design_to_physical: (document.getElementById('bflFluxModelDesignToPhysical') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_promo_image: (document.getElementById('bflFluxModelPromoImage') || {}).value.trim() || 'flux-2-pro',
-      bfl_flux_model_promo_space_eye_level: (document.getElementById('bflFluxModelPromoSpaceEyeLevel') || {}).value.trim() || 'flux-2-max'
+      bfl_flux_model_promo_space_eye_level: (document.getElementById('bflFluxModelPromoSpaceEyeLevel') || {}).value.trim() || 'flux-2-max',
+      bfl_flux_model_promo_portrait: (document.getElementById('bflFluxModelPromoPortrait') || {}).value.trim() || 'flux-2-pro'
     };
     var btn = document.getElementById('btnSaveBflFluxConfig');
     btn.disabled = true;
@@ -549,7 +558,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」，空間平視「' + payload.bfl_flux_model_promo_space_eye_level + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」，空間平視「' + payload.bfl_flux_model_promo_space_eye_level + '」，人像「' + payload.bfl_flux_model_promo_portrait + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

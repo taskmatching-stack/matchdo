@@ -421,8 +421,8 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     const targetW = opts.targetWidth || opts.width || 2048;
     const targetH = opts.targetHeight || opts.height || 2048;
     const fluxSize = clampBflFluxOutputSize(targetW, targetH, 2048);
-    const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
-    const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_image');
+    const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_portrait');
+    const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
     const bases = (Array.isArray(imageRefs) ? imageRefs : [])
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
@@ -15307,7 +15307,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_scene_pattern: 'flux-2-pro',
     bfl_flux_model_design_to_physical: 'flux-2-pro',
     bfl_flux_model_promo_image: 'flux-2-pro',
-    bfl_flux_model_promo_space_eye_level: 'flux-2-max'
+    bfl_flux_model_promo_space_eye_level: 'flux-2-max',
+    bfl_flux_model_promo_portrait: 'flux-2-pro'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
