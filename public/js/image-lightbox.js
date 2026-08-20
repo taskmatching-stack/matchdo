@@ -16,6 +16,31 @@
     var galleryLabels = [];
     var galleryIndex = 0;
     var baseCaption = '';
+    var preloadedUrls = Object.create(null);
+    var parseItemsCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+
+    function markPreload(url) {
+        var u = String(url || '').trim();
+        if (!u || preloadedUrls[u]) return;
+        preloadedUrls[u] = true;
+        var im = new Image();
+        if ('decoding' in im) im.decoding = 'async';
+        im.src = u;
+    }
+
+    function preloadGalleryRange(fromIndex) {
+        if (!galleryImages.length) return;
+        var n = galleryImages.length;
+        var i = fromIndex;
+        markPreload(galleryImages[i]);
+        if (n > 1) {
+            markPreload(galleryImages[(i + 1) % n]);
+            markPreload(galleryImages[(i - 1 + n) % n]);
+        }
+        if (n <= 24) {
+            galleryImages.forEach(function (u) { markPreload(u); });
+        }
+    }
 
     function ensureRoot() {
         if (root) return root;
@@ -157,12 +182,25 @@
     function showGalleryIndex(idx) {
         if (!galleryImages.length || !imgEl) return;
         galleryIndex = ((idx % galleryImages.length) + galleryImages.length) % galleryImages.length;
-        imgEl.src = galleryImages[galleryIndex];
+        var url = galleryImages[galleryIndex];
+        preloadGalleryRange(galleryIndex);
         updateGalleryChrome();
         if (capEl) {
             capEl.textContent = captionForGalleryIndex();
         }
-        fitLightboxImage();
+        imgEl.alt = captionForGalleryIndex() || baseCaption || '';
+        if (urlMatchesGalleryEntry(imgEl.src, url) && imgEl.complete && imgEl.naturalWidth) {
+            fitLightboxImage();
+            return;
+        }
+        imgEl.src = url;
+        if (imgEl.complete && imgEl.naturalWidth) {
+            fitLightboxImage();
+            return;
+        }
+        if (typeof imgEl.decode === 'function') {
+            imgEl.decode().then(fitLightboxImage).catch(function () { fitLightboxImage(); });
+        }
     }
 
     function normalizeImageItems(raw) {
@@ -197,9 +235,8 @@
             galleryLabels = galleryImages.map(function () { return ''; });
         }
         galleryIndex = Math.max(0, Math.min(opts.index || 0, galleryImages.length - 1));
+        preloadGalleryRange(galleryIndex);
         showGalleryIndex(galleryIndex);
-        imgEl.alt = captionForGalleryIndex() || opts.alt || baseCaption || '';
-        fitLightboxImage();
         root.classList.add('is-open');
         root.setAttribute('aria-hidden', 'false');
         prevOverflow = document.body.style.overflow;
@@ -231,18 +268,25 @@
 
     function parseImageItemsFromImg(img) {
         if (!img) return [];
+        if (parseItemsCache && parseItemsCache.has(img)) {
+            return parseItemsCache.get(img);
+        }
         var rawItems = img.getAttribute('data-image-items');
+        var items = [];
         if (rawItems) {
             try {
                 var parsedItems = JSON.parse(rawItems.replace(/&quot;/g, '"'));
-                var items = normalizeImageItems(parsedItems);
-                if (items.length) return items;
+                items = normalizeImageItems(parsedItems);
             } catch (e) { /* ignore */ }
         }
-        var urls = parseUrlsFromImg(img);
-        return urls.map(function (u, i) {
-            return { url: u, label: '' };
-        });
+        if (!items.length) {
+            var urls = parseUrlsFromImg(img);
+            items = urls.map(function (u) {
+                return { url: u, label: '' };
+            });
+        }
+        if (parseItemsCache) parseItemsCache.set(img, items);
+        return items;
     }
 
     function parseUrlsFromImg(img) {
@@ -272,6 +316,15 @@
     function openFromImg(img, caption) {
         if (!img || !img.src) return;
         var items = parseImageItemsFromImg(img);
+        if (!items.length && img.closest && img.closest('.bs-card')) {
+            var card = img.closest('.bs-card');
+            var rawCard = card.getAttribute('data-image-items');
+            if (rawCard) {
+                try {
+                    items = normalizeImageItems(JSON.parse(rawCard.replace(/&quot;/g, '"')));
+                } catch (e) { /* ignore */ }
+            }
+        }
         var urls = items.map(function (it) { return it.url; });
         var imgSrc = img.currentSrc || img.src || '';
         var cap = caption || img.getAttribute('data-lightbox-caption') || '';
@@ -302,7 +355,7 @@
             }
         }
         if (!itemLabel && items[0] && items[0].label) itemLabel = items[0].label;
-        var card = img.closest('.material-card, .portfolio-card, .card, .pending-image-card');
+        var card = img.closest('.material-card, .portfolio-card, .card, .pending-image-card, .bs-card');
         var title = '';
         if (card) {
             var t = card.querySelector('.fw-semibold');
@@ -340,12 +393,12 @@
 
     function bindDelegatedClicks() {
         document.addEventListener('click', function (e) {
-            var img = findEnlargeableImgFromClick(e.target);
-            if (!img || !img.src) return;
-            if (/placehold\.co/i.test(img.src)) return;
-            e.preventDefault();
-            e.stopPropagation();
-            openFromImg(img, captionFromImg(img));
+        var img = findEnlargeableImgFromClick(e.target);
+        if (!img || !img.src) return;
+        if (/placehold\.co/i.test(img.src)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openFromImg(img, captionFromImg(img));
         });
     }
 
