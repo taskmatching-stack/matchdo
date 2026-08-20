@@ -681,13 +681,27 @@
 
   function updateSpaceOutputPanel() {
     var space = isSpaceMode();
+    var portrait = isPortraitMode();
+    var needRes = space || portrait;
     document.querySelectorAll('.pc-space-output-only').forEach(function (el) {
-      el.classList.toggle('d-none', !space);
+      el.classList.toggle('d-none', !needRes);
     });
     document.querySelectorAll('.pc-space-resolution-only').forEach(function (el) {
-      el.classList.toggle('d-none', !space);
+      el.classList.toggle('d-none', !needRes);
     });
-    if (!space) return;
+    document.querySelectorAll('.pc-product-resolution-only').forEach(function (el) {
+      el.classList.toggle('d-none', needRes);
+    });
+    /* App：人像時隱藏 FLUX 1～4MP 輸出區塊，改用空間 2K／4K 控件 */
+    var mpEl = document.getElementById('pcMpSelect');
+    if (mpEl) {
+      var fluxOutBlock = mpEl.closest('.pc-app-block');
+      if (fluxOutBlock && fluxOutBlock.classList.contains('pc-flux-shoot-only')) {
+        var hasTheme = !!fluxOutBlock.querySelector('#pcThemeSelect, #pcThemePickerBtn');
+        if (!hasTheme) fluxOutBlock.classList.toggle('d-none', portrait);
+      }
+    }
+    if (!needRes) return;
 
     document.querySelectorAll('.pc-space-eye-batch-only').forEach(function (el) {
       el.classList.add('d-none');
@@ -743,6 +757,12 @@
     });
 
     if (space) {
+      syncSpaceResolutionControls();
+      updateSpaceDimsHint();
+    } else if (portrait) {
+      if (St.applySpaceDimensions) {
+        St.applySpaceDimensions(St.get().aspectRatio || '1:1', St.get().spaceResolutionTier || '2k');
+      }
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
     }
@@ -1655,13 +1675,29 @@
         ? Promo.estimatePromoCameraPointsLocal(st.width, st.height, opts)
         : Promo.estimatePointsLocal(st.width, st.height, opts.points_standard, opts.points_per_extra_mp);
       var portraitMul = isPortraitMode() ? Math.max(1, parseInt(St.get().outputCount, 10) || 1) : 1;
-      el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst * portraitMul });
-      if (isPortraitMode()) previewOpts.output_count = St.get().outputCount || 1;
+      if (isPortraitMode()) {
+        previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
+        previewOpts.output_count = St.get().outputCount || 1;
+        if (St.applySpaceDimensions) {
+          St.applySpaceDimensions(St.get().aspectRatio || '1:1', previewOpts.space_resolution_tier);
+        }
+        st = St.get();
+        previewOpts.width = st.width;
+        previewOpts.height = st.height;
+        previewOpts.aspect_ratio = st.aspectRatio;
+        var portraitBase = Promo.estimatePointsLocal(1024, 1024, opts.points_standard, opts.points_per_extra_mp);
+        if ((St.get().spaceResolutionTier || '2k') === '4k') {
+          portraitBase = Promo.estimatePointsLocal(2048, 2048, opts.points_standard, opts.points_per_extra_mp);
+        }
+        el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: portraitBase * portraitMul });
+      } else {
+        el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst * portraitMul });
+      }
     }
     Api.pointsPreview(st.width, st.height, previewOpts).then(function (res) {
       if (res.ok && res.data && res.data.points != null) {
         var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
-        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed'
+        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_2k'
           ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
           : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
         el.textContent = text + note;

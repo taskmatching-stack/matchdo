@@ -355,7 +355,7 @@
     else if (m === 'portrait') state.shootMode = 'portrait';
     else state.shootMode = 'product';
 
-    if (state.shootMode === 'space') {
+    if (state.shootMode === 'space' || state.shootMode === 'portrait') {
       applySpaceDimensions(state.aspectRatio || '1:1', state.spaceResolutionTier || '2k');
     } else if (state.width >= 2048 && state.height >= 2048 && state.megapixels >= 4) {
       state.width = 1024;
@@ -719,6 +719,13 @@
         ? global.MatchdoShowOnHomepageControl.readChecked('pcShowOnHomepage')
         : true)
     };
+    if (state.shootMode === 'portrait') {
+      applySpaceDimensions(state.aspectRatio || '1:1', state.spaceResolutionTier || '2k');
+      fluxPayload.space_resolution_tier = state.spaceResolutionTier || '2k';
+      fluxPayload.width = state.width;
+      fluxPayload.height = state.height;
+      fluxPayload.aspect_ratio = state.aspectRatio;
+    }
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;
     }
