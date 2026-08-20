@@ -78,6 +78,15 @@
                 </select>
                 <p class="form-text small text-muted mb-0"><code>promo_space_eye_level_engine</code> — 商攝導演平視；備援模型見下方 FLUX 槽</p>
               </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-1" for="enginePromoPortrait">人像攝影</label>
+                <select id="enginePromoPortrait" class="form-select form-select-sm">
+                  <option value="gemini" selected>gemini（Banana Pro）</option>
+                  <option value="auto">auto（Gemini → FLUX 備援）</option>
+                  <option value="flux">flux（僅 FLUX・情境圖槽）</option>
+                </select>
+                <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 預設 Banana Pro；FLUX 用下方「產品情境圖」槽</p>
+              </div>
             </div>
             <button type="button" class="btn btn-sm btn-warning mt-3" id="btnSaveEngineConfig">儲存引擎切換</button>
             <span id="engineConfigDbHint" class="small text-muted ms-2"></span>
@@ -136,6 +145,11 @@
               <label class="form-label small mb-1">空間攝影・平視攝影（對照 ISO）</label>
               <input type="text" id="aiConfigGeminiModelPromoSpaceEyeLevel" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
               <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 tab → <code>eye_level</code>。<code>payment_config.gemini_model_promo_space_eye_level</code>；可與 ISO 分模型；未存則預設 <code>gemini-3-pro-image</code>。滿額／429 可備援 FLUX.2 [max]（見「重繪引擎切換」與下方 FLUX 槽）。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">人像攝影（Banana Pro）</label>
+              <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
+              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 人像 tab。<code>payment_config.gemini_model_promo_portrait</code>；未存則預設 <code>gemini-3-pro-image</code>。引擎切換見上方「人像攝影」；2K 起。</p>
             </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
@@ -274,11 +288,13 @@
     var print = document.getElementById('enginePrintAsset');
     var pattern = document.getElementById('enginePatternExtract');
     var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
+    var portrait = document.getElementById('enginePromoPortrait');
     if (vendor && data.vendor_asset_optimize_engine) vendor.value = data.vendor_asset_optimize_engine;
     if (combo && data.material_dual_color_engine) combo.value = data.material_dual_color_engine;
     if (print && data.print_asset_engine) print.value = data.print_asset_engine;
     if (pattern && data.pattern_extract_engine) pattern.value = data.pattern_extract_engine;
     if (spaceEye && data.promo_space_eye_level_engine) spaceEye.value = data.promo_space_eye_level_engine;
+    if (portrait && data.promo_portrait_engine) portrait.value = data.promo_portrait_engine;
     var hint = document.getElementById('engineConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -288,9 +304,10 @@
       if (s.print_asset_engine) parts.push('印花');
       if (s.pattern_extract_engine) parts.push('圖樣提取');
       if (s.promo_space_eye_level_engine) parts.push('空間平視');
+      if (s.promo_portrait_engine) parts.push('人像');
       hint.textContent = parts.length
         ? '（已從資料庫載入：' + parts.join('、') + '）'
-        : '（尚未寫入 DB；目前為程式／環境變數預設 auto）';
+        : '（尚未寫入 DB；目前為程式／環境變數預設）';
     }
   }
 
@@ -338,6 +355,7 @@
     var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
     var inpSpaceLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var inpSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
+    var inpPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
@@ -350,6 +368,7 @@
     if (data.gemini_model_pattern_extract != null && inpPattern) inpPattern.value = data.gemini_model_pattern_extract;
     if (data.gemini_model_promo_space_layout != null && inpSpaceLayout) inpSpaceLayout.value = data.gemini_model_promo_space_layout;
     if (data.gemini_model_promo_space_eye_level != null && inpSpaceEye) inpSpaceEye.value = data.gemini_model_promo_space_eye_level;
+    if (data.gemini_model_promo_portrait != null && inpPortrait) inpPortrait.value = data.gemini_model_promo_portrait;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -363,6 +382,7 @@
       if (s.gemini_model_pattern_extract) parts.push('圖樣提取');
       if (s.gemini_model_promo_space_layout) parts.push('空間攝影ISO');
       if (s.gemini_model_promo_space_eye_level) parts.push('空間攝影平視');
+      if (s.gemini_model_promo_portrait) parts.push('人像攝影');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyEngineConfigToForm(data);
@@ -479,12 +499,14 @@
     var print = document.getElementById('enginePrintAsset');
     var pattern = document.getElementById('enginePatternExtract');
     var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
+    var portrait = document.getElementById('enginePromoPortrait');
     var payload = {
       vendor_asset_optimize_engine: (vendor && vendor.value) || 'auto',
       material_dual_color_engine: (combo && combo.value) || 'auto',
       print_asset_engine: (print && print.value) || 'auto',
       pattern_extract_engine: (pattern && pattern.value) || 'auto',
-      promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto'
+      promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
+      promo_portrait_engine: (portrait && portrait.value) || 'gemini'
     };
     var btn = document.getElementById('btnSaveEngineConfig');
     if (btn) btn.disabled = true;
@@ -496,7 +518,7 @@
         return;
       }
       await loadAiConfig();
-      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」，空間平視「' + payload.promo_space_eye_level_engine + '」');
+      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」，空間平視「' + payload.promo_space_eye_level_engine + '」，人像「' + payload.promo_portrait_engine + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -561,6 +583,7 @@
     var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
     var inpSpaceLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var inpSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
+    var inpPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -574,7 +597,8 @@
       gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_pattern_extract: (inpPattern && inpPattern.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_promo_space_layout: (inpSpaceLayout && inpSpaceLayout.value.trim()) || 'gemini-3-pro-image',
-      gemini_model_promo_space_eye_level: (inpSpaceEye && inpSpaceEye.value.trim()) || 'gemini-3-pro-image'
+      gemini_model_promo_space_eye_level: (inpSpaceEye && inpSpaceEye.value.trim()) || 'gemini-3-pro-image',
+      gemini_model_promo_portrait: (inpPortrait && inpPortrait.value.trim()) || 'gemini-3-pro-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -588,7 +612,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存 Gemini 模型（含空間攝影 ISO／平視：' + (data.gemini_model_promo_space_layout || payload.gemini_model_promo_space_layout) + '／' + (data.gemini_model_promo_space_eye_level || payload.gemini_model_promo_space_eye_level) + '）');
+      showMsg('已儲存 Gemini 模型（含空間 ISO／平視／人像：' + (data.gemini_model_promo_space_layout || payload.gemini_model_promo_space_layout) + '／' + (data.gemini_model_promo_space_eye_level || payload.gemini_model_promo_space_eye_level) + '／' + (data.gemini_model_promo_portrait || payload.gemini_model_promo_portrait) + '）');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

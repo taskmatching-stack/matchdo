@@ -410,6 +410,96 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     };
 }
 
+async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiOpts, fluxOpts) {
+    if (!process.env.BFL_API_KEY) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    const prompt = String(promptText || '').trim();
+    if (!prompt) throw new Error('人像提示詞為空');
+    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
+    const targetW = opts.targetWidth || opts.width || 2048;
+    const targetH = opts.targetHeight || opts.height || 2048;
+    const fluxSize = clampBflFluxOutputSize(targetW, targetH, 2048);
+    const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
+    const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_image');
+    const bases = (Array.isArray(imageRefs) ? imageRefs : [])
+        .map(function (r) { return r && r.base64 ? r.base64 : r; })
+        .filter(Boolean);
+    if (!bases.length) throw new Error('請上傳一張人像參考圖');
+    const seed = Math.floor(Math.random() * 2147483647);
+    const rawBuffer = await bflPlaygroundImageEdit(
+        endpointUrl,
+        prompt,
+        bases,
+        fluxSize.width,
+        fluxSize.height,
+        seed,
+        'jpeg',
+        process.env.BFL_API_KEY,
+        {
+            promptUpsampling: false,
+            safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : undefined
+        }
+    );
+    if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
+    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+        rawBuffer,
+        targetW,
+        targetH,
+        {
+            tier: opts.tier || opts.space_resolution_tier,
+            aspect_ratio: opts.aspectRatio || opts.aspect_ratio
+        }
+    );
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: { engine: 'flux', model: fluxModel, width: fluxSize.width, height: fluxSize.height },
+        api: 'bfl',
+        image_provider: 'flux',
+        flux_model: fluxModel,
+        seed: seed
+    };
+}
+
+/**
+ * 人像：後台 promo_portrait_engine = gemini｜flux｜auto（預設 gemini＝Banana Pro）
+ */
+async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts) {
+    const pref = await getPromoPortraitEngine();
+    const forceFlux = pref === 'flux';
+    const forceGemini = pref === 'gemini';
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    const hasFlux = !!process.env.BFL_API_KEY;
+
+    if (!forceFlux && hasGemini) {
+        const quota = checkDualColorGeminiQuota();
+        if (quota.ok) {
+            try {
+                recordDualColorGeminiAttempt();
+                return await generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts);
+            } catch (err) {
+                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
+                console.warn('[promo-portrait] Gemini rate-limited → FLUX:', err.message || err);
+            }
+        } else if (forceGemini) {
+            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            e.status = 429;
+            e.retry_after_sec = quota.retry_after_sec;
+            e.quota_reason = quota.reason;
+            throw e;
+        }
+    }
+
+    if (!hasFlux) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    return generatePromoPortraitImageWithFlux(imageRefs, fluxPrompt || geminiPrompt, geminiOpts, fluxOpts);
+}
+
 function resolvePromoPortraitOutputDims(body) {
     const b = body && typeof body === 'object' ? body : {};
     const spaceResTier = promoSpaceGemini.normalizeSpaceResolutionTier(
@@ -1087,8 +1177,12 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             });
         }
     }
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY && !process.env.BFL_API_KEY) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+    }
+    const providers = await assertPromoPortraitProvidersReady();
+    if (!providers.ok) {
+        return res.status(503).json({ success: false, error: providers.error });
     }
 
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
@@ -1107,6 +1201,13 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         cameraBrief
     });
 
+    const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+        themeKey,
+        sceneKey,
+        sourceType,
+        sourceId,
+        categoryKeys: body.category_keys || body.categoryKeys
+    });
     const primaryUrl = refUrls[0] || '';
     const batchId = (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
@@ -1120,6 +1221,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     for (let i = 0; i < outputCount; i++) {
         const shotBrief = shotBriefs[i] || fallbackPortraitShotBriefs(outputCount)[i];
         let finalPrompt;
+        let fluxPrompt;
         try {
             finalPrompt = await buildPromoPortraitFinalPrompt({
                 themeKey,
@@ -1134,6 +1236,13 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 height: h,
                 tier: spaceResTier
             });
+            const shotUserPrompt = composePortraitShotUserPrompt(userPrompt, shotBrief);
+            const builtFlux = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, shotUserPrompt, cameraKeys, w, h, {
+                shootMode: 'portrait',
+                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+                hasSceneImage: !!resolvedRefs.hasSceneImage
+            });
+            fluxPrompt = builtFlux.prompt;
         } catch (promptErr) {
             results.push({
                 shot_index: i + 1,
@@ -1144,18 +1253,31 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             continue;
         }
         let buffer;
+        let imageProvider = 'gemini';
+        let usedGeminiModel = geminiModel;
+        let usedFluxModel = null;
         try {
-            const gen = await generatePromoPortraitImageWithGemini(imageRefs, finalPrompt, {
-                tier: spaceResTier,
-                aspectRatio,
-                minEdge,
-                targetWidth: w,
-                targetHeight: h,
-                aspect_ratio: aspectRatio
-            });
+            const gen = await generatePromoPortraitImage(
+                imageRefs,
+                finalPrompt,
+                fluxPrompt,
+                {
+                    tier: spaceResTier,
+                    aspectRatio,
+                    minEdge,
+                    targetWidth: w,
+                    targetHeight: h,
+                    aspect_ratio: aspectRatio
+                },
+                { safetyTolerance: fluxSafetyTolerance }
+            );
             buffer = gen && gen.buffer;
-        } catch (geminiErr) {
-            console.error('promo-camera portrait batch Gemini:', geminiErr);
+            imageProvider = (gen && gen.image_provider) || 'gemini';
+            usedGeminiModel = (gen && gen.gemini_model) || usedGeminiModel;
+            usedFluxModel = (gen && gen.flux_model) || null;
+            if (imageProvider === 'flux' && fluxPrompt) finalPrompt = fluxPrompt;
+        } catch (genErr) {
+            console.error('promo-camera portrait batch:', genErr);
             results.push({
                 shot_index: i + 1,
                 success: false,
@@ -1256,8 +1378,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     portrait_prompt_expanded: true,
                     staging_product: !!resolvedRefs.hasStagingProduct,
                     scene_image: !!resolvedRefs.hasSceneImage,
-                    image_provider: 'gemini',
-                    gemini_model: geminiModel,
+                    image_provider: imageProvider,
+                    gemini_model: imageProvider === 'gemini' ? usedGeminiModel : null,
+                    flux_model: imageProvider === 'flux' ? usedFluxModel : null,
                     space_resolution_tier: spaceResTier
                 },
                 completed_at: new Date().toISOString(),
@@ -1290,7 +1413,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             width: w,
             height: h,
             megapixels: promoImageMegapixelsFromResolution(Math.min(w, 2048), Math.min(h, 2048)),
-            camera_params: cameraParamsSnapshot
+            camera_params: cameraParamsSnapshot,
+            image_provider: imageProvider
         });
     }
 
@@ -1325,7 +1449,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         reference_count: refBases.length,
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
-        image_provider: 'gemini',
+        image_provider: first.image_provider || 'gemini',
         space_resolution_tier: spaceResTier,
         camera_params: first.camera_params || null
     });
@@ -1377,8 +1501,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
         }
     }
-    if (!process.env.GEMINI_API_KEY) {
-        return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+    const providers = await assertPromoPortraitProvidersReady();
+    if (!providers.ok) {
+        return res.status(503).json({ success: false, error: providers.error });
     }
 
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
@@ -1387,6 +1512,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     const cameraBlock = camPack.block || '';
     const cameraResolved = camPack.resolved || {};
     let finalPrompt;
+    let fluxPrompt;
     try {
         finalPrompt = await buildPromoPortraitFinalPrompt({
             themeKey,
@@ -1400,26 +1526,51 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             height: h,
             tier: spaceResTier
         });
+        const builtFlux = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, w, h, {
+            shootMode: 'portrait',
+            hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+            hasSceneImage: !!resolvedRefs.hasSceneImage
+        });
+        fluxPrompt = builtFlux.prompt;
     } catch (promptErr) {
         return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
     }
 
+    const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+        themeKey,
+        sceneKey,
+        sourceType,
+        sourceId,
+        categoryKeys: body.category_keys || body.categoryKeys
+    });
+
     let buffer;
     let geminiModel = null;
+    let fluxModel = null;
+    let imageProvider = 'gemini';
     try {
-        const gen = await generatePromoPortraitImageWithGemini(imageRefs, finalPrompt, {
-            tier: spaceResTier,
-            aspectRatio,
-            minEdge,
-            targetWidth: w,
-            targetHeight: h,
-            aspect_ratio: aspectRatio
-        });
+        const gen = await generatePromoPortraitImage(
+            imageRefs,
+            finalPrompt,
+            fluxPrompt,
+            {
+                tier: spaceResTier,
+                aspectRatio,
+                minEdge,
+                targetWidth: w,
+                targetHeight: h,
+                aspect_ratio: aspectRatio
+            },
+            { safetyTolerance: fluxSafetyTolerance }
+        );
         buffer = gen && gen.buffer;
+        imageProvider = (gen && gen.image_provider) || 'gemini';
         geminiModel = (gen && gen.gemini_model) || null;
-    } catch (geminiErr) {
-        console.error('promo-camera portrait Gemini:', geminiErr);
-        return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
+        fluxModel = (gen && gen.flux_model) || null;
+        if (imageProvider === 'flux' && fluxPrompt) finalPrompt = fluxPrompt;
+    } catch (genErr) {
+        console.error('promo-camera portrait:', genErr);
+        return res.status(500).json({ success: false, error: genErr.message || '生成失敗，請稍後再試' });
     }
     if (!buffer || !buffer.length) {
         return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
@@ -1472,8 +1623,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         client_channel: clientChannel,
         staging_product: !!resolvedRefs.hasStagingProduct,
         scene_image: !!resolvedRefs.hasSceneImage,
-        image_provider: 'gemini',
-        gemini_model: geminiModel || await getPromoPortraitModelName(),
+        image_provider: imageProvider,
+        gemini_model: imageProvider === 'gemini' ? (geminiModel || await getPromoPortraitModelName()) : null,
+        flux_model: imageProvider === 'flux' ? fluxModel : null,
         space_resolution_tier: spaceResTier
     };
 
@@ -1531,7 +1683,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         reference_count: refBases.length,
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
-        image_provider: 'gemini',
+        image_provider: imageProvider,
         space_resolution_tier: spaceResTier,
         camera_params: cameraParamsSnapshot
     });
@@ -2315,6 +2467,32 @@ async function getPatternExtractEngine() {
 
 async function getPromoSpaceEyeLevelEngine() {
     return getOptimizeEnginePref('promo_space_eye_level_engine', 'PROMO_SPACE_EYE_LEVEL_ENGINE');
+}
+
+/** 人像：預設 gemini（Banana Pro）；後台可切 auto／flux */
+async function getPromoPortraitEngine() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'promo_portrait_engine').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return normalizeOptimizeEnginePref(fromDb);
+    } catch (_) {}
+    return normalizeOptimizeEnginePref(process.env.PROMO_PORTRAIT_ENGINE || 'gemini');
+}
+
+async function assertPromoPortraitProvidersReady() {
+    const pref = await getPromoPortraitEngine();
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    const hasFlux = !!process.env.BFL_API_KEY;
+    if (pref === 'gemini' && !hasGemini) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    if (pref === 'flux' && !hasFlux) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    if (pref === 'auto' && !hasGemini && !hasFlux) {
+        return { ok: false, error: '情境圖服務暫未設定，請稍後再試' };
+    }
+    return { ok: true, pref: pref };
 }
 
 function getVisualSemanticsDeps() {
@@ -11339,13 +11517,15 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'material_dual_color_engine',
             'print_asset_engine',
             'pattern_extract_engine',
-            'promo_space_eye_level_engine'
+            'promo_space_eye_level_engine',
+            'promo_portrait_engine'
         ];
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
             'gemini_model_material_combo_lite', 'gemini_model_material_combo_flash', 'gemini_model_print_asset',
             'gemini_model_pattern_extract',
             'gemini_model_promo_space_layout', 'gemini_model_promo_space_eye_level',
+            'gemini_model_promo_portrait',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -11357,6 +11537,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const printEngine = await getPrintAssetEngine();
         const patternEngine = await getPatternExtractEngine();
         const spaceEyeEngine = await getPromoSpaceEyeLevelEngine();
+        const portraitEngine = await getPromoPortraitEngine();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -11368,11 +11549,13 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_pattern_extract: byKey.gemini_model_pattern_extract || process.env.GEMINI_MODEL_PATTERN_EXTRACT || GEMINI_MODEL_PATTERN_EXTRACT_DEFAULT,
             gemini_model_promo_space_layout: byKey.gemini_model_promo_space_layout || process.env.GEMINI_MODEL_PROMO_SPACE_LAYOUT || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT,
             gemini_model_promo_space_eye_level: byKey.gemini_model_promo_space_eye_level || process.env.GEMINI_MODEL_PROMO_SPACE_EYE_LEVEL || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT,
+            gemini_model_promo_portrait: byKey.gemini_model_promo_portrait || process.env.GEMINI_MODEL_PROMO_PORTRAIT || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT,
             vendor_asset_optimize_engine: vendorEngine,
             material_dual_color_engine: comboEngine,
             print_asset_engine: printEngine,
             pattern_extract_engine: patternEngine,
             promo_space_eye_level_engine: spaceEyeEngine,
+            promo_portrait_engine: portraitEngine,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -11386,11 +11569,13 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_pattern_extract: !!byKey.gemini_model_pattern_extract,
                 gemini_model_promo_space_layout: !!byKey.gemini_model_promo_space_layout,
                 gemini_model_promo_space_eye_level: !!byKey.gemini_model_promo_space_eye_level,
+                gemini_model_promo_portrait: !!byKey.gemini_model_promo_portrait,
                 vendor_asset_optimize_engine: !!byKey.vendor_asset_optimize_engine,
                 material_dual_color_engine: !!byKey.material_dual_color_engine,
                 print_asset_engine: !!byKey.print_asset_engine,
                 pattern_extract_engine: !!byKey.pattern_extract_engine,
                 promo_space_eye_level_engine: !!byKey.promo_space_eye_level_engine,
+                promo_portrait_engine: !!byKey.promo_portrait_engine,
                 ...bfl.saved_in_db
             }
         });
@@ -11438,12 +11623,16 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_promo_space_eye_level !== undefined) {
             upserts.push({ key: 'gemini_model_promo_space_eye_level', value: String(body.gemini_model_promo_space_eye_level).trim(), updated_at: now });
         }
+        if (body.gemini_model_promo_portrait !== undefined) {
+            upserts.push({ key: 'gemini_model_promo_portrait', value: String(body.gemini_model_promo_portrait).trim(), updated_at: now });
+        }
         const engineFields = [
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
             'print_asset_engine',
             'pattern_extract_engine',
-            'promo_space_eye_level_engine'
+            'promo_space_eye_level_engine',
+            'promo_portrait_engine'
         ];
         for (const key of engineFields) {
             if (body[key] === undefined) continue;
@@ -11495,6 +11684,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_material_combo_flash: byKey.gemini_model_material_combo_flash ?? null,
             gemini_model_print_asset: byKey.gemini_model_print_asset ?? null,
             gemini_model_pattern_extract: byKey.gemini_model_pattern_extract ?? null,
+            gemini_model_promo_space_layout: byKey.gemini_model_promo_space_layout ?? null,
+            gemini_model_promo_space_eye_level: byKey.gemini_model_promo_space_eye_level ?? null,
+            gemini_model_promo_portrait: byKey.gemini_model_promo_portrait ?? null,
             vendor_asset_optimize_engine: byKey.vendor_asset_optimize_engine
                 ? normalizeOptimizeEnginePref(byKey.vendor_asset_optimize_engine)
                 : null,
@@ -11509,6 +11701,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 : null,
             promo_space_eye_level_engine: byKey.promo_space_eye_level_engine
                 ? normalizeOptimizeEnginePref(byKey.promo_space_eye_level_engine)
+                : null,
+            promo_portrait_engine: byKey.promo_portrait_engine
+                ? normalizeOptimizeEnginePref(byKey.promo_portrait_engine)
                 : null,
             ...bfl.models
         });

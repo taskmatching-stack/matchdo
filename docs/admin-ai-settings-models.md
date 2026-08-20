@@ -63,6 +63,7 @@
 | **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
 | **空間攝影・ISO 空間地圖** | `gemini_model_promo_space_layout` | `getPromoSpaceLayoutModelName()` | `/promo-camera` 空間 `layout_plan` |
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
+| **人像攝影** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像 tab；引擎 `promo_portrait_engine` |
 
 **商攝・空間解析度（程式，非 DB 鍵）**：前台 `space_resolution_tier: 2k|4k` → 後端 `config.imageConfig.imageSize: "2K"|"4K"`（[官方 image generation](https://ai.google.dev/gemini-api/docs/image-generation)；**K 须大写**）。不足时 sharp 补至 ≥2048／4096。
 
@@ -92,6 +93,8 @@ Seed：`docs/add-promo-space-gemini-config.sql`。空間平視 FLUX 備援：`do
 | `gemini_model_print_asset` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_promo_space_layout` | `gemini-3-pro-image` |
 | `gemini_model_promo_space_eye_level` | `gemini-3-pro-image` |
+| `gemini_model_promo_portrait` | `gemini-3-pro-image` |
+| `promo_portrait_engine` | `gemini`（可 `auto`／`flux`） |
 
 材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。  
 點數（與其他 AI 相同）：`/admin/membership.html` →「點數規則」→ `points_material_dual_color_flux`、`points_print_asset_flux`。  
