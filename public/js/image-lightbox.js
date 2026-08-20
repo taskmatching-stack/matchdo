@@ -17,7 +17,23 @@
     var galleryIndex = 0;
     var baseCaption = '';
     var preloadedUrls = Object.create(null);
+    var preloadImages = Object.create(null);
     var parseItemsCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+
+    function galleryUrlKey(url) {
+        var s = String(url || '').trim();
+        if (!s) return '';
+        try {
+            var u = new URL(s, window.location.origin);
+            if (u.pathname === '/api/proxy-image') {
+                var inner = u.searchParams.get('url');
+                if (inner) return inner.trim();
+            }
+            return u.href;
+        } catch (_) {
+            return s.split('#')[0];
+        }
+    }
 
     function markPreload(url) {
         var u = String(url || '').trim();
@@ -25,7 +41,16 @@
         preloadedUrls[u] = true;
         var im = new Image();
         if ('decoding' in im) im.decoding = 'async';
+        if ('fetchPriority' in im) im.fetchPriority = 'low';
         im.src = u;
+        preloadImages[u] = im;
+    }
+
+    function preloadImageItems(items) {
+        if (!items || !items.length) return;
+        items.forEach(function (it) {
+            if (it && it.url) markPreload(it.url);
+        });
     }
 
     function preloadGalleryRange(fromIndex) {
@@ -193,6 +218,12 @@
             fitLightboxImage();
             return;
         }
+        var cached = preloadImages[url];
+        if (cached && cached.complete && cached.naturalWidth) {
+            imgEl.src = url;
+            fitLightboxImage();
+            return;
+        }
         imgEl.src = url;
         if (imgEl.complete && imgEl.naturalWidth) {
             fitLightboxImage();
@@ -236,6 +267,9 @@
         }
         galleryIndex = Math.max(0, Math.min(opts.index || 0, galleryImages.length - 1));
         preloadGalleryRange(galleryIndex);
+        preloadImageItems(imageItems.length ? imageItems : galleryImages.map(function (u, i) {
+            return { url: u, label: galleryLabels[i] || '' };
+        }));
         showGalleryIndex(galleryIndex);
         root.classList.add('is-open');
         root.setAttribute('aria-hidden', 'false');
@@ -303,14 +337,8 @@
 
     function urlMatchesGalleryEntry(imgSrc, entry) {
         if (!imgSrc || !entry) return false;
-        if (imgSrc === entry) return true;
-        try {
-            var a = new URL(imgSrc, window.location.origin);
-            var b = new URL(entry, window.location.origin);
-            return a.pathname === b.pathname;
-        } catch (_) {
-            return String(imgSrc).split('?')[0] === String(entry).split('?')[0];
-        }
+        if (String(imgSrc).trim() === String(entry).trim()) return true;
+        return galleryUrlKey(imgSrc) === galleryUrlKey(entry);
     }
 
     function openFromImg(img, caption) {
@@ -393,13 +421,18 @@
 
     function bindDelegatedClicks() {
         document.addEventListener('click', function (e) {
-        var img = findEnlargeableImgFromClick(e.target);
-        if (!img || !img.src) return;
-        if (/placehold\.co/i.test(img.src)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        openFromImg(img, captionFromImg(img));
+            var img = findEnlargeableImgFromClick(e.target);
+            if (!img || !img.src) return;
+            if (/placehold\.co/i.test(img.src)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openFromImg(img, captionFromImg(img));
         });
+        document.addEventListener('pointerenter', function (e) {
+            var img = e.target && e.target.closest && e.target.closest('.bs-card img.matchdo-enlarge-trigger');
+            if (!img || !img.src) return;
+            preloadImageItems(parseImageItemsFromImg(img));
+        }, true);
     }
 
     if (typeof document !== 'undefined') {
