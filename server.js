@@ -609,16 +609,43 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：只送使用者描述（與官網 Playground 相同）；禁止後端自創附加句。
- * 無描述時才退回主題名稱原文（UI 必選主題）。清晰／Gemini 組裝不經此函式。
+ * 人像 FLUX：組裝既有欄位原文（使用者描述、主題／場景 DB、相機參數、套圖 brief）。
+ * 禁止後端自創建議句（如「姿勢依情境調整」「氣氛與場景」等）。
+ * 清晰模式仍走 buildPromoPortraitGeminiPrompt，未改。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
+    const theme = o.themeParts || { name: '', prompt: '', composition: '' };
+    const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
-    if (user) return user;
-    const themeName = String((o.themeParts && o.themeParts.name) || '').trim();
-    if (themeName) return themeName;
-    return '';
+    const shotBrief = String(o.shotBrief || '').trim();
+    const cameraBlock = String(o.cameraBlock || '').trim();
+    const parts = [];
+
+    if (user) parts.push(user);
+
+    const themeLong = [theme.prompt, theme.composition]
+        .map(function (s) { return String(s || '').trim(); })
+        .filter(Boolean)
+        .join(' ');
+    if (themeLong) {
+        parts.push(themeLong);
+    } else if (!user && theme.name) {
+        parts.push(String(theme.name).trim());
+    }
+
+    if (!o.hasSceneImage) {
+        const sceneLong = [scene.name, scene.prompt, scene.composition]
+            .map(function (s) { return String(s || '').trim(); })
+            .filter(Boolean)
+            .join(' ');
+        if (sceneLong) parts.push(sceneLong);
+    }
+
+    if (shotBrief) parts.push(shotBrief);
+    if (cameraBlock) parts.push(cameraBlock);
+
+    return parts.filter(Boolean).join('，');
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
