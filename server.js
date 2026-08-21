@@ -612,7 +612,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
  * 人像 FLUX（氛圍）定案規則（使用者 2026-08-21）：
  * - BFL 參數對齊官網：upsampling true、safety 2、jpeg、原生≤1024
  * - 全體：參考圖人物不變（靠短主題名＋參考圖；不送主題英文長文，避免 fashion/beauty 被 upsampling 換臉）
- * - 姿勢：僅 portrait_formal_id「證件／正式」鎖參考圖姿勢；其餘「姿勢依情境調整」
+ * - 姿勢：僅 portrait_formal_id 鎖參考圖姿勢；其餘「姿勢依情境調整」且放在 prompt 最後（避免被長相機參數蓋掉）
  * - 場景 DB、相機參數保留；相機去掉產品向「no scene or lighting change」以免鎖死場景／姿勢
  * 清晰／Gemini 不經此函式。
  */
@@ -637,8 +637,6 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const parts = [];
 
     if (user) parts.push(user);
-    if (!user || user.indexOf(poseLine) < 0) parts.push(poseLine);
-
     /* 只送主題中文名，不送 scene_prompt／composition（英文長文＋upsampling＝換臉主因） */
     if (theme.name) parts.push(String(theme.name).trim());
 
@@ -652,7 +650,10 @@ async function buildPromoPortraitFluxPrompt(opts) {
 
     if (cameraBlock) parts.push(cameraBlock);
 
-    return parts.filter(Boolean).join('，');
+    /* 姿勢句放最後：放開頭會被長相機參數蓋掉，姿勢會鎖死參考圖 */
+    const joined = parts.filter(Boolean).join('，');
+    if (joined.indexOf(poseLine) >= 0) return joined;
+    return joined ? (joined + '，' + poseLine) : poseLine;
 }
 
 /**
