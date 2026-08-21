@@ -17206,7 +17206,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
                 '1:3': { w: 576, h: 1728 },
                 '1:4': { w: 512, h: 2048 }
             },
-            space_use_types: promoSpaceGemini.listSpaceUseTypesForApi(),
+            space_use_types: promoSpaceGemini.listSpaceUseTypesForApi(lang),
             zone_intents: promoSpaceGemini.listSpaceZoneIntentsForApi(
                 promoSpaceGemini.normalizeSpaceUseType(req.query.space_use_type || 'residential'),
                 lang

@@ -2,6 +2,24 @@
  * 商攝導演 — 規格卡標題旁顯示目前設定值（僅 UI 摘要，不改 state／API）
  */
 (function () {
+  function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+      var v = window.i18n.t(key);
+      if (v && v !== key) return v;
+    }
+    return fallback != null ? fallback : key;
+  }
+
+  function tpl(key, fallback, vars) {
+    var s = t(key, fallback);
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+      });
+    }
+    return s;
+  }
+
   function textOfSelect(id) {
     var el = document.getElementById(id);
     if (!el || el.tagName !== 'SELECT') return '';
@@ -38,30 +56,33 @@
     s = String(s || '').replace(/\s+/g, ' ').trim();
     if (!s) return '';
     if (s.length <= n) return s;
-    return s.slice(0, n - 1) + '…';
+    return s.slice(0, Math.max(1, n - 1)) + '…';
   }
 
   function refresh() {
     var refN = thumbCount('pcSelectedThumbs');
     var stagingN = thumbCount('pcStagingProductThumbs');
-    var refs = refN ? ('已選 ' + refN + ' 張') : '未選';
-    if (stagingN) refs += ' · 道具 ' + stagingN;
+    var refs = refN
+      ? tpl('promoCamera.specRefsSelected', '已選 {n} 張', { n: refN })
+      : t('promoCamera.specNone', '未選');
+    if (stagingN) refs += ' · ' + tpl('promoCamera.specProps', '道具 {n}', { n: stagingN });
     setVal('refs', refs, !refN);
 
-    var use = textOfSelect('pcSpaceUseType');
-    var outRadio = document.querySelector('input[name="pcSpaceOutputType"]:checked');
+    var useType = textOfSelect('pcSpaceUseType');
+    var outLayout = document.getElementById('pcSpaceOutLayout');
+    var outEye = document.getElementById('pcSpaceOutEye');
     var outLabel = '';
-    if (outRadio) {
-      var ol = document.querySelector('label[for="' + outRadio.id + '"]');
-      outLabel = ol ? ol.textContent.trim() : outRadio.value;
+    if (outEye && outEye.checked) {
+      var eyeLab = document.querySelector('label[for="pcSpaceOutEye"]');
+      outLabel = eyeLab ? eyeLab.textContent.trim() : t('promoCamera.spaceOutEye', '平視攝影（對照 ISO）');
+    } else if (outLayout && outLayout.checked) {
+      var layLab = document.querySelector('label[for="pcSpaceOutLayout"]');
+      outLabel = layLab ? layLab.textContent.trim() : t('promoCamera.spaceOutLayout', 'ISO 空間地圖');
     }
-    setVal('spaceSetup', joinParts([use, outLabel]));
+    setVal('spaceSetup', joinParts([useType, outLabel]));
 
     var mapN = thumbCount('pcLayoutThumbs');
-    var from = textOfSelect('pcSpaceLookFrom');
-    var to = textOfSelect('pcSpaceLookTo');
-    var mapTxt = mapN ? '已選地圖' : '未選';
-    if (from && to) mapTxt += ' · ' + from + '→' + to;
+    var mapTxt = mapN ? t('promoCamera.mapSelected', '已選地圖') : t('promoCamera.specNone', '未選');
     setVal('spaceMap', mapTxt, !mapN);
 
     var floorN = thumbCount('pcSpaceThumbs');
@@ -72,22 +93,34 @@
       viewLabel = vl ? vl.textContent.trim() : viewRadio.value;
     }
     var styleRadio = document.querySelector('input[name="pcSpaceStyleSource"]:checked');
-    var styleLabel = styleRadio && styleRadio.value === 'image' ? '風格圖' : '文字風格';
-    setVal('spaceLayout', joinParts([floorN ? '已選配置' : '未選配置', viewLabel, styleLabel]), !floorN);
+    var styleLabel = styleRadio && styleRadio.value === 'image'
+      ? t('promoCamera.styleImage', '風格圖')
+      : t('promoCamera.stylePrompt', '文字風格');
+    setVal(
+      'spaceLayout',
+      joinParts([
+        floorN ? t('promoCamera.layoutSelected', '已選配置') : t('promoCamera.layoutNone', '未選配置'),
+        viewLabel,
+        styleLabel
+      ]),
+      !floorN
+    );
 
     var theme = textOfSelect('pcThemeSelect');
     var scene = textOfSelect('pcSceneSelect');
     var sceneRefN = thumbCount('pcSceneRefThumbs');
     var moodEl = document.getElementById('pcPortraitRenderMood');
     var isMood = !!(moodEl && moodEl.checked);
-    var themeParts = isMood ? [] : [theme || '主題未選'];
-    if (sceneRefN) themeParts.push('場景參考圖');
+    var themeParts = isMood ? [] : [theme || t('promoCamera.themeNone', '主題未選')];
+    if (sceneRefN) themeParts.push(t('promoCamera.sceneRefShort', '場景參考圖'));
     else if (scene) themeParts.push(scene);
-    if (!themeParts.length) themeParts.push(isMood ? '依場景' : '主題未選');
+    if (!themeParts.length) themeParts.push(isMood ? t('promoCamera.byScene', '依場景') : t('promoCamera.themeNone', '主題未選'));
     setVal('themeScene', joinParts(themeParts), isMood ? false : !theme);
 
     var renderMode = document.getElementById('pcPortraitRenderMood');
-    var renderLabel = (renderMode && renderMode.checked) ? '氛圍 BETA' : '清晰';
+    var renderLabel = (renderMode && renderMode.checked)
+      ? t('promoCamera.renderMoodShort', '氛圍 BETA')
+      : t('promoCamera.renderClearShort', '清晰');
     var renderWrap = document.querySelector('.pc-portrait-only');
     if (renderWrap && !renderWrap.classList.contains('d-none')) {
       setVal('portraitRender', renderLabel);
@@ -114,7 +147,7 @@
 
     var prompt = (document.getElementById('pcPromptInput') || {}).value || '';
     var promptTrim = String(prompt).trim();
-    setVal('prompt', truncate(promptTrim, 28) || '未填', promptTrim ? false : 'optional-empty');
+    setVal('prompt', truncate(promptTrim, 28) || t('promoCamera.promptEmpty', '未填'), promptTrim ? false : 'optional-empty');
   }
 
   function bind() {
@@ -130,18 +163,17 @@
     document.addEventListener('matchdo-pc-preset-applied', function () {
       setTimeout(refresh, 50);
     });
-    ['pcSelectedThumbs', 'pcStagingProductThumbs', 'pcLayoutThumbs', 'pcSpaceThumbs', 'pcSceneRefThumbs'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (!el || typeof MutationObserver === 'undefined') return;
-      try {
-        new MutationObserver(function () { refresh(); }).observe(el, { childList: true, subtree: true });
-      } catch (e) {}
-    });
     refresh();
-    setTimeout(refresh, 400);
-    setTimeout(refresh, 1200);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
+  window.PromoCameraSpecSummary = {
+    refresh: refresh,
+    bind: bind
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
 })();

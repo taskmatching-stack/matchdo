@@ -613,12 +613,12 @@
   function chatWelcomeHtml() {
     if (isSpaceMode()) {
       if (isSpaceEyeLevel()) {
-        return '請選 <strong>ISO 空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。';
+        return t('promoCamera.chatWelcomeSpaceEye', '請選 <strong>ISO 空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。');
       }
-      return '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。';
+      return t('promoCamera.chatWelcomeSpaceLayout', '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。');
     }
     if (isPortraitMode()) {
-      return '請上傳<strong>一張</strong>人像參考圖，選擇<strong>拍攝主題</strong>（必填），並在描述中調整服裝／髮型。右側可調相機光學參數。';
+      return t('promoCamera.chatWelcomePortrait', '請上傳<strong>一張</strong>人像參考圖。清晰模式請選<strong>拍攝主題</strong>；氛圍模式不需主題。可在描述中調整服裝／髮型。右側可調相機光學參數。');
     }
     return t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。');
   }
@@ -627,7 +627,12 @@
     var sel = document.getElementById('pcSpaceUseType');
     var opts = St.get().options;
     if (!sel || !opts || !opts.space_use_types) return;
-    Promo.fillSelect(sel, opts.space_use_types, 'key', 'name', '');
+    var wantEn = apiLang() === 'en';
+    var rows = (opts.space_use_types || []).map(function (it) {
+      var name = wantEn && it.name_en ? it.name_en : (it.name || it.key);
+      return { key: it.key, name: name };
+    });
+    Promo.fillSelect(sel, rows, 'key', 'name', '');
     sel.value = St.get().spaceUseType || 'residential';
   }
 
@@ -656,25 +661,31 @@
     var genBtn = document.getElementById('pcGenerateBtn');
     if (!space) return;
     if (eye) {
-      if (promptLabel) promptLabel.textContent = '補充描述（選填）';
-      if (promptEl) promptEl.placeholder = '選填';
-      if (hintEl) hintEl.textContent = '打字母→確定標註→右側調相機參數→生成。相機參數會組進提示詞（鏡頭／光圈／EV／底片）。';
+      if (promptLabel) promptLabel.textContent = t('promoCamera.promptOptional', '補充描述（選填）');
+      if (promptEl) promptEl.placeholder = t('promoCamera.optionalPlaceholder', '選填');
+      if (hintEl) hintEl.textContent = t('promoCamera.eyeLevelHint', '打字母→確定標註→右側調相機參數→生成。相機參數會組進提示詞（鏡頭／光圈／EV／底片）。');
       if (genBtn) {
         var spanEye = genBtn.querySelector('span');
-        if (spanEye) spanEye.textContent = '生成平視攝影';
+        if (spanEye) spanEye.textContent = t('promoCamera.genEyeLevel', '生成平視攝影');
       }
       renderSpaceMapMarkStage();
       syncSpaceMarkConfirmUi();
     } else {
-      if (promptLabel) promptLabel.textContent = St.get().spaceStyleSource === 'image' ? '補充描述（選填）' : '風格描述';
-      if (promptEl) promptEl.placeholder = promptEl.getAttribute('data-space-placeholder') || '例：莫蘭迪配色';
+      if (promptLabel) {
+        promptLabel.textContent = St.get().spaceStyleSource === 'image'
+          ? t('promoCamera.promptOptional', '補充描述（選填）')
+          : t('promoCamera.styleDesc', '風格描述');
+      }
+      if (promptEl) {
+        promptEl.placeholder = t('promoCamera.spacePlaceholder', promptEl.getAttribute('data-space-placeholder') || '例：莫蘭迪配色');
+      }
       if (hintEl) hintEl.textContent = '';
       if (genBtn) {
         var spanLay = genBtn.querySelector('span');
         if (spanLay) {
           spanLay.textContent = (St.get().spaceLayoutView === 'top_down')
-            ? '生成俯視空間地圖'
-            : '生成 ISO 空間地圖';
+            ? t('promoCamera.genTopDownMap', '生成俯視空間地圖')
+            : t('promoCamera.genIsoMap', '生成 ISO 空間地圖');
         }
       }
       var styleImgRow = document.getElementById('pcSpaceStyleImageRow');
@@ -720,12 +731,13 @@
       var appRow = pickerBtn.closest('.pc-app-row');
       if (appRow) appRow.classList.toggle('d-none', mood);
     }
-    var kicker = document.querySelector('.pc-flux-shoot-only .pc-spec-kicker');
+    var kicker = document.querySelector('[data-pc-theme-scene-kicker]');
     if (kicker) {
-      if (!kicker.getAttribute('data-pc-kicker-base')) {
-        kicker.setAttribute('data-pc-kicker-base', (kicker.textContent || '').trim() || '主題與場景');
-      }
-      kicker.textContent = mood ? '場景' : kicker.getAttribute('data-pc-kicker-base');
+      kicker.textContent = mood
+        ? t('promoCamera.sceneOnly', '場景')
+        : t('promoCamera.themeScene', '主題與場景');
+      if (mood) kicker.removeAttribute('data-i18n');
+      else kicker.setAttribute('data-i18n', 'promoCamera.themeScene');
     }
     if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
       window.PromoCameraSpecSummary.refresh();
@@ -838,7 +850,7 @@
       var pts = portrait
         ? portraitPointsForTier(opts, tier)
         : spacePointsForTier(opts, isSpaceEyeLevel() ? 'eye_level' : 'layout_plan', tier === '1k' ? '2k' : tier);
-      opt.textContent = mp + ' MP（' + pts + ' 點／張）';
+      opt.textContent = tpl('promoCamera.mpPtsPerShot', '{mp} MP（{pts} 點／張）', { mp: mp, pts: pts });
     });
     if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.renderSpaceMpChips === 'function') {
       window.PromoCameraAppShell.renderSpaceMpChips();
@@ -855,7 +867,12 @@
       ? Promo.dimsForSpaceRatio(st.aspectRatio || '1:1', tier)
       : { w: st.width, h: st.height, mp: st.megapixels };
     var mp = dims.mp || (Promo && Promo.spaceMegapixelsFromTier ? Promo.spaceMegapixelsFromTier(tier) : (tier === '4k' ? 16 : (tier === '1k' ? 1 : 4)));
-    return dims.w + '×' + dims.h + ' · ' + mp + ' MP · ' + pts + ' 點／張';
+    return tpl('promoCamera.dimsHintLine', '{w}×{h} · {mp} MP · {pts} 點／張', {
+      w: dims.w,
+      h: dims.h,
+      mp: mp,
+      pts: pts
+    });
   }
 
   function updateSpaceDimsHint() {
@@ -1015,12 +1032,16 @@
 
     var uploadLabel = document.getElementById('pcUploadLabel');
     if (uploadLabel) {
-      uploadLabel.textContent = portrait ? '上傳人像參考圖' : t('promoCamera.uploadImage', '上傳圖片');
+      uploadLabel.textContent = portrait
+        ? t('promoCamera.uploadPortrait', '上傳人像參考圖')
+        : t('promoCamera.uploadImage', '上傳圖片');
     }
 
     var themeLabel = document.getElementById('pcThemeLabel');
     if (themeLabel) {
-      themeLabel.textContent = portrait ? '拍攝主題（必填）' : t('promoCamera.theme', '主題');
+      themeLabel.textContent = portrait
+        ? t('promoCamera.themeRequired', '拍攝主題（必填）')
+        : t('promoCamera.theme', '主題');
     }
 
     var promptEl = document.getElementById('pcPromptInput');
@@ -1029,8 +1050,8 @@
     if (space) {
       /* applySpaceOutputUi 已在函式開頭執行 */
     } else if (portrait) {
-      if (promptLabel) promptLabel.textContent = '描述（服裝／髮型等）';
-      if (promptEl) promptEl.placeholder = '例：白色西裝、俐落短髮、自然妝感';
+      if (promptLabel) promptLabel.textContent = t('promoCamera.portraitDesc', '描述（服裝／髮型等）');
+      if (promptEl) promptEl.placeholder = t('promoCamera.portraitPlaceholder', '例：白色西裝、俐落短髮、自然妝感');
       if (hintEl) hintEl.textContent = '';
       var genBtnP = document.getElementById('pcGenerateBtn');
       if (genBtnP) {
