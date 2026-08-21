@@ -610,7 +610,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
 
 /**
  * 人像 FLUX（氛圍）：提示詞組裝對齊清晰 Gemini（buildPromoPortraitGeminiPrompt），
- * 模型仍走 FLUX（upsampling true、safety 2、jpeg、原生≤1024）。
+ * 模型仍走 FLUX（upsampling true、safety 2、jpeg、原生≤1024；尺寸走 API，不進 prompt）。
  * 姿勢：僅 portrait_formal_id 鎖參考圖；其餘句尾加「姿勢依情境調整」。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
@@ -639,7 +639,10 @@ async function buildPromoPortraitFluxPrompt(opts) {
         tier: o.tier
     });
 
-    const text = String(base || '').trim();
+    const text = String(base || '')
+        .replace(/\s*Output resolution\s+\d+\s*[x×]\s*\d+\s*\([^)]*\)\.?/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
     if (!text) return poseLine;
     if (text.indexOf(poseLine) >= 0) return text;
     return text + ' ' + poseLine;
@@ -719,13 +722,12 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         space_resolution_tier: outDims.tier,
         flux_request: engine === 'flux'
             ? {
-                prompt_upsampling: false,
+                prompt_upsampling: true,
                 safety_tolerance: 2,
                 skip_prompt_translation: true,
                 model: fluxModel,
                 bfl_max_edge: 1024,
-                output_format: 'jpeg',
-                note: 'long Gemini-aligned prompt → upsampling off'
+                output_format: 'jpeg'
             }
             : null
     };
