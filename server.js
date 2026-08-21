@@ -332,24 +332,52 @@ async function getPromoPortraitModelName() {
     return process.env.GEMINI_MODEL_PROMO_PORTRAIT || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT;
 }
 
+async function getPromoPortraitPointsConfig() {
+    const defaults = {
+        standard_1mp: 20,
+        standard_4mp: 30,
+        standard_16mp: 50
+    };
+    try {
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
+            'points_promo_camera_portrait_1mp',
+            'points_promo_camera_portrait_4mp',
+            'points_promo_camera_portrait_16mp'
+        ]);
+        const obj = {};
+        (rows || []).forEach(function (r) { obj[r.key] = r.value; });
+        const n = function (key, fallback) {
+            const v = parseInt(obj[key], 10);
+            return Number.isFinite(v) && v >= 0 ? v : fallback;
+        };
+        return {
+            standard_1mp: n('points_promo_camera_portrait_1mp', defaults.standard_1mp),
+            standard_4mp: n('points_promo_camera_portrait_4mp', defaults.standard_4mp),
+            standard_16mp: n('points_promo_camera_portrait_16mp', defaults.standard_16mp)
+        };
+    } catch (_) {
+        return defaults;
+    }
+}
+
+/** 商攝訂閱價＝該檔一般價 − 5 */
+function promoCameraSubscriberFromStandard(standardPoints) {
+    const n = parseInt(standardPoints, 10);
+    const std = Number.isFinite(n) && n >= 0 ? n : 0;
+    return Math.max(0, std - 5);
+}
+
 /**
- * 人像點數（對外一律用 MP；內部檔位對應長邊）：
- * - 1 MP（1024）→ points_promo_camera_portrait_1mp（預設 20）
- * - 4 MP（2048）→ 沿用 points_promo_camera_*（1 MP 價公式）
- * - 16 MP（4096）→ 沿用 points_promo_camera_*（2048² 價公式）
+ * 人像點數（對外一律用 MP）：一般 20／30／50；訂閱各少 5 點 → 15／25／45
  */
 async function getPointsPromoCameraPortrait(userId, tier) {
     const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
-    if (t === '1k') {
-        try {
-            const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'points_promo_camera_portrait_1mp').maybeSingle();
-            const n = parseInt(row?.value, 10);
-            if (Number.isFinite(n) && n >= 0) return n;
-        } catch (_) {}
-        return 20;
-    }
-    if (t === '4k') return getPointsPromoCameraForResolution(2048, 2048, userId);
-    return getPointsPromoCameraForResolution(1024, 1024, userId);
+    const cfg = await getPromoPortraitPointsConfig();
+    const isSub = !!(userId && await hasActivePaidSubscription(userId));
+    let standard = cfg.standard_4mp;
+    if (t === '4k') standard = cfg.standard_16mp;
+    else if (t === '1k') standard = cfg.standard_1mp;
+    return isSub ? promoCameraSubscriberFromStandard(standard) : standard;
 }
 
 /** 人像 Gemini：完整攝影參數（含角度／人物保留），與產品 FLUX 同組裝 */
@@ -11411,7 +11439,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_print_asset_flux', 'points_portfolio_series_create', 'points_portfolio_comparison_create',             'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp', 'points_promo_camera_portrait_1mp', 'points_promo_space_layout_gemini', 'points_promo_space_layout_gemini_4k', 'points_promo_space_eye_level_gemini', 'points_promo_space_eye_level_gemini_4k', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_print_asset_flux', 'points_portfolio_series_create', 'points_portfolio_comparison_create',             'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp',             'points_promo_camera_portrait_1mp', 'points_promo_camera_portrait_4mp', 'points_promo_camera_portrait_16mp', 'points_promo_space_layout_gemini', 'points_promo_space_layout_gemini_4k', 'points_promo_space_eye_level_gemini', 'points_promo_space_eye_level_gemini_4k', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -11451,6 +11479,8 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_promo_camera_subscriber: parseInt(obj.points_promo_camera_subscriber, 10) || 10,
             points_promo_camera_per_extra_mp: parseInt(obj.points_promo_camera_per_extra_mp, 10) || 10,
             points_promo_camera_portrait_1mp: parseInt(obj.points_promo_camera_portrait_1mp, 10) || 20,
+            points_promo_camera_portrait_4mp: parseInt(obj.points_promo_camera_portrait_4mp, 10) || 30,
+            points_promo_camera_portrait_16mp: parseInt(obj.points_promo_camera_portrait_16mp, 10) || 50,
             points_promo_space_layout_gemini: parseInt(obj.points_promo_space_layout_gemini, 10) || 30,
             points_promo_space_layout_gemini_4k: parseInt(obj.points_promo_space_layout_gemini_4k, 10) || 50,
             points_promo_space_eye_level_gemini: parseInt(obj.points_promo_space_eye_level_gemini, 10) || 30,
@@ -11501,6 +11531,8 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_promo_camera_subscriber !== undefined) await upsert('points_promo_camera_subscriber', body.points_promo_camera_subscriber);
         if (body.points_promo_camera_per_extra_mp !== undefined) await upsert('points_promo_camera_per_extra_mp', body.points_promo_camera_per_extra_mp);
         if (body.points_promo_camera_portrait_1mp !== undefined) await upsert('points_promo_camera_portrait_1mp', body.points_promo_camera_portrait_1mp);
+        if (body.points_promo_camera_portrait_4mp !== undefined) await upsert('points_promo_camera_portrait_4mp', body.points_promo_camera_portrait_4mp);
+        if (body.points_promo_camera_portrait_16mp !== undefined) await upsert('points_promo_camera_portrait_16mp', body.points_promo_camera_portrait_16mp);
         if (body.points_promo_space_layout_gemini !== undefined) await upsert('points_promo_space_layout_gemini', body.points_promo_space_layout_gemini);
         if (body.points_promo_space_layout_gemini_4k !== undefined) await upsert('points_promo_space_layout_gemini_4k', body.points_promo_space_layout_gemini_4k);
         if (body.points_promo_space_eye_level_gemini !== undefined) await upsert('points_promo_space_eye_level_gemini', body.points_promo_space_eye_level_gemini);
@@ -16971,8 +17003,10 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
             });
             const portraitCount = normalizePortraitOutputCount(req.query.output_count);
             const pointsPer = await getPointsPromoCameraPortrait(userId, spaceResTier);
-            const base = userId && await hasActivePaidSubscription(userId) ? cfg.subscriber : cfg.standard;
-            const isSubscriber = !!(userId && base === cfg.subscriber && cfg.subscriber !== cfg.standard);
+            const portraitCfg = await getPromoPortraitPointsConfig();
+            const isSubscriber = !!(userId && await hasActivePaidSubscription(userId));
+            const tierKey = spaceResTier === '4k' ? '16mp' : (spaceResTier === '1k' ? '1mp' : '4mp');
+            const standardBase = portraitCfg['standard_' + tierKey];
             return res.json({
                 width: portraitDims.width,
                 height: portraitDims.height,
@@ -16983,8 +17017,8 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
                 points: pointsPer * portraitCount,
                 points_per_shot: pointsPer,
                 output_count: portraitCount,
-                points_standard_base: cfg.standard,
-                points_subscriber_base: cfg.subscriber,
+                points_standard_base: standardBase,
+                points_subscriber_base: promoCameraSubscriberFromStandard(standardBase),
                 points_per_extra_mp: cfg.perExtraMp,
                 is_subscriber_pricing: isSubscriber,
                 pricing_mode: 'portrait_gemini_tier',
@@ -17043,8 +17077,7 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
             });
         }
         const points = await getPointsPromoCameraForResolution(w, h, userId);
-        const base = userId && await hasActivePaidSubscription(userId) ? cfg.subscriber : cfg.standard;
-        const isSubscriber = !!(userId && base === cfg.subscriber && cfg.subscriber !== cfg.standard);
+        const isSubscriber = !!(userId && await hasActivePaidSubscription(userId));
         res.json({
             width: w,
             height: h,
@@ -17053,7 +17086,7 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
             points_per_shot: points,
             output_count: 1,
             points_standard_base: cfg.standard,
-            points_subscriber_base: cfg.subscriber,
+            points_subscriber_base: promoCameraSubscriberFromStandard(cfg.standard),
             points_per_extra_mp: cfg.perExtraMp,
             is_subscriber_pricing: isSubscriber,
             pricing_mode: 'mp_tiered',
@@ -19314,26 +19347,28 @@ async function getPointsPromoImageForResolution(width, height) {
     return cfg.standard;
 }
 
-/** 攝影模擬頁：1 MP 基礎點數 + 每多 1 MP 加點（一般 20／訂閱 10 起算） */
+/** 攝影模擬頁：1 MP 基礎點數 + 每多 1 MP 加點（訂閱＝一般價 − 5） */
 async function getPromoCameraPointsConfig() {
     const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-        'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp',
+        'points_promo_camera_standard', 'points_promo_camera_per_extra_mp',
         'points_promo_image_per_extra_mp'
     ]);
     const obj = {};
     (rows || []).forEach(r => { obj[r.key] = r.value; });
     const perExtra = Math.max(0, parseInt(obj.points_promo_camera_per_extra_mp, 10)
         || parseInt(obj.points_promo_image_per_extra_mp, 10) || 10);
+    const standard = Math.max(0, parseInt(obj.points_promo_camera_standard, 10) || 20);
     return {
-        standard: Math.max(0, parseInt(obj.points_promo_camera_standard, 10) || 20),
-        subscriber: Math.max(0, parseInt(obj.points_promo_camera_subscriber, 10) || 10),
+        standard: standard,
+        subscriber: promoCameraSubscriberFromStandard(standard),
         perExtraMp: perExtra
     };
 }
 
 async function getPointsPromoCameraForResolution(width, height, userId) {
     const cfg = await getPromoCameraPointsConfig();
-    const base = (userId && await hasActivePaidSubscription(userId)) ? cfg.subscriber : cfg.standard;
+    const isSub = !!(userId && await hasActivePaidSubscription(userId));
+    const base = isSub ? promoCameraSubscriberFromStandard(cfg.standard) : cfg.standard;
     const mp = promoImageMegapixelsFromResolution(width, height);
     return base + (mp - 1) * cfg.perExtraMp;
 }

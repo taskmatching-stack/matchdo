@@ -615,7 +615,7 @@
     var t = String(tier || '2k').toLowerCase();
     if (t === '1k') return o.points_portrait_1mp != null ? o.points_portrait_1mp : 20;
     if (t === '4k') return o.points_portrait_16mp != null ? o.points_portrait_16mp : 50;
-    return o.points_portrait_4mp != null ? o.points_portrait_4mp : 20;
+    return o.points_portrait_4mp != null ? o.points_portrait_4mp : 30;
   }
 
   function syncSpaceMpSelectOptions() {
