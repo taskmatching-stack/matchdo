@@ -474,7 +474,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 有主題／相機長組裝：必須關 upsampling。開著會把長文擴成另一個人（換臉），參考圖反黏住姿勢。 */
+    /* BFL 官網：upsampling true、safety 2、不整段翻譯；prompt 含描述／姿勢句／主題／相機 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -486,9 +486,9 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: false,
+            promptUpsampling: true,
             skipPromptTranslation: true,
-            safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : 2
+            safetyTolerance: 2
         }
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
@@ -608,9 +608,8 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：描述 +「姿勢依情境調整」+ 主題／場景 DB + 相機（原文）。
- * 官網短句可開 upsampling；我們有主題／相機長文時不可開，否則會擴寫成換臉、姿勢反被參考圖黏住。
- * 套圖英文 shotBrief 不定死姿勢（與「姿勢依情境調整」衝突），不併入 FLUX。
+ * 人像 FLUX（氛圍）：使用者描述 +「姿勢依情境調整」+ 主題／場景 DB + 相機參數（皆保留）。
+ * BFL 呼叫參數對齊官網：prompt_upsampling true、safety 2、不整段翻譯。
  * 清晰／Gemini 不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
