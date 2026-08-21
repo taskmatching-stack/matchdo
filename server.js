@@ -609,32 +609,33 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：對齊官網能鎖臉的接法——短編輯句 + upsampling + max。
- * 勿塞主題長 prompt／鏡頭參數（upsampling 會擴寫成另一個人）。
- * 場景／攝影參數完整組裝仍在 Gemini（清晰）buildPromoPortraitGeminiPrompt。
+ * 人像 FLUX：只送「編輯意圖」，避免與參考圖身份語意衝突。
+ * 衝突來源（勿再塞）：主題 scene_prompt／composition（常描述另一種氣質／人物）、
+ * 套圖英文 shotBrief（定死姿勢 ↔「姿勢依情境調整」）、鏡頭長句（易被 upsampling 擴成外貌）。
+ * 清晰模式仍走 Gemini 完整組裝。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
-    const shotBrief = String(o.shotBrief || '').trim();
     const parts = [];
 
     if (user) {
         parts.push(user);
     } else if (theme.name) {
-        parts.push('改為' + String(theme.name).trim() + '風格');
+        /* 只用主題「名稱」當氣氛標籤，不帶 DB 長 prompt（避免描述成另一個人） */
+        parts.push('改為「' + String(theme.name).trim() + '」氣氛與場景');
     }
 
     if (o.hasSceneImage) {
-        parts.push('並改到參考場景環境');
+        parts.push('環境改到參考場景');
     } else if (scene.name) {
         parts.push('場景改為' + String(scene.name).trim());
     }
 
     if (o.hasStagingProduct) parts.push('自然帶入道具');
-    if (shotBrief && shotBrief.length <= 80) parts.push(shotBrief);
+    /* 不併 shotBrief：英文構圖句與「姿勢依情境調整」語意衝突 */
     parts.push('姿勢依情境調整');
 
     const out = parts.filter(Boolean).join('，');
@@ -1189,7 +1190,9 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
         'You are a commercial portrait photography director.',
         `Output exactly ${count} DISTINCT English shooting variation lines for separate photos in the same session.`,
         'Each line must differ in framing, body angle, gaze, pose, or camera distance.',
-        'Keep the same subject identity, theme intent, and any user styling constraints.',
+        'Do NOT describe face, age, ethnicity, hair color, beauty, or invent a different person.',
+        'Do NOT name clothing brands or rewrite the subject identity.',
+        'Photographic direction only (camera/framing/pose). Keep identity implicit via the reference photo.',
         `Return ONLY a JSON array of ${count} strings. No markdown.`,
         '',
         `Theme: ${themeLabel}`
