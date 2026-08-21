@@ -609,43 +609,41 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX（氛圍）：提示詞組裝對齊清晰 Gemini（buildPromoPortraitGeminiPrompt），
- * 模型仍走 FLUX（upsampling true、safety 2、jpeg、原生≤1024；尺寸走 API，不進 prompt）。
- * 姿勢：僅 portrait_formal_id 鎖參考圖；其餘句尾加「姿勢依情境調整」。
+ * 人像 FLUX（氛圍）— 依使用者 BFL 官網實測（2026-08-21）：
+ * 只需「改為在{場景名}，姿勢依情境調整」＋相機參數＋無文字句。
+ * 主題／場景的 scene_prompt、composition 等內容描述一律不送（官網長詞會換臉）。
+ * 證件／正式：姿勢改「姿勢維持參考圖」。清晰 Gemini 不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const themeKey = String(o.themeKey || '').trim();
+    const user = String(o.userPrompt || '').trim();
+    const cameraBlock = String(o.cameraBlock || '').trim();
     const isFormalId = themeKey === 'portrait_formal_id';
     const poseLine = isFormalId ? '姿勢維持參考圖' : '姿勢依情境調整';
+    const parts = [];
 
-    const base = promoSpaceGemini.buildPromoPortraitGeminiPrompt({
-        themeKey: themeKey,
-        themeLabel: theme.name || themeKey,
-        themePrompt: theme.prompt,
-        themeComposition: theme.composition,
-        sceneLabel: scene.name || '',
-        scenePrompt: scene.prompt,
-        sceneComposition: scene.composition,
-        userPrompt: o.userPrompt,
-        shotBrief: o.shotBrief,
-        cameraBlock: o.cameraBlock,
-        hasSceneImage: !!o.hasSceneImage,
-        hasStagingProduct: !!o.hasStagingProduct,
-        width: o.width,
-        height: o.height,
-        tier: o.tier
-    });
+    if (user) parts.push(user);
 
-    const text = String(base || '')
-        .replace(/\s*Output resolution\s+\d+\s*[x×]\s*\d+\s*\([^)]*\)\.?/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-    if (!text) return poseLine;
-    if (text.indexOf(poseLine) >= 0) return text;
-    return text + ' ' + poseLine;
+    let place = '';
+    if (o.hasSceneImage) {
+        place = '改為在參考場景';
+    } else if (scene.name) {
+        place = '改為在' + String(scene.name).trim();
+    } else if (theme.name) {
+        place = '改為' + String(theme.name).trim();
+    }
+    if (place) {
+        parts.push(place + '，' + poseLine);
+    } else {
+        parts.push(poseLine);
+    }
+
+    if (cameraBlock) parts.push(cameraBlock);
+    parts.push('No text, labels, logos, or watermarks in the image.');
+    return parts.filter(Boolean).join(' ');
 }
 
 /**
