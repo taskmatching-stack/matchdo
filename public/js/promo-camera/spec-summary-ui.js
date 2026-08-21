@@ -87,7 +87,7 @@
     setVal('themeScene', joinParts(themeParts), isMood ? false : !theme);
 
     var renderMode = document.getElementById('pcPortraitRenderMood');
-    var renderLabel = (renderMode && renderMode.checked) ? '氛圍（Beta）' : '清晰';
+    var renderLabel = (renderMode && renderMode.checked) ? '氛圍 BETA' : '清晰';
     var renderWrap = document.querySelector('.pc-portrait-only');
     if (renderWrap && !renderWrap.classList.contains('d-none')) {
       setVal('portraitRender', renderLabel);

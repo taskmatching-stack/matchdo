@@ -491,6 +491,7 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   box-sizing: border-box;
   transition: border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
 }
@@ -502,6 +503,15 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
 }
 #promo-camera-app .pc-spec-choice-btn:hover {
   border-color: rgba(122, 143, 163, 0.55);
+}
+/* 氛圍模式 BETA：同空間攝影徽章格式，改用醒目橘黃 */
+#promo-camera-app .pc-beta-badge {
+  font-size: 0.65em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background-color: #f59e0b !important;
+  color: #1a1200 !important;
+  vertical-align: middle;
 }
 #promo-camera-app .pc-spec-body {
   padding: 0 1.1rem 1.1rem;
