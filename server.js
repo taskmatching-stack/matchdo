@@ -474,11 +474,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 主題／描述常含中文 → 整段翻譯會改寫 identity 句並擴寫成「另一個人」；先翻再鎖臉 */
-    prompt = await translatePromptToEnglishForFlux(prompt);
-    prompt = 'The person from image 1 (input_image) must keep the exact same face, facial features, and identity. '
-        + 'Do not replace them with a different person. Change pose, clothing, and environment only as the brief requires. '
-        + prompt;
+    /* prompt 已由 buildPromoPortraitFluxPrompt 組好（identity 英文＋欄位分開翻譯） */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -609,6 +605,66 @@ async function buildPromoPortraitFinalPrompt(opts) {
         height: o.height,
         tier: o.tier
     });
+}
+
+/**
+ * 人像 FLUX 專用組裝（與 Gemini 同一套主題／場景／描述／相機內容）。
+ * BFL 要以「person from image 1」鎖臉；勿把中文 UI 名稱送進翻譯，
+ * 否則會被擴寫成另一個人的外貌（換臉主因）。
+ */
+async function buildPromoPortraitFluxPrompt(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const theme = o.themeParts || { name: '', prompt: '', composition: '' };
+    const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
+    async function enField(text) {
+        const t = String(text || '').trim();
+        if (!t) return '';
+        if (!looksLikeNonEnglish(t)) return t;
+        return translatePromptToEnglishForFlux(t);
+    }
+    const themePrompt = await enField(theme.prompt);
+    const themeComposition = await enField(theme.composition);
+    const scenePrompt = await enField(scene.prompt);
+    const sceneComposition = await enField(scene.composition);
+    const userPrompt = await enField(o.userPrompt);
+    const shotBrief = await enField(o.shotBrief);
+    const cameraBlock = String(o.cameraBlock || '').trim();
+    const hasSceneImage = !!o.hasSceneImage;
+    const hasStagingProduct = !!o.hasStagingProduct;
+    const parts = [];
+
+    parts.push(
+        'The person from image 1. Keep the exact same face, facial features, age, and identity as image 1. '
+        + 'Do not generate a different person.'
+    );
+    if (hasSceneImage && hasStagingProduct) {
+        parts.push(
+            'Place the same person from image 1 into the environment from image 2, '
+            + 'and integrate the product from image 3 naturally.'
+        );
+    } else if (hasSceneImage) {
+        parts.push(
+            'Place the same person from image 1 into the environment from image 2; match lighting to image 2.'
+        );
+    } else if (hasStagingProduct) {
+        parts.push(
+            'The same person from image 1 featuring the product from image 2.'
+        );
+    }
+    if (themePrompt || themeComposition) {
+        parts.push(['Shoot style', themePrompt, themeComposition].filter(Boolean).join(': '));
+    }
+    if (!hasSceneImage && (scenePrompt || sceneComposition)) {
+        parts.push(['Scene', scenePrompt, sceneComposition].filter(Boolean).join(': '));
+    }
+    if (userPrompt) {
+        parts.push('Clothing and styling only (do not change facial identity): ' + userPrompt);
+    }
+    if (shotBrief) parts.push('This shot variation: ' + shotBrief);
+    if (cameraBlock) parts.push('Camera and exposure: ' + cameraBlock);
+    parts.push('No text, labels, logos, or watermarks in the image.');
+    parts.push('Final check: face must match image 1 exactly.');
+    return parts.filter(Boolean).join(' ');
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
@@ -1305,8 +1361,19 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 height: h,
                 tier: spaceResTier
             });
-            /* 人像 FLUX 與 Gemini 同一條 finalPrompt（不再另組產品向底稿） */
-            fluxPrompt = finalPrompt;
+            fluxPrompt = await buildPromoPortraitFluxPrompt({
+                themeKey,
+                themeParts,
+                sceneParts,
+                userPrompt,
+                shotBrief,
+                cameraBlock,
+                hasSceneImage: !!resolvedRefs.hasSceneImage,
+                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+                width: w,
+                height: h,
+                tier: spaceResTier
+            });
         } catch (promptErr) {
             results.push({
                 shot_index: i + 1,
@@ -1594,7 +1661,18 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             height: h,
             tier: spaceResTier
         });
-        fluxPrompt = finalPrompt;
+        fluxPrompt = await buildPromoPortraitFluxPrompt({
+            themeKey,
+            themeParts,
+            sceneParts,
+            userPrompt,
+            cameraBlock,
+            hasSceneImage: !!resolvedRefs.hasSceneImage,
+            hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+            width: w,
+            height: h,
+            tier: spaceResTier
+        });
     } catch (promptErr) {
         return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
     }
