@@ -381,10 +381,21 @@ async function getPointsPromoCameraPortrait(userId, tier) {
 }
 
 /** 人像 Gemini：完整攝影參數（含角度／人物保留），與產品 FLUX 同組裝 */
+/**
+ * 人像相機參數進 prompt：只送鏡頭／曝光／底片等。
+ * 不可帶產品向 shooting_angle（預設 keep_reference＝do not reshoot）與
+ * subject_preservation（預設 keep＝preserve people from reference）——
+ * 人像 UI 已隱藏這兩項，但 state 仍可能帶產品預設，會把姿勢／構圖鎖死。
+ * （與空間平視剔除邏輯同因，見 docs/PROGRESS-promo-camera-space-eye-level.md §2.1）
+ */
 async function buildPromoPortraitCameraBlock(cameraKeys) {
-    const raw = cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {};
+    const raw = Object.assign({}, cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {});
+    delete raw.shooting_angle;
+    delete raw.subject_preservation;
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
+    const angleCat = String(cameraUi.angle_button_category || 'shooting_angle').trim();
+    if (angleCat) delete raw[angleCat];
     const cam = await resolvePromoCameraPromptFragments(raw, cameraUi);
     const parts = (cam.fragments || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean);
     return {

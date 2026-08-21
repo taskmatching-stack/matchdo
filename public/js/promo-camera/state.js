@@ -697,6 +697,13 @@
     cam._look_mode = state.lookMode;
     var hidden = getUiConfig().ui_hidden_categories || [];
     hidden.forEach(function (cat) { delete cam[cat]; });
+    /* 人像 UI 不顯示角度／人物保留；勿把產品預設 keep_reference／keep 送進 API（會鎖姿勢） */
+    if (state.shootMode === 'portrait') {
+      delete cam.shooting_angle;
+      delete cam.subject_preservation;
+      var angleCatP = getAngleCategory();
+      if (angleCatP) delete cam[angleCatP];
+    }
     var clientChannel = 'web';
     if (document.body && document.body.classList) {
       if (document.body.classList.contains('pc-embed-design')) clientChannel = 'embed';
