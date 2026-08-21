@@ -139,6 +139,7 @@ const embedSimulator = require('./lib/embed-simulator');
 const designDirectionMarketSignals = require('./lib/design-direction-market-signals');
 const designDirectionSeed = require('./lib/design-direction-seed');
 const promoSceneSeed = require('./lib/promo-scene-seed');
+const promoSceneI18n = require('./lib/promo-scene-i18n');
 const promoSpaceGemini = require('./lib/promo-space-gemini');
 const promoSpaceAppeal = require('./lib/promo-space-appeal');
 const mediaWallQueries = require('./lib/media-wall-queries');
@@ -16591,11 +16592,8 @@ function appendPromoSceneMultilangFields(payload, body) {
 
 function applyPromoSceneTemplateLocale(row, lang) {
     if (!row) return row;
-    const localeCol = PROMO_SCENE_LOCALE_COL[lang];
-    let displayName = row.name;
-    if (lang === 'en' && row.name_en) displayName = row.name_en;
-    else if (localeCol && row[localeCol]) displayName = row[localeCol];
-    return { ...row, name: displayName };
+    const displayName = promoSceneI18n.resolvePromoTemplateDisplayName(row, lang);
+    return { ...row, name: displayName || row.name };
 }
 
 /** 前台主題／場景分欄：以 slot 為準；相容 key=scene_* 或 category=scene 的舊資料 */

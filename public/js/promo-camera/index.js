@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-ratio-32-20260812';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-theme-name-en-20260821';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -632,6 +632,75 @@
     hotel: 'Hotel / B&B',
     clinic: 'Clinic / Beauty'
   };
+
+  var PROMO_TEMPLATE_LABEL_EN = {
+    product_hero_ad: 'Hero / Banner',
+    hero_banner: 'Hero / Banner',
+    banner_hero: 'Hero / Banner',
+    flyer_dm: 'Email / EDM',
+    campaign_promo: 'Campaign promo',
+    brand_premium: 'Brand premium ad',
+    catalog_ad: 'Catalog / ecommerce ad',
+    social_post: 'Social post',
+    social_feed: 'Social post',
+    portrait_corporate: 'Corporate portrait',
+    portrait_fashion_lookbook: 'Fashion lookbook',
+    portrait_lifestyle: 'Lifestyle',
+    portrait_sports: 'Sports',
+    portrait_beauty: 'Beauty',
+    portrait_formal_id: 'Formal ID portrait',
+    portrait_brand_image: 'Brand image',
+    portrait_social_content: 'Social content',
+    scene_clean_studio: 'Clean studio',
+    scene_retail_display: 'Retail display',
+    scene_exhibition: 'Exhibition booth',
+    scene_soft_gradient: 'Soft gradient',
+    scene_outdoor_campaign: 'Outdoor campaign',
+    '主視覺/Banner': 'Hero / Banner',
+    '產品主視覺廣告': 'Hero product ad',
+    '商品頁情境輔助圖': 'Product-page lifestyle',
+    '社群貼文': 'Social post',
+    '活動宣傳風': 'Campaign promo',
+    '廣告投放素材': 'Paid ad creative',
+    '品牌質感廣告': 'Brand premium ad',
+    '型錄／電商廣告': 'Catalog / ecommerce ad',
+    '型錄/電商廣告': 'Catalog / ecommerce ad',
+    '電子報/EDM行銷': 'Email / EDM',
+    'DM／傳單風': 'Flyer / DM',
+    '品牌形象/關於我們頁面': 'Brand / About page',
+    '純商品規格展示（無情境）': 'Spec shot (no scene)',
+    '商業形象': 'Corporate portrait',
+    '時尚型錄': 'Fashion lookbook',
+    '生活情境': 'Lifestyle',
+    '運動': 'Sports',
+    '美妝': 'Beauty',
+    '證件／正式肖像': 'Formal ID portrait',
+    '品牌形象': 'Brand image',
+    '社群內容': 'Social content',
+    '乾淨棚拍場景': 'Clean studio',
+    '零售陳列場景': 'Retail display',
+    '展場／活動攤位': 'Exhibition booth',
+    '柔色漸層背景': 'Soft gradient',
+    '戶外廣告場景': 'Outdoor campaign'
+  };
+
+  function looksLatinLabel(s) {
+    return /[A-Za-z]/.test(String(s || ''));
+  }
+
+  function localizePromoTemplateRow(it) {
+    if (!it) return it;
+    var key = String(it.key || '').trim();
+    var name = String(it.name || key).trim();
+    if (apiLang() !== 'en') return { key: key, name: name };
+    if (looksLatinLabel(name)) return { key: key, name: name };
+    var en = PROMO_TEMPLATE_LABEL_EN[name] || PROMO_TEMPLATE_LABEL_EN[key] || '';
+    if (en && looksLatinLabel(en)) return { key: key, name: en };
+    if (it.name_en && looksLatinLabel(String(it.name_en))) {
+      return { key: key, name: String(it.name_en).trim() };
+    }
+    return { key: key, name: name };
+  }
 
   function fillSpaceUseTypes() {
     var sel = document.getElementById('pcSpaceUseType');
@@ -1908,11 +1977,11 @@
   function fillThemeSceneSelects(themesOverride) {
     var opts = St.get().options;
     if (!opts) return;
-    var themes = themesOverride || themesForCurrentMode();
+    var themes = (themesOverride || themesForCurrentMode()).map(localizePromoTemplateRow);
     var themeEl = document.getElementById('pcThemeSelect');
     var sceneEl = document.getElementById('pcSceneSelect');
     Promo.fillSelect(themeEl, themes, 'key', 'name', '');
-    Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', t('promoCamera.sceneNone', '依描述設定'));
+    Promo.fillSelect(sceneEl, (opts.scenes || []).map(localizePromoTemplateRow), 'key', 'name', t('promoCamera.sceneNone', '依描述設定'));
     if (themeEl && St.get().themeKey) themeEl.value = St.get().themeKey;
   }
 
