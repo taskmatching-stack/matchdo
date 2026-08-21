@@ -608,63 +608,39 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX 專用組裝（與 Gemini 同一套主題／場景／描述／相機內容）。
- * BFL 要以「person from image 1」鎖臉；勿把中文 UI 名稱送進翻譯，
- * 否則會被擴寫成另一個人的外貌（換臉主因）。
+ * 人像 FLUX：對齊 BFL 官網 Playground 實測接法。
+ * 官網：短中文編輯句 + 參考圖 + prompt upsampling=true，無需鎖臉詞即可保臉。
+ * 勿堆英文 identity／勿整段長組裝再翻譯。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
-    async function enField(text) {
-        const t = String(text || '').trim();
-        if (!t) return '';
-        if (!looksLikeNonEnglish(t)) return t;
-        return translatePromptToEnglishForFlux(t);
-    }
-    const themePrompt = await enField(theme.prompt);
-    const themeComposition = await enField(theme.composition);
-    const scenePrompt = await enField(scene.prompt);
-    const sceneComposition = await enField(scene.composition);
-    const userPrompt = await enField(o.userPrompt);
-    const shotBrief = await enField(o.shotBrief);
-    const cameraBlock = String(o.cameraBlock || '').trim();
-    const hasSceneImage = !!o.hasSceneImage;
-    const hasStagingProduct = !!o.hasStagingProduct;
+    const user = String(o.userPrompt || '').trim();
+    const shotBrief = String(o.shotBrief || '').trim();
     const parts = [];
 
-    parts.push(
-        'The person from image 1. Keep the exact same face, facial features, age, and identity as image 1. '
-        + 'Do not generate a different person.'
-    );
-    if (hasSceneImage && hasStagingProduct) {
-        parts.push(
-            'Place the same person from image 1 into the environment from image 2, '
-            + 'and integrate the product from image 3 naturally.'
-        );
-    } else if (hasSceneImage) {
-        parts.push(
-            'Place the same person from image 1 into the environment from image 2; match lighting to image 2.'
-        );
-    } else if (hasStagingProduct) {
-        parts.push(
-            'The same person from image 1 featuring the product from image 2.'
-        );
+    if (user) {
+        parts.push(user);
+    } else if (theme.name) {
+        parts.push('改為' + String(theme.name).trim() + '風格');
+    } else if (theme.prompt) {
+        parts.push(String(theme.prompt).trim().slice(0, 160));
     }
-    if (themePrompt || themeComposition) {
-        parts.push(['Shoot style', themePrompt, themeComposition].filter(Boolean).join(': '));
+
+    if (o.hasSceneImage) {
+        parts.push('並改到參考場景環境');
+    } else if (scene.name) {
+        parts.push('場景改為' + String(scene.name).trim());
+    } else if (scene.prompt) {
+        parts.push(String(scene.prompt).trim().slice(0, 120));
     }
-    if (!hasSceneImage && (scenePrompt || sceneComposition)) {
-        parts.push(['Scene', scenePrompt, sceneComposition].filter(Boolean).join(': '));
-    }
-    if (userPrompt) {
-        parts.push('Clothing and styling only (do not change facial identity): ' + userPrompt);
-    }
-    if (shotBrief) parts.push('This shot variation: ' + shotBrief);
-    if (cameraBlock) parts.push('Camera and exposure: ' + cameraBlock);
-    parts.push('No text, labels, logos, or watermarks in the image.');
-    parts.push('Final check: face must match image 1 exactly.');
-    return parts.filter(Boolean).join(' ');
+
+    if (o.hasStagingProduct) parts.push('自然帶入道具');
+    if (shotBrief) parts.push(shotBrief);
+
+    const out = parts.filter(Boolean).join('，');
+    return out || (theme.name ? ('改為' + String(theme.name).trim()) : '調整拍攝情境與環境');
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
