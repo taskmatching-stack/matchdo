@@ -474,7 +474,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 對齊官網：短編輯句原文送出 + prompt upsampling 開；不整段翻譯、不加鎖臉詞 */
+    /* 有主題／相機長組裝：必須關 upsampling。開著會把長文擴成另一個人（換臉），參考圖反黏住姿勢。 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -486,9 +486,8 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: true,
+            promptUpsampling: false,
             skipPromptTranslation: true,
-            /* 對齊官網 playground：safety 2 */
             safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : 2
         }
     );
@@ -609,8 +608,9 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：使用者描述 + 主題／場景 DB + 相機參數 + 套圖 brief（皆原文）。
- * 固定附上官網實測句「姿勢依情境調整」（使用者已寫則不重複）。
+ * 人像 FLUX：描述 +「姿勢依情境調整」+ 主題／場景 DB + 相機（原文）。
+ * 官網短句可開 upsampling；我們有主題／相機長文時不可開，否則會擴寫成換臉、姿勢反被參考圖黏住。
+ * 套圖英文 shotBrief 不定死姿勢（與「姿勢依情境調整」衝突），不併入 FLUX。
  * 清晰／Gemini 不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
@@ -618,12 +618,12 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
-    const shotBrief = String(o.shotBrief || '').trim();
     const cameraBlock = String(o.cameraBlock || '').trim();
     const poseLine = '姿勢依情境調整';
     const parts = [];
 
     if (user) parts.push(user);
+    if (!user || user.indexOf(poseLine) < 0) parts.push(poseLine);
 
     const themeLong = [theme.prompt, theme.composition]
         .map(function (s) { return String(s || '').trim(); })
@@ -643,12 +643,9 @@ async function buildPromoPortraitFluxPrompt(opts) {
         if (sceneLong) parts.push(sceneLong);
     }
 
-    if (shotBrief) parts.push(shotBrief);
     if (cameraBlock) parts.push(cameraBlock);
 
-    const joined = parts.filter(Boolean).join('，');
-    if (joined.indexOf(poseLine) >= 0) return joined;
-    return joined ? (joined + '，' + poseLine) : poseLine;
+    return parts.filter(Boolean).join('，');
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
