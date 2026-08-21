@@ -15,7 +15,7 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
         <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。</p>
-        <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
+        <div id="aiSettingsMsg" class="alert mb-3 py-2 sticky-top shadow-sm" style="display:none; z-index:1030; top:0;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
           <span class="me-2">目前狀態：</span>
@@ -90,7 +90,7 @@
                     <option value="auto">auto（Gemini → FLUX 備援）</option>
                     <option value="flux">flux（僅 FLUX）</option>
                   </select>
-                  <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code></p>
+                  <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 選 <strong>flux</strong> 時人像解析度只有 <strong>1／4 MP</strong>（FLUX.2 上限 4MP，不會出現 16 MP）；儲存後請重新整理攝影模擬頁。</p>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
@@ -313,6 +313,28 @@
     el.style.display = 'block';
     el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
     el.textContent = msg;
+    try {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (_) {}
+    if (window.clearTimeout) {
+      if (showMsg._timer) clearTimeout(showMsg._timer);
+      if (!isError) {
+        showMsg._timer = setTimeout(function () {
+          if (el.textContent === msg) el.style.display = 'none';
+        }, 8000);
+      }
+    }
+  }
+  function flashSaveButton(btn, okLabel) {
+    if (!btn) return;
+    var prev = btn.getAttribute('data-prev-label') || btn.textContent;
+    btn.setAttribute('data-prev-label', prev);
+    btn.textContent = okLabel || '已儲存 ✓';
+    btn.classList.add('btn-success');
+    setTimeout(function () {
+      btn.textContent = btn.getAttribute('data-prev-label') || prev;
+      btn.classList.remove('btn-success');
+    }, 2200);
   }
   function applyEngineConfigToForm(data) {
     var vendor = document.getElementById('engineVendorAsset');
@@ -558,6 +580,7 @@
       }
       await loadAiConfig();
       showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」');
+      flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -594,7 +617,9 @@
         return;
       }
       await loadAiConfig();
-      showMsg('商攝已儲存：人像引擎「' + payload.promo_portrait_engine + '」Gemini「' + payload.gemini_model_promo_portrait + '」FLUX「' + payload.bfl_flux_model_promo_portrait + '」；平視引擎「' + payload.promo_space_eye_level_engine + '」Gemini「' + payload.gemini_model_promo_space_eye_level + '」FLUX「' + payload.bfl_flux_model_promo_space_eye_level + '」；ISO「' + payload.gemini_model_promo_space_layout + '」');
+      showMsg('商攝已儲存：人像引擎「' + payload.promo_portrait_engine + '」Gemini「' + payload.gemini_model_promo_portrait + '」FLUX「' + payload.bfl_flux_model_promo_portrait + '」；平視引擎「' + payload.promo_space_eye_level_engine + '」Gemini「' + payload.gemini_model_promo_space_eye_level + '」FLUX「' + payload.bfl_flux_model_promo_space_eye_level + '」；ISO「' + payload.gemini_model_promo_space_layout + '」'
+        + (payload.promo_portrait_engine === 'flux' ? '。人像解析度已收斂為 1／4 MP（無 16 MP），請重新整理 /promo-camera。' : ''));
+      flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -625,6 +650,7 @@
       }
       loadAiConfig();
       showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」，情境圖「' + payload.bfl_flux_model_promo_image + '」');
+      flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -682,6 +708,7 @@
       }
       applyAiConfigToForm(data);
       showMsg('已儲存 Gemini 模型（翻譯／讀圖／標籤／材料等）');
+      flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

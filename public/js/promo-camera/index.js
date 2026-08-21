@@ -618,12 +618,24 @@
     return o.points_portrait_4mp != null ? o.points_portrait_4mp : 30;
   }
 
+  function portraitMpTiersFromOptions() {
+    var opts = St.get().options || {};
+    var eng = String(opts.promo_portrait_engine || '').toLowerCase();
+    /* 後端未回傳時仍依引擎收斂：flux＝僅 1／4 MP（FLUX.2 上限 4MP） */
+    if (eng === 'flux') return [1, 4];
+    if (Array.isArray(opts.portrait_mp_tiers) && opts.portrait_mp_tiers.length) {
+      var tiers = opts.portrait_mp_tiers.map(function (n) { return parseInt(n, 10); }).filter(function (n) { return n > 0; });
+      if (tiers.length) return tiers;
+    }
+    return (Promo && Promo.PORTRAIT_MP_TIERS) ? Promo.PORTRAIT_MP_TIERS.slice() : [1, 4, 16];
+  }
+
   function syncSpaceMpSelectOptions() {
     var mpEl = document.getElementById('pcSpaceMpSelect');
     if (!mpEl) return;
     var portrait = isPortraitMode();
     var want = portrait
-      ? (Promo && Promo.PORTRAIT_MP_TIERS ? Promo.PORTRAIT_MP_TIERS : [1, 4, 16])
+      ? portraitMpTiersFromOptions()
       : (Promo && Promo.SPACE_MP_TIERS ? Promo.SPACE_MP_TIERS : [4, 16]);
     var cur = mpEl.value;
     var html = '';
@@ -632,8 +644,8 @@
     });
     mpEl.innerHTML = html;
     if (want.indexOf(parseInt(cur, 10)) < 0) {
-      mpEl.value = String(want[0]);
-      if (St.setSpaceMegapixels) St.setSpaceMegapixels(want[0]);
+      mpEl.value = String(want[want.length - 1] || want[0]);
+      if (St.setSpaceMegapixels) St.setSpaceMegapixels(mpEl.value);
     }
   }
 
@@ -643,13 +655,17 @@
     syncSpaceMpSelectOptions();
     var opts = St.get().options || {};
     var portrait = isPortraitMode();
+    var eng = String(opts.promo_portrait_engine || '').toLowerCase();
     Array.prototype.forEach.call(mpEl.options, function (opt) {
       var mp = parseInt(opt.value, 10);
       var tier = Promo && Promo.spaceTierFromMegapixels ? Promo.spaceTierFromMegapixels(mp) : (mp >= 16 ? '4k' : (mp <= 1 ? '1k' : '2k'));
       var pts = portrait
         ? portraitPointsForTier(opts, tier)
         : spacePointsForTier(opts, isSpaceEyeLevel() ? 'eye_level' : 'layout_plan', tier === '1k' ? '2k' : tier);
-      opt.textContent = mp + ' MP（' + pts + ' 點／張）';
+      var label = mp + ' MP（' + pts + ' 點／張）';
+      if (portrait && eng === 'flux' && mp === 4) label += '・FLUX 上限';
+      else if (portrait && eng === 'flux') label += '・FLUX';
+      opt.textContent = label;
     });
     if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.renderSpaceMpChips === 'function') {
       window.PromoCameraAppShell.renderSpaceMpChips();
@@ -795,6 +811,10 @@
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
     } else if (portrait) {
+      var portraitEng = String((St.get().options || {}).promo_portrait_engine || '').toLowerCase();
+      if (portraitEng === 'flux' && St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
+        St.setSpaceResolutionTier('2k');
+      }
       syncSpaceMpSelectOptions();
       if (St.applySpaceDimensions) {
         St.applySpaceDimensions(St.get().aspectRatio || '1:1', St.get().spaceResolutionTier || '2k');
@@ -856,6 +876,14 @@
     updatePoints();
     renderMessages();
 
+    var homeCb = document.getElementById('pcShowOnHomepage');
+    if (homeCb) delete homeCb.dataset.userTouched;
+    if (window.MatchdoShowOnHomepageControl && typeof window.MatchdoShowOnHomepageControl.refresh === 'function') {
+      window.MatchdoShowOnHomepageControl.refresh('pcShowOnHomepage', 'pcShowOnHomepageHint', {
+        defaultChecked: mode !== 'portrait'
+      });
+    }
+
     if (space && window.PromoCameraAppShell && typeof window.PromoCameraAppShell.setComposeExpanded === 'function') {
       window.PromoCameraAppShell.setComposeExpanded(true);
     }
@@ -875,7 +903,7 @@
 
   function setShootMode(mode) {
     St.setShootMode(mode);
-    if (mode === 'space') {
+    if (mode === 'space' || mode === 'portrait') {
       updateSpaceDimsHint();
     } else {
       updateDimsHint();
@@ -2242,7 +2270,9 @@
     bindEvents();
     initFromQuery();
     if (window.MatchdoShowOnHomepageControl) {
-      window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint');
+      window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint', {
+        defaultChecked: getShootMode() !== 'portrait'
+      });
     }
     renderMessages();
     renderAngleButtons();

@@ -1,6 +1,9 @@
 /**
  * 生成時「展示在首頁媒體牆」勾選（付費可取消；免費強制公開）
  * 設計區、情境圖、商攝導演 Web／App 共用
+ *
+ * defaultChecked：付費可控制時的預設勾選（未碰過開關前）。
+ * 人像攝影傳 false＝預設不上媒體牆；產品／空間維持 true。
  */
 (function (global) {
   var canControl = false;
@@ -51,15 +54,19 @@
     return loadPromise;
   }
 
-  function syncCheckbox(checkboxId, hintId) {
+  function syncCheckbox(checkboxId, hintId, options) {
     var cb = document.getElementById(checkboxId);
     var hint = hintId ? document.getElementById(hintId) : null;
     if (!cb) return;
+    var opts = options && typeof options === 'object' ? options : {};
+    var defaultChecked = typeof opts.defaultChecked === 'boolean' ? opts.defaultChecked : true;
     if (canControl) {
       cb.disabled = false;
-      if (!cb.dataset.userTouched) cb.checked = true;
+      if (!cb.dataset.userTouched) cb.checked = defaultChecked;
       if (hint) {
-        hint.textContent = t('customProduct.paidUserShowHint', '可勾選是否展示在首頁媒體牆');
+        hint.textContent = defaultChecked === false
+          ? t('customProduct.paidUserPortraitShowHint', '人像預設不上媒體牆，可自行勾選公開')
+          : t('customProduct.paidUserShowHint', '可勾選是否展示在首頁媒體牆');
       }
     } else {
       cb.checked = true;
@@ -70,14 +77,14 @@
     }
   }
 
-  function init(checkboxId, hintId) {
+  function init(checkboxId, hintId, options) {
     var cb = document.getElementById(checkboxId);
     if (!cb) return;
     cb.addEventListener('change', function () {
       cb.dataset.userTouched = '1';
     });
     loadCanControl().then(function () {
-      syncCheckbox(checkboxId, hintId);
+      syncCheckbox(checkboxId, hintId, options);
     });
   }
 

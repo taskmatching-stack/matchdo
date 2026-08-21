@@ -538,13 +538,18 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     return generatePromoPortraitImageWithFlux(imageRefs, fluxPrompt || geminiPrompt, geminiOpts, fluxOpts);
 }
 
-function resolvePromoPortraitOutputDims(body) {
+async function resolvePromoPortraitOutputDims(body) {
     const b = body && typeof body === 'object' ? body : {};
-    const spaceResTier = promoSpaceGemini.normalizeSpaceResolutionTier(
+    let spaceResTier = promoSpaceGemini.normalizeSpaceResolutionTier(
         b.space_resolution_tier,
         b.width,
         b.height
     );
+    /* FLUX.2 上限約 4MP（2048 長邊）；人像選 16 MP 時強制降為 4 MP */
+    try {
+        const eng = await getPromoPortraitEngine();
+        if (eng === 'flux' && spaceResTier === '4k') spaceResTier = '2k';
+    } catch (_) {}
     const aspectRatio = String(b.aspect_ratio || '').trim() || '1:1';
     const dims = promoSpaceGemini.resolveSpaceOutputDimensions({
         tier: spaceResTier,
@@ -1180,7 +1185,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const imageRefs = refBases.map(function (b64) {
         return { base64: b64, mime: 'image/jpeg' };
     });
-    const outDims = resolvePromoPortraitOutputDims(body);
+    const outDims = await resolvePromoPortraitOutputDims(body);
     const w = outDims.width;
     const h = outDims.height;
     const aspectRatio = outDims.aspectRatio;
@@ -1199,7 +1204,10 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         : 'upload';
     const sourceId = body.source_id ? String(body.source_id).trim() : null;
     const clientChannel = normalizePromoClientChannel(body.client_channel);
-    const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(currentUser.id, body);
+    const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(
+        currentUser.id,
+        Object.assign({}, body, { shoot_mode: 'portrait' })
+    );
 
     const pointsPerShot = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier);
     const totalPointsRequired = pointsPerShot * outputCount;
@@ -1274,13 +1282,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 height: h,
                 tier: spaceResTier
             });
-            const shotUserPrompt = composePortraitShotUserPrompt(userPrompt, shotBrief);
-            const builtFlux = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, shotUserPrompt, cameraKeys, w, h, {
-                shootMode: 'portrait',
-                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                hasSceneImage: !!resolvedRefs.hasSceneImage
-            });
-            fluxPrompt = builtFlux.prompt;
+            /* 人像 FLUX 與 Gemini 同一組裝；不再走產品向 buildPromoCameraAdvancedPrompt */
+            fluxPrompt = promoFluxPortraitAlignWithGeminiPrompt(finalPrompt);
         } catch (promptErr) {
             results.push({
                 shot_index: i + 1,
@@ -1511,7 +1514,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     const imageRefs = refBases.map(function (b64) {
         return { base64: b64, mime: 'image/jpeg' };
     });
-    const outDims = resolvePromoPortraitOutputDims(body);
+    const outDims = await resolvePromoPortraitOutputDims(body);
     const w = outDims.width;
     const h = outDims.height;
     const aspectRatio = outDims.aspectRatio;
@@ -1530,7 +1533,10 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         : 'upload';
     const sourceId = body.source_id ? String(body.source_id).trim() : null;
     const clientChannel = normalizePromoClientChannel(body.client_channel);
-    const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(currentUser.id, body);
+    const promoShowOnHomepage = await resolveDesignShowOnHomepageFromRequest(
+        currentUser.id,
+        Object.assign({}, body, { shoot_mode: 'portrait' })
+    );
 
     const pointsToDeduct = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier);
     if (!isAdmin && pointsToDeduct > 0) {
@@ -1564,12 +1570,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             height: h,
             tier: spaceResTier
         });
-        const builtFlux = await buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, w, h, {
-            shootMode: 'portrait',
-            hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-            hasSceneImage: !!resolvedRefs.hasSceneImage
-        });
-        fluxPrompt = builtFlux.prompt;
+        fluxPrompt = promoFluxPortraitAlignWithGeminiPrompt(finalPrompt);
     } catch (promptErr) {
         return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
     }
@@ -16322,6 +16323,13 @@ function promoFluxPortraitIdentityPromptPart() {
     return 'Preserve the same person\'s facial identity and likeness from the reference portrait. Clothing, hairstyle, accessories, and styling may be changed according to the user description.';
 }
 
+/** 人像 FLUX：與 Gemini 同一條 finalPrompt，僅附加 img2img 防黏原圖底稿 */
+function promoFluxPortraitAlignWithGeminiPrompt(geminiPrompt) {
+    const base = String(geminiPrompt || '').trim();
+    const nudge = 'Img2img: keep facial identity only from reference image 1; restyle pose, wardrobe, framing, and background per the brief above — do not copy the reference composition or background.';
+    return base ? (base + ' ' + nudge) : nudge;
+}
+
 app.get('/api/promo-image/options', async (req, res) => {
     try {
         res.set('Cache-Control', 'no-store');
@@ -16906,6 +16914,8 @@ app.get('/api/promo-camera/options', async (req, res) => {
             }
         } catch (_) {}
 
+        const portraitEngine = await getPromoPortraitEngine();
+
         res.json({
             themes,
             themes_product: filterPromoThemesForShootMode(allThemes, 'product'),
@@ -16963,7 +16973,10 @@ app.get('/api/promo-camera/options', async (req, res) => {
             points_space_eye_level_4k: await getPointsPromoSpaceEyeLevelGemini(null, '4k'),
             points_portrait_1mp: await getPointsPromoCameraPortrait(null, '1k'),
             points_portrait_4mp: await getPointsPromoCameraPortrait(null, '2k'),
-            points_portrait_16mp: await getPointsPromoCameraPortrait(null, '4k')
+            points_portrait_16mp: await getPointsPromoCameraPortrait(null, '4k'),
+            promo_portrait_engine: portraitEngine,
+            /* FLUX.2 上限約 4MP；僅 flux 時前台不顯示 16 MP */
+            portrait_mp_tiers: portraitEngine === 'flux' ? [1, 4] : [1, 4, 16]
         });
     } catch (e) {
         console.error('GET /api/promo-camera/options:', e);
@@ -18823,11 +18836,16 @@ async function defaultShowOnHomepageForNewDesign(userId) {
     return true;
 }
 
-/** 依請求 body 與會員資格決定 show_on_homepage（免費強制 true） */
+/**
+ * 依請求 body 與會員資格決定 show_on_homepage（免費強制 true）。
+ * 人像攝影：付費／職員預設 false（不上媒體牆），除非 body 明確帶 show_on_homepage。
+ */
 async function resolveDesignShowOnHomepageFromRequest(userId, body) {
     if (!userId) return true;
     if (!(await canControlDesignShowOnHomepage(userId))) return true;
     if (body && typeof body.show_on_homepage !== 'undefined') return !!body.show_on_homepage;
+    const shootMode = String((body && (body.shoot_mode || body.shootMode)) || '').trim().toLowerCase();
+    if (shootMode === 'portrait') return false;
     return true;
 }
 
@@ -19469,7 +19487,16 @@ function joinPromoPromptParts(parts) {
     return (parts || []).map(function (p) { return String(p || '').trim(); }).filter(Boolean).join('. ').trim();
 }
 
-/** 情境圖／攝影模擬（有選場景）：新商業環境＋滿版；不寫 letterbox／留白等失敗樣態 */
+function promoFluxPortraitRestylePromptPart(width, height) {
+    const w = Math.min(2048, Math.max(512, Number(width) || 1024));
+    const h = Math.min(2048, Math.max(512, Number(height) || 1024));
+    return 'Output one new ' + w + '×' + h + ' commercial portrait photograph with full-bleed composition. '
+        + 'Preserve only facial identity and likeness from reference image 1. '
+        + 'Freely restyle clothing, hairstyle, pose, body stance, camera framing, and background / environment according to the shoot theme and user description — '
+        + 'do NOT keep the reference background, wardrobe, or pose unless the camera-angle setting explicitly says to keep the reference angle. '
+        + 'Create a fresh advertising portrait: new lighting and spatial context when the brief calls for it.';
+}
+
 function promoFluxFillFramePromptPart(width, height) {
     const w = Math.min(2048, Math.max(512, Number(width) || 1024));
     const h = Math.min(2048, Math.max(512, Number(height) || 1024));
@@ -20324,11 +20351,14 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
             hasStagingProduct: !!o.hasStagingProduct
         });
         if (extraRefPart) parts.push(extraRefPart);
+        /* 人像勿用「保留原圖場景」底稿，否則 FLUX 會鎖背景／姿勢 */
+        parts.push(promoFluxPortraitRestylePromptPart(width, height));
+    } else {
+        const hasScene = Boolean(String(sceneKey || '').trim()) || !!o.hasSceneImage;
+        parts.push(hasScene
+            ? promoFluxFillFramePromptPart(width, height)
+            : promoFluxPreserveReferenceScenePromptPart(width, height));
     }
-    const hasScene = Boolean(String(sceneKey || '').trim()) || !!o.hasSceneImage;
-    parts.push(hasScene
-        ? promoFluxFillFramePromptPart(width, height)
-        : promoFluxPreserveReferenceScenePromptPart(width, height));
     parts.push.apply(parts, collectPromoSceneTemplateParts(theme, scene));
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
