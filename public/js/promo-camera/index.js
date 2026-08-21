@@ -618,6 +618,12 @@
     if (moodEl) moodEl.addEventListener('change', onChange);
   }
 
+  function syncOutputCountSelects() {
+    var n = String(St.get().outputCount || 1);
+    var portraitEl = document.getElementById('pcPortraitCount');
+    if (portraitEl) portraitEl.value = n;
+  }
+
   function spacePointsForTier(opts, outputType, tier) {
     var o = opts || {};
     var t = String(tier || '2k').toLowerCase() === '4k' ? '4k' : '2k';
