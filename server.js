@@ -475,7 +475,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 官網短句才開 upsampling。氛圍已對齊清晰長組裝時必須關，否則會改寫成換臉。 */
+    /* 氛圍 FLUX：upsampling 開（使用者實測關閉時可用比例過低） */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -487,7 +487,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: false,
+            promptUpsampling: true,
             skipPromptTranslation: true,
             safetyTolerance: 2
         }
@@ -610,7 +610,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
 
 /**
  * 人像 FLUX（氛圍）：提示詞組裝對齊清晰 Gemini（buildPromoPortraitGeminiPrompt），
- * 模型仍走 FLUX（safety 2、jpeg、原生≤1024；長組裝時 disable upsampling，避免改寫換臉）。
+ * 模型仍走 FLUX（upsampling true、safety 2、jpeg、原生≤1024）。
  * 姿勢：僅 portrait_formal_id 鎖參考圖；其餘句尾加「姿勢依情境調整」。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
