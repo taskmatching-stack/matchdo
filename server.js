@@ -609,51 +609,40 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX（氛圍）定案規則（使用者 2026-08-21）：
- * - BFL 參數對齊官網：upsampling true、safety 2、jpeg、原生≤1024
- * - 全體：參考圖人物不變（靠短主題名＋參考圖；不送主題英文長文，避免 fashion/beauty 被 upsampling 換臉）
- * - 姿勢：僅 portrait_formal_id 鎖參考圖姿勢；其餘「姿勢依情境調整」且放在 prompt 最後（避免被長相機參數蓋掉）
- * - 場景 DB、相機參數保留；相機去掉產品向「no scene or lighting change」以免鎖死場景／姿勢
- * 清晰／Gemini 不經此函式。
+ * 人像 FLUX（氛圍）：提示詞組裝對齊清晰 Gemini（buildPromoPortraitGeminiPrompt），
+ * 模型仍走 FLUX（官網：upsampling true、safety 2、jpeg、原生≤1024）。
+ * 姿勢：僅 portrait_formal_id 鎖參考圖；其餘句尾加「姿勢依情境調整」。
  */
-function sanitizePromoPortraitFluxCameraBlock(block) {
-    return String(block || '')
-        .replace(/\bno scene or lighting change\b[,.]?\s*/gi, '')
-        .replace(/\bphotorealistic product photo\b[,.]?\s*/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .replace(/\.\s*\./g, '.')
-        .trim();
-}
-
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const themeKey = String(o.themeKey || '').trim();
-    const user = String(o.userPrompt || '').trim();
-    const cameraBlock = sanitizePromoPortraitFluxCameraBlock(o.cameraBlock);
     const isFormalId = themeKey === 'portrait_formal_id';
     const poseLine = isFormalId ? '姿勢維持參考圖' : '姿勢依情境調整';
-    const parts = [];
 
-    if (user) parts.push(user);
-    /* 只送主題中文名，不送 scene_prompt／composition（英文長文＋upsampling＝換臉主因） */
-    if (theme.name) parts.push(String(theme.name).trim());
+    const base = promoSpaceGemini.buildPromoPortraitGeminiPrompt({
+        themeKey: themeKey,
+        themeLabel: theme.name || themeKey,
+        themePrompt: theme.prompt,
+        themeComposition: theme.composition,
+        sceneLabel: scene.name || '',
+        scenePrompt: scene.prompt,
+        sceneComposition: scene.composition,
+        userPrompt: o.userPrompt,
+        shotBrief: o.shotBrief,
+        cameraBlock: o.cameraBlock,
+        hasSceneImage: !!o.hasSceneImage,
+        hasStagingProduct: !!o.hasStagingProduct,
+        width: o.width,
+        height: o.height,
+        tier: o.tier
+    });
 
-    if (!o.hasSceneImage) {
-        const sceneLong = [scene.name, scene.prompt, scene.composition]
-            .map(function (s) { return String(s || '').trim(); })
-            .filter(Boolean)
-            .join(' ');
-        if (sceneLong) parts.push(sceneLong);
-    }
-
-    if (cameraBlock) parts.push(cameraBlock);
-
-    /* 姿勢句放最後：放開頭會被長相機參數蓋掉，姿勢會鎖死參考圖 */
-    const joined = parts.filter(Boolean).join('，');
-    if (joined.indexOf(poseLine) >= 0) return joined;
-    return joined ? (joined + '，' + poseLine) : poseLine;
+    const text = String(base || '').trim();
+    if (!text) return poseLine;
+    if (text.indexOf(poseLine) >= 0) return text;
+    return text + ' ' + poseLine;
 }
 
 /**
