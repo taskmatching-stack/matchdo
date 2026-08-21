@@ -126,8 +126,8 @@
                   </div>
                   <div class="col-md-8">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型名稱</label>
-                    <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍模式用</p>
+                    <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍模式用（鎖臉建議 <code>flux-2-max</code>，與官網 Playground 一致）</p>
                   </div>
                 </div>
               </div>
@@ -669,7 +669,7 @@
       gemini_model_promo_portrait: (gPortrait && gPortrait.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_space_eye_level: (gSpaceEye && gSpaceEye.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_space_layout: (gLayout && gLayout.value.trim()) || 'gemini-3-pro-image',
-      bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-pro',
+      bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
     };
     var btn = document.getElementById('btnSavePromoCameraModels');

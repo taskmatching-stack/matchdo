@@ -488,7 +488,8 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         {
             promptUpsampling: true,
             skipPromptTranslation: true,
-            safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : undefined
+            /* 對齊官網 playground：safety 2 */
+            safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : 2
         }
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
@@ -608,9 +609,9 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：對齊 BFL 官網短編輯句 + upsampling；不加鎖臉詞。
- * 主題／場景／攝影參數仍帶入（短句原文），並固定「姿勢依情境調整」。
- * Gemini 人像組裝仍走 buildPromoPortraitGeminiPrompt，未改。
+ * 人像 FLUX：對齊官網能鎖臉的接法——短編輯句 + upsampling + max。
+ * 勿塞主題長 prompt／鏡頭參數（upsampling 會擴寫成另一個人）。
+ * 場景／攝影參數完整組裝仍在 Gemini（清晰）buildPromoPortraitGeminiPrompt。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -618,40 +619,22 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
     const shotBrief = String(o.shotBrief || '').trim();
-    const cameraBlock = String(o.cameraBlock || '').trim();
     const parts = [];
 
     if (user) {
         parts.push(user);
     } else if (theme.name) {
         parts.push('改為' + String(theme.name).trim() + '風格');
-    } else if (theme.prompt) {
-        parts.push(String(theme.prompt).trim().slice(0, 160));
-    }
-
-    if (theme.prompt && user) {
-        const tp = String(theme.prompt).trim().slice(0, 120);
-        if (tp) parts.push(tp);
-    }
-    if (theme.composition) {
-        const tc = String(theme.composition).trim().slice(0, 100);
-        if (tc) parts.push(tc);
     }
 
     if (o.hasSceneImage) {
         parts.push('並改到參考場景環境');
-    } else if (scene.name || scene.prompt || scene.composition) {
-        const sceneBit = [scene.name, scene.prompt, scene.composition]
-            .map(function (s) { return String(s || '').trim(); })
-            .filter(Boolean)
-            .join(' ')
-            .slice(0, 160);
-        if (sceneBit) parts.push('場景：' + sceneBit);
+    } else if (scene.name) {
+        parts.push('場景改為' + String(scene.name).trim());
     }
 
     if (o.hasStagingProduct) parts.push('自然帶入道具');
-    if (shotBrief) parts.push(shotBrief);
-    if (cameraBlock) parts.push('鏡頭與曝光：' + cameraBlock);
+    if (shotBrief && shotBrief.length <= 80) parts.push(shotBrief);
     parts.push('姿勢依情境調整');
 
     const out = parts.filter(Boolean).join('，');
@@ -15521,7 +15504,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_design_to_physical: 'flux-2-pro',
     bfl_flux_model_promo_image: 'flux-2-pro',
     bfl_flux_model_promo_space_eye_level: 'flux-2-max',
-    bfl_flux_model_promo_portrait: 'flux-2-pro'
+    /* 人像氛圍：官網鎖臉實測為 max；pro 一致性較弱 */
+    bfl_flux_model_promo_portrait: 'flux-2-max'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
