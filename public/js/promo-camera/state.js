@@ -51,6 +51,7 @@
     sceneReferenceImage: '',
     themeKey: '',
     sceneKey: '',
+    portraitRenderMode: 'clear',
     aspectRatio: '1:1',
     megapixels: 1,
     width: 1024,
@@ -182,7 +183,16 @@
       if (themes.length && !state.themeKey) {
         state.themeKey = themes[0].key || '';
       }
+      var defMode = String(data.promo_portrait_default_render_mode || '').toLowerCase();
+      if (defMode === 'mood' || defMode === 'clear') {
+        state.portraitRenderMode = defMode;
+      }
     }
+  }
+
+  function setPortraitRenderMode(mode) {
+    var m = String(mode || '').toLowerCase();
+    state.portraitRenderMode = (m === 'mood') ? 'mood' : 'clear';
   }
 
   function addImage(url, sourceType, sourceId) {
@@ -735,6 +745,7 @@
       fluxPayload.width = state.width;
       fluxPayload.height = state.height;
       fluxPayload.aspect_ratio = state.aspectRatio;
+      fluxPayload.portrait_render_mode = state.portraitRenderMode === 'mood' ? 'mood' : 'clear';
     }
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;
@@ -784,6 +795,7 @@
     visibleCategories: visibleCategories,
     getThemesForMode: getThemesForMode,
     setShootMode: setShootMode,
+    setPortraitRenderMode: setPortraitRenderMode,
     setSpaceStyleSource: setSpaceStyleSource,
     setSpaceUseType: setSpaceUseType,
     getSpaceZoneIntentsForUseType: getSpaceZoneIntentsForUseType,

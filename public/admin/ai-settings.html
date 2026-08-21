@@ -82,27 +82,56 @@
             <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。模型更新時改這裡即可，不必改程式。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
-              <div class="row g-3">
+              <p class="form-text small text-muted mb-3">前台只顯示「清晰模式／氛圍模式」（不顯示模型名稱）。此處設定各模式實際引擎與 model id。</p>
+              <div class="row g-3 mb-3">
                 <div class="col-md-4">
-                  <label class="form-label small mb-1" for="enginePromoPortrait">引擎</label>
-                  <select id="enginePromoPortrait" class="form-select form-select-sm">
-                    <option value="gemini" selected>gemini（僅 Gemini）</option>
-                    <option value="auto">auto（Gemini → FLUX 備援）</option>
-                    <option value="flux">flux（僅 FLUX）</option>
+                  <label class="form-label small mb-1" for="promoPortraitDefaultRenderMode">前台預設模式</label>
+                  <select id="promoPortraitDefaultRenderMode" class="form-select form-select-sm">
+                    <option value="clear" selected>清晰模式</option>
+                    <option value="mood">氛圍模式</option>
                   </select>
-                  <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 選 <code>flux</code> 時人像解析度只有 <strong>1／4 MP</strong>（不會出現 16 MP）；儲存後請重新整理攝影模擬頁。</p>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
-                  <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
-                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 手填 model id</p>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型名稱</label>
-                  <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
-                  <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 手填 model id</p>
+                  <p class="form-text small text-muted mb-0"><code>promo_portrait_default_render_mode</code></p>
                 </div>
               </div>
+              <div class="border rounded p-3 mb-3 bg-light">
+                <h6 class="small fw-bold mb-2">清晰模式</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="enginePromoPortraitClear">引擎</label>
+                    <select id="enginePromoPortraitClear" class="form-select form-select-sm">
+                      <option value="gemini" selected>gemini</option>
+                      <option value="auto">auto（Gemini → FLUX 備援）</option>
+                      <option value="flux">flux</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code>（預設 gemini）</p>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
+                    <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 清晰模式用</p>
+                  </div>
+                </div>
+              </div>
+              <div class="border rounded p-3 bg-light">
+                <h6 class="small fw-bold mb-2">氛圍模式</h6>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="enginePromoPortraitMood">引擎</label>
+                    <select id="enginePromoPortraitMood" class="form-select form-select-sm">
+                      <option value="flux" selected>flux</option>
+                      <option value="auto">auto（Gemini → FLUX 備援）</option>
+                      <option value="gemini">gemini</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_mood_engine</code>（預設 flux；flux 時解析度僅 1／4 MP）</p>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型名稱</label>
+                    <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍模式用</p>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" id="enginePromoPortrait" value="gemini" />
             </div>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">空間平視（對照 ISO）</h6>
@@ -342,13 +371,35 @@
     var print = document.getElementById('enginePrintAsset');
     var pattern = document.getElementById('enginePatternExtract');
     var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
+    var portraitClear = document.getElementById('enginePromoPortraitClear');
+    var portraitMood = document.getElementById('enginePromoPortraitMood');
+    var portraitDefaultMode = document.getElementById('promoPortraitDefaultRenderMode');
     var portrait = document.getElementById('enginePromoPortrait');
     if (vendor && data.vendor_asset_optimize_engine) vendor.value = data.vendor_asset_optimize_engine;
     if (combo && data.material_dual_color_engine) combo.value = data.material_dual_color_engine;
     if (print && data.print_asset_engine) print.value = data.print_asset_engine;
     if (pattern && data.pattern_extract_engine) pattern.value = data.pattern_extract_engine;
     if (spaceEye && data.promo_space_eye_level_engine) spaceEye.value = data.promo_space_eye_level_engine;
-    if (portrait && data.promo_portrait_engine) portrait.value = data.promo_portrait_engine;
+    if (portraitClear) {
+      portraitClear.value = data.promo_portrait_clear_engine
+        || ((data.promo_portrait_engine && data.promo_portrait_engine !== 'flux') ? data.promo_portrait_engine : 'gemini');
+    }
+    if (portraitMood) {
+      portraitMood.value = data.promo_portrait_mood_engine || 'flux';
+    }
+    if (portraitDefaultMode) {
+      var dm = data.promo_portrait_default_render_mode;
+      if (dm !== 'clear' && dm !== 'mood') {
+        dm = (data.promo_portrait_engine === 'flux') ? 'mood' : 'clear';
+      }
+      portraitDefaultMode.value = dm;
+    }
+    if (portrait) {
+      var syncEng = (portraitDefaultMode && portraitDefaultMode.value === 'mood')
+        ? ((portraitMood && portraitMood.value) || 'flux')
+        : ((portraitClear && portraitClear.value) || 'gemini');
+      portrait.value = syncEng;
+    }
     var hint = document.getElementById('engineConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -365,9 +416,12 @@
     if (promoHint && data.saved_in_db) {
       var ps = data.saved_in_db;
       var pp = [];
-      if (ps.promo_portrait_engine) pp.push('人像引擎');
-      if (ps.gemini_model_promo_portrait) pp.push('人像Gemini');
-      if (ps.bfl_flux_model_promo_portrait) pp.push('人像FLUX');
+      if (ps.promo_portrait_default_render_mode) pp.push('人像預設模式');
+      if (ps.promo_portrait_clear_engine) pp.push('清晰引擎');
+      if (ps.promo_portrait_mood_engine) pp.push('氛圍引擎');
+      if (ps.promo_portrait_engine) pp.push('人像引擎(相容)');
+      if (ps.gemini_model_promo_portrait) pp.push('清晰模型');
+      if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍模型');
       if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
       if (ps.bfl_flux_model_promo_space_eye_level) pp.push('平視FLUX');
@@ -591,6 +645,9 @@
   async function savePromoCameraModels() {
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var portraitClear = document.getElementById('enginePromoPortraitClear');
+    var portraitMood = document.getElementById('enginePromoPortraitMood');
+    var portraitDefaultMode = document.getElementById('promoPortraitDefaultRenderMode');
     var portrait = document.getElementById('enginePromoPortrait');
     var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
     var gPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
@@ -598,8 +655,16 @@
     var gLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
     var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
+    var defaultMode = (portraitDefaultMode && portraitDefaultMode.value === 'mood') ? 'mood' : 'clear';
+    var clearEng = (portraitClear && portraitClear.value) || 'gemini';
+    var moodEng = (portraitMood && portraitMood.value) || 'flux';
+    var legacyEng = defaultMode === 'mood' ? moodEng : clearEng;
+    if (portrait) portrait.value = legacyEng;
     var payload = {
-      promo_portrait_engine: (portrait && portrait.value) || 'gemini',
+      promo_portrait_default_render_mode: defaultMode,
+      promo_portrait_clear_engine: clearEng,
+      promo_portrait_mood_engine: moodEng,
+      promo_portrait_engine: legacyEng,
       promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
       gemini_model_promo_portrait: (gPortrait && gPortrait.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_space_eye_level: (gSpaceEye && gSpaceEye.value.trim()) || 'gemini-3-pro-image',
@@ -617,8 +682,7 @@
         return;
       }
       await loadAiConfig();
-      showMsg('商攝已儲存：人像引擎「' + payload.promo_portrait_engine + '」Gemini「' + payload.gemini_model_promo_portrait + '」FLUX「' + payload.bfl_flux_model_promo_portrait + '」；平視引擎「' + payload.promo_space_eye_level_engine + '」Gemini「' + payload.gemini_model_promo_space_eye_level + '」FLUX「' + payload.bfl_flux_model_promo_space_eye_level + '」；ISO「' + payload.gemini_model_promo_space_layout + '」'
-        + (payload.promo_portrait_engine === 'flux' ? '。人像解析度已收斂為 1／4 MP（無 16 MP），請重新整理 /promo-camera。' : ''));
+      showMsg('商攝已儲存：人像預設「' + defaultMode + '」清晰引擎「' + clearEng + '」氛圍引擎「' + moodEng + '」；平視「' + payload.promo_space_eye_level_engine + '」。請重新整理攝影模擬頁。');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);

@@ -513,10 +513,14 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
 }
 
 /**
- * 人像：後台 promo_portrait_engine = gemini｜flux｜auto（預設 gemini＝Banana Pro）
+ * 人像：依清晰／氛圍模式解析引擎（後台可調）；未指定則用全域預設。
+ * fluxOpts.enginePref 可覆寫。
  */
 async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts) {
-    const pref = await getPromoPortraitEngine();
+    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
+    const pref = fo.enginePref
+        ? normalizeOptimizeEnginePref(fo.enginePref)
+        : await getPromoPortraitEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
     const hasGemini = !!process.env.GEMINI_API_KEY;
@@ -547,16 +551,19 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     return generatePromoPortraitImageWithFlux(imageRefs, fluxPrompt || geminiPrompt, geminiOpts, fluxOpts);
 }
 
-async function resolvePromoPortraitOutputDims(body) {
+async function resolvePromoPortraitOutputDims(body, enginePref) {
     const b = body && typeof body === 'object' ? body : {};
     let spaceResTier = promoSpaceGemini.normalizeSpaceResolutionTier(
         b.space_resolution_tier,
         b.width,
         b.height
     );
-    /* FLUX.2 上限約 4MP（2048 長邊）；人像選 16 MP 時強制降為 4 MP */
     try {
-        const eng = await getPromoPortraitEngine();
+        let eng = enginePref ? normalizeOptimizeEnginePref(enginePref) : '';
+        if (!eng) {
+            const ctx = await resolvePromoPortraitRenderContext(b);
+            eng = ctx.engine;
+        }
         if (eng === 'flux' && spaceResTier === '4k') spaceResTier = '2k';
     } catch (_) {}
     const aspectRatio = String(b.aspect_ratio || '').trim() || '1:1';
@@ -1194,7 +1201,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const imageRefs = refBases.map(function (b64) {
         return { base64: b64, mime: 'image/jpeg' };
     });
-    const outDims = await resolvePromoPortraitOutputDims(body);
+    const renderCtx = await resolvePromoPortraitRenderContext(body);
+    const outDims = await resolvePromoPortraitOutputDims(body, renderCtx.engine);
     const w = outDims.width;
     const h = outDims.height;
     const aspectRatio = outDims.aspectRatio;
@@ -1235,7 +1243,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if (!process.env.GEMINI_API_KEY && !process.env.BFL_API_KEY) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
-    const providers = await assertPromoPortraitProvidersReady();
+    const providers = await assertPromoPortraitProvidersReady(renderCtx.engine);
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
@@ -1319,7 +1327,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     targetHeight: h,
                     aspect_ratio: aspectRatio
                 },
-                { safetyTolerance: fluxSafetyTolerance }
+                { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine }
             );
             buffer = gen && gen.buffer;
             imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -1523,7 +1531,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     const imageRefs = refBases.map(function (b64) {
         return { base64: b64, mime: 'image/jpeg' };
     });
-    const outDims = await resolvePromoPortraitOutputDims(body);
+    const renderCtx = await resolvePromoPortraitRenderContext(body);
+    const outDims = await resolvePromoPortraitOutputDims(body, renderCtx.engine);
     const w = outDims.width;
     const h = outDims.height;
     const aspectRatio = outDims.aspectRatio;
@@ -1554,7 +1563,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
         }
     }
-    const providers = await assertPromoPortraitProvidersReady();
+    const providers = await assertPromoPortraitProvidersReady(renderCtx.engine);
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
@@ -1609,7 +1618,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 targetHeight: h,
                 aspect_ratio: aspectRatio
             },
-            { safetyTolerance: fluxSafetyTolerance }
+            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine }
         );
         buffer = gen && gen.buffer;
         imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -2517,7 +2526,7 @@ async function getPromoSpaceEyeLevelEngine() {
     return getOptimizeEnginePref('promo_space_eye_level_engine', 'PROMO_SPACE_EYE_LEVEL_ENGINE');
 }
 
-/** 人像：預設 gemini（Banana Pro）；後台可切 auto／flux */
+/** 人像：舊鍵 promo_portrait_engine（相容）；新路徑請用 clear／mood 模式引擎 */
 async function getPromoPortraitEngine() {
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'promo_portrait_engine').maybeSingle();
@@ -2527,8 +2536,52 @@ async function getPromoPortraitEngine() {
     return normalizeOptimizeEnginePref(process.env.PROMO_PORTRAIT_ENGINE || 'gemini');
 }
 
-async function assertPromoPortraitProvidersReady() {
-    const pref = await getPromoPortraitEngine();
+function normalizePromoPortraitRenderMode(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
+    if (s === 'clear' || s === 'sharp' || s === '清晰') return 'clear';
+    return '';
+}
+
+async function getPromoPortraitDefaultRenderMode() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'promo_portrait_default_render_mode').maybeSingle();
+        const n = normalizePromoPortraitRenderMode(row?.value);
+        if (n) return n;
+    } catch (_) {}
+    const eng = await getPromoPortraitEngine();
+    return eng === 'flux' ? 'mood' : 'clear';
+}
+
+async function getPromoPortraitEngineForRenderMode(mode) {
+    const m = mode === 'mood' ? 'mood' : 'clear';
+    const key = m === 'mood' ? 'promo_portrait_mood_engine' : 'promo_portrait_clear_engine';
+    const envKey = m === 'mood' ? 'PROMO_PORTRAIT_MOOD_ENGINE' : 'PROMO_PORTRAIT_CLEAR_ENGINE';
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', key).maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return normalizeOptimizeEnginePref(fromDb);
+    } catch (_) {}
+    if (process.env[envKey]) return normalizeOptimizeEnginePref(process.env[envKey]);
+    return m === 'mood' ? 'flux' : 'gemini';
+}
+
+async function resolvePromoPortraitRenderContext(body) {
+    const b = body && typeof body === 'object' ? body : {};
+    const fromBody = normalizePromoPortraitRenderMode(b.portrait_render_mode || b.render_mode);
+    const mode = fromBody || await getPromoPortraitDefaultRenderMode();
+    const engine = await getPromoPortraitEngineForRenderMode(mode);
+    return {
+        mode: mode,
+        engine: engine,
+        mp_tiers: engine === 'flux' ? [1, 4] : [1, 4, 16]
+    };
+}
+
+async function assertPromoPortraitProvidersReady(enginePref) {
+    const pref = enginePref
+        ? normalizeOptimizeEnginePref(enginePref)
+        : await getPromoPortraitEngine();
     const hasGemini = !!process.env.GEMINI_API_KEY;
     const hasFlux = !!process.env.BFL_API_KEY;
     if (pref === 'gemini' && !hasGemini) {
@@ -11572,7 +11625,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'print_asset_engine',
             'pattern_extract_engine',
             'promo_space_eye_level_engine',
-            'promo_portrait_engine'
+            'promo_portrait_engine',
+            'promo_portrait_clear_engine',
+            'promo_portrait_mood_engine'
         ];
         const configKeys = [
             'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
@@ -11580,6 +11635,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'gemini_model_pattern_extract',
             'gemini_model_promo_space_layout', 'gemini_model_promo_space_eye_level',
             'gemini_model_promo_portrait',
+            'promo_portrait_default_render_mode',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -11592,6 +11648,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const patternEngine = await getPatternExtractEngine();
         const spaceEyeEngine = await getPromoSpaceEyeLevelEngine();
         const portraitEngine = await getPromoPortraitEngine();
+        const portraitClearEngine = await getPromoPortraitEngineForRenderMode('clear');
+        const portraitMoodEngine = await getPromoPortraitEngineForRenderMode('mood');
+        const portraitDefaultMode = await getPromoPortraitDefaultRenderMode();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -11610,6 +11669,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
             pattern_extract_engine: patternEngine,
             promo_space_eye_level_engine: spaceEyeEngine,
             promo_portrait_engine: portraitEngine,
+            promo_portrait_clear_engine: portraitClearEngine,
+            promo_portrait_mood_engine: portraitMoodEngine,
+            promo_portrait_default_render_mode: portraitDefaultMode,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -11630,6 +11692,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 pattern_extract_engine: !!byKey.pattern_extract_engine,
                 promo_space_eye_level_engine: !!byKey.promo_space_eye_level_engine,
                 promo_portrait_engine: !!byKey.promo_portrait_engine,
+                promo_portrait_clear_engine: !!byKey.promo_portrait_clear_engine,
+                promo_portrait_mood_engine: !!byKey.promo_portrait_mood_engine,
+                promo_portrait_default_render_mode: !!byKey.promo_portrait_default_render_mode,
                 ...bfl.saved_in_db
             }
         });
@@ -11680,13 +11745,25 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_promo_portrait !== undefined) {
             upserts.push({ key: 'gemini_model_promo_portrait', value: String(body.gemini_model_promo_portrait).trim(), updated_at: now });
         }
+        if (body.promo_portrait_default_render_mode !== undefined) {
+            const mode = normalizePromoPortraitRenderMode(body.promo_portrait_default_render_mode);
+            if (!mode) {
+                return res.status(400).json({
+                    error: '人像預設模式無效',
+                    hint: '請選 clear 或 mood'
+                });
+            }
+            upserts.push({ key: 'promo_portrait_default_render_mode', value: mode, updated_at: now });
+        }
         const engineFields = [
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
             'print_asset_engine',
             'pattern_extract_engine',
             'promo_space_eye_level_engine',
-            'promo_portrait_engine'
+            'promo_portrait_engine',
+            'promo_portrait_clear_engine',
+            'promo_portrait_mood_engine'
         ];
         for (const key of engineFields) {
             if (body[key] === undefined) continue;
@@ -11759,6 +11836,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             promo_portrait_engine: byKey.promo_portrait_engine
                 ? normalizeOptimizeEnginePref(byKey.promo_portrait_engine)
                 : null,
+            promo_portrait_clear_engine: byKey.promo_portrait_clear_engine
+                ? normalizeOptimizeEnginePref(byKey.promo_portrait_clear_engine)
+                : null,
+            promo_portrait_mood_engine: byKey.promo_portrait_mood_engine
+                ? normalizeOptimizeEnginePref(byKey.promo_portrait_mood_engine)
+                : null,
+            promo_portrait_default_render_mode: normalizePromoPortraitRenderMode(byKey.promo_portrait_default_render_mode) || null,
             ...bfl.models
         });
     } catch (e) {
@@ -16913,6 +16997,9 @@ app.get('/api/promo-camera/options', async (req, res) => {
         } catch (_) {}
 
         const portraitEngine = await getPromoPortraitEngine();
+        const clearEng = await getPromoPortraitEngineForRenderMode('clear');
+        const moodEng = await getPromoPortraitEngineForRenderMode('mood');
+        const portraitDefaultMode = await getPromoPortraitDefaultRenderMode();
 
         res.json({
             themes,
@@ -16973,8 +17060,12 @@ app.get('/api/promo-camera/options', async (req, res) => {
             points_portrait_4mp: await getPointsPromoCameraPortrait(null, '2k'),
             points_portrait_16mp: await getPointsPromoCameraPortrait(null, '4k'),
             promo_portrait_engine: portraitEngine,
-            /* FLUX.2 上限約 4MP；僅 flux 時前台不顯示 16 MP */
-            portrait_mp_tiers: portraitEngine === 'flux' ? [1, 4] : [1, 4, 16]
+            promo_portrait_default_render_mode: portraitDefaultMode,
+            portrait_render_modes: {
+                clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
+                mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16] }
+            },
+            portrait_mp_tiers: (await getPromoPortraitEngineForRenderMode(portraitDefaultMode)) === 'flux' ? [1, 4] : [1, 4, 16]
         });
     } catch (e) {
         console.error('GET /api/promo-camera/options:', e);

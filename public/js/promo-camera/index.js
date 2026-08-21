@@ -591,10 +591,31 @@
     updateGenerateBtn();
   }
 
-  function syncOutputCountSelects() {
-    var n = String(St.get().outputCount || 1);
-    var portraitEl = document.getElementById('pcPortraitCount');
-    if (portraitEl) portraitEl.value = n;
+  function syncPortraitRenderModeUi() {
+    var mode = String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood' ? 'mood' : 'clear';
+    var clearEl = document.getElementById('pcPortraitRenderClear');
+    var moodEl = document.getElementById('pcPortraitRenderMood');
+    if (clearEl) clearEl.checked = mode === 'clear';
+    if (moodEl) moodEl.checked = mode === 'mood';
+  }
+
+  function bindPortraitRenderMode() {
+    var clearEl = document.getElementById('pcPortraitRenderClear');
+    var moodEl = document.getElementById('pcPortraitRenderMood');
+    if (!clearEl || clearEl.getAttribute('data-pc-bound') === '1') return;
+    function onChange() {
+      var v = (moodEl && moodEl.checked) ? 'mood' : 'clear';
+      if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
+      refreshSpaceMpSelectLabels();
+      updateSpaceDimsHint();
+      updatePoints();
+      if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+        window.PromoCameraSpecSummary.refresh();
+      }
+    }
+    clearEl.setAttribute('data-pc-bound', '1');
+    clearEl.addEventListener('change', onChange);
+    if (moodEl) moodEl.addEventListener('change', onChange);
   }
 
   function spacePointsForTier(opts, outputType, tier) {
@@ -620,9 +641,16 @@
 
   function portraitMpTiersFromOptions() {
     var opts = St.get().options || {};
-    var eng = String(opts.promo_portrait_engine || '').toLowerCase();
-    /* 後端未回傳時仍依引擎收斂：flux＝僅 1／4 MP（FLUX.2 上限 4MP） */
-    if (eng === 'flux') return [1, 4];
+    var mode = String(St.get().portraitRenderMode || 'clear').toLowerCase();
+    var modes = opts.portrait_render_modes || {};
+    var pack = modes[mode] || modes.clear || null;
+    if (pack && Array.isArray(pack.mp_tiers) && pack.mp_tiers.length) {
+      return pack.mp_tiers.map(function (n) { return parseInt(n, 10); }).filter(function (n) { return n > 0; });
+    }
+    var eng = pack && pack.engine
+      ? String(pack.engine).toLowerCase()
+      : String(opts.promo_portrait_engine || '').toLowerCase();
+    if (eng === 'flux' || mode === 'mood') return [1, 4];
     if (Array.isArray(opts.portrait_mp_tiers) && opts.portrait_mp_tiers.length) {
       var tiers = opts.portrait_mp_tiers.map(function (n) { return parseInt(n, 10); }).filter(function (n) { return n > 0; });
       if (tiers.length) return tiers;
@@ -807,7 +835,10 @@
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
     } else if (portrait) {
-      var portraitEng = String((St.get().options || {}).promo_portrait_engine || '').toLowerCase();
+      var modes = (St.get().options && St.get().options.portrait_render_modes) || {};
+      var modeKey = String(St.get().portraitRenderMode || 'clear').toLowerCase();
+      var pack = modes[modeKey] || {};
+      var portraitEng = String(pack.engine || (St.get().options || {}).promo_portrait_engine || '').toLowerCase();
       if (portraitEng === 'flux' && St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('2k');
       }
@@ -817,6 +848,7 @@
       }
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
+      syncPortraitRenderModeUi();
     }
 
     var prodBtn = document.getElementById('pcModeProduct');
@@ -1873,6 +1905,7 @@
   function bindEvents() {
     updateBackLink();
     bindPreserveSubjectsSelect();
+    bindPortraitRenderMode();
     bindSpaceMapMarkUi();
 
     var modeProduct = document.getElementById('pcModeProduct');
@@ -2283,6 +2316,7 @@
       if (!res.data.camera_defaults_by_mode) {
         St.pushMessage('system', '伺服器版本較舊，無法依產品／空間／人像分別套用參數預設。請重啟本機 Node 或部署含 e3780f3 以後的版本。');
       }
+      syncPortraitRenderModeUi();
       fillSpaceUseTypes();
       updatePricingIntro();
       refreshSpaceMpSelectLabels();

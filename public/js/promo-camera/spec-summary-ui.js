@@ -83,6 +83,13 @@
     else if (scene) themeParts.push(scene);
     setVal('themeScene', joinParts(themeParts), !theme);
 
+    var renderMode = document.getElementById('pcPortraitRenderMood');
+    var renderLabel = (renderMode && renderMode.checked) ? '氛圍' : '清晰';
+    var renderWrap = document.querySelector('.pc-portrait-only');
+    if (renderWrap && !renderWrap.classList.contains('d-none')) {
+      setVal('portraitRender', renderLabel);
+    }
+
     var preserve = textOfSelect('pcPreserveSubjects');
     var angle = activeAngleLabel();
     setVal('shootSettings', joinParts([preserve, angle]));
