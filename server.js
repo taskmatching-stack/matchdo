@@ -609,9 +609,9 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：組裝既有欄位原文（使用者描述、主題／場景 DB、相機參數、套圖 brief）。
- * 禁止後端自創建議句（如「姿勢依情境調整」「氣氛與場景」等）。
- * 清晰模式仍走 buildPromoPortraitGeminiPrompt，未改。
+ * 人像 FLUX：使用者描述 + 主題／場景 DB + 相機參數 + 套圖 brief（皆原文）。
+ * 固定附上官網實測句「姿勢依情境調整」（使用者已寫則不重複）。
+ * 清晰／Gemini 不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -620,6 +620,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const user = String(o.userPrompt || '').trim();
     const shotBrief = String(o.shotBrief || '').trim();
     const cameraBlock = String(o.cameraBlock || '').trim();
+    const poseLine = '姿勢依情境調整';
     const parts = [];
 
     if (user) parts.push(user);
@@ -645,7 +646,9 @@ async function buildPromoPortraitFluxPrompt(opts) {
     if (shotBrief) parts.push(shotBrief);
     if (cameraBlock) parts.push(cameraBlock);
 
-    return parts.filter(Boolean).join('，');
+    const joined = parts.filter(Boolean).join('，');
+    if (joined.indexOf(poseLine) >= 0) return joined;
+    return joined ? (joined + '，' + poseLine) : poseLine;
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
