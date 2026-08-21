@@ -103,20 +103,28 @@
     return { w: w, h: h, ratio: usedRatio, mp: megapixelsFromDims(w, h) };
   }
 
-  /** 空間模式：4 MP（Gemini 2K）或 16 MP（Gemini 4K）；長邊 2048／4096 */
+  /** 空間／人像解析度檔位：以 MP 對應（1／4／16 MP → 長邊 1024／2048／4096） */
   var SPACE_MP_TIERS = [4, 16];
+  var PORTRAIT_MP_TIERS = [1, 4, 16];
 
   function spaceTierFromMegapixels(mp) {
-    return parseInt(mp, 10) >= 16 ? '4k' : '2k';
+    var n = parseInt(mp, 10) || 0;
+    if (n >= 16) return '4k';
+    if (n <= 1) return '1k';
+    return '2k';
   }
 
   function spaceMegapixelsFromTier(tier) {
-    return String(tier || '2k').trim().toLowerCase() === '4k' ? 16 : 4;
+    var t = String(tier || '2k').trim().toLowerCase();
+    if (t === '4k') return 16;
+    if (t === '1k') return 1;
+    return 4;
   }
 
   function dimsForSpaceRatio(ratio, tier) {
-    var t = String(tier || '2k').trim().toLowerCase() === '4k' ? '4k' : '2k';
-    var minLong = t === '4k' ? 4096 : 2048;
+    var raw = String(tier || '2k').trim().toLowerCase();
+    var t = raw === '4k' ? '4k' : (raw === '1k' ? '1k' : '2k');
+    var minLong = t === '4k' ? 4096 : (t === '1k' ? 1024 : 2048);
     var usedRatio = RATIO_PRESETS[ratio] ? ratio : '1:1';
     var p = RATIO_PRESETS[usedRatio];
     var aspect = p.w / p.h;
@@ -271,6 +279,14 @@
       }
     });
     el.innerHTML = html;
+    /* 手機 WebKit：optgroup 內 selected 常無效，須再設 value */
+    if (sel) {
+      el.value = sel;
+      if (el.value !== sel) {
+        var fallback = list[0] && String(list[0][vk] || '');
+        if (fallback) el.value = fallback;
+      }
+    }
   }
 
   /** 情境圖攝影參數：預設「通用預設」；「（不追加）」固定在最下方 */
@@ -657,6 +673,7 @@
     RATIO_PRESETS: RATIO_PRESETS,
     MP_TIERS: MP_TIERS,
     SPACE_MP_TIERS: SPACE_MP_TIERS,
+    PORTRAIT_MP_TIERS: PORTRAIT_MP_TIERS,
     spaceTierFromMegapixels: spaceTierFromMegapixels,
     spaceMegapixelsFromTier: spaceMegapixelsFromTier,
     dimsForRatio: dimsForRatio,

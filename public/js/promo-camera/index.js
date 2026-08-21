@@ -610,16 +610,46 @@
       : (o.points_space_layout != null ? o.points_space_layout : 30);
   }
 
+  function portraitPointsForTier(opts, tier) {
+    var o = opts || {};
+    var t = String(tier || '2k').toLowerCase();
+    if (t === '1k') return o.points_portrait_1mp != null ? o.points_portrait_1mp : 20;
+    if (t === '4k') return o.points_portrait_16mp != null ? o.points_portrait_16mp : 50;
+    return o.points_portrait_4mp != null ? o.points_portrait_4mp : 20;
+  }
+
+  function syncSpaceMpSelectOptions() {
+    var mpEl = document.getElementById('pcSpaceMpSelect');
+    if (!mpEl) return;
+    var portrait = isPortraitMode();
+    var want = portrait
+      ? (Promo && Promo.PORTRAIT_MP_TIERS ? Promo.PORTRAIT_MP_TIERS : [1, 4, 16])
+      : (Promo && Promo.SPACE_MP_TIERS ? Promo.SPACE_MP_TIERS : [4, 16]);
+    var cur = mpEl.value;
+    var html = '';
+    want.forEach(function (mp, i) {
+      html += '<option value="' + mp + '"' + (String(mp) === String(cur) || (!cur && i === 0) ? ' selected' : '') + '>' + mp + ' MP</option>';
+    });
+    mpEl.innerHTML = html;
+    if (want.indexOf(parseInt(cur, 10)) < 0) {
+      mpEl.value = String(want[0]);
+      if (St.setSpaceMegapixels) St.setSpaceMegapixels(want[0]);
+    }
+  }
+
   function refreshSpaceMpSelectLabels() {
     var mpEl = document.getElementById('pcSpaceMpSelect');
     if (!mpEl) return;
+    syncSpaceMpSelectOptions();
     var opts = St.get().options || {};
-    var eye = isSpaceEyeLevel();
-    var pts4 = spacePointsForTier(opts, eye ? 'eye_level' : 'layout_plan', '2k');
-    var pts16 = spacePointsForTier(opts, eye ? 'eye_level' : 'layout_plan', '4k');
+    var portrait = isPortraitMode();
     Array.prototype.forEach.call(mpEl.options, function (opt) {
-      if (opt.value === '4') opt.textContent = '4 MP（' + pts4 + ' 點／張）';
-      if (opt.value === '16') opt.textContent = '16 MP（' + pts16 + ' 點／張）';
+      var mp = parseInt(opt.value, 10);
+      var tier = Promo && Promo.spaceTierFromMegapixels ? Promo.spaceTierFromMegapixels(mp) : (mp >= 16 ? '4k' : (mp <= 1 ? '1k' : '2k'));
+      var pts = portrait
+        ? portraitPointsForTier(opts, tier)
+        : spacePointsForTier(opts, isSpaceEyeLevel() ? 'eye_level' : 'layout_plan', tier === '1k' ? '2k' : tier);
+      opt.textContent = mp + ' MP（' + pts + ' 點／張）';
     });
     if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.renderSpaceMpChips === 'function') {
       window.PromoCameraAppShell.renderSpaceMpChips();
@@ -628,13 +658,14 @@
 
   function formatSpaceDimsHint(st) {
     var opts = St.get().options || {};
-    var outputType = isSpaceEyeLevel() ? 'eye_level' : 'layout_plan';
     var tier = st.spaceResolutionTier || '2k';
-    var pts = spacePointsForTier(opts, outputType, tier);
+    var pts = isPortraitMode()
+      ? portraitPointsForTier(opts, tier)
+      : spacePointsForTier(opts, isSpaceEyeLevel() ? 'eye_level' : 'layout_plan', tier === '1k' ? '2k' : tier);
     var dims = Promo && typeof Promo.dimsForSpaceRatio === 'function'
       ? Promo.dimsForSpaceRatio(st.aspectRatio || '1:1', tier)
       : { w: st.width, h: st.height, mp: st.megapixels };
-    var mp = dims.mp || (Promo && Promo.spaceMegapixelsFromTier ? Promo.spaceMegapixelsFromTier(tier) : (tier === '4k' ? 16 : 4));
+    var mp = dims.mp || (Promo && Promo.spaceMegapixelsFromTier ? Promo.spaceMegapixelsFromTier(tier) : (tier === '4k' ? 16 : (tier === '1k' ? 1 : 4)));
     return dims.w + '×' + dims.h + ' · ' + mp + ' MP · ' + pts + ' 點／張';
   }
 
@@ -692,7 +723,7 @@
     document.querySelectorAll('.pc-product-resolution-only').forEach(function (el) {
       el.classList.toggle('d-none', needRes);
     });
-    /* App：人像時隱藏 FLUX 1～4MP 輸出區塊，改用空間 2K／4K 控件 */
+    /* App：人像時隱藏產品 1～4MP 輸出區塊，改用空間／人像共用解析度控件（1／4／16 MP） */
     var mpEl = document.getElementById('pcMpSelect');
     if (mpEl) {
       var fluxOutBlock = mpEl.closest('.pc-app-block');
@@ -757,9 +788,14 @@
     });
 
     if (space) {
+      if (St.get().spaceResolutionTier === '1k' && St.setSpaceResolutionTier) {
+        St.setSpaceResolutionTier('2k');
+      }
+      syncSpaceMpSelectOptions();
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
     } else if (portrait) {
+      syncSpaceMpSelectOptions();
       if (St.applySpaceDimensions) {
         St.applySpaceDimensions(St.get().aspectRatio || '1:1', St.get().spaceResolutionTier || '2k');
       }
@@ -1548,6 +1584,7 @@
       sel.innerHTML = list.map(function (r) {
         return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
       }).join('');
+      if (cur) sel.value = cur;
     }
     refreshParamHint(sel, document.getElementById('pcLookHint'), list);
   }
@@ -1601,6 +1638,8 @@
       el.innerHTML = list.map(function (r) {
         return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
       }).join('');
+      if (cur) el.value = cur;
+      if (cur && el.value !== cur && list[0]) el.value = list[0].key;
     });
     var lensEl = document.getElementById('pcCam_lens');
     if (lensEl) {
@@ -1612,6 +1651,7 @@
         lensEl.innerHTML = lensList.map(function (r) {
           return '<option value="' + esc(r.key) + '"' + (r.key === lensCur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
         }).join('');
+        if (lensCur) lensEl.value = lensCur;
       }
       refreshParamHint(lensEl, document.getElementById('pcLensHint'), lensList);
     }
@@ -1685,10 +1725,7 @@
         previewOpts.width = st.width;
         previewOpts.height = st.height;
         previewOpts.aspect_ratio = st.aspectRatio;
-        var portraitBase = Promo.estimatePointsLocal(1024, 1024, opts.points_standard, opts.points_per_extra_mp);
-        if ((St.get().spaceResolutionTier || '2k') === '4k') {
-          portraitBase = Promo.estimatePointsLocal(2048, 2048, opts.points_standard, opts.points_per_extra_mp);
-        }
+        var portraitBase = portraitPointsForTier(opts, St.get().spaceResolutionTier || '2k');
         el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: portraitBase * portraitMul });
       } else {
         el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst * portraitMul });
@@ -1697,7 +1734,7 @@
     Api.pointsPreview(st.width, st.height, previewOpts).then(function (res) {
       if (res.ok && res.data && res.data.points != null) {
         var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
-        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_2k'
+        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_tier' && res.data.pricing_mode !== 'portrait_gemini_2k'
           ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
           : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
         el.textContent = text + note;
@@ -2240,6 +2277,9 @@
       }
       document.dispatchEvent(new CustomEvent('matchdo-pc-options-ready'));
       applyShootModeUi();
+      /* 手機：options 就緒後再強制對齊一次攝影參數預設（避免 optgroup selected 失效） */
+      fillCameraSelects();
+      updateLcd();
     });
   }
 

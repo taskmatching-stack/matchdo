@@ -410,14 +410,17 @@
   }
 
   function normalizeSpaceResolutionTier(raw) {
-    return String(raw || '2k').trim().toLowerCase() === '4k' ? '4k' : '2k';
+    var t = String(raw || '2k').trim().toLowerCase();
+    if (t === '4k') return '4k';
+    if (t === '1k') return '1k';
+    return '2k';
   }
 
   function applySpaceDimensions(ratio, tier) {
     var Promo = global.MatchdoPromoImage;
     if (!Promo || typeof Promo.dimsForSpaceRatio !== 'function') {
       var t = normalizeSpaceResolutionTier(tier);
-      var edge = t === '4k' ? 4096 : 2048;
+      var edge = t === '4k' ? 4096 : (t === '1k' ? 1024 : 2048);
       state.width = edge;
       state.height = edge;
       state.aspectRatio = ratio || '1:1';
@@ -444,7 +447,7 @@
     var Promo = global.MatchdoPromoImage;
     var tier = Promo && Promo.spaceTierFromMegapixels
       ? Promo.spaceTierFromMegapixels(mp)
-      : (parseInt(mp, 10) >= 16 ? '4k' : '2k');
+      : (parseInt(mp, 10) >= 16 ? '4k' : (parseInt(mp, 10) <= 1 ? '1k' : '2k'));
     setSpaceResolutionTier(tier);
   }
 

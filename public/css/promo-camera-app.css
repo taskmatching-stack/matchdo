@@ -956,7 +956,8 @@ body.pc-app-shell .pc-result-slot .scene-sim-result-inner img {
 
 /* 分區收折（與 /promo-camera 同一套 pc-spec-*；預設關閉） */
 body.pc-app-shell .pc-spec-compose .pc-spec-block {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+  border-radius: 8px;
 }
 body.pc-app-shell .pc-spec-summary {
   padding: 0.7rem 0.85rem;
