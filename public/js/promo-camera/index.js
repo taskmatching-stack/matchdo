@@ -360,9 +360,64 @@
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '拍攝中…') }));
   }
 
+  function fillPromptSentPanel(data) {
+    var panel = document.getElementById('pcPromptSentPanel');
+    var metaEl = document.getElementById('pcPromptSentMeta');
+    var bodyEl = document.getElementById('pcPromptSentBody');
+    if (!panel || !bodyEl) return;
+    var prompt = (data && (data.prompt_sent || data.final_prompt || '')) || '';
+    if (!prompt) {
+      panel.classList.add('d-none');
+      bodyEl.textContent = '';
+      if (metaEl) metaEl.textContent = '';
+      return;
+    }
+    panel.classList.remove('d-none');
+    panel.open = true;
+    var bits = [];
+    if (data.render_mode) bits.push('模式 ' + data.render_mode);
+    if (data.engine || data.image_provider) bits.push('引擎 ' + (data.engine || data.image_provider));
+    if (data.flux_request) {
+      bits.push('upsampling ' + String(data.flux_request.prompt_upsampling));
+      bits.push('safety ' + String(data.flux_request.safety_tolerance));
+      if (data.flux_request.model) bits.push('model ' + data.flux_request.model);
+    }
+    if (data.width && data.height) bits.push(data.width + '×' + data.height);
+    if (metaEl) metaEl.textContent = bits.length ? bits.join(' · ') : '實際送出（與生圖同一組裝）';
+    bodyEl.textContent = prompt;
+  }
+
+  function appendPromptSentUnderResult(el, data) {
+    if (!el || !data) return;
+    var prompt = data.prompt_sent || data.final_prompt || '';
+    if (!prompt && data.batch && Array.isArray(data.results)) {
+      prompt = (data.results[0] && (data.results[0].prompt_sent || data.results[0].final_prompt)) || '';
+    }
+    if (!prompt) return;
+    var existing = el.querySelector('.pc-prompt-sent-details');
+    if (existing) existing.remove();
+    var details = document.createElement('details');
+    details.className = 'pc-prompt-sent-details mt-2';
+    details.open = true;
+    var summary = document.createElement('summary');
+    summary.className = 'small text-muted';
+    summary.textContent = '實際送出的提示詞';
+    var pre = document.createElement('pre');
+    pre.className = 'small border rounded p-2 bg-light mb-0 mt-1';
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.wordBreak = 'break-word';
+    pre.style.maxHeight = '240px';
+    pre.style.overflow = 'auto';
+    pre.textContent = prompt;
+    details.appendChild(summary);
+    details.appendChild(pre);
+    el.appendChild(details);
+  }
+
   function showResultArea(url, data, payload) {
     if (data && data.batch && Array.isArray(data.results) && data.results.length > 1) {
       showPortraitBatchResults(data, payload);
+      fillPromptSentPanel(data.results[0] || data);
       return;
     }
     var el = document.getElementById('pcResultArea');
@@ -386,6 +441,8 @@
         : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖'))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+    appendPromptSentUnderResult(el, data);
+    fillPromptSentPanel(data);
     if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
       var layoutSrc = data.image_url || url;
       var layoutGenId = data.layout_generation_id || data.id || null;
@@ -2236,6 +2293,37 @@
         showResultError((err && err.message) ? err.message : '地圖標註合成失敗，請改上傳 ISO 檔再標');
       });
     });
+
+    var promptPreviewBtn = document.getElementById('pcPortraitPromptPreviewBtn');
+    if (promptPreviewBtn) {
+      promptPreviewBtn.addEventListener('click', function () {
+        if (!isPortraitMode()) return;
+        syncPromptFromDom();
+        var payload;
+        try {
+          payload = St.buildGeneratePayload();
+        } catch (err) {
+          fillPromptSentPanel({ prompt_sent: (err && err.message) || '無法組裝' });
+          return;
+        }
+        if (!payload.theme_key) {
+          fillPromptSentPanel({ prompt_sent: '請先選擇拍攝主題' });
+          return;
+        }
+        promptPreviewBtn.disabled = true;
+        Api.portraitPromptPreview(payload).then(function (res) {
+          promptPreviewBtn.disabled = false;
+          if (!res.ok || !res.data || !res.data.success) {
+            fillPromptSentPanel({ prompt_sent: (res.data && res.data.error) || '預覽失敗' });
+            return;
+          }
+          fillPromptSentPanel(res.data);
+        }).catch(function () {
+          promptPreviewBtn.disabled = false;
+          fillPromptSentPanel({ prompt_sent: '預覽失敗，請稍後再試' });
+        });
+      });
+    }
   }
 
   function initFromQuery() {

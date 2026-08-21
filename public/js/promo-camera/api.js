@@ -59,6 +59,18 @@
     });
   }
 
+  function portraitPromptPreview(payload) {
+    return authHeaders(true).then(function (headers) {
+      return fetch('/api/promo-camera/portrait-prompt-preview', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload || {})
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
   function loadDigitalAssets(limit, offset) {
     return authHeaders(false).then(function (headers) {
       var q = '?gallery=1&limit=' + (limit || 40) + '&offset=' + (offset || 0);
@@ -135,6 +147,7 @@
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
     generate: generate,
+    portraitPromptPreview: portraitPromptPreview,
     loadDigitalAssets: loadDigitalAssets,
     fetchMeCredits: fetchMeCredits,
     listPresets: listPresets,

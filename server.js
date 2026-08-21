@@ -647,6 +647,89 @@ async function buildPromoPortraitFluxPrompt(opts) {
     return parts.filter(Boolean).join('，');
 }
 
+/**
+ * 人像提示詞組裝預覽／除錯（不呼叫生圖）。
+ * 與 generate 同一套 buildPromoPortrait*／cameraBlock。
+ */
+async function assemblePromoPortraitPromptsFromBody(body) {
+    const b = body && typeof body === 'object' ? body : {};
+    const themeKey = String(b.theme_key || b.scene_template_key || '').trim();
+    if (!themeKey) {
+        const err = new Error('請選擇拍攝主題');
+        err.status = 400;
+        throw err;
+    }
+    const hasSceneImage = !!(b.scene_image || b.sceneImage);
+    let sceneKey = String(b.scene_key || '').trim();
+    if (hasSceneImage) sceneKey = '';
+    const userPrompt = String(b.user_prompt || b.prompt || '').trim();
+    const cameraKeys = b.camera && typeof b.camera === 'object' ? b.camera : {};
+    const hasStagingProduct = !!(b.product_image || b.productImage || b.staging_product_image);
+    const themeParts = await loadPromoTemplatePartsByKey(themeKey);
+    const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
+    const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
+    const cameraBlock = camPack.block || '';
+    const renderCtx = await resolvePromoPortraitRenderContext(b);
+    const outDims = await resolvePromoPortraitOutputDims(b, renderCtx.engine);
+    const geminiPrompt = await buildPromoPortraitFinalPrompt({
+        themeKey,
+        themeParts,
+        sceneParts,
+        userPrompt,
+        cameraBlock,
+        hasSceneImage,
+        hasStagingProduct,
+        width: outDims.width,
+        height: outDims.height,
+        tier: outDims.tier
+    });
+    const fluxPrompt = await buildPromoPortraitFluxPrompt({
+        themeKey,
+        themeParts,
+        sceneParts,
+        userPrompt,
+        cameraBlock,
+        hasSceneImage,
+        hasStagingProduct,
+        width: outDims.width,
+        height: outDims.height,
+        tier: outDims.tier
+    });
+    const engine = renderCtx.engine;
+    const promptSent = engine === 'flux' ? fluxPrompt : geminiPrompt;
+    let fluxModel = null;
+    if (engine === 'flux') {
+        try {
+            fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
+        } catch (_) {
+            fluxModel = null;
+        }
+    }
+    return {
+        render_mode: renderCtx.mode || null,
+        engine,
+        prompt_sent: promptSent,
+        gemini_prompt: geminiPrompt,
+        flux_prompt: fluxPrompt,
+        theme_key: themeKey,
+        scene_key: sceneKey || null,
+        has_scene_image: hasSceneImage,
+        has_staging_product: hasStagingProduct,
+        camera_block: cameraBlock || null,
+        width: outDims.width,
+        height: outDims.height,
+        space_resolution_tier: outDims.tier,
+        flux_request: engine === 'flux'
+            ? {
+                prompt_upsampling: true,
+                safety_tolerance: 2,
+                skip_prompt_translation: true,
+                model: fluxModel
+            }
+            : null
+    };
+}
+
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
     void userId;
     const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
@@ -1525,7 +1608,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             height: h,
             megapixels: promoImageMegapixelsFromResolution(Math.min(w, 2048), Math.min(h, 2048)),
             camera_params: cameraParamsSnapshot,
-            image_provider: imageProvider
+            image_provider: imageProvider,
+            final_prompt: finalPrompt,
+            prompt_sent: finalPrompt
         });
     }
 
@@ -1806,7 +1891,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         shoot_mode: 'portrait',
         image_provider: imageProvider,
         space_resolution_tier: spaceResTier,
-        camera_params: cameraParamsSnapshot
+        camera_params: cameraParamsSnapshot,
+        final_prompt: finalPrompt,
+        prompt_sent: finalPrompt
     });
 }
 
@@ -17267,6 +17354,27 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
     } catch (e) {
         console.error('GET /api/promo-camera/points-preview:', e);
         res.status(500).json({ error: e.message || '預覽失敗' });
+    }
+});
+
+/** 攝影模擬頁：FLUX 圖生圖（獨立 API，不修改 /api/promo-image/generate） */
+app.post('/api/promo-camera/portrait-prompt-preview', express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        let currentUser = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+            if (!error && user) currentUser = user;
+        }
+        if (!currentUser) {
+            return res.status(401).json({ success: false, error: '請先登入' });
+        }
+        const packed = await assemblePromoPortraitPromptsFromBody(req.body || {});
+        return res.json(Object.assign({ success: true, charged: false }, packed));
+    } catch (e) {
+        const status = e && e.status === 400 ? 400 : 500;
+        return res.status(status).json({ success: false, error: (e && e.message) || '預覽失敗' });
     }
 });
 

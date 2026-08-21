@@ -368,8 +368,14 @@
           <div class="pc-spec-footer mt-3">
             <div class="d-flex flex-wrap align-items-center gap-2">
               <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> <span data-i18n="promoCamera.generateBtn">拍照</span></button>
+              <button type="button" class="btn btn-outline-secondary btn-sm pc-portrait-only d-none" id="pcPortraitPromptPreviewBtn">查看將送出的提示詞</button>
               <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
             </div>
+            <details class="mt-2 pc-portrait-only d-none" id="pcPromptSentPanel">
+              <summary class="small text-muted">實際送出的提示詞</summary>
+              <p class="form-text small text-muted mb-1 mt-1" id="pcPromptSentMeta"></p>
+              <pre class="small border rounded p-2 bg-light mb-0" id="pcPromptSentBody" style="white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;"></pre>
+            </details>
             <div class="form-check form-switch mt-2 mb-0">
               <input class="form-check-input" type="checkbox" role="switch" id="pcShowOnHomepage" checked disabled>
               <label class="form-check-label small" for="pcShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
@@ -457,10 +463,10 @@
   <script src="/js/matchdo-promo-image.js?v=20260821camdef1"></script>
   <script src="/js/digital-asset-picker.js?v=5"></script>
   <script src="/js/image-lightbox.js?v=20260731v"></script>
-  <script src="/js/promo-camera/api.js?v=20260812appeal"></script>
+  <script src="/js/promo-camera/api.js?v=20260821prompt1"></script>
   <script src="/js/promo-camera/state.js?v=20260811eyecam"></script>
   <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
-  <script src="/js/promo-camera/index.js?v=20260821pts1"></script>
+  <script src="/js/promo-camera/index.js?v=20260821prompt1"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
   <script src="/js/promo-camera/spec-summary-ui.js?v=20260821d"></script>
   <script src="/js/site-footer.js"></script>
