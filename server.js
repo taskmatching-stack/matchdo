@@ -608,9 +608,9 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：對齊 BFL 官網 Playground 實測接法。
- * 官網：短中文編輯句 + 參考圖 + prompt upsampling=true，無需鎖臉詞即可保臉。
- * 勿堆英文 identity／勿整段長組裝再翻譯。
+ * 人像 FLUX：對齊 BFL 官網短編輯句 + upsampling；不加鎖臉詞。
+ * 主題／場景／攝影參數仍帶入（短句原文），並固定「姿勢依情境調整」。
+ * Gemini 人像組裝仍走 buildPromoPortraitGeminiPrompt，未改。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -618,6 +618,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
     const shotBrief = String(o.shotBrief || '').trim();
+    const cameraBlock = String(o.cameraBlock || '').trim();
     const parts = [];
 
     if (user) {
@@ -628,19 +629,33 @@ async function buildPromoPortraitFluxPrompt(opts) {
         parts.push(String(theme.prompt).trim().slice(0, 160));
     }
 
+    if (theme.prompt && user) {
+        const tp = String(theme.prompt).trim().slice(0, 120);
+        if (tp) parts.push(tp);
+    }
+    if (theme.composition) {
+        const tc = String(theme.composition).trim().slice(0, 100);
+        if (tc) parts.push(tc);
+    }
+
     if (o.hasSceneImage) {
         parts.push('並改到參考場景環境');
-    } else if (scene.name) {
-        parts.push('場景改為' + String(scene.name).trim());
-    } else if (scene.prompt) {
-        parts.push(String(scene.prompt).trim().slice(0, 120));
+    } else if (scene.name || scene.prompt || scene.composition) {
+        const sceneBit = [scene.name, scene.prompt, scene.composition]
+            .map(function (s) { return String(s || '').trim(); })
+            .filter(Boolean)
+            .join(' ')
+            .slice(0, 160);
+        if (sceneBit) parts.push('場景：' + sceneBit);
     }
 
     if (o.hasStagingProduct) parts.push('自然帶入道具');
     if (shotBrief) parts.push(shotBrief);
+    if (cameraBlock) parts.push('鏡頭與曝光：' + cameraBlock);
+    parts.push('姿勢依情境調整');
 
     const out = parts.filter(Boolean).join('，');
-    return out || (theme.name ? ('改為' + String(theme.name).trim()) : '調整拍攝情境與環境');
+    return out || '調整拍攝情境與環境，姿勢依情境調整';
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
