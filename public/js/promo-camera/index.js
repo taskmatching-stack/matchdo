@@ -740,8 +740,13 @@
     function onChange() {
       var v = (moodEl && moodEl.checked) ? 'mood' : 'clear';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
+      /* 氛圍預設 1MP；清晰維持使用者目前選擇 */
+      if (v === 'mood' && St.setSpaceResolutionTier) {
+        St.setSpaceResolutionTier('1k');
+      }
       syncPortraitThemeVisibility();
       refreshSpaceMpSelectLabels();
+      syncSpaceResolutionControls();
       updateSpaceDimsHint();
       updatePoints();
       if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
@@ -813,7 +818,10 @@
     });
     mpEl.innerHTML = html;
     if (want.indexOf(parseInt(cur, 10)) < 0) {
-      mpEl.value = String(want[want.length - 1] || want[0]);
+      /* 氛圍預設 1MP（列表第一項）；其餘維持選最高可用檔 */
+      var mood = portrait && String(St.get().portraitRenderMode || '').toLowerCase() === 'mood';
+      var fallback = mood ? (want[0] || 1) : (want[want.length - 1] || want[0]);
+      mpEl.value = String(fallback);
       if (St.setSpaceMegapixels) St.setSpaceMegapixels(mpEl.value);
     }
   }
@@ -981,8 +989,11 @@
       var modeKey = String(St.get().portraitRenderMode || 'clear').toLowerCase();
       var pack = modes[modeKey] || {};
       var portraitEng = String(pack.engine || (St.get().options || {}).promo_portrait_engine || '').toLowerCase();
-      if (portraitEng === 'flux' && St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
-        St.setSpaceResolutionTier('2k');
+      /* 氛圍／FLUX 不支援 16MP：mood 改 1k，其餘 flux 改 2k */
+      if (St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
+        if (modeKey === 'mood' || portraitEng === 'flux') {
+          St.setSpaceResolutionTier(modeKey === 'mood' ? '1k' : '2k');
+        }
       }
       syncSpaceMpSelectOptions();
       if (St.applySpaceDimensions) {
@@ -2490,6 +2501,10 @@
         St.pushMessage('system', '伺服器版本較舊，無法依產品／空間／人像分別套用參數預設。請重啟本機 Node 或部署含 e3780f3 以後的版本。');
       }
       syncPortraitRenderModeUi();
+      /* 氛圍模式預設解析度 1MP */
+      if (String(St.get().portraitRenderMode || '').toLowerCase() === 'mood' && St.setSpaceResolutionTier) {
+        St.setSpaceResolutionTier('1k');
+      }
       fillSpaceUseTypes();
       updatePricingIntro();
       refreshSpaceMpSelectLabels();

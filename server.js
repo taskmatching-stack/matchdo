@@ -610,7 +610,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
 
 /**
  * 人像 FLUX（氛圍）— 依使用者 BFL 官網實測（2026-08-21）：
- * 只需「改為在{場景名}，姿勢依情境調整」＋相機參數＋無文字句。
+ * 只需「改為在{場景名}，人物姿勢依情境調整」＋相機參數＋無文字句。
  * 主題／場景的 scene_prompt、composition 等內容描述一律不送（官網長詞會換臉）。
  * 證件／正式：姿勢改「姿勢維持參考圖」。清晰 Gemini 不經此函式。
  */
@@ -622,7 +622,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const user = String(o.userPrompt || '').trim();
     const cameraBlock = String(o.cameraBlock || '').trim();
     const isFormalId = themeKey === 'portrait_formal_id';
-    const poseLine = isFormalId ? '姿勢維持參考圖' : '姿勢依情境調整';
+    const poseLine = isFormalId ? '姿勢維持參考圖' : '人物姿勢依情境調整';
     const parts = [];
 
     if (user) parts.push(user);
