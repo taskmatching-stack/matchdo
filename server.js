@@ -1190,9 +1190,7 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
         'You are a commercial portrait photography director.',
         `Output exactly ${count} DISTINCT English shooting variation lines for separate photos in the same session.`,
         'Each line must differ in framing, body angle, gaze, pose, or camera distance.',
-        'Do NOT describe face, age, ethnicity, hair color, beauty, or invent a different person.',
-        'Do NOT name clothing brands or rewrite the subject identity.',
-        'Photographic direction only (camera/framing/pose). Keep identity implicit via the reference photo.',
+        'Keep the same subject identity, theme intent, and any user styling constraints.',
         `Return ONLY a JSON array of ${count} strings. No markdown.`,
         '',
         `Theme: ${themeLabel}`
