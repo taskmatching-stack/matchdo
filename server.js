@@ -474,7 +474,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* prompt 已由 buildPromoPortraitFluxPrompt 組好（identity 英文＋欄位分開翻譯） */
+    /* 對齊官網：短編輯句原文送出 + prompt upsampling 開；不整段翻譯、不加鎖臉詞 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -486,7 +486,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: false,
+            promptUpsampling: true,
             skipPromptTranslation: true,
             safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : undefined
         }
