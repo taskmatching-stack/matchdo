@@ -220,7 +220,7 @@
             </summary>
             <div class="pc-spec-body">
               <div class="row g-2">
-                <div class="col-md-6">
+                <div class="col-md-6" id="pcThemeField">
                   <label class="form-label small mb-0" for="pcThemeSelect" id="pcThemeLabel" data-i18n="promoCamera.theme">主題</label>
                   <select id="pcThemeSelect" class="form-select form-select-sm"></select>
                 </div>
@@ -372,7 +372,7 @@
               <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
             </div>
             <div class="alert alert-warning py-2 small mb-2 d-none" id="pcPromptDebugBanner" hidden role="status">
-              測試模式：請先選<strong>人像</strong>＋主題，再按黃色按鈕「查看將送出的提示詞」。測完請從網址拿掉 <code>prompt_debug=1</code>。
+              測試模式：請先選<strong>人像</strong>（清晰需主題；氛圍不顯示主題），再按黃色按鈕「查看將送出的提示詞」。測完請從網址拿掉 <code>prompt_debug=1</code>。
             </div>
             <details class="mt-2 d-none" id="pcPromptSentPanel" hidden open>
               <summary class="small fw-bold">② 實際送出的提示詞（測試用）</summary>

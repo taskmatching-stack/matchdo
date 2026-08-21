@@ -692,6 +692,45 @@
     var moodEl = document.getElementById('pcPortraitRenderMood');
     if (clearEl) clearEl.checked = mode === 'clear';
     if (moodEl) moodEl.checked = mode === 'mood';
+    syncPortraitThemeVisibility();
+  }
+
+  /** 氛圍：隱藏主題（不選、不送）；清晰：顯示且必選 */
+  function syncPortraitThemeVisibility() {
+    if (!isPortraitMode()) {
+      var fieldRest = document.getElementById('pcThemeField');
+      if (fieldRest) fieldRest.classList.remove('d-none');
+      var appThemeRowRest = document.getElementById('pcThemePickerBtn');
+      if (appThemeRowRest) {
+        var rowRest = appThemeRowRest.closest('.pc-app-row');
+        if (rowRest) rowRest.classList.remove('d-none');
+      }
+      return;
+    }
+    var mood = String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood';
+    var field = document.getElementById('pcThemeField');
+    if (field) field.classList.toggle('d-none', mood);
+    else {
+      var themeEl = document.getElementById('pcThemeSelect');
+      var col = themeEl && themeEl.closest('.col-md-6');
+      if (col) col.classList.toggle('d-none', mood);
+    }
+    var pickerBtn = document.getElementById('pcThemePickerBtn');
+    if (pickerBtn) {
+      var appRow = pickerBtn.closest('.pc-app-row');
+      if (appRow) appRow.classList.toggle('d-none', mood);
+    }
+    var kicker = document.querySelector('.pc-flux-shoot-only .pc-spec-kicker');
+    if (kicker) {
+      if (!kicker.getAttribute('data-pc-kicker-base')) {
+        kicker.setAttribute('data-pc-kicker-base', (kicker.textContent || '').trim() || '主題與場景');
+      }
+      kicker.textContent = mood ? '場景' : kicker.getAttribute('data-pc-kicker-base');
+    }
+    if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+      window.PromoCameraSpecSummary.refresh();
+    }
+    updateGenerateBtn();
   }
 
   function bindPortraitRenderMode() {
@@ -701,6 +740,7 @@
     function onChange() {
       var v = (moodEl && moodEl.checked) ? 'mood' : 'clear';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
+      syncPortraitThemeVisibility();
       refreshSpaceMpSelectLabels();
       updateSpaceDimsHint();
       updatePoints();
@@ -2345,7 +2385,7 @@
           fillPromptSentPanel({ prompt_sent: (err && err.message) || '無法組裝' });
           return;
         }
-        if (!payload.theme_key) {
+        if (!payload.theme_key && payload.portrait_render_mode !== 'mood') {
           fillPromptSentPanel({ prompt_sent: '請先選擇拍攝主題' });
           return;
         }

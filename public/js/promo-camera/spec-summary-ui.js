@@ -78,10 +78,13 @@
     var theme = textOfSelect('pcThemeSelect');
     var scene = textOfSelect('pcSceneSelect');
     var sceneRefN = thumbCount('pcSceneRefThumbs');
-    var themeParts = [theme || '主題未選'];
+    var moodEl = document.getElementById('pcPortraitRenderMood');
+    var isMood = !!(moodEl && moodEl.checked);
+    var themeParts = isMood ? [] : [theme || '主題未選'];
     if (sceneRefN) themeParts.push('場景參考圖');
     else if (scene) themeParts.push(scene);
-    setVal('themeScene', joinParts(themeParts), !theme);
+    if (!themeParts.length) themeParts.push(isMood ? '依場景' : '主題未選');
+    setVal('themeScene', joinParts(themeParts), isMood ? false : !theme);
 
     var renderMode = document.getElementById('pcPortraitRenderMood');
     var renderLabel = (renderMode && renderMode.checked) ? '氛圍' : '清晰';

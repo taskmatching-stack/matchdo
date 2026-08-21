@@ -652,8 +652,9 @@ async function buildPromoPortraitFluxPrompt(opts) {
  */
 async function assemblePromoPortraitPromptsFromBody(body) {
     const b = body && typeof body === 'object' ? body : {};
+    const renderCtx = await resolvePromoPortraitRenderContext(b);
     const themeKey = String(b.theme_key || b.scene_template_key || '').trim();
-    if (!themeKey) {
+    if (renderCtx.mode !== 'mood' && !themeKey) {
         const err = new Error('請選擇拍攝主題');
         err.status = 400;
         throw err;
@@ -664,11 +665,12 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const userPrompt = String(b.user_prompt || b.prompt || '').trim();
     const cameraKeys = b.camera && typeof b.camera === 'object' ? b.camera : {};
     const hasStagingProduct = !!(b.product_image || b.productImage || b.staging_product_image);
-    const themeParts = await loadPromoTemplatePartsByKey(themeKey);
+    const themeParts = themeKey
+        ? await loadPromoTemplatePartsByKey(themeKey)
+        : { name: '', prompt: '', composition: '' };
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
     const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
     const cameraBlock = camPack.block || '';
-    const renderCtx = await resolvePromoPortraitRenderContext(b);
     const outDims = await resolvePromoPortraitOutputDims(b, renderCtx.engine);
     const geminiPrompt = await buildPromoPortraitFinalPrompt({
         themeKey,
@@ -1337,7 +1339,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const themeKey = String(body.theme_key || body.scene_template_key || '').trim();
     let sceneKey = String(body.scene_key || '').trim();
     if (resolvedRefs.hasSceneImage) sceneKey = '';
-    if (!themeKey) {
+    // 氛圍不走主題長文；清晰才必選主題
+    if (renderCtx.mode !== 'mood' && !themeKey) {
         return res.status(400).json({ success: false, error: '請選擇拍攝主題' });
     }
     const userPrompt = String(body.user_prompt || body.prompt || '').trim();
@@ -1680,7 +1683,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     const themeKey = String(body.theme_key || body.scene_template_key || '').trim();
     let sceneKey = String(body.scene_key || '').trim();
     if (resolvedRefs.hasSceneImage) sceneKey = '';
-    if (!themeKey) {
+    // 氛圍不走主題長文；清晰才必選主題
+    if (renderCtx.mode !== 'mood' && !themeKey) {
         return res.status(400).json({ success: false, error: '請選擇拍攝主題' });
     }
     const userPrompt = String(body.user_prompt || body.prompt || '').trim();
