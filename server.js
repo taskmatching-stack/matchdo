@@ -475,7 +475,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 官網：prompt_upsampling true、safety 2、jpeg、不整段翻譯 */
+    /* 官網短句才開 upsampling。氛圍已對齊清晰長組裝時必須關，否則會改寫成換臉。 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -487,7 +487,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: true,
+            promptUpsampling: false,
             skipPromptTranslation: true,
             safetyTolerance: 2
         }
@@ -610,7 +610,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
 
 /**
  * 人像 FLUX（氛圍）：提示詞組裝對齊清晰 Gemini（buildPromoPortraitGeminiPrompt），
- * 模型仍走 FLUX（官網：upsampling true、safety 2、jpeg、原生≤1024）。
+ * 模型仍走 FLUX（safety 2、jpeg、原生≤1024；長組裝時 disable upsampling，避免改寫換臉）。
  * 姿勢：僅 portrait_formal_id 鎖參考圖；其餘句尾加「姿勢依情境調整」。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
@@ -719,12 +719,13 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         space_resolution_tier: outDims.tier,
         flux_request: engine === 'flux'
             ? {
-                prompt_upsampling: true,
+                prompt_upsampling: false,
                 safety_tolerance: 2,
                 skip_prompt_translation: true,
                 model: fluxModel,
                 bfl_max_edge: 1024,
-                output_format: 'jpeg'
+                output_format: 'jpeg',
+                note: 'long Gemini-aligned prompt → upsampling off'
             }
             : null
     };
