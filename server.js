@@ -461,7 +461,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
     }
-    const prompt = String(promptText || '').trim();
+    let prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('人像提示詞為空');
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
@@ -474,6 +474,11 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
+    /* 主題／描述常含中文 → 整段翻譯會改寫 identity 句並擴寫成「另一個人」；先翻再鎖臉 */
+    prompt = await translatePromptToEnglishForFlux(prompt);
+    prompt = 'The person from image 1 (input_image) must keep the exact same face, facial features, and identity. '
+        + 'Do not replace them with a different person. Change pose, clothing, and environment only as the brief requires. '
+        + prompt;
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -486,6 +491,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         process.env.BFL_API_KEY,
         {
             promptUpsampling: false,
+            skipPromptTranslation: true,
             safetyTolerance: fo.safetyTolerance != null ? fo.safetyTolerance : undefined
         }
     );
@@ -15681,7 +15687,13 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
 /** 通用 BFL 圖生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, width, height, seed, outputFormat, BFL_API_KEY, opts) {
     return runInBflQueue(async () => {
-    prompt = await translatePromptToEnglishForFlux(prompt);
+    const o = opts && typeof opts === 'object' ? opts : {};
+    /* 人像等已是英文組裝時勿再整段翻譯，否則會改寫 identity 句並把主題擴成「另一個人」 */
+    if (!o.skipPromptTranslation) {
+        prompt = await translatePromptToEnglishForFlux(prompt);
+    } else {
+        prompt = String(prompt || '').trim();
+    }
     const images = referenceImages.slice(0, 8).map((img) => {
         if (typeof img === 'string' && img.startsWith('data:')) {
             const m = img.match(/^data:image\/\w+;base64,(.+)$/);
@@ -15694,7 +15706,6 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     const body = { prompt, output_format: (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg', width: w, height: h, input_image: images[0] };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
-    const o = opts && typeof opts === 'object' ? opts : {};
     if (o.promptUpsampling === true) {
         body.prompt_upsampling = true;
         body.disable_pup = false;
