@@ -10,7 +10,7 @@
 | 項目 | 狀態 |
 |------|------|
 | 遠端 `main`（英文化＋空間用途程式內建英文） | `9d71c6a` 已 push |
-| **本交接 commit**（空間用途後台＋前端 fallback） | 見下方 push 後 hash |
+| **本交接 commit**（空間用途後台＋前端 fallback＋本檔） | `8eb506d` 已 push |
 | Cloud Run 正式站 | **未必已部署**；部署指令見文末 |
 | 本機 | 需重啟 `npm start` 才吃到最新 `server.js` |
 
