@@ -360,18 +360,45 @@
     Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '拍攝中…') }));
   }
 
+  function isPortraitPromptDebugEnabled() {
+    try {
+      var p = new URLSearchParams(window.location.search || '');
+      return p.get('prompt_debug') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function syncPortraitPromptDebugUi() {
+    var on = isPortraitMode() && isPortraitPromptDebugEnabled();
+    var btn = document.getElementById('pcPortraitPromptPreviewBtn');
+    var panel = document.getElementById('pcPromptSentPanel');
+    if (btn) {
+      btn.hidden = !on;
+      btn.classList.toggle('d-none', !on);
+    }
+    if (panel && !on) {
+      panel.hidden = true;
+      panel.classList.add('d-none');
+      panel.open = false;
+    }
+  }
+
   function fillPromptSentPanel(data) {
+    if (!isPortraitPromptDebugEnabled()) return;
     var panel = document.getElementById('pcPromptSentPanel');
     var metaEl = document.getElementById('pcPromptSentMeta');
     var bodyEl = document.getElementById('pcPromptSentBody');
     if (!panel || !bodyEl) return;
     var prompt = (data && (data.prompt_sent || data.final_prompt || '')) || '';
     if (!prompt) {
+      panel.hidden = true;
       panel.classList.add('d-none');
       bodyEl.textContent = '';
       if (metaEl) metaEl.textContent = '';
       return;
     }
+    panel.hidden = false;
     panel.classList.remove('d-none');
     panel.open = true;
     var bits = [];
@@ -383,12 +410,12 @@
       if (data.flux_request.model) bits.push('model ' + data.flux_request.model);
     }
     if (data.width && data.height) bits.push(data.width + '×' + data.height);
-    if (metaEl) metaEl.textContent = bits.length ? bits.join(' · ') : '實際送出（與生圖同一組裝）';
+    if (metaEl) metaEl.textContent = bits.length ? bits.join(' · ') : '實際送出（測試用，與生圖同一組裝）';
     bodyEl.textContent = prompt;
   }
 
   function appendPromptSentUnderResult(el, data) {
-    if (!el || !data) return;
+    if (!isPortraitPromptDebugEnabled() || !el || !data) return;
     var prompt = data.prompt_sent || data.final_prompt || '';
     if (!prompt && data.batch && Array.isArray(data.results)) {
       prompt = (data.results[0] && (data.results[0].prompt_sent || data.results[0].final_prompt)) || '';
@@ -401,7 +428,7 @@
     details.open = true;
     var summary = document.createElement('summary');
     summary.className = 'small text-muted';
-    summary.textContent = '實際送出的提示詞';
+    summary.textContent = '實際送出的提示詞（測試用）';
     var pre = document.createElement('pre');
     pre.className = 'small border rounded p-2 bg-light mb-0 mt-1';
     pre.style.whiteSpace = 'pre-wrap';
@@ -884,6 +911,7 @@
     document.querySelectorAll('.pc-portrait-only').forEach(function (el) {
       el.classList.toggle('d-none', !portrait);
     });
+    syncPortraitPromptDebugUi();
     updateSpaceOutputPanel();
     updatePortraitBatchUi();
     document.querySelectorAll('.pc-staging-product-only').forEach(function (el) {
