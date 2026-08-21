@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。下方「重繪引擎切換」可選 auto（Gemini 優先、滿額／429 備援 FLUX）、強制 Gemini、或強制 FLUX。儲存後立即生效，不必改 Cloud Run 環境變數。</p>
+        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -69,27 +69,77 @@
                 </select>
                 <p class="form-text small text-muted mb-0"><code>pattern_extract_engine</code></p>
               </div>
-              <div class="col-md-4">
-                <label class="form-label small mb-1" for="enginePromoSpaceEyeLevel">空間平視（對照 ISO）</label>
-                <select id="enginePromoSpaceEyeLevel" class="form-select form-select-sm">
-                  <option value="auto">auto（Gemini → FLUX.2 [max] 備援）</option>
-                  <option value="gemini">gemini（僅 Gemini）</option>
-                  <option value="flux">flux（僅 FLUX.2 [max]）</option>
-                </select>
-                <p class="form-text small text-muted mb-0"><code>promo_space_eye_level_engine</code> — 商攝導演平視；備援模型見下方 FLUX 槽</p>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label small mb-1" for="enginePromoPortrait">人像攝影</label>
-                <select id="enginePromoPortrait" class="form-select form-select-sm">
-                  <option value="gemini" selected>gemini（Banana Pro）</option>
-                  <option value="auto">auto（Gemini → FLUX 備援）</option>
-                  <option value="flux">flux（僅 FLUX・情境圖槽）</option>
-                </select>
-                <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code> — 預設 Banana Pro；FLUX 用下方「人像攝影」獨立槽</p>
-              </div>
             </div>
+            <p class="form-text small text-muted mt-2 mb-0">商攝導演（空間平視／人像）的引擎＋<strong>模型名稱</strong>請到下方「商攝導演」卡片一併設定。</p>
             <button type="button" class="btn btn-sm btn-warning mt-3" id="btnSaveEngineConfig">儲存引擎切換</button>
             <span id="engineConfigDbHint" class="small text-muted ms-2"></span>
+          </div>
+        </div>
+
+        <div class="card mb-3 border-info">
+          <div class="card-body">
+            <h6 class="card-title">商攝導演・引擎＋模型名稱</h6>
+            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。模型更新時改這裡即可，不必改程式。</p>
+            <div class="border rounded p-3 mb-3 bg-white">
+              <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="enginePromoPortrait">引擎</label>
+                  <select id="enginePromoPortrait" class="form-select form-select-sm">
+                    <option value="gemini" selected>gemini（僅 Gemini）</option>
+                    <option value="auto">auto（Gemini → FLUX 備援）</option>
+                    <option value="flux">flux（僅 FLUX）</option>
+                  </select>
+                  <p class="form-text small text-muted mb-0"><code>promo_portrait_engine</code></p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
+                  <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 手填 model id</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型名稱</label>
+                  <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 手填 model id</p>
+                </div>
+              </div>
+            </div>
+            <div class="border rounded p-3 mb-3 bg-white">
+              <h6 class="small fw-bold mb-2">空間平視（對照 ISO）</h6>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="enginePromoSpaceEyeLevel">引擎</label>
+                  <select id="enginePromoSpaceEyeLevel" class="form-select form-select-sm">
+                    <option value="auto">auto（Gemini → FLUX 備援）</option>
+                    <option value="gemini">gemini（僅 Gemini）</option>
+                    <option value="flux">flux（僅 FLUX）</option>
+                  </select>
+                  <p class="form-text small text-muted mb-0"><code>promo_space_eye_level_engine</code></p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoSpaceEyeLevel">Gemini 模型名稱</label>
+                  <input type="text" id="aiConfigGeminiModelPromoSpaceEyeLevel" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_space_eye_level</code> — 手填 model id</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="bflFluxModelPromoSpaceEyeLevel">FLUX 模型名稱</label>
+                  <input type="text" id="bflFluxModelPromoSpaceEyeLevel" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_space_eye_level</code> — 手填 model id</p>
+                </div>
+              </div>
+            </div>
+            <div class="border rounded p-3 mb-3 bg-white">
+              <h6 class="small fw-bold mb-2">空間 ISO 地圖（僅 Gemini）</h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoSpaceLayout">Gemini 模型名稱</label>
+                  <input type="text" id="aiConfigGeminiModelPromoSpaceLayout" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_space_layout</code> — 手填 model id</p>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-info text-white" id="btnSavePromoCameraModels">儲存商攝引擎＋模型名稱</button>
+            <span id="promoCameraModelsDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
 
@@ -136,21 +186,7 @@
               <input type="text" id="aiConfigGeminiModelPatternExtract" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite-image" />
               <p class="form-text small text-muted mb-0"><code>/pattern-extract/</code> 圖樣提取（<code>gemini_model_pattern_extract</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX（<code>bfl_flux_model_scene_pattern</code>）。</p>
             </div>
-            <div class="mb-3">
-              <label class="form-label small mb-1">空間攝影・ISO 空間地圖</label>
-              <input type="text" id="aiConfigGeminiModelPromoSpaceLayout" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
-              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 tab → <code>layout_plan</code>。<code>payment_config.gemini_model_promo_space_layout</code>；未存則預設 <code>gemini-3-pro-image</code>。解析度走 Interactions <code>response_format.image_size</code>（2K／4K）。</p>
-            </div>
-            <div class="mb-3">
-              <label class="form-label small mb-1">空間攝影・平視攝影（對照 ISO）</label>
-              <input type="text" id="aiConfigGeminiModelPromoSpaceEyeLevel" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
-              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 空間 tab → <code>eye_level</code>。<code>payment_config.gemini_model_promo_space_eye_level</code>；可與 ISO 分模型；未存則預設 <code>gemini-3-pro-image</code>。滿額／429 可備援 FLUX.2 [max]（見「重繪引擎切換」與下方 FLUX 槽）。</p>
-            </div>
-            <div class="mb-3">
-              <label class="form-label small mb-1">人像攝影（Banana Pro）</label>
-              <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm" placeholder="gemini-3-pro-image" />
-              <p class="form-text small text-muted mb-0"><code>/promo-camera</code> 人像 tab。<code>payment_config.gemini_model_promo_portrait</code>；未存則預設 <code>gemini-3-pro-image</code>。引擎切換見上方「人像攝影」；2K 起。</p>
-            </div>
+            <p class="form-text small text-muted mb-3">商攝導演（ISO／平視／人像）的 Gemini 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。</p>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
           </div>
@@ -194,16 +230,7 @@
               <input type="text" id="bflFluxModelPromoImage" class="form-control form-control-sm" placeholder="flux-2-pro" />
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_image</code> — 設計頁／廠商「情境圖」TAB（獨立槽）</p>
             </div>
-            <div class="mb-3">
-              <label class="form-label small mb-1">空間平視（對照 ISO）FLUX 備援</label>
-              <input type="text" id="bflFluxModelPromoSpaceEyeLevel" class="form-control form-control-sm" placeholder="flux-2-max" />
-              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_space_eye_level</code> — 商攝導演平視在備援／強制 FLUX 時使用。程式預設 <code>flux-2-max</code>，可改 <code>flux-2-pro</code> 等。</p>
-            </div>
-            <div class="mb-3">
-              <label class="form-label small mb-1">人像攝影 FLUX 備援</label>
-              <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm" placeholder="flux-2-pro" />
-              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — <code>/promo-camera</code> 人像 tab 在備援／強制 FLUX 時使用（與產品情境圖分開）。</p>
-            </div>
+            <p class="form-text small text-muted mb-3">商攝導演（空間平視／人像）的 FLUX 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。</p>
             <button type="button" class="btn btn-sm btn-success" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
           </div>
@@ -308,11 +335,24 @@
       if (s.material_dual_color_engine) parts.push('材料組合');
       if (s.print_asset_engine) parts.push('印花');
       if (s.pattern_extract_engine) parts.push('圖樣提取');
-      if (s.promo_space_eye_level_engine) parts.push('空間平視');
-      if (s.promo_portrait_engine) parts.push('人像');
       hint.textContent = parts.length
         ? '（已從資料庫載入：' + parts.join('、') + '）'
         : '（尚未寫入 DB；目前為程式／環境變數預設）';
+    }
+    var promoHint = document.getElementById('promoCameraModelsDbHint');
+    if (promoHint && data.saved_in_db) {
+      var ps = data.saved_in_db;
+      var pp = [];
+      if (ps.promo_portrait_engine) pp.push('人像引擎');
+      if (ps.gemini_model_promo_portrait) pp.push('人像Gemini');
+      if (ps.bfl_flux_model_promo_portrait) pp.push('人像FLUX');
+      if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
+      if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
+      if (ps.bfl_flux_model_promo_space_eye_level) pp.push('平視FLUX');
+      if (ps.gemini_model_promo_space_layout) pp.push('ISO');
+      promoHint.textContent = pp.length
+        ? '（已從資料庫載入：' + pp.join('、') + '）'
+        : '（尚未寫入 DB；目前為程式預設）';
     }
   }
 
@@ -346,9 +386,7 @@
       if (s.bfl_flux_model_scene_pattern) parts.push('實境/圖樣');
       if (s.bfl_flux_model_design_to_physical) parts.push('寫實化');
       if (s.bfl_flux_model_promo_image) parts.push('情境圖');
-      if (s.bfl_flux_model_promo_space_eye_level) parts.push('空間平視');
-      if (s.bfl_flux_model_promo_portrait) parts.push('人像');
-      hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設 flux-2-pro／空間平視 flux-2-max，儲存後寫入 DB）';
+      hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設 flux-2-pro，儲存後寫入 DB）';
     }
   }
 
@@ -388,9 +426,6 @@
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       if (s.gemini_model_print_asset) parts.push('印花');
       if (s.gemini_model_pattern_extract) parts.push('圖樣提取');
-      if (s.gemini_model_promo_space_layout) parts.push('空間攝影ISO');
-      if (s.gemini_model_promo_space_eye_level) parts.push('空間攝影平視');
-      if (s.gemini_model_promo_portrait) parts.push('人像攝影');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyEngineConfigToForm(data);
@@ -506,15 +541,11 @@
     var combo = document.getElementById('engineMaterialCombo');
     var print = document.getElementById('enginePrintAsset');
     var pattern = document.getElementById('enginePatternExtract');
-    var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
-    var portrait = document.getElementById('enginePromoPortrait');
     var payload = {
       vendor_asset_optimize_engine: (vendor && vendor.value) || 'auto',
       material_dual_color_engine: (combo && combo.value) || 'auto',
       print_asset_engine: (print && print.value) || 'auto',
-      pattern_extract_engine: (pattern && pattern.value) || 'auto',
-      promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
-      promo_portrait_engine: (portrait && portrait.value) || 'gemini'
+      pattern_extract_engine: (pattern && pattern.value) || 'auto'
     };
     var btn = document.getElementById('btnSaveEngineConfig');
     if (btn) btn.disabled = true;
@@ -526,7 +557,44 @@
         return;
       }
       await loadAiConfig();
-      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」，空間平視「' + payload.promo_space_eye_level_engine + '」，人像「' + payload.promo_portrait_engine + '」');
+      showMsg('引擎已儲存：版型／材料「' + payload.vendor_asset_optimize_engine + '」，材料組合「' + payload.material_dual_color_engine + '」，印花「' + payload.print_asset_engine + '」，圖樣提取「' + payload.pattern_extract_engine + '」');
+    } catch (e) {
+      showMsg('儲存失敗：' + (e.message || ''), true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function savePromoCameraModels() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var portrait = document.getElementById('enginePromoPortrait');
+    var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
+    var gPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
+    var gSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
+    var gLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
+    var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
+    var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
+    var payload = {
+      promo_portrait_engine: (portrait && portrait.value) || 'gemini',
+      promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
+      gemini_model_promo_portrait: (gPortrait && gPortrait.value.trim()) || 'gemini-3-pro-image',
+      gemini_model_promo_space_eye_level: (gSpaceEye && gSpaceEye.value.trim()) || 'gemini-3-pro-image',
+      gemini_model_promo_space_layout: (gLayout && gLayout.value.trim()) || 'gemini-3-pro-image',
+      bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-pro',
+      bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
+    };
+    var btn = document.getElementById('btnSavePromoCameraModels');
+    if (btn) btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/ai-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = await res.json();
+      if (!res.ok) {
+        showMsg(data.error || '儲存失敗', true);
+        return;
+      }
+      await loadAiConfig();
+      showMsg('商攝已儲存：人像引擎「' + payload.promo_portrait_engine + '」Gemini「' + payload.gemini_model_promo_portrait + '」FLUX「' + payload.bfl_flux_model_promo_portrait + '」；平視引擎「' + payload.promo_space_eye_level_engine + '」Gemini「' + payload.gemini_model_promo_space_eye_level + '」FLUX「' + payload.bfl_flux_model_promo_space_eye_level + '」；ISO「' + payload.gemini_model_promo_space_layout + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -544,9 +612,7 @@
       bfl_flux_model_vendor_material: (document.getElementById('bflFluxModelVendorMaterial') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_design_to_physical: (document.getElementById('bflFluxModelDesignToPhysical') || {}).value.trim() || 'flux-2-pro',
-      bfl_flux_model_promo_image: (document.getElementById('bflFluxModelPromoImage') || {}).value.trim() || 'flux-2-pro',
-      bfl_flux_model_promo_space_eye_level: (document.getElementById('bflFluxModelPromoSpaceEyeLevel') || {}).value.trim() || 'flux-2-max',
-      bfl_flux_model_promo_portrait: (document.getElementById('bflFluxModelPromoPortrait') || {}).value.trim() || 'flux-2-pro'
+      bfl_flux_model_promo_image: (document.getElementById('bflFluxModelPromoImage') || {}).value.trim() || 'flux-2-pro'
     };
     var btn = document.getElementById('btnSaveBflFluxConfig');
     btn.disabled = true;
@@ -558,7 +624,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」，空間平視「' + payload.bfl_flux_model_promo_space_eye_level + '」，人像「' + payload.bfl_flux_model_promo_portrait + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，材料備援「' + payload.bfl_flux_model_vendor_material + '」，情境圖「' + payload.bfl_flux_model_promo_image + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -590,9 +656,6 @@
     var inpComboFlash = document.getElementById('aiConfigGeminiModelMaterialComboFlash');
     var inpPrint = document.getElementById('aiConfigGeminiModelPrintAsset');
     var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
-    var inpSpaceLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
-    var inpSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
-    var inpPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
@@ -604,10 +667,7 @@
       gemini_model_material_combo_lite: (inpComboLite && inpComboLite.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image',
       gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image',
-      gemini_model_pattern_extract: (inpPattern && inpPattern.value.trim()) || 'gemini-3.1-flash-lite-image',
-      gemini_model_promo_space_layout: (inpSpaceLayout && inpSpaceLayout.value.trim()) || 'gemini-3-pro-image',
-      gemini_model_promo_space_eye_level: (inpSpaceEye && inpSpaceEye.value.trim()) || 'gemini-3-pro-image',
-      gemini_model_promo_portrait: (inpPortrait && inpPortrait.value.trim()) || 'gemini-3-pro-image'
+      gemini_model_pattern_extract: (inpPattern && inpPattern.value.trim()) || 'gemini-3.1-flash-lite-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -621,7 +681,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存 Gemini 模型（含空間 ISO／平視／人像：' + (data.gemini_model_promo_space_layout || payload.gemini_model_promo_space_layout) + '／' + (data.gemini_model_promo_space_eye_level || payload.gemini_model_promo_space_eye_level) + '／' + (data.gemini_model_promo_portrait || payload.gemini_model_promo_portrait) + '）');
+      showMsg('已儲存 Gemini 模型（翻譯／讀圖／標籤／材料等）');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -735,6 +795,7 @@
     });
     document.getElementById('btnSaveAiConfig')?.addEventListener('click', saveAiConfig);
     document.getElementById('btnSaveEngineConfig')?.addEventListener('click', saveEngineConfig);
+    document.getElementById('btnSavePromoCameraModels')?.addEventListener('click', savePromoCameraModels);
     document.getElementById('btnSaveBflFluxConfig')?.addEventListener('click', saveBflFluxConfig);
     document.getElementById('btnSaveGeneratedImageSemanticsPrompt')?.addEventListener('click', saveGeneratedImageSemanticsPrompt);
     document.getElementById('btnResetGeneratedImageSemanticsPrompt')?.addEventListener('click', resetGeneratedImageSemanticsPrompt);
