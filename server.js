@@ -609,37 +609,16 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX：只送「編輯意圖」，避免與參考圖身份語意衝突。
- * 衝突來源（勿再塞）：主題 scene_prompt／composition（常描述另一種氣質／人物）、
- * 套圖英文 shotBrief（定死姿勢 ↔「姿勢依情境調整」）、鏡頭長句（易被 upsampling 擴成外貌）。
- * 清晰模式仍走 Gemini 完整組裝。
+ * 人像 FLUX：只送使用者描述（與官網 Playground 相同）；禁止後端自創附加句。
+ * 無描述時才退回主題名稱原文（UI 必選主題）。清晰／Gemini 組裝不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
-    const theme = o.themeParts || { name: '', prompt: '', composition: '' };
-    const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const user = String(o.userPrompt || '').trim();
-    const parts = [];
-
-    if (user) {
-        parts.push(user);
-    } else if (theme.name) {
-        /* 只用主題「名稱」當氣氛標籤，不帶 DB 長 prompt（避免描述成另一個人） */
-        parts.push('改為「' + String(theme.name).trim() + '」氣氛與場景');
-    }
-
-    if (o.hasSceneImage) {
-        parts.push('環境改到參考場景');
-    } else if (scene.name) {
-        parts.push('場景改為' + String(scene.name).trim());
-    }
-
-    if (o.hasStagingProduct) parts.push('自然帶入道具');
-    /* 不併 shotBrief：英文構圖句與「姿勢依情境調整」語意衝突 */
-    parts.push('姿勢依情境調整');
-
-    const out = parts.filter(Boolean).join('，');
-    return out || '調整拍攝情境與環境，姿勢依情境調整';
+    if (user) return user;
+    const themeName = String((o.themeParts && o.themeParts.name) || '').trim();
+    if (themeName) return themeName;
+    return '';
 }
 
 async function getPointsPromoSpaceLayoutGemini(userId, tier) {
