@@ -149,7 +149,7 @@
       themeLabel.textContent = (themeEl.options[themeEl.selectedIndex].textContent || '').trim() || '—';
     }
     if (sceneEl && sceneLabel && sceneEl.selectedIndex >= 0) {
-      sceneLabel.textContent = (sceneEl.options[sceneEl.selectedIndex].textContent || '').trim() || t('promoCamera.sceneNone', '（不選）');
+      sceneLabel.textContent = (sceneEl.options[sceneEl.selectedIndex].textContent || '').trim() || t('promoCamera.sceneNone', '依描述設定');
     }
   }
 

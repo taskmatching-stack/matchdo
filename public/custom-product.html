@@ -834,6 +834,77 @@
             font-size: 0.9375rem; line-height: 1.5; resize: vertical;
         }
         #custom-product .prompt-hero:focus { border-color: var(--md-primary); outline: none; box-shadow: 0 0 0 3px var(--md-primary-soft, rgba(122, 143, 163, 0.14)); }
+
+        /* Apple 規格選購風可收折（僅外觀） */
+        #custom-product .cp-spec-compose { display: flex; flex-direction: column; gap: 0.75rem; }
+        #custom-product .cp-spec-block {
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            border-radius: 16px;
+            background: #fff;
+            overflow: hidden;
+            margin: 0;
+        }
+        #custom-product .cp-spec-summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 1rem 1.1rem;
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+            user-select: none;
+        }
+        #custom-product .cp-spec-summary::-webkit-details-marker { display: none; }
+        #custom-product .cp-spec-summary::after {
+            content: '';
+            margin-left: 0.25rem;
+            width: 0.55rem;
+            height: 0.55rem;
+            border-right: 2px solid #86868b;
+            border-bottom: 2px solid #86868b;
+            transform: rotate(45deg);
+            transition: transform 0.15s ease;
+            flex-shrink: 0;
+            align-self: center;
+        }
+        #custom-product .cp-spec-block[open] > .cp-spec-summary::after {
+            transform: rotate(-135deg);
+            margin-top: 0.15rem;
+        }
+        #custom-product .cp-spec-kicker {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #586470;
+            letter-spacing: -0.01em;
+            flex-shrink: 0;
+        }
+        #custom-product .cp-spec-value {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: #7A8FA3;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #custom-product .cp-spec-value--pending {
+            color: #C4784A;
+            font-weight: 500;
+        }
+        #custom-product .cp-spec-value--optional-empty {
+            color: #F7C9B0;
+            font-weight: 500;
+        }
+        #custom-product .cp-spec-lead { display: none; }
+        #custom-product .cp-spec-body {
+            padding: 0 1.1rem 1.1rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            padding-top: 0.9rem;
+        }
+        #custom-product .cp-spec-footer { padding-top: 0.15rem; }
+
         #custom-product .ref-cards-wrap::-webkit-scrollbar { width: 6px; }
         #custom-product .ref-cards-wrap::-webkit-scrollbar-track {
             background: #EAEEF3; margin: 4px 0;
@@ -1542,7 +1613,13 @@
                 </p>
                 <form id="customProductForm">
                     <div class="create-panel">
-                        <div class="create-panel-left">
+                        <div class="create-panel-left cp-spec-compose">
+                            <details class="cp-spec-block">
+                                <summary class="cp-spec-summary">
+                                    <span class="cp-spec-kicker">產品描述</span>
+                                    <span class="cp-spec-value" data-cp-spec="prompt">未填</span>
+                                </summary>
+                                <div class="cp-spec-body">
                             <div class="form-row full">
                                 <div class="prompt-label-row d-flex align-items-center gap-2 flex-wrap mb-1">
                                     <label class="label mb-0" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
@@ -1552,7 +1629,15 @@
                                 <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
                                 <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印的字請在描述句中用 &quot; &quot; 標示（? 說明）。有參考圖時材質／配件靠圖，不必寫長篇。</p>
                             </div>
+                                </div>
+                            </details>
 
+                            <details class="cp-spec-block">
+                                <summary class="cp-spec-summary">
+                                    <span class="cp-spec-kicker">產品類型</span>
+                                    <span class="cp-spec-value" data-cp-spec="category">未選</span>
+                                </summary>
+                                <div class="cp-spec-body">
                             <div class="cat-scroll-picker">
                                 <div class="cat-tablet">
                                     <div class="cat-main-panel">
@@ -1568,7 +1653,15 @@
                                 </div>
                             </div>
                             <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
+                                </div>
+                            </details>
 
+                            <details class="cp-spec-block">
+                                <summary class="cp-spec-summary">
+                                    <span class="cp-spec-kicker">參考圖</span>
+                                    <span class="cp-spec-value" data-cp-spec="refs">未選</span>
+                                </summary>
+                                <div class="cp-spec-body">
                             <div class="form-row full">
                                 <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
@@ -1581,17 +1674,23 @@
                                     <div id="refCapabilityOptions" class="d-flex flex-wrap gap-2"></div>
                                 </div>
                             </div>
-
-                            <details id="seedDetails" style="margin-bottom: 0.5rem;">
-                                <summary style="font-size: 0.8125rem; color: #8A96A3; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.35rem;">
-                                    <i class="bi bi-gear" style="font-size: 0.85rem;"></i>
-                                    <span data-i18n="customProduct.seedAdvanced">進階 Seed 設定</span>
-                                </summary>
-                                <div class="form-row full" style="margin-top: 0.5rem; margin-bottom: 0;">
-                                    <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
-                                    <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
                                 </div>
                             </details>
+
+                            <details class="cp-spec-block" id="seedDetails">
+                                <summary class="cp-spec-summary">
+                                    <span class="cp-spec-kicker">進階</span>
+                                    <span class="cp-spec-value" data-cp-spec="seed">隨機</span>
+                                </summary>
+                                <div class="cp-spec-body">
+                                    <div class="form-row full" style="margin-bottom: 0;">
+                                        <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
+                                        <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
+                                    </div>
+                                </div>
+                            </details>
+
+                            <div class="cp-spec-footer">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <button type="button" class="btn btn-primary btn-generate" id="generateImageBtn">
                                     <i class="fas fa-wand-magic-sparkles me-2"></i><span data-i18n="customProduct.generate">建立設計稿</span>
@@ -1603,6 +1702,7 @@
                                 <label class="form-check-label small" for="designShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
                             </div>
                             <p class="text-muted small mb-0 mt-1" id="designShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
+                            </div>
                         </div>
                         <div class="create-panel-right" id="generatedImagePreviewWrap">
                             <div id="generatedImagePreview"></div>
@@ -1995,6 +2095,7 @@
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/custom-product.js?v=155" defer></script>
+    <script src="/js/custom-product-spec-summary-ui.js?v=20260821e" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

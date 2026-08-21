@@ -1102,7 +1102,7 @@
   "promoCamera.pickAsset": "From digital assets",
   "promoCamera.theme": "Theme",
   "promoCamera.sceneOptional": "Scene (optional)",
-  "promoCamera.sceneNone": "(No scene)",
+  "promoCamera.sceneNone": "Set by description",
   "promoCamera.aspectRatio": "Aspect ratio",
   "promoCamera.resolution": "Resolution",
   "promoCamera.shootingAngle": "Shooting angle",

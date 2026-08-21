@@ -1625,7 +1625,7 @@
     var themeEl = document.getElementById('pcThemeSelect');
     var sceneEl = document.getElementById('pcSceneSelect');
     Promo.fillSelect(themeEl, themes, 'key', 'name', '');
-    Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', t('promoCamera.sceneNone', '（不選）'));
+    Promo.fillSelect(sceneEl, opts.scenes || [], 'key', 'name', t('promoCamera.sceneNone', '依描述設定'));
     if (themeEl && St.get().themeKey) themeEl.value = St.get().themeKey;
   }
 

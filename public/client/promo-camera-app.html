@@ -17,9 +17,9 @@
   <link href="/css/morandi-global.css?v=4" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="/css/image-lightbox.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260811mapfit" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260821specui12" rel="stylesheet" />
   <link href="/css/promo-camera-presets.css?v=20260803a" rel="stylesheet" />
-  <link href="/css/promo-camera-app.css?v=20260811mapfit" rel="stylesheet" />
+  <link href="/css/promo-camera-app.css?v=20260821specui3" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=2" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
@@ -68,7 +68,7 @@
     <div class="pc-layout">
       <section class="pc-chat-panel" aria-label="對話區">
         <div id="pcChatMessages" class="pc-chat-messages"></div>
-        <div class="pc-chat-compose pc-app-compose">
+        <div class="pc-chat-compose pc-app-compose pc-spec-compose">
           <div class="pc-app-block pc-app-block--modes mb-2">
             <div class="pc-shoot-mode-tabs btn-group btn-group-sm w-100" role="group" aria-label="拍攝模式">
               <button type="button" class="btn btn-outline-primary active" id="pcModeProduct" data-mode="product">產品攝影</button>
@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <div class="pc-app-block">
+          <div class="pc-app-block mb-2">
             <div class="pc-app-card pc-app-card--list">
               <button type="button" class="pc-app-row pc-app-row--action" id="pcPresetOpenBtn">
                 <span class="pc-app-row-action-label">
@@ -89,140 +89,112 @@
             </div>
           </div>
 
-          <div id="pcStagingProductThumbs" class="d-flex flex-wrap gap-2 mb-1 pc-staging-product-only d-none"></div>
-
-          <div class="pc-app-source-fixed pc-flux-shoot-only">
-            <div class="pc-app-block">
-              <div class="pc-app-block-title pc-app-block-title--prominent" id="pcAppSourceTitle" data-i18n="promoCamera.appSectionSource">產品圖</div>
-              <div class="pc-app-card">
-                <div class="pc-app-thumb-slot">
-                  <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2"></div>
-                </div>
-                <div class="pc-app-split-actions">
-                  <label class="pc-app-action pc-app-action--upload mb-0">
-                    <i class="bi bi-upload"></i>
-                    <span id="pcUploadLabel" data-i18n="promoCamera.uploadImage">上傳圖片</span>
-                    <input type="file" id="pcUploadInput" accept="image/*" hidden />
-                  </label>
-                  <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickAssetBtn">
-                    <i class="bi bi-images"></i>
-                    <span>資產庫</span>
-                  </button>
-                  <label class="pc-app-action pc-app-action--upload mb-0 pc-staging-product-only d-none">
-                    <span>＋道具</span>
-                    <input type="file" id="pcStagingProductInput" accept="image/*" hidden />
-                  </label>
-                  <button type="button" class="pc-app-action pc-app-action--pick pc-staging-product-only d-none" id="pcPickStagingProductBtn">
-                    <span>道具</span>
-                  </button>
-                </div>
+          <details class="pc-spec-block pc-flux-shoot-only">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" id="pcAppSourceTitle" data-i18n="promoCamera.appSectionSource">參考圖</span>
+              <span class="pc-spec-value" data-pc-spec="refs">未選</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div id="pcStagingProductThumbs" class="d-flex flex-wrap gap-2 mb-1 pc-staging-product-only d-none"></div>
+              <div class="pc-app-thumb-slot">
+                <div id="pcSelectedThumbs" class="d-flex flex-wrap gap-2"></div>
+              </div>
+              <div class="pc-app-split-actions">
+                <label class="pc-app-action pc-app-action--upload mb-0">
+                  <i class="bi bi-upload"></i>
+                  <span id="pcUploadLabel" data-i18n="promoCamera.uploadImage">上傳圖片</span>
+                  <input type="file" id="pcUploadInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickAssetBtn">
+                  <i class="bi bi-images"></i>
+                  <span>資產庫</span>
+                </button>
+                <label class="pc-app-action pc-app-action--upload mb-0 pc-staging-product-only d-none">
+                  <span>＋道具</span>
+                  <input type="file" id="pcStagingProductInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="pc-app-action pc-app-action--pick pc-staging-product-only d-none" id="pcPickStagingProductBtn">
+                  <span>道具</span>
+                </button>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-source-fixed pc-space-layout-only d-none">
-            <div class="pc-app-block">
-              <div class="pc-app-block-title pc-app-block-title--prominent">平面配置圖</div>
-              <div class="pc-app-card">
-                <div class="pc-app-thumb-slot">
-                  <div id="pcSpaceThumbs" class="d-flex flex-wrap gap-2"></div>
-                </div>
-                <div class="pc-app-split-actions">
-                  <label class="pc-app-action pc-app-action--upload mb-0">
-                    <i class="bi bi-upload"></i>
-                    <span>平面配置圖</span>
-                    <input type="file" id="pcFloorPlanInput" accept="image/*" hidden />
-                  </label>
-                  <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickFloorPlanBtn">
-                    <i class="bi bi-images"></i>
-                    <span>資產庫</span>
-                  </button>
-                  <button type="button" class="pc-app-action pc-app-action--pick pc-staging-upload-alt pc-staging-product-only d-none">
-                    <span>＋陳列</span>
-                  </button>
-                  <button type="button" class="pc-app-action pc-app-action--pick pc-staging-pick-alt pc-staging-product-only d-none">
-                    <span>道具</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="pc-app-block pc-space-only d-none">
-            <div class="pc-app-block-title">空間設定</div>
-            <div class="pc-app-card pc-app-card--list">
-              <div class="pc-app-row pc-app-row--select">
+          <details class="pc-spec-block pc-space-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker">空間設定</span>
+              <span class="pc-spec-value" data-pc-spec="spaceSetup">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-app-row pc-app-row--select mb-2">
                 <label class="pc-app-row-label" for="pcSpaceUseType">空間用途</label>
                 <select id="pcSpaceUseType" class="pc-app-inline-select"></select>
               </div>
-            </div>
-          </div>
-
-          <div class="pc-app-block pc-space-only d-none">
-            <div class="pc-app-block-title">輸出類型</div>
-            <div class="pc-app-card pc-app-card--pad">
-              <div class="form-check mb-1">
-                <input class="form-check-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutLayout" value="layout_plan" checked />
-                <label class="form-check-label small" for="pcSpaceOutLayout">ISO 空間地圖</label>
-              </div>
-              <div class="form-check mb-0">
-                <input class="form-check-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutEye" value="eye_level" />
-                <label class="form-check-label small" for="pcSpaceOutEye">平視攝影（對照 ISO）</label>
+              <label class="form-label small mb-1">輸出類型</label>
+              <div class="pc-spec-choice-row" role="group" aria-label="輸出類型">
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutLayout" value="layout_plan" checked />
+                <label class="pc-spec-choice-btn" for="pcSpaceOutLayout">ISO 空間地圖</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutEye" value="eye_level" />
+                <label class="pc-spec-choice-btn" for="pcSpaceOutEye">平視攝影（對照 ISO）</label>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-app-compose-entry">
-            <div class="pc-app-card pc-app-card--list">
-              <button type="button" class="pc-app-row pc-app-row--action pc-app-row--compose-toggle pc-compose-toggle" id="pcComposeToggle" aria-expanded="false" data-i18n-aria-label="promoCamera.composeToggleAria">
-                <span class="pc-app-row-label pc-compose-toggle-label" data-i18n="promoCamera.composeToggleLabel">情境／輸出</span>
-                <span class="pc-compose-toggle-trail">
-                  <span class="pc-compose-summary" id="pcComposeSummary"></span>
-                  <i class="bi bi-chevron-right pc-compose-toggle-icon" aria-hidden="true"></i>
-                </span>
-              </button>
-            </div>
-          </div>
-          <div class="pc-compose-body is-collapsed" id="pcComposeBody">
-
-          <div class="pc-app-block pc-space-layout-only d-none">
-            <div class="pc-app-block-title">空間地圖視角</div>
-            <div class="pc-app-card pc-app-card--pad">
-              <div class="form-check mb-1">
-                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
-                <label class="form-check-label small" for="pcSpaceLayoutIso">45° ISO（預設）</label>
+          <details class="pc-spec-block pc-space-layout-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker">平面配置</span>
+              <span class="pc-spec-value" data-pc-spec="spaceLayout">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-app-thumb-slot">
+                <div id="pcSpaceThumbs" class="d-flex flex-wrap gap-2"></div>
               </div>
-              <div class="form-check mb-0">
-                <input class="form-check-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
-                <label class="form-check-label small" for="pcSpaceLayoutTop">正上方俯視</label>
+              <div class="pc-app-split-actions mb-2">
+                <label class="pc-app-action pc-app-action--upload mb-0">
+                  <i class="bi bi-upload"></i>
+                  <span>平面配置圖</span>
+                  <input type="file" id="pcFloorPlanInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickFloorPlanBtn">
+                  <i class="bi bi-images"></i>
+                  <span>資產庫</span>
+                </button>
+                <button type="button" class="pc-app-action pc-app-action--pick pc-staging-upload-alt pc-staging-product-only d-none">
+                  <span>＋陳列</span>
+                </button>
+                <button type="button" class="pc-app-action pc-app-action--pick pc-staging-pick-alt pc-staging-product-only d-none">
+                  <span>道具</span>
+                </button>
               </div>
-            </div>
-          </div>
-
-          <div class="pc-app-block pc-space-layout-only d-none">
-            <div class="pc-app-card pc-app-card--pad">
-              <div class="d-flex flex-wrap gap-2 align-items-center">
-                <div class="form-check form-check-inline mb-0">
-                  <input class="form-check-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStylePrompt" value="prompt" checked />
-                  <label class="form-check-label small" for="pcSpaceStylePrompt">文字風格</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                  <input class="form-check-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStyleImage" value="image" />
-                  <label class="form-check-label small" for="pcSpaceStyleImage">風格圖</label>
-                </div>
-                <span id="pcSpaceStyleImageRow" class="d-none d-inline-flex align-items-center gap-1">
-                  <label class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2">
-                    <input type="file" id="pcStyleImageInput" accept="image/*" hidden />上傳
-                  </label>
-                  <span id="pcStyleThumb"></span>
-                </span>
+              <label class="form-label small mb-1">空間地圖視角</label>
+              <div class="pc-spec-choice-row mb-2" role="group" aria-label="空間地圖視角">
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
+                <label class="pc-spec-choice-btn" for="pcSpaceLayoutIso">45° ISO（預設）</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
+                <label class="pc-spec-choice-btn" for="pcSpaceLayoutTop">正上方俯視</label>
               </div>
+              <p class="form-text small text-muted mb-2">俯視較少死角；平視攝影仍可用任一種地圖標註。</p>
+              <div class="pc-spec-choice-row" role="group" aria-label="風格來源">
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStylePrompt" value="prompt" checked />
+                <label class="pc-spec-choice-btn" for="pcSpaceStylePrompt">文字風格</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStyleImage" value="image" />
+                <label class="pc-spec-choice-btn" for="pcSpaceStyleImage">風格圖</label>
+              </div>
+              <span id="pcSpaceStyleImageRow" class="d-none d-inline-flex align-items-center gap-1 mt-2">
+                <label class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2">
+                  <input type="file" id="pcStyleImageInput" accept="image/*" hidden />上傳
+                </label>
+                <span id="pcStyleThumb"></span>
+              </span>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-space-eye-only d-none">
-            <div class="pc-app-block-title">平視・ISO 地圖標註</div>
-            <div class="pc-app-card pc-app-card--pad">
+          <details class="pc-spec-block pc-space-eye-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker">ISO 地圖</span>
+              <span class="pc-spec-value" data-pc-spec="spaceMap">未選</span>
+            </summary>
+            <div class="pc-spec-body">
               <div id="pcLayoutThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
               <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
                 <label class="btn btn-sm btn-outline-secondary mb-0">
@@ -259,59 +231,14 @@
                 <p class="form-text small mb-0" id="pcSpaceMapMarkHint">打完字母並選好站點／望向後，按「確定標註」。</p>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-product-only">
-            <div class="pc-app-card pc-app-card--list">
-              <div class="pc-app-row pc-app-row--select">
-                <label class="pc-app-row-label" for="pcPreserveSubjects" data-i18n="promoCamera.preserveSubjectsLabel">人物／動物</label>
-                <select id="pcPreserveSubjects" class="pc-app-inline-select" aria-describedby="pcPreserveSubjectsHint">
-                  <option value="keep" data-i18n="promoCamera.preserveSubjectsKeep">保留</option>
-                  <option value="exclude" data-i18n="promoCamera.preserveSubjectsExclude">不含</option>
-                  <option value="prompt" data-i18n="promoCamera.preserveSubjectsPrompt">依提示詞</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="pc-app-block pc-space-output-only d-none">
-            <div class="pc-app-block-title">輸出</div>
-            <div class="pc-app-card pc-app-card--list">
-              <div class="pc-app-row">
-                <label class="pc-app-row-label" for="pcSpaceRatioSelect">長寬比</label>
-                <select id="pcSpaceRatioSelect" class="pc-app-inline-select">
-                  <option value="1:1" selected>1:1</option>
-                  <option value="4:3">4:3</option>
-                  <option value="3:2">3:2</option>
-                  <option value="3:4">3:4</option>
-                  <option value="2:3">2:3</option>
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="21:9">21:9</option>
-                  <option value="3:1">3:1</option>
-                  <option value="4:1">4:1</option>
-                  <option value="9:21">9:21</option>
-                  <option value="1:3">1:3</option>
-                  <option value="1:4">1:4</option>
-                </select>
-              </div>
-              <div class="pc-app-row pc-app-row--stack">
-                <div class="pc-app-row-head">
-                  <label class="pc-app-row-label mb-0" for="pcSpaceMpSelect" data-i18n="promoCamera.resolution">解析度</label>
-                  <span class="pc-app-row-meta" id="pcSpaceDimsHint">2048×2048 · 4 MP</span>
-                </div>
-                <div id="pcSpaceMpChips" class="pc-app-chip-grid" role="group" aria-label="解析度"></div>
-                <select id="pcSpaceMpSelect" class="pc-app-select-native d-none" tabindex="-1" aria-hidden="true">
-                  <option value="4" selected>4 MP</option>
-                  <option value="16">16 MP</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="pc-app-block pc-flux-shoot-only">
-            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionScene">情境</div>
-            <div class="pc-app-card pc-app-card--list">
+          <details class="pc-spec-block pc-flux-shoot-only">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.appSectionScene">主題與場景</span>
+              <span class="pc-spec-value" data-pc-spec="themeScene">—</span>
+            </summary>
+            <div class="pc-spec-body">
               <div class="pc-app-row pc-app-row--picker">
                 <label class="pc-app-row-label" for="pcThemeSelect" id="pcThemeLabel" data-i18n="promoCamera.theme">主題</label>
                 <button type="button" class="pc-app-picker-btn" id="pcThemePickerBtn" aria-haspopup="dialog" aria-controls="pcAppPickerModal">
@@ -323,7 +250,7 @@
               <div class="pc-app-row pc-app-row--picker">
                 <label class="pc-app-row-label" for="pcSceneSelect" data-i18n="promoCamera.sceneOptional">場景（選填）</label>
                 <button type="button" class="pc-app-picker-btn" id="pcScenePickerBtn" aria-haspopup="dialog" aria-controls="pcAppPickerModal">
-                  <span class="pc-app-picker-value" id="pcScenePickerLabel" data-i18n="promoCamera.sceneNone">（不選）</span>
+                  <span class="pc-app-picker-value" id="pcScenePickerLabel" data-i18n="promoCamera.sceneNone">依描述設定</span>
                   <i class="bi bi-chevron-right pc-app-picker-chevron" aria-hidden="true"></i>
                 </button>
                 <select id="pcSceneSelect" class="pc-app-select-native d-none" tabindex="-1" aria-hidden="true"></select>
@@ -347,12 +274,35 @@
                 </div>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-flux-shoot-only">
-            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionOutput">輸出尺寸</div>
-            <div class="pc-app-card pc-app-card--list">
-              <div class="pc-app-row pc-app-row--stack">
+          <details class="pc-spec-block pc-product-only">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker">拍攝設定</span>
+              <span class="pc-spec-value" data-pc-spec="shootSettings">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-app-row pc-app-row--select mb-2">
+                <label class="pc-app-row-label" for="pcPreserveSubjects" data-i18n="promoCamera.preserveSubjectsLabel">人物／動物</label>
+                <select id="pcPreserveSubjects" class="pc-app-inline-select" aria-describedby="pcPreserveSubjectsHint">
+                  <option value="keep" data-i18n="promoCamera.preserveSubjectsKeep">保留</option>
+                  <option value="exclude" data-i18n="promoCamera.preserveSubjectsExclude">不含</option>
+                  <option value="prompt" data-i18n="promoCamera.preserveSubjectsPrompt">依提示詞</option>
+                </select>
+              </div>
+              <div class="pc-app-row-label mb-1" data-i18n="promoCamera.appSectionAngle">拍攝角度</div>
+              <div id="pcAngleBtns" class="pc-app-chip-grid"></div>
+              <p class="pc-app-hint mb-0" id="pcAngleHint" data-i18n="promoCamera.angleHintDefault">請點上方按鈕換角度</p>
+            </div>
+          </details>
+
+          <details class="pc-spec-block pc-flux-shoot-only pc-product-resolution-only">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.appSectionOutput">輸出</span>
+              <span class="pc-spec-value" data-pc-spec="productOut">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-app-row pc-app-row--stack mb-2">
                 <div class="pc-app-row-head">
                   <label class="pc-app-row-label mb-0" for="pcRatioSelect" data-i18n="promoCamera.aspectRatio">長寬比</label>
                 </div>
@@ -387,12 +337,44 @@
                 </select>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-portrait-batch-only d-none">
-            <div class="pc-app-block-title">人像套圖</div>
-            <div class="pc-app-card pc-app-card--list">
-              <div class="pc-app-row pc-app-row--select">
+          <details class="pc-spec-block pc-space-output-only pc-space-resolution-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker">輸出</span>
+              <span class="pc-spec-value" data-pc-spec="spaceOut">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-app-row mb-2">
+                <label class="pc-app-row-label" for="pcSpaceRatioSelect">長寬比</label>
+                <select id="pcSpaceRatioSelect" class="pc-app-inline-select">
+                  <option value="1:1" selected>1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:2">3:2</option>
+                  <option value="3:4">3:4</option>
+                  <option value="2:3">2:3</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="21:9">21:9</option>
+                  <option value="3:1">3:1</option>
+                  <option value="4:1">4:1</option>
+                  <option value="9:21">9:21</option>
+                  <option value="1:3">1:3</option>
+                  <option value="1:4">1:4</option>
+                </select>
+              </div>
+              <div class="pc-app-row pc-app-row--stack">
+                <div class="pc-app-row-head">
+                  <label class="pc-app-row-label mb-0" for="pcSpaceMpSelect" data-i18n="promoCamera.resolution">解析度</label>
+                  <span class="pc-app-row-meta" id="pcSpaceDimsHint">2048×2048 · 4 MP</span>
+                </div>
+                <div id="pcSpaceMpChips" class="pc-app-chip-grid" role="group" aria-label="解析度"></div>
+                <select id="pcSpaceMpSelect" class="pc-app-select-native d-none" tabindex="-1" aria-hidden="true">
+                  <option value="4" selected>4 MP</option>
+                  <option value="16">16 MP</option>
+                </select>
+              </div>
+              <div class="pc-app-row pc-app-row--select mt-2 pc-portrait-batch-only d-none">
                 <label class="pc-app-row-label" for="pcPortraitCount">張數</label>
                 <select id="pcPortraitCount" class="pc-app-inline-select">
                   <option value="1" selected>1 張</option>
@@ -402,35 +384,26 @@
                 </select>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block pc-product-only">
-            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionAngle">拍攝角度</div>
-            <div class="pc-app-card pc-app-card--pad">
-              <div id="pcAngleBtns" class="pc-app-chip-grid"></div>
-              <p class="pc-app-hint mb-0" id="pcAngleHint" data-i18n="promoCamera.angleHintDefault">請點上方按鈕換角度</p>
-            </div>
-          </div>
-
-          <div class="pc-app-block">
-            <div class="pc-app-block-title" data-i18n="promoCamera.appSectionPrompt">描述</div>
-            <div class="pc-app-card pc-app-card--pad">
+          <details class="pc-spec-block">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.appSectionPrompt">描述</span>
+              <span class="pc-spec-value" data-pc-spec="prompt">未填</span>
+            </summary>
+            <div class="pc-spec-body">
               <textarea id="pcPromptInput" class="pc-app-textarea scene-sim-prompt-input" rows="3" data-i18n-placeholder="promoCamera.descriptionPlaceholder" data-space-placeholder="例：莫蘭迪配色" placeholder="例：皮革手提包，溫暖午後陽光、柔和陰影"></textarea>
               <p class="pc-app-hint mb-0" id="pcPromptHint" data-i18n="promoCamera.descriptionHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免 AI 誤判品項。</p>
             </div>
-          </div>
+          </details>
 
-          <div class="pc-app-block">
-            <div class="pc-app-card pc-app-card--pad">
-              <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="pcShowOnHomepage" checked disabled>
-                <label class="form-check-label small" for="pcShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
-              </div>
-              <p class="pc-app-hint mb-0 mt-1" id="pcShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
+          <div class="pc-spec-footer mt-2 mb-2">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch" id="pcShowOnHomepage" checked disabled>
+              <label class="form-check-label small" for="pcShowOnHomepage" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</label>
             </div>
+            <p class="pc-app-hint mb-0 mt-1" id="pcShowOnHomepageHint" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
           </div>
-
-          </div><!-- /pcComposeBody -->
 
           <div id="pcResultArea" class="pc-result-slot pc-app-result d-none" data-i18n-aria-label="promoCamera.resultAreaAria" aria-label="拍攝結果"></div>
 
@@ -593,8 +566,9 @@
   <script src="/js/promo-camera/api.js?v=20260811eyecam"></script>
   <script src="/js/promo-camera/state.js?v=20260811eyecam"></script>
   <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
-  <script src="/js/promo-camera/index.js?v=20260811mapfit"></script>
+  <script src="/js/promo-camera/index.js?v=20260812appeal"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
+  <script src="/js/promo-camera/spec-summary-ui.js?v=20260821d"></script>
   <script src="/js/promo-camera/app-shell.js?v=20260811mapfit"></script>
   <script src="/js/promo-camera/pwa-install-prompt.js?v=20260801a"></script>
   <script>

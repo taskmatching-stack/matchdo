@@ -1144,7 +1144,7 @@
   "promoCamera.pickAsset": "從數位資產選擇",
   "promoCamera.theme": "主題",
   "promoCamera.sceneOptional": "場景（選填）",
-  "promoCamera.sceneNone": "（不選）",
+  "promoCamera.sceneNone": "依描述設定",
   "promoCamera.aspectRatio": "長寬比",
   "promoCamera.resolution": "解析度",
   "promoCamera.shootingAngle": "拍攝角度",

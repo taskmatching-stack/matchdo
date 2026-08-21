@@ -501,10 +501,12 @@ body.pc-app-shell .pc-app-chip-grid .pc-angle-btn {
 }
 body.pc-app-shell .pc-app-chip-grid .pc-angle-btn.pc-app-chip.active,
 body.pc-app-shell .pc-app-chip-grid .pc-angle-btn.active,
+body.pc-app-shell #promo-camera-app .btn.pc-angle-btn.active,
 body.pc-app-shell #promo-camera-app .pc-angle-btn.active {
-  background: var(--pc-primary);
-  border-color: var(--pc-primary);
-  color: #fff;
+  background: #fff !important;
+  border-color: var(--pc-primary) !important;
+  box-shadow: 0 0 0 1px var(--pc-primary);
+  color: #3d4a56 !important;
 }
 body.pc-app-shell .pc-app-textarea {
   width: 100%;
@@ -950,4 +952,82 @@ body.pc-app-shell .pc-result-slot .scene-sim-result-inner img {
   margin-left: auto;
   margin-right: auto;
   object-fit: contain;
+}
+
+/* 分區收折（與 /promo-camera 同一套 pc-spec-*；預設關閉） */
+body.pc-app-shell .pc-spec-compose .pc-spec-block {
+  margin-bottom: 0.5rem;
+}
+body.pc-app-shell .pc-spec-summary {
+  padding: 0.7rem 0.85rem;
+}
+body.pc-app-shell .pc-spec-body {
+  padding: 0;
+  border-top: 1px solid var(--pc-border, rgba(88, 100, 112, 0.14));
+}
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot {
+  padding: 0.5rem 0.75rem 0.25rem;
+  margin: 0 !important;
+}
+/* 無縮圖時不留空白框 */
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot:has(#pcSelectedThumbs:empty),
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot:has(#pcSpaceThumbs:empty),
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot:has(#pcLayoutThumbs:empty) {
+  display: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body.pc-app-shell .pc-spec-body #pcStagingProductThumbs:empty,
+body.pc-app-shell .pc-spec-body #pcLayoutThumbs:empty {
+  display: none !important;
+  margin: 0 !important;
+}
+body.pc-app-shell .pc-spec-body .pc-app-split-actions {
+  width: 100%;
+  border-top: none;
+}
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot:not(:has(#pcSelectedThumbs:empty)) + .pc-app-split-actions,
+body.pc-app-shell .pc-spec-body > .pc-app-thumb-slot:not(:has(#pcSpaceThumbs:empty)) + .pc-app-split-actions {
+  border-top: 1px solid var(--pc-surface);
+}
+body.pc-app-shell .pc-spec-body .pc-app-row {
+  width: 100%;
+}
+body.pc-app-shell .pc-spec-body .pc-app-action {
+  min-height: 44px;
+  padding: 0.5rem 0.45rem;
+}
+body.pc-app-shell .pc-spec-body .form-label,
+body.pc-app-shell .pc-spec-body .pc-app-row-label,
+body.pc-app-shell .pc-spec-body .form-text,
+body.pc-app-shell .pc-spec-body .pc-app-hint,
+body.pc-app-shell .pc-spec-body .pc-spec-choice-row,
+body.pc-app-shell .pc-spec-body .pc-app-chip-grid,
+body.pc-app-shell .pc-spec-body textarea,
+body.pc-app-shell .pc-spec-body .d-flex {
+  margin-left: 0.75rem;
+  margin-right: 0.75rem;
+}
+body.pc-app-shell .pc-spec-body > .pc-app-row {
+  margin-left: 0;
+  margin-right: 0;
+}
+body.pc-app-shell .pc-spec-body > *:first-child {
+  margin-top: 0.45rem;
+}
+body.pc-app-shell .pc-spec-body > *:last-child {
+  margin-bottom: 0.55rem;
+}
+body.pc-app-shell .pc-spec-body > .pc-app-split-actions:first-child,
+body.pc-app-shell .pc-spec-body > .pc-app-split-actions:last-child {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+body.pc-app-shell .pc-spec-footer {
+  padding: 0.15rem 0.25rem 0.35rem;
+}
+body.pc-app-shell .pc-chat-panel.pc-compose-collapsed .pc-spec-block {
+  display: block;
 }

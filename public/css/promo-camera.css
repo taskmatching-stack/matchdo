@@ -95,9 +95,9 @@
   flex: 0 0 auto;
 }
 #promo-camera-app .pc-angle-btn.active {
-  background-color: #7A8FA3;
+  background-color: #fff;
   border-color: #7A8FA3;
-  color: #fff;
+  color: #3d4a56;
 }
 
 /* —— 相機外殼 —— */
@@ -385,4 +385,159 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   max-width: 100%;
   height: auto;
   vertical-align: top;
+}
+
+/* —— Apple 規格選購風：可收折區塊（僅外觀；不改邏輯） —— */
+#promo-camera-app .pc-spec-compose {
+  padding-bottom: 0.25rem;
+}
+#promo-camera-app .pc-spec-block {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+#promo-camera-app .pc-spec-block[open] {
+  border-color: rgba(0, 0, 0, 0.16);
+}
+#promo-camera-app .pc-spec-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  user-select: none;
+}
+#promo-camera-app .pc-spec-summary::-webkit-details-marker {
+  display: none;
+}
+#promo-camera-app .pc-spec-summary::after {
+  content: '';
+  margin-left: 0.25rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid #86868b;
+  border-bottom: 2px solid #86868b;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  align-self: center;
+}
+#promo-camera-app .pc-spec-block[open] > .pc-spec-summary::after {
+  transform: rotate(-135deg);
+  margin-top: 0.15rem;
+}
+#promo-camera-app .pc-spec-kicker {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #586470;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+#promo-camera-app .pc-spec-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #7A8FA3;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#promo-camera-app .pc-spec-value--pending {
+  color: #C4784A;
+  font-weight: 500;
+}
+#promo-camera-app .pc-spec-value--optional-empty {
+  color: #F7C9B0;
+  font-weight: 500;
+}
+#promo-camera-app .pc-spec-lead {
+  display: none;
+}
+#promo-camera-app .pc-spec-choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  width: 100%;
+  align-items: stretch;
+}
+#promo-camera-app .pc-spec-choice-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+#promo-camera-app .pc-spec-choice-btn {
+  margin: 0;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 1px solid rgba(88, 100, 112, 0.22);
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+  color: #586470;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  text-align: center;
+  width: 100%;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+}
+#promo-camera-app .pc-spec-choice-input:checked + .pc-spec-choice-btn {
+  border-color: #7A8FA3;
+  box-shadow: 0 0 0 1px #7A8FA3;
+  color: #3d4a56;
+  font-weight: 600;
+}
+#promo-camera-app .pc-spec-choice-btn:hover {
+  border-color: rgba(122, 143, 163, 0.55);
+}
+#promo-camera-app .pc-spec-body {
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 0.9rem;
+}
+#promo-camera-app .pc-spec-option-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+#promo-camera-app .pc-spec-option-row .pc-settings-field-label {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  color: #586470;
+}
+#promo-camera-app .pc-spec-option-row .form-select {
+  max-width: 12rem;
+}
+#promo-camera-app .pc-spec-footer {
+  padding-top: 0.25rem;
+}
+#promo-camera-app .pc-angle-btn {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  padding: 0.4rem 0.75rem;
+  background: #fff;
+  color: #586470;
+}
+#promo-camera-app .btn.pc-angle-btn.active,
+#promo-camera-app .btn-outline-secondary.pc-angle-btn.active,
+#promo-camera-app .pc-angle-btn.active,
+#promo-camera-app .pc-angle-btn:active {
+  border-color: #7A8FA3 !important;
+  box-shadow: 0 0 0 1px #7A8FA3;
+  background: #fff !important;
+  color: #3d4a56 !important;
 }
