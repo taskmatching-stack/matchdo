@@ -467,14 +467,15 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
     const targetW = opts.targetWidth || opts.width || 2048;
     const targetH = opts.targetHeight || opts.height || 2048;
-    const fluxSize = clampBflFluxOutputSize(targetW, targetH, 2048);
+    /* 官網實測：BFL 原生 1024 邊；交付尺寸仍依使用者 MP 後處理放大 */
+    const fluxSize = clampBflFluxOutputSize(targetW, targetH, 1024);
     const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_portrait');
     const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
     const bases = (Array.isArray(imageRefs) ? imageRefs : [])
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* BFL 官網：upsampling true、safety 2、不整段翻譯；prompt 含描述／姿勢句／主題／相機 */
+    /* 官網：prompt_upsampling true、safety 2、jpeg、不整段翻譯 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -608,31 +609,38 @@ async function buildPromoPortraitFinalPrompt(opts) {
 }
 
 /**
- * 人像 FLUX（氛圍）：使用者描述 +「姿勢依情境調整」+ 主題／場景 DB + 相機參數（皆保留）。
- * BFL 呼叫參數對齊官網：prompt_upsampling true、safety 2、不整段翻譯。
+ * 人像 FLUX（氛圍）定案規則（使用者 2026-08-21）：
+ * - BFL 參數對齊官網：upsampling true、safety 2、jpeg、原生≤1024
+ * - 全體：參考圖人物不變（靠短主題名＋參考圖；不送主題英文長文，避免 fashion/beauty 被 upsampling 換臉）
+ * - 姿勢：僅 portrait_formal_id「證件／正式」鎖參考圖姿勢；其餘「姿勢依情境調整」
+ * - 場景 DB、相機參數保留；相機去掉產品向「no scene or lighting change」以免鎖死場景／姿勢
  * 清晰／Gemini 不經此函式。
  */
+function sanitizePromoPortraitFluxCameraBlock(block) {
+    return String(block || '')
+        .replace(/\bno scene or lighting change\b[,.]?\s*/gi, '')
+        .replace(/\bphotorealistic product photo\b[,.]?\s*/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\.\s*\./g, '.')
+        .trim();
+}
+
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const theme = o.themeParts || { name: '', prompt: '', composition: '' };
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
+    const themeKey = String(o.themeKey || '').trim();
     const user = String(o.userPrompt || '').trim();
-    const cameraBlock = String(o.cameraBlock || '').trim();
-    const poseLine = '姿勢依情境調整';
+    const cameraBlock = sanitizePromoPortraitFluxCameraBlock(o.cameraBlock);
+    const isFormalId = themeKey === 'portrait_formal_id';
+    const poseLine = isFormalId ? '姿勢維持參考圖' : '姿勢依情境調整';
     const parts = [];
 
     if (user) parts.push(user);
     if (!user || user.indexOf(poseLine) < 0) parts.push(poseLine);
 
-    const themeLong = [theme.prompt, theme.composition]
-        .map(function (s) { return String(s || '').trim(); })
-        .filter(Boolean)
-        .join(' ');
-    if (themeLong) {
-        parts.push(themeLong);
-    } else if (!user && theme.name) {
-        parts.push(String(theme.name).trim());
-    }
+    /* 只送主題中文名，不送 scene_prompt／composition（英文長文＋upsampling＝換臉主因） */
+    if (theme.name) parts.push(String(theme.name).trim());
 
     if (!o.hasSceneImage) {
         const sceneLong = [scene.name, scene.prompt, scene.composition]
@@ -724,7 +732,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
                 prompt_upsampling: true,
                 safety_tolerance: 2,
                 skip_prompt_translation: true,
-                model: fluxModel
+                model: fluxModel,
+                bfl_max_edge: 1024,
+                output_format: 'jpeg'
             }
             : null
     };
