@@ -655,17 +655,13 @@
     syncSpaceMpSelectOptions();
     var opts = St.get().options || {};
     var portrait = isPortraitMode();
-    var eng = String(opts.promo_portrait_engine || '').toLowerCase();
     Array.prototype.forEach.call(mpEl.options, function (opt) {
       var mp = parseInt(opt.value, 10);
       var tier = Promo && Promo.spaceTierFromMegapixels ? Promo.spaceTierFromMegapixels(mp) : (mp >= 16 ? '4k' : (mp <= 1 ? '1k' : '2k'));
       var pts = portrait
         ? portraitPointsForTier(opts, tier)
         : spacePointsForTier(opts, isSpaceEyeLevel() ? 'eye_level' : 'layout_plan', tier === '1k' ? '2k' : tier);
-      var label = mp + ' MP（' + pts + ' 點／張）';
-      if (portrait && eng === 'flux' && mp === 4) label += '・FLUX 上限';
-      else if (portrait && eng === 'flux') label += '・FLUX';
-      opt.textContent = label;
+      opt.textContent = mp + ' MP（' + pts + ' 點／張）';
     });
     if (window.PromoCameraAppShell && typeof window.PromoCameraAppShell.renderSpaceMpChips === 'function') {
       window.PromoCameraAppShell.renderSpaceMpChips();
