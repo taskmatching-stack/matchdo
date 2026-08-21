@@ -368,13 +368,16 @@
           <div class="pc-spec-footer mt-3">
             <div class="d-flex flex-wrap align-items-center gap-2">
               <button type="button" class="btn btn-primary" id="pcGenerateBtn" disabled><i class="bi bi-camera"></i> <span data-i18n="promoCamera.generateBtn">拍照</span></button>
-              <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="pcPortraitPromptPreviewBtn" hidden>查看將送出的提示詞</button>
+              <button type="button" class="btn btn-warning btn-sm d-none" id="pcPortraitPromptPreviewBtn" hidden>① 查看將送出的提示詞（不扣點）</button>
               <span class="text-muted small" id="pcPointsDisplay">預估 20 點</span>
             </div>
-            <details class="mt-2 d-none" id="pcPromptSentPanel" hidden>
-              <summary class="small text-muted">實際送出的提示詞（測試用）</summary>
-              <p class="form-text small text-muted mb-1 mt-1" id="pcPromptSentMeta"></p>
-              <pre class="small border rounded p-2 bg-light mb-0" id="pcPromptSentBody" style="white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;"></pre>
+            <div class="alert alert-warning py-2 small mb-2 d-none" id="pcPromptDebugBanner" hidden role="status">
+              測試模式：請先選<strong>人像</strong>＋主題，再按黃色按鈕「查看將送出的提示詞」。測完請從網址拿掉 <code>prompt_debug=1</code>。
+            </div>
+            <details class="mt-2 d-none" id="pcPromptSentPanel" hidden open>
+              <summary class="small fw-bold">② 實際送出的提示詞（測試用）</summary>
+              <p class="form-text small text-muted mb-1 mt-1" id="pcPromptSentMeta">尚未預覽</p>
+              <pre class="small border rounded p-2 bg-light mb-0" id="pcPromptSentBody" style="white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;">（按上方黃色按鈕後顯示）</pre>
             </details>
             <div class="form-check form-switch mt-2 mb-0">
               <input class="form-check-input" type="checkbox" role="switch" id="pcShowOnHomepage" checked disabled>
@@ -466,7 +469,7 @@
   <script src="/js/promo-camera/api.js?v=20260821prompt1"></script>
   <script src="/js/promo-camera/state.js?v=20260811eyecam"></script>
   <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
-  <script src="/js/promo-camera/index.js?v=20260821prompt2"></script>
+  <script src="/js/promo-camera/index.js?v=20260821prompt3"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
   <script src="/js/promo-camera/spec-summary-ui.js?v=20260821d"></script>
   <script src="/js/site-footer.js"></script>

@@ -2700,8 +2700,8 @@ async function getPromoPortraitDefaultRenderMode() {
         const n = normalizePromoPortraitRenderMode(row?.value);
         if (n) return n;
     } catch (_) {}
-    const eng = await getPromoPortraitEngine();
-    return eng === 'flux' ? 'mood' : 'clear';
+    /* 未設定時預設清晰（勿再依舊 promo_portrait_engine=flux 回落成氛圍） */
+    return 'clear';
 }
 
 async function getPromoPortraitEngineForRenderMode(mode) {

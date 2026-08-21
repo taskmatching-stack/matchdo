@@ -370,17 +370,30 @@
   }
 
   function syncPortraitPromptDebugUi() {
-    var on = isPortraitMode() && isPortraitPromptDebugEnabled();
+    var on = isPortraitPromptDebugEnabled();
+    var portrait = isPortraitMode();
+    var show = on && portrait;
     var btn = document.getElementById('pcPortraitPromptPreviewBtn');
     var panel = document.getElementById('pcPromptSentPanel');
-    if (btn) {
-      btn.hidden = !on;
-      btn.classList.toggle('d-none', !on);
+    var banner = document.getElementById('pcPromptDebugBanner');
+    if (banner) {
+      banner.hidden = !on;
+      banner.classList.toggle('d-none', !on);
     }
-    if (panel && !on) {
-      panel.hidden = true;
-      panel.classList.add('d-none');
-      panel.open = false;
+    if (btn) {
+      btn.hidden = !show;
+      btn.classList.toggle('d-none', !show);
+    }
+    if (panel) {
+      if (show) {
+        panel.hidden = false;
+        panel.classList.remove('d-none');
+        panel.open = true;
+      } else {
+        panel.hidden = true;
+        panel.classList.add('d-none');
+        panel.open = false;
+      }
     }
   }
 
@@ -391,16 +404,14 @@
     var bodyEl = document.getElementById('pcPromptSentBody');
     if (!panel || !bodyEl) return;
     var prompt = (data && (data.prompt_sent || data.final_prompt || '')) || '';
-    if (!prompt) {
-      panel.hidden = true;
-      panel.classList.add('d-none');
-      bodyEl.textContent = '';
-      if (metaEl) metaEl.textContent = '';
-      return;
-    }
     panel.hidden = false;
     panel.classList.remove('d-none');
     panel.open = true;
+    if (!prompt) {
+      bodyEl.textContent = '（尚無內容：請選人像主題後再按黃色按鈕）';
+      if (metaEl) metaEl.textContent = '尚未預覽';
+      return;
+    }
     var bits = [];
     if (data.render_mode) bits.push('模式 ' + data.render_mode);
     if (data.engine || data.image_provider) bits.push('引擎 ' + (data.engine || data.image_provider));
