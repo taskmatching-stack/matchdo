@@ -380,13 +380,11 @@ async function getPointsPromoCameraPortrait(userId, tier) {
     return isSub ? promoCameraSubscriberFromStandard(standard) : standard;
 }
 
-/** 人像 Gemini：完整攝影參數（含角度／人物保留），與產品 FLUX 同組裝 */
 /**
- * 人像相機參數進 prompt：只送鏡頭／曝光／底片等。
- * 不可帶產品向 shooting_angle（預設 keep_reference＝do not reshoot）與
- * subject_preservation（預設 keep＝preserve people from reference）——
- * 人像 UI 已隱藏這兩項，但 state 仍可能帶產品預設，會把姿勢／構圖鎖死。
- * （與空間平視剔除邏輯同因，見 docs/PROGRESS-promo-camera-space-eye-level.md §2.1）
+ * 人像相機參數進 prompt（Gemini／FLUX 共用同一條）。
+ * 只送鏡頭／曝光／底片等；剔除產品向 shooting_angle、subject_preservation
+ * （人像 UI 已隱藏，但 state 可能仍帶產品預設 keep_reference／keep，會鎖姿勢）。
+ * 不影響產品攝影：產品走 buildPromoCameraAdvancedPrompt，仍帶完整角度／人物保留。
  */
 async function buildPromoPortraitCameraBlock(cameraKeys) {
     const raw = Object.assign({}, cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {});
@@ -20327,9 +20325,16 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
  * 刻意不含：英文廣告底稿、photography_prompt_sets、包裝標籤、後端光學／角度包裝句。
  * 不進 prompt：name、description、分組名稱、中文 UI 文案。
  */
+/**
+ * 產品攝影 FLUX 專用組裝（與人像／空間完全分離）。
+ * 人像請走 buildPromoPortraitFinalPrompt；禁止把 shootMode=portrait 傳進來。
+ */
 async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, width, height, opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
-    void o.shootMode;
+    const shootMode = String(o.shootMode || 'product').trim().toLowerCase();
+    if (shootMode === 'portrait' || shootMode === 'space') {
+        throw new Error('buildPromoCameraAdvancedPrompt 僅供產品攝影；人像／空間請走專用 handler');
+    }
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
