@@ -16515,6 +16515,71 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
 // —— 產品情境圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
 const PROMO_SCENE_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
 
+const PROMO_SPACE_USE_SELECT =
+    'key, name, name_en, name_ja, name_es, name_de, name_fr, layout_label, layout_label_en, sort_order, is_active, created_at, updated_at';
+
+let _promoSpaceUseTypesCache = null;
+let _promoSpaceUseTypesCacheAt = 0;
+
+function invalidatePromoSpaceUseTypesCache() {
+    _promoSpaceUseTypesCache = null;
+    _promoSpaceUseTypesCacheAt = 0;
+}
+
+function pickPromoSpaceUseDisplayName(row, lang) {
+    const l = String(lang || '').toLowerCase().replace(/-.*$/, '');
+    const col = PROMO_SCENE_LOCALE_COL[l];
+    if (col && row && row[col] && String(row[col]).trim()) return String(row[col]).trim();
+    return String((row && row.name) || '').trim();
+}
+
+async function fetchPromoSpaceUseTypesRows(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const activeOnly = !!o.activeOnly;
+    const bypassCache = !!o.bypassCache;
+    if (!bypassCache && activeOnly && _promoSpaceUseTypesCache && (Date.now() - _promoSpaceUseTypesCacheAt) < 60000) {
+        return { rows: _promoSpaceUseTypesCache, fromDb: true };
+    }
+    try {
+        let q = supabase
+            .from('promo_space_use_types')
+            .select(PROMO_SPACE_USE_SELECT)
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (activeOnly) q = q.eq('is_active', true);
+        const { data, error } = await q;
+        if (error) {
+            if (error.code === '42P01') return { rows: null, fromDb: false, migrationRequired: true };
+            console.warn('fetchPromoSpaceUseTypesRows:', error.message || error);
+            return { rows: null, fromDb: false };
+        }
+        const rows = Array.isArray(data) ? data : [];
+        if (activeOnly) {
+            _promoSpaceUseTypesCache = rows;
+            _promoSpaceUseTypesCacheAt = Date.now();
+        }
+        return { rows, fromDb: true };
+    } catch (e) {
+        console.warn('fetchPromoSpaceUseTypesRows exception:', e && e.message);
+        return { rows: null, fromDb: false };
+    }
+}
+
+/** 前台 Space use；表未建或空則 fallback 程式內建 */
+async function loadPromoSpaceUseTypesForApi(lang) {
+    const pack = await fetchPromoSpaceUseTypesRows({ activeOnly: true });
+    if (!pack.fromDb || !pack.rows || !pack.rows.length) {
+        return promoSpaceGemini.listSpaceUseTypesForApi(lang);
+    }
+    return pack.rows.map(function (row) {
+        return {
+            key: row.key,
+            name: pickPromoSpaceUseDisplayName(row, lang),
+            name_en: row.name_en || row.name || ''
+        };
+    });
+}
+
 function appendPromoSceneMultilangFields(payload, body) {
     if (!body || typeof body !== 'object') return payload;
     if (body.name_en !== undefined) payload.name_en = body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null;
@@ -17206,7 +17271,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
                 '1:3': { w: 576, h: 1728 },
                 '1:4': { w: 512, h: 2048 }
             },
-            space_use_types: promoSpaceGemini.listSpaceUseTypesForApi(lang),
+            space_use_types: await loadPromoSpaceUseTypesForApi(lang),
             zone_intents: promoSpaceGemini.listSpaceZoneIntentsForApi(
                 promoSpaceGemini.normalizeSpaceUseType(req.query.space_use_type || 'residential'),
                 lang
@@ -38301,6 +38366,120 @@ function parsePromoRecommendedRatios(raw) {
     }
     return ['1:1', '4:3', '16:9'];
 }
+
+// GET /api/admin/promo-space-use-types — 商攝空間用途
+app.get('/api/admin/promo-space-use-types', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const includeInactive = String(req.query.include_inactive || '') === '1';
+        const pack = await fetchPromoSpaceUseTypesRows({ activeOnly: !includeInactive, bypassCache: true });
+        if (pack.migrationRequired) {
+            return res.status(503).json({
+                error: '請先執行 docs/add-promo-space-use-types.sql（或後台資料庫維護 promo-space-use-types）',
+                code: 'MIGRATION_REQUIRED',
+                items: []
+            });
+        }
+        if (!pack.fromDb) {
+            return res.status(500).json({ error: '查詢失敗', items: [] });
+        }
+        res.json({ items: pack.rows || [] });
+    } catch (e) {
+        console.error('GET /api/admin/promo-space-use-types:', e);
+        res.status(500).json({ error: e.message || '查詢失敗', items: [] });
+    }
+});
+
+app.post('/api/admin/promo-space-use-types', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const key = String(body.key || '').trim().toLowerCase();
+        const name = String(body.name || '').trim();
+        if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
+            return res.status(400).json({ error: 'key 須為小寫英文開頭，僅含 a-z、0-9、底線' });
+        }
+        if (!name) return res.status(400).json({ error: '請填名稱' });
+        const payload = {
+            key,
+            name,
+            name_en: body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null,
+            name_ja: body.name_ja != null && String(body.name_ja).trim() !== '' ? String(body.name_ja).trim() : null,
+            name_es: body.name_es != null && String(body.name_es).trim() !== '' ? String(body.name_es).trim() : null,
+            name_de: body.name_de != null && String(body.name_de).trim() !== '' ? String(body.name_de).trim() : null,
+            name_fr: body.name_fr != null && String(body.name_fr).trim() !== '' ? String(body.name_fr).trim() : null,
+            layout_label: body.layout_label != null && String(body.layout_label).trim() !== '' ? String(body.layout_label).trim() : null,
+            layout_label_en: body.layout_label_en != null && String(body.layout_label_en).trim() !== '' ? String(body.layout_label_en).trim() : null,
+            sort_order: body.sort_order != null ? (parseInt(body.sort_order, 10) || 10) : 10,
+            is_active: body.is_active === false || body.is_active === 0 || body.is_active === '0' ? false : true,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase
+            .from('promo_space_use_types')
+            .insert(payload)
+            .select(PROMO_SPACE_USE_SELECT)
+            .single();
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-space-use-types.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(409).json({ error: 'key 已存在' });
+            console.error('POST /api/admin/promo-space-use-types:', error);
+            return res.status(500).json({ error: error.message || '新增失敗' });
+        }
+        invalidatePromoSpaceUseTypesCache();
+        res.json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/promo-space-use-types:', e);
+        res.status(500).json({ error: e.message || '新增失敗' });
+    }
+});
+
+app.patch('/api/admin/promo-space-use-types/:key', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const key = String(req.params.key || '').trim().toLowerCase();
+        if (!key) return res.status(400).json({ error: '缺少 key' });
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name !== undefined) {
+            const n = String(body.name || '').trim();
+            if (!n) return res.status(400).json({ error: '名稱不可空白' });
+            updates.name = n;
+        }
+        ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr', 'layout_label', 'layout_label_en'].forEach(function (col) {
+            if (body[col] !== undefined) {
+                updates[col] = body[col] != null && String(body[col]).trim() !== '' ? String(body[col]).trim() : null;
+            }
+        });
+        if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10) || 10;
+        if (body.is_active !== undefined) {
+            updates.is_active = !(body.is_active === false || body.is_active === 0 || body.is_active === '0');
+        }
+        const { data, error } = await supabase
+            .from('promo_space_use_types')
+            .update(updates)
+            .eq('key', key)
+            .select(PROMO_SPACE_USE_SELECT)
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-space-use-types.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('PATCH /api/admin/promo-space-use-types:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        if (!data) return res.status(404).json({ error: '找不到此用途' });
+        invalidatePromoSpaceUseTypesCache();
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PATCH /api/admin/promo-space-use-types:', e);
+        res.status(500).json({ error: e.message || '更新失敗' });
+    }
+});
 
 // GET /api/admin/promo-scene-templates — 情境圖主題／場景
 app.get('/api/admin/promo-scene-templates', async (req, res) => {

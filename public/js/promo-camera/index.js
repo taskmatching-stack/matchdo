@@ -623,14 +623,31 @@
     return t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。');
   }
 
+  var SPACE_USE_LABEL_EN = {
+    residential: 'Residential',
+    restaurant: 'Dining / F&B',
+    retail: 'Retail',
+    office: 'Office',
+    exhibition: 'Exhibition',
+    hotel: 'Hotel / B&B',
+    clinic: 'Clinic / Beauty'
+  };
+
   function fillSpaceUseTypes() {
     var sel = document.getElementById('pcSpaceUseType');
     var opts = St.get().options;
     if (!sel || !opts || !opts.space_use_types) return;
     var wantEn = apiLang() === 'en';
     var rows = (opts.space_use_types || []).map(function (it) {
-      var name = wantEn && it.name_en ? it.name_en : (it.name || it.key);
-      return { key: it.key, name: name };
+      var key = String(it.key || '').trim();
+      var name = it.name || key;
+      if (wantEn) {
+        /* 後端已回英文優先；舊行程若 name_en 仍是中文，用內建對照 */
+        var en = SPACE_USE_LABEL_EN[key] || it.name_en || '';
+        if (en && /[A-Za-z]/.test(en)) name = en;
+        else if (it.name_en && /[A-Za-z]/.test(String(it.name_en))) name = it.name_en;
+      }
+      return { key: key, name: name };
     });
     Promo.fillSelect(sel, rows, 'key', 'name', '');
     sel.value = St.get().spaceUseType || 'residential';
