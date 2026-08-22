@@ -625,8 +625,7 @@
     }
     if (state.shootMode === 'portrait') {
       if (!state.images.length) return false;
-      /* 氛圍不顯示／不需主題；清晰才必選主題 */
-      if (state.portraitRenderMode === 'mood') return true;
+      /* 氛圍也要主題：只給 Nano Banana lite，不進 FLUX */
       return !!String(state.themeKey || '').trim();
     }
     return state.images.length > 0;
@@ -748,10 +747,6 @@
       fluxPayload.height = state.height;
       fluxPayload.aspect_ratio = state.aspectRatio;
       fluxPayload.portrait_render_mode = state.portraitRenderMode === 'mood' ? 'mood' : 'clear';
-      /* 氛圍不送主題（UI 亦不顯示）；避免殘留 themeKey 進 FLUX */
-      if (fluxPayload.portrait_render_mode === 'mood') {
-        delete fluxPayload.theme_key;
-      }
     }
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;

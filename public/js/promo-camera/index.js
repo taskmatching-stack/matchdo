@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-theme-name-en-20260821';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-lite-flux-20260823';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -463,7 +463,7 @@
     if (!el || !url || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    var compareRef = (data && data.compare_ref_url) || null;
+    var compareRef = (data && (data.compare_ref_url || data.draft_image_url || data.draft_imageData)) || null;
     if (!compareRef && payload && payload.shoot_mode === 'space' && payload.space_output_type === 'layout_plan' && St.get().floorPlanImage) {
       compareRef = St.get().floorPlanImage;
     }
@@ -473,10 +473,14 @@
       scene_key: payload.scene_key,
       user_prompt: payload.user_prompt,
       compare_ref_url: compareRef,
-      compare_ref_label: (data && data.compare_ref_label) || (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖'),
-      compare_result_label: (data && data.compare_result_label) || (payload.space_output_type === 'eye_level'
-        ? '平視攝影'
-        : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖'))
+      compare_ref_label: (data && data.compare_ref_label) || (data && (data.draft_image_url || data.draft_imageData)
+        ? t('promoCamera.moodDraftLabel', '草稿繪製')
+        : (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖')),
+      compare_result_label: (data && data.compare_result_label) || (data && (data.draft_image_url || data.draft_imageData)
+        ? t('promoCamera.moodLookLabel', '氛圍圖')
+        : (payload.space_output_type === 'eye_level'
+          ? '平視攝影'
+          : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖')))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
     appendPromptSentUnderResult(el, data);
@@ -522,12 +526,29 @@
       item.className = 'pc-portrait-batch-item';
       var label = document.createElement('p');
       label.className = 'small text-muted mb-1';
-      label.textContent = '第 ' + (r.shot_index || (idx + 1)) + ' 張';
+      label.textContent = r.draft_image_url || r.draft_imageData
+        ? ('第 ' + (r.shot_index || (idx + 1)) + ' 張')
+        : ('第 ' + (r.shot_index || (idx + 1)) + ' 張');
+      item.appendChild(label);
+      if (r.draft_image_url || r.draft_imageData) {
+        var draftLab = document.createElement('p');
+        draftLab.className = 'small text-muted mb-1';
+        draftLab.textContent = t('promoCamera.moodDraftLabel', '草稿繪製');
+        var draftImg = document.createElement('img');
+        draftImg.src = r.draft_image_url || r.draft_imageData;
+        draftImg.alt = t('promoCamera.moodDraftLabel', '草稿繪製');
+        draftImg.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger mb-2';
+        item.appendChild(draftLab);
+        item.appendChild(draftImg);
+        var lookLab = document.createElement('p');
+        lookLab.className = 'small text-muted mb-1';
+        lookLab.textContent = t('promoCamera.moodLookLabel', '氛圍圖');
+        item.appendChild(lookLab);
+      }
       var img = document.createElement('img');
       img.src = r.image_url || r.imageData;
       img.alt = '套圖 ' + (r.shot_index || (idx + 1));
       img.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger';
-      item.appendChild(label);
       item.appendChild(img);
       if (payload && payload.shoot_mode === 'space' && r.id) {
         var actionsHost = document.createElement('div');
@@ -618,7 +639,7 @@
       return t('promoCamera.chatWelcomeSpaceLayout', '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。');
     }
     if (isPortraitMode()) {
-      return t('promoCamera.chatWelcomePortrait', '請上傳<strong>一張</strong>人像參考圖。清晰模式請選<strong>拍攝主題</strong>；氛圍模式不需主題。可在描述中調整服裝／髮型。右側可調相機光學參數。');
+      return t('promoCamera.chatWelcomePortrait', '請上傳<strong>一張</strong>人像參考圖，並選<strong>拍攝主題</strong>。可在描述中調整服裝／髮型。右側可調相機光學參數。');
     }
     return t('promoCamera.chatWelcome', '請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。');
   }
@@ -792,7 +813,7 @@
     syncPortraitThemeVisibility();
   }
 
-  /** 氛圍：隱藏主題（不選、不送）；清晰：顯示且必選 */
+  /** 清晰／氛圍都顯示主題（氛圍只把主題送給 Lite） */
   function syncPortraitThemeVisibility() {
     if (!isPortraitMode()) {
       var fieldRest = document.getElementById('pcThemeField');
@@ -804,26 +825,22 @@
       }
       return;
     }
-    var mood = String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood';
     var field = document.getElementById('pcThemeField');
-    if (field) field.classList.toggle('d-none', mood);
+    if (field) field.classList.remove('d-none');
     else {
       var themeEl = document.getElementById('pcThemeSelect');
       var col = themeEl && themeEl.closest('.col-md-6');
-      if (col) col.classList.toggle('d-none', mood);
+      if (col) col.classList.remove('d-none');
     }
     var pickerBtn = document.getElementById('pcThemePickerBtn');
     if (pickerBtn) {
       var appRow = pickerBtn.closest('.pc-app-row');
-      if (appRow) appRow.classList.toggle('d-none', mood);
+      if (appRow) appRow.classList.remove('d-none');
     }
     var kicker = document.querySelector('[data-pc-theme-scene-kicker]');
     if (kicker) {
-      kicker.textContent = mood
-        ? t('promoCamera.sceneOnly', '場景')
-        : t('promoCamera.themeScene', '主題與場景');
-      if (mood) kicker.removeAttribute('data-i18n');
-      else kicker.setAttribute('data-i18n', 'promoCamera.themeScene');
+      kicker.textContent = t('promoCamera.themeScene', '主題與場景');
+      kicker.setAttribute('data-i18n', 'promoCamera.themeScene');
     }
     if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
       window.PromoCameraSpecSummary.refresh();
@@ -843,6 +860,7 @@
         St.setSpaceResolutionTier('1k');
       }
       syncPortraitThemeVisibility();
+      refreshHomepageControl();
       refreshSpaceMpSelectLabels();
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
@@ -1166,15 +1184,25 @@
 
     var homeCb = document.getElementById('pcShowOnHomepage');
     if (homeCb) delete homeCb.dataset.userTouched;
-    if (window.MatchdoShowOnHomepageControl && typeof window.MatchdoShowOnHomepageControl.refresh === 'function') {
-      window.MatchdoShowOnHomepageControl.refresh('pcShowOnHomepage', 'pcShowOnHomepageHint', {
-        defaultChecked: mode !== 'portrait'
-      });
-    }
+    refreshHomepageControl();
 
     if (space && window.PromoCameraAppShell && typeof window.PromoCameraAppShell.setComposeExpanded === 'function') {
       window.PromoCameraAppShell.setComposeExpanded(true);
     }
+  }
+
+  function homepageControlOpts() {
+    var portrait = isPortraitMode();
+    var mood = portrait && String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood';
+    return {
+      defaultChecked: !portrait,
+      forceOptional: !!mood
+    };
+  }
+
+  function refreshHomepageControl() {
+    if (!window.MatchdoShowOnHomepageControl || typeof window.MatchdoShowOnHomepageControl.refresh !== 'function') return;
+    window.MatchdoShowOnHomepageControl.refresh('pcShowOnHomepage', 'pcShowOnHomepageHint', homepageControlOpts());
   }
 
   function refreshThemesForMode() {
@@ -2503,7 +2531,7 @@
           fillPromptSentPanel({ prompt_sent: (err && err.message) || '無法組裝' });
           return;
         }
-        if (!payload.theme_key && payload.portrait_render_mode !== 'mood') {
+        if (!payload.theme_key) {
           fillPromptSentPanel({ prompt_sent: '請先選擇拍攝主題' });
           return;
         }
@@ -2590,9 +2618,7 @@
     bindEvents();
     initFromQuery();
     if (window.MatchdoShowOnHomepageControl) {
-      window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint', {
-        defaultChecked: getShootMode() !== 'portrait'
-      });
+      window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint', homepageControlOpts());
     }
     renderMessages();
     renderAngleButtons();

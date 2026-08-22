@@ -60,7 +60,8 @@
     if (!cb) return;
     var opts = options && typeof options === 'object' ? options : {};
     var defaultChecked = typeof opts.defaultChecked === 'boolean' ? opts.defaultChecked : true;
-    if (canControl) {
+    var allowControl = canControl || !!opts.forceOptional;
+    if (allowControl) {
       cb.disabled = false;
       if (!cb.dataset.userTouched) cb.checked = defaultChecked;
       if (hint) {

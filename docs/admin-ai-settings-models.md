@@ -66,7 +66,8 @@
 | **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
 | **空間攝影・ISO 空間地圖** | `gemini_model_promo_space_layout` | `getPromoSpaceLayoutModelName()` | `/promo-camera` 空間 `layout_plan` |
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
-| **人像攝影** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像；與引擎／FLUX 同在「商攝導演・引擎＋模型名稱」卡片手填 |
+| **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
+| **人像攝影・氛圍草稿** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍模式第一段（Nano Banana Lite；不帶攝影參數） |
 
 **商攝・空間解析度（程式，非 DB 鍵）**：前台 `space_resolution_tier: 2k|4k` → 後端 `config.imageConfig.imageSize: "2K"|"4K"`（[官方 image generation](https://ai.google.dev/gemini-api/docs/image-generation)；**K 须大写**）。不足时 sharp 补至 ≥2048／4096。
 
@@ -97,6 +98,7 @@ Seed：`docs/add-promo-space-gemini-config.sql`。空間平視 FLUX 備援：`do
 | `gemini_model_promo_space_layout` | `gemini-3-pro-image` |
 | `gemini_model_promo_space_eye_level` | `gemini-3-pro-image` |
 | `gemini_model_promo_portrait` | `gemini-3-pro-image` |
+| `gemini_model_promo_portrait_mood` | `gemini-3.1-flash-lite-image` |
 | `promo_portrait_engine` | `gemini`（可 `auto`／`flux`） |
 | `bfl_flux_model_promo_portrait` | `flux-2-pro` |
 

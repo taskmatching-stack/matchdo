@@ -113,21 +113,19 @@
                 </div>
               </div>
               <div class="border rounded p-3 bg-light">
-                <h6 class="small fw-bold mb-2">氛圍模式</h6>
+                <h6 class="small fw-bold mb-2">氛圍模式（兩段：草稿 Lite → 氛圍圖 FLUX）</h6>
+                <p class="form-text small text-muted mb-3">草稿用 Nano Banana lite（帶主題／場景／描述，<strong>不帶</strong>攝影參數）；氛圍圖把草稿丟給 FLUX，<strong>只帶</strong>攝影參數。</p>
+                <input type="hidden" id="enginePromoPortraitMood" value="flux" />
                 <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label small mb-1" for="enginePromoPortraitMood">引擎</label>
-                    <select id="enginePromoPortraitMood" class="form-select form-select-sm">
-                      <option value="flux" selected>flux</option>
-                      <option value="auto">auto（Gemini → FLUX 備援）</option>
-                      <option value="gemini">gemini</option>
-                    </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_mood_engine</code>（預設 flux；flux 時解析度僅 1／4 MP）</p>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortraitMood">草稿 · Gemini 模型（Nano Banana Lite）</label>
+                    <input type="text" id="aiConfigGeminiModelPromoPortraitMood" class="form-control form-control-sm font-monospace" placeholder="gemini-3.1-flash-lite-image" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait_mood</code></p>
                   </div>
-                  <div class="col-md-8">
-                    <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型名稱</label>
-                    <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍模式用（鎖臉建議 <code>flux-2-max</code>，與官網 Playground 一致）</p>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">氛圍圖 · FLUX 模型</label>
+                    <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code>（建議 <code>flux-2-pro</code>）</p>
                   </div>
                 </div>
               </div>
@@ -421,7 +419,8 @@
       if (ps.promo_portrait_mood_engine) pp.push('氛圍引擎');
       if (ps.promo_portrait_engine) pp.push('人像引擎(相容)');
       if (ps.gemini_model_promo_portrait) pp.push('清晰模型');
-      if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍模型');
+      if (ps.gemini_model_promo_portrait_mood) pp.push('氛圍草稿Lite');
+      if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
       if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
       if (ps.bfl_flux_model_promo_space_eye_level) pp.push('平視FLUX');
@@ -478,6 +477,7 @@
     var inpSpaceLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var inpSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
     var inpPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
+    var inpPortraitMood = document.getElementById('aiConfigGeminiModelPromoPortraitMood');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
@@ -491,6 +491,7 @@
     if (data.gemini_model_promo_space_layout != null && inpSpaceLayout) inpSpaceLayout.value = data.gemini_model_promo_space_layout;
     if (data.gemini_model_promo_space_eye_level != null && inpSpaceEye) inpSpaceEye.value = data.gemini_model_promo_space_eye_level;
     if (data.gemini_model_promo_portrait != null && inpPortrait) inpPortrait.value = data.gemini_model_promo_portrait;
+    if (data.gemini_model_promo_portrait_mood != null && inpPortraitMood) inpPortraitMood.value = data.gemini_model_promo_portrait_mood;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -651,6 +652,7 @@
     var portrait = document.getElementById('enginePromoPortrait');
     var spaceEye = document.getElementById('enginePromoSpaceEyeLevel');
     var gPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
+    var gPortraitMood = document.getElementById('aiConfigGeminiModelPromoPortraitMood');
     var gSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
     var gLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
@@ -667,6 +669,7 @@
       promo_portrait_engine: legacyEng,
       promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
       gemini_model_promo_portrait: (gPortrait && gPortrait.value.trim()) || 'gemini-3-pro-image',
+      gemini_model_promo_portrait_mood: (gPortraitMood && gPortraitMood.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_promo_space_eye_level: (gSpaceEye && gSpaceEye.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_space_layout: (gLayout && gLayout.value.trim()) || 'gemini-3-pro-image',
       bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
@@ -682,7 +685,7 @@
         return;
       }
       await loadAiConfig();
-      showMsg('商攝已儲存：人像預設「' + defaultMode + '」清晰引擎「' + clearEng + '」氛圍引擎「' + moodEng + '」；平視「' + payload.promo_space_eye_level_engine + '」。請重新整理攝影模擬頁。');
+      showMsg('商攝已儲存：人像預設「' + defaultMode + '」清晰「' + payload.gemini_model_promo_portrait + '」氛圍草稿「' + payload.gemini_model_promo_portrait_mood + '」氛圍FLUX「' + payload.bfl_flux_model_promo_portrait + '」。請重新整理攝影模擬頁。');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
