@@ -18906,7 +18906,7 @@ app.post('/api/promo-image/generations/:id/regenerate-tags', express.json(), asy
     }
 });
 
-/** PATCH 情境圖：更新 show_on_homepage（付費／測試員可設不公開；免費強制公開） */
+/** PATCH 情境圖：show_on_homepage（付費／測試員可設不公開）與手動 description */
 app.patch('/api/promo-image/generations/:id', express.json(), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -18923,30 +18923,50 @@ app.patch('/api/promo-image/generations/:id', express.json(), async (req, res) =
         if (findErr) return res.status(500).json({ error: findErr.message });
         if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到情境圖紀錄' });
 
-        let showOn = !!req.body.show_on_homepage;
-        if (typeof req.query.show_on_homepage !== 'undefined') {
-            showOn = req.query.show_on_homepage === 'true' || req.query.show_on_homepage === '1';
-        }
-        if (showOn === false) {
-            const canControl = await canControlDesignShowOnHomepage(user.id);
-            if (!canControl) {
-                return res.status(403).json({ error: '需付費訂閱才能將情境圖設為不公開' });
+        const updates = {};
+        const hasShowQuery = typeof req.query.show_on_homepage !== 'undefined';
+        const hasShowBody = req.body && typeof req.body.show_on_homepage !== 'undefined';
+        if (hasShowQuery || hasShowBody) {
+            let showOn = hasShowBody ? !!req.body.show_on_homepage : false;
+            if (hasShowQuery) {
+                showOn = req.query.show_on_homepage === 'true' || req.query.show_on_homepage === '1';
             }
+            if (showOn === false) {
+                const canControl = await canControlDesignShowOnHomepage(user.id);
+                if (!canControl) {
+                    return res.status(403).json({ error: '需付費訂閱才能將情境圖設為不公開' });
+                }
+            }
+            updates.show_on_homepage = showOn;
+        }
+        if (req.body && typeof req.body.description === 'string') {
+            updates.description = String(req.body.description).trim().slice(0, 2000);
+        }
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: '無可更新欄位' });
         }
 
         const { data, error } = await supabase
             .from('product_promo_generations')
-            .update({ show_on_homepage: showOn })
+            .update(updates)
             .eq('id', req.params.id)
-            .select('id, show_on_homepage')
+            .select('id, show_on_homepage, description')
             .single();
         if (error) {
             if (isSupabaseMissingColumnError(error, 'show_on_homepage')) {
                 return res.status(503).json({ error: '請先執行 docs/add-promo-show-on-homepage.sql' });
             }
+            if (isSupabaseMissingColumnError(error, 'description')) {
+                return res.status(503).json({ error: '請先執行 docs/add-promo-generations-semantics.sql' });
+            }
             return res.status(500).json({ error: error.message });
         }
-        res.json({ success: true, id: data.id, show_on_homepage: data.show_on_homepage === true });
+        res.json({
+            success: true,
+            id: data.id,
+            show_on_homepage: data.show_on_homepage === true,
+            description: data.description != null ? data.description : undefined
+        });
     } catch (e) {
         console.error('PATCH /api/promo-image/generations/:id:', e);
         res.status(500).json({ error: e.message || '更新失敗' });
@@ -24382,6 +24402,7 @@ app.patch('/api/custom-products/:id', express.json(), async (req, res) => {
                 if (key === 'show_on_homepage') updates[key] = !!req.body[key];
                 else if (key === 'category_key') updates.category = req.body[key];
                 else if (key === 'subcategory_key') updates.subcategory_key = req.body[key];
+                else if (key === 'description') updates.description = String(req.body[key] == null ? '' : req.body[key]).trim().slice(0, 2000);
                 else updates[key] = req.body[key];
             }
         }

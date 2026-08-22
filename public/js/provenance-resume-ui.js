@@ -56,7 +56,7 @@
     }).join('') + '</div>';
   }
 
-  function renderResumeHtml(resume) {
+    function renderResumeHtml(resume, isAdmin) {
     var ctx = resume.generation_context || {};
     var img = resume.image && resume.image.output_url
       ? ('<p><img src="' + esc(resume.image.output_url) + '" class="img-fluid rounded border mb-2" alt=""></p>')
@@ -77,15 +77,22 @@
     }
     html += '</dl>';
     html += '<div class="fw-semibold mb-1">參考來源</div>' + renderReferences(resume.references);
+    if (resume.selected_options && resume.selected_options.length) {
+      html += '<div class="fw-semibold mt-3 mb-1">選項</div><ul class="mb-1 ps-3">';
+      resume.selected_options.forEach(function (o) {
+        html += '<li>' + esc(o.label) + '：' + esc(o.value) + '</li>';
+      });
+      html += '</ul>';
+    }
     var prompts = resume.prompts || {};
     html += '<div class="fw-semibold mt-3 mb-1">Prompt</div>' +
       '<div class="mb-1"><span class="text-muted">使用者：</span>' + esc(prompts.user_prompt || '—') + '</div>';
-    if (prompts.final_prompt && prompts.final_prompt !== prompts.user_prompt) {
+    if (isAdmin && prompts.final_prompt && prompts.final_prompt !== prompts.user_prompt) {
       html += '<div class="mb-1"><span class="text-muted">最終：</span>' + esc((prompts.final_prompt || '').slice(0, 1200)) + '</div>';
     }
-    if (prompts.composed_prompt) {
+    if (isAdmin && prompts.composed_prompt) {
       html += '<div class="mb-1"><span class="text-muted">完整模型：</span><pre class="small mb-0" style="white-space:pre-wrap;max-height:180px;overflow:auto">' + esc(prompts.composed_prompt.slice(0, 4000)) + '</pre></div>';
-    } else if (prompts.composed_prompt_note) {
+    } else if (isAdmin && prompts.composed_prompt_note) {
       html += '<div class="mb-1 text-muted"><span class="text-muted">完整模型：</span>' + esc(prompts.composed_prompt_note) + '</div>';
     }
     if (resume.parent_record && resume.parent_record.kind) {
@@ -176,7 +183,7 @@
       return;
     }
     var resume = data.resume;
-    body.innerHTML = renderResumeHtml(resume);
+    body.innerHTML = renderResumeHtml(resume, isAdmin);
 
     var pdfBase = isAdmin ? '/api/admin/provenance-resume/export.pdf' : '/api/me/provenance-resume/export.pdf';
     document.getElementById('btnProvResumePdf').onclick = function () {

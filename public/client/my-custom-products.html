@@ -10,6 +10,7 @@
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/theme-custom.css?v=4" rel="stylesheet">
     <link href="/css/morandi-global.css?v=4" rel="stylesheet">
+    <link href="/css/image-lightbox.css" rel="stylesheet">
     <style>
         .product-card {
             transition: box-shadow 0.15s;
@@ -60,6 +61,34 @@
             overflow: hidden;
             margin: 0 0 0.2rem;
             line-height: 1.3;
+        }
+        [data-role="desc-wrap"],
+        [data-role="promo-desc-wrap"] {
+            cursor: pointer;
+        }
+        [data-role="desc-wrap"][data-editing="1"],
+        [data-role="promo-desc-wrap"][data-editing="1"] {
+            cursor: default;
+        }
+        .asset-desc-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.35rem;
+        }
+        .asset-desc-row .design-desc-text {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .asset-desc-edit-hint {
+            flex-shrink: 0;
+            font-size: 0.65rem;
+            color: #7A8FA3;
+            text-decoration: underline;
+            padding-top: 0.05rem;
+        }
+        .asset-desc-edit {
+            font-size: 0.78rem;
+            line-height: 1.35;
         }
         .design-tags-meta {
             font-size: 0.68rem;
@@ -203,6 +232,11 @@
             height: 100%;
             object-fit: cover;
             display: block;
+        }
+        .product-image.matchdo-enlarge-trigger,
+        .combo-asset-thumb-wrap img.matchdo-enlarge-trigger,
+        .promo-asset-thumb-wrap img.matchdo-enlarge-trigger {
+            cursor: zoom-in;
         }
         /* 材料組合／印花：1:1 不裁切 */
         .combo-asset-thumb-wrap {
@@ -507,7 +541,8 @@
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/matchdo-promo-image.js?v=20260812nomodel"></script>
-    <script src="/js/provenance-resume-ui.js"></script>
+    <script src="/js/image-lightbox.js?v=20260731v"></script>
+    <script src="/js/provenance-resume-ui.js?v=20260823opts1"></script>
 
     <script>
 
@@ -757,6 +792,91 @@
         let assetMetaEditId = null;
         let assetMetaEditCol = null;
 
+        const ASSET_DESC_MAX = 2000;
+
+        function paintAssetDesc(wrap, role, text) {
+            if (!wrap) return;
+            wrap.removeAttribute('data-editing');
+            const desc = String(text || '').trim();
+            wrap.innerHTML = '<div class="asset-desc-row">' +
+                (desc
+                    ? ('<p class="design-desc-text" data-role="' + role + '" title="點擊編輯描述">' + escapeHtml(desc) + '</p>')
+                    : ('<p class="design-desc-text text-muted" data-role="' + role + '" title="點擊編輯描述">尚無描述</p>')) +
+                '<span class="asset-desc-edit-hint">編輯</span></div>';
+        }
+
+        function currentDescFromWrap(wrap, role) {
+            if (!wrap) return '';
+            if (wrap.getAttribute('data-editing') === '1') {
+                const ta = wrap.querySelector('textarea');
+                return ta ? String(ta.value || '').trim() : '';
+            }
+            const el = wrap.querySelector('[data-role="' + role + '"]');
+            if (!el) return '';
+            const t = String(el.textContent || '').trim();
+            return t === '尚無描述' ? '' : t;
+        }
+
+        async function patchAssetJson(url, body) {
+            const session = await AuthService.getSession();
+            const token = session && session.access_token;
+            if (!token) throw new Error('請先登入');
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error((data && data.error) || '更新失敗');
+            return data;
+        }
+
+        function startAssetDescEdit(wrap, opts) {
+            const current = currentDescFromWrap(wrap, opts.role);
+            wrap.setAttribute('data-editing', '1');
+            wrap.innerHTML =
+                '<textarea class="form-control form-control-sm asset-desc-edit" rows="3" maxlength="' + ASSET_DESC_MAX + '" placeholder="自行填寫描述（免費，不扣點）"></textarea>' +
+                '<div class="d-flex gap-1 mt-1">' +
+                '<button type="button" class="btn btn-sm btn-primary btn-desc-save">儲存</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary btn-desc-cancel">取消</button>' +
+                '</div>';
+            const ta = wrap.querySelector('textarea');
+            ta.value = current;
+            ta.focus();
+            wrap.querySelector('.btn-desc-save').addEventListener('click', async function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const btn = this;
+                const v = String(ta.value || '').trim().slice(0, ASSET_DESC_MAX);
+                btn.disabled = true;
+                try {
+                    await opts.onSave(v);
+                    paintAssetDesc(wrap, opts.role, v);
+                    showAlert('描述已儲存', 'success');
+                } catch (err) {
+                    showAlert('儲存描述失敗：' + (err.message || err), 'danger');
+                    btn.disabled = false;
+                }
+            });
+            wrap.querySelector('.btn-desc-cancel').addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                paintAssetDesc(wrap, opts.role, current);
+            });
+        }
+
+        function bindAssetDescEditor(wrap, opts) {
+            if (!wrap || wrap.getAttribute('data-desc-bound') === '1') return;
+            wrap.setAttribute('data-desc-bound', '1');
+            wrap.addEventListener('click', function (e) {
+                if (wrap.getAttribute('data-editing') === '1') return;
+                if (e.target.closest('button, a, input, label, textarea')) return;
+                e.preventDefault();
+                e.stopPropagation();
+                startAssetDescEdit(wrap, opts);
+            });
+        }
+
         function fillCategoryFilterSelect(selectEl, categories, selected) {
             if (!selectEl) return;
             const cur = selected != null ? String(selected) : '';
@@ -910,7 +1030,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-combo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
@@ -1069,7 +1189,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-print-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
@@ -1242,9 +1362,6 @@
                     '</span>')
                 : '';
             const descFull = String(item.description || '').trim();
-            const descHtml = descFull
-                ? ('<p class="design-desc-text" data-role="promo-desc">' + escapeHtml(descFull) + '</p>')
-                : '<p class="design-desc-text text-muted" data-role="promo-desc">尚無描述</p>';
             const tags = Array.isArray(item.ai_tags)
                 ? item.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean)
                 : [];
@@ -1276,7 +1393,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title + (ratio ? ' ' + ratio : ''))}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title + (ratio ? ' ' + ratio : ''))}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start gap-1 mb-1 flex-wrap">
@@ -1284,7 +1401,7 @@
                             <div class="d-flex flex-wrap gap-1 justify-content-end">${kindBadge}${spaceUseBadge}${appealBadge}${ratioBadge}</div>
                         </div>
                         ${sizeLine ? ('<p class="text-muted small mb-1">' + escapeHtml(sizeLine) + '</p>') : ''}
-                        <div data-role="promo-desc-wrap">${descHtml}</div>
+                        <div data-role="promo-desc-wrap"></div>
                         ${tagsHtml}
                         <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
@@ -1321,6 +1438,18 @@
                     runPromoAiAction(item.id, col, 'description', descBtn);
                 });
             }
+            const promoDescWrap = col.querySelector('[data-role="promo-desc-wrap"]');
+            paintAssetDesc(promoDescWrap, 'promo-desc', descFull);
+            if (item.id) {
+                bindAssetDescEditor(promoDescWrap, {
+                    role: 'promo-desc',
+                    onSave: function (v) {
+                        return patchAssetJson('/api/promo-image/generations/' + encodeURIComponent(item.id), { description: v }).then(function () {
+                            item.description = v;
+                        });
+                    }
+                });
+            }
             const tagsBtn = col.querySelector('.btn-promo-regen-tags');
             if (tagsBtn && item.id) {
                 tagsBtn.addEventListener('click', function () {
@@ -1354,11 +1483,8 @@
 
         function applyPromoCardSemantics(colEl, data) {
             if (!colEl || !data) return;
-            const descEl = colEl.querySelector('[data-role="promo-desc"]');
-            if (descEl && data.description != null) {
-                const desc = String(data.description || '').trim();
-                descEl.className = 'design-desc-text' + (desc ? '' : ' text-muted');
-                descEl.textContent = desc || '尚無描述';
+            if (data.description != null) {
+                paintAssetDesc(colEl.querySelector('[data-role="promo-desc-wrap"]'), 'promo-desc', data.description);
             }
             const tagsWrap = colEl.querySelector('[data-role="promo-tags-wrap"]');
             if (tagsWrap && Array.isArray(data.ai_tags)) {
@@ -1586,9 +1712,6 @@
                         return '<span class="badge">' + escapeHtml(t) + '</span>';
                     }).join('') + (tagsMore ? '<span class="badge">+' + tagsMore + '</span>' : '') + '</span></div>')
                 : '<div class="design-tags-meta" data-role="tags-wrap">尚無標籤</div>';
-            const descHtml = descFull
-                ? ('<p class="design-desc-text" data-role="desc">' + escapeHtml(descFull) + '</p>')
-                : '';
             const refsHtml = buildDesignRefsHtml(product, toAbs);
             const makersHref = '/client/find-makers.html' + ((product.category || product.category_key)
                 ? '?category_key=' + encodeURIComponent(product.category || product.category_key) +
@@ -1598,7 +1721,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100">
                     <div class="product-image-wrap">
-                        <img src="${imageUrl}" class="product-image" alt="${escapeHtml(product.title)}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
+                        <img src="${imageUrl}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(product.title)}" title="點擊放大" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center gap-1 mb-1">
@@ -1606,7 +1729,7 @@
                             <span class="badge ${statusInfo.class} status-badge flex-shrink-0">${statusInfo.text}</span>
                         </div>
                         ${mfgBadge ? `<div class="mb-1">${mfgBadge}</div>` : ''}
-                        <div data-role="desc-wrap">${descHtml}</div>
+                        <div data-role="desc-wrap"></div>
                         ${tagsHtml}
                         ${refsHtml}
                         <div class="design-card-meta d-flex align-items-center justify-content-between gap-2">
@@ -1658,6 +1781,16 @@
             if (descBtn) {
                 descBtn.addEventListener('click', () => runDesignAiAction(product.id, col, 'description', descBtn));
             }
+            const designDescWrap = col.querySelector('[data-role="desc-wrap"]');
+            paintAssetDesc(designDescWrap, 'desc', descFull);
+            bindAssetDescEditor(designDescWrap, {
+                role: 'desc',
+                onSave: function (v) {
+                    return patchAssetJson('/api/custom-products/' + encodeURIComponent(product.id), { description: v }).then(function (data) {
+                        product.description = (data.product && data.product.description != null) ? data.product.description : v;
+                    });
+                }
+            });
             const tagsBtn = col.querySelector('.btn-regen-tags');
             if (tagsBtn) {
                 tagsBtn.addEventListener('click', () => runDesignAiAction(product.id, col, 'tags', tagsBtn));
@@ -1776,13 +1909,7 @@
             if (titleEl && product.title) titleEl.textContent = product.title;
             const descWrap = colEl.querySelector('[data-role="desc-wrap"]');
             if (descWrap) {
-                const desc = String(product.description || '').trim();
-                if (desc) {
-                    descWrap.innerHTML = '<p class="design-desc-text" data-role="desc"></p>';
-                    descWrap.querySelector('[data-role="desc"]').textContent = desc;
-                } else {
-                    descWrap.innerHTML = '';
-                }
+                paintAssetDesc(descWrap, 'desc', product.description);
             }
             const tagsWrap = colEl.querySelector('[data-role="tags-wrap"]');
             if (tagsWrap) {
@@ -2020,7 +2147,7 @@
                         return `<div class="col-6 col-md-4 col-xl-3">
                             <div class="card product-card h-100">
                                 ${img
-                                    ? `<div class="product-image-wrap"><img src="${img}" class="product-image" alt="${escapeHtml(title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
+                                    ? `<div class="product-image-wrap"><img src="${img}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(title)}" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
                                     : '<div class="product-image-wrap d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
                                 <div class="card-body d-flex flex-column">
                                     <div class="d-flex align-items-start justify-content-between mb-1">
@@ -2070,7 +2197,7 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'asset-library-title-category-20260805';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'asset-manual-desc-20260823';
     </script>
     <div class="modal fade" id="assetMetaEditModal" tabindex="-1" aria-labelledby="assetMetaEditLabel" aria-hidden="true">
         <div class="modal-dialog">
