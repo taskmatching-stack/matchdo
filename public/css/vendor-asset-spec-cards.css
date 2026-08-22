@@ -1,0 +1,92 @@
+/* 廠商／官方／供應商上傳＋編輯：可收折規格卡（僅外觀，對齊設計稿／商攝） */
+.va-spec-root {
+  min-width: 0;
+}
+.va-spec-root > .row {
+  --bs-gutter-y: 0.4rem;
+  max-width: 100%;
+}
+#edit-form.va-spec-root > .va-spec-block + .va-spec-block {
+  margin-top: 0.4rem;
+}
+.va-spec-block {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  margin: 0;
+  min-width: 0;
+  box-shadow: 0 1px 2px rgba(88, 100, 112, 0.06), 0 2px 8px rgba(88, 100, 112, 0.05);
+}
+.va-spec-block[open] {
+  border-color: rgba(0, 0, 0, 0.16);
+}
+.va-spec-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  user-select: none;
+}
+.va-spec-summary::-webkit-details-marker {
+  display: none;
+}
+.va-spec-summary::after {
+  content: '';
+  margin-left: 0.25rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid #86868b;
+  border-bottom: 2px solid #86868b;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  align-self: center;
+}
+.va-spec-block[open] > .va-spec-summary::after {
+  transform: rotate(-135deg);
+  margin-top: 0.15rem;
+}
+.va-spec-kicker {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #586470;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+.va-spec-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #7A8FA3;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.va-spec-value--pending {
+  color: #C4784A;
+  font-weight: 500;
+}
+.va-spec-value--optional-empty {
+  color: #F7C9B0;
+  font-weight: 500;
+}
+.va-spec-body {
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 0.9rem;
+}
+.va-spec-footer {
+  padding-top: 0.35rem;
+}
+#edit-modal .va-spec-summary {
+  padding: 0.85rem 1rem;
+}
+#edit-modal .va-spec-body {
+  padding: 0.75rem 1rem 1rem;
+}
