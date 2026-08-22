@@ -498,8 +498,9 @@
       var refImg = document.createElement('img');
       refImg.src = meta.compare_ref_url;
       refImg.alt = meta.compare_ref_label || '對照圖';
-      refImg.className = 'img-fluid rounded border';
+      refImg.className = 'img-fluid rounded js-preview-enlarge matchdo-enlarge-trigger border';
       refImg.style.cursor = 'zoom-in';
+      refImg.setAttribute('title', '點擊放大');
       refCol.appendChild(refLabel);
       refCol.appendChild(refImg);
       var outCol = document.createElement('div');
