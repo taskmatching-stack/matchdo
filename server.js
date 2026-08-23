@@ -4302,12 +4302,12 @@ ${ogImg ? '<meta property="og:image" content="' + escapeHtmlAttr(ogImg) + '">' :
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
-        '@type': 'Product',
+        '@type': 'CreativeWork',
         name: item.title || '作品',
         description: descRaw || highlightRaw || undefined,
         image: ogImg || undefined,
         url: pageUrl,
-        brand: mfrId ? { '@type': 'Brand', name: item.manufacturer_name || '廠商' } : undefined,
+        creator: mfrId ? { '@type': 'Organization', name: item.manufacturer_name || '廠商' } : undefined,
         keywords: cleanTags.length ? cleanTags.slice(0, 30).join(', ') : undefined
     }).replace(/</g, '\\u003c')}</script>
 <style>
