@@ -1371,7 +1371,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'catalog-no-prompt-20260823';
+        window.__MATCHDO_MATERIALS_BUILD = 'catalog-groups-keep-20260824';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1679,8 +1679,18 @@
                     return;
                 }
                 var nv = incoming[k];
-                if (nv == null || nv === '') merged[k] = prev[k];
-                else merged[k] = nv;
+                if (nv == null || nv === '') {
+                    merged[k] = prev[k];
+                    return;
+                }
+                // 圖庫／檔名 PATCH 常回傳 catalog_group_ids: []，[] 在 JS 是 truthy 會蓋掉已存分類
+                if ((k === 'catalog_group_ids' || k === 'catalog_groups')
+                    && Array.isArray(nv) && nv.length === 0
+                    && !incoming.__replaceCatalogGroups) {
+                    merged[k] = prev[k];
+                    return;
+                }
+                merged[k] = nv;
             });
             if (incoming.image_url != null) merged.image_url = incoming.image_url;
             if (incoming.gallery_images != null) merged.gallery_images = incoming.gallery_images;
@@ -1717,6 +1727,12 @@
             opts = opts || {};
             if (opts.galleryOnly === undefined) opts.galleryOnly = true;
             if (!id || !apiData) return apiData;
+            if (opts.galleryOnly !== false) {
+                apiData = Object.assign({}, apiData);
+                delete apiData.catalog_group_ids;
+                delete apiData.catalog_groups;
+                delete apiData.__replaceCatalogGroups;
+            }
             var merged = patchMaterialsAllItem(id, apiData) || apiData;
             syncEditGalleryLiveMetaToMaterialsAll(id);
             merged = materialsAll.find(function (x) { return x.id === id; }) || merged;
@@ -1996,6 +2012,8 @@
 
         async function flushEditGalleryLocalAddsBeforeSave() {
             if (!editGalleryLocalAdds.length) return true;
+            var id = document.getElementById('edit-id').value;
+            syncEditGalleryLiveMetaToMaterialsAll(id);
             var pendingErr = validatePendingUploadList(editGalleryLocalAdds);
             if (pendingErr) {
                 setEditGalleryStatus(pendingErr, 'danger');
@@ -2467,12 +2485,48 @@
             return urls;
         }
 
+        function isStorageObjectLabel(label, url) {
+            var lbl = String(label || '').trim();
+            if (!lbl) return false;
+            var fromUrl = url ? labelFromImageUrl(url) : '';
+            if (fromUrl && lbl === fromUrl) return true;
+            return /^\d{10,}-[a-f0-9]{6,}/i.test(lbl);
+        }
+
         function assetImageItems(m) {
             if (!m) return [];
-            if (m.image_items && m.image_items.length) return m.image_items.slice();
-            return assetImageUrlsFromRecord(m).map(function (url, idx) {
-                return { url: url, sort_order: idx, label: labelFromImageUrl(url), is_cover: idx === 0 };
+            if (m.image_items && m.image_items.length) {
+                return m.image_items.map(function (it, idx) {
+                    var row = Object.assign({}, it);
+                    if (idx === 0 && (!String(row.label || '').trim()) && m.cover_image_label) {
+                        row.label = String(m.cover_image_label).trim();
+                    }
+                    return row;
+                });
+            }
+            var items = [];
+            var cover = String(m.image_url || '').trim();
+            if (cover) {
+                items.push({
+                    url: cover,
+                    sort_order: 0,
+                    label: String(m.cover_image_label || '').trim(),
+                    is_cover: true
+                });
+            }
+            (m.gallery_images || []).forEach(function (g, idx) {
+                var u = typeof g === 'string' ? g : (g && g.url);
+                if (!u || items.some(function (it) { return it.url === u; })) return;
+                var lab = (g && typeof g === 'object') ? String(g.label || '').trim() : '';
+                var row = { url: u, sort_order: idx + 1, label: lab, is_cover: false };
+                if (g && typeof g === 'object') {
+                    if (g.link_group) row.link_group = g.link_group;
+                    if (g.designer_selectable === false) row.designer_selectable = false;
+                    if (Array.isArray(g.linked_asset_ids) && g.linked_asset_ids.length) row.linked_asset_ids = g.linked_asset_ids.slice();
+                }
+                items.push(row);
             });
+            return items;
         }
 
         function assetImageUrls(m) {
@@ -2499,19 +2553,23 @@
             return isEditGalleryMetaInputEl(document.activeElement);
         }
 
-        /** 讀取編輯圖庫 DOM 上目前的名稱／連動組／設計者可選（依欄位 DOM 順序，拖曳後仍正確） */
+        /** 讀取編輯圖庫 DOM 上目前的名稱／連動組／設計者可選（跟圖片 URL／本機 id，不跟欄位序） */
         function readEditGalleryLiveMetaFromDom() {
             var grid = document.getElementById('edit-gallery-grid');
             if (grid) {
                 var cols = grid.querySelectorAll('.edit-gallery-col');
                 if (cols.length) {
-                    var live = { hasCoverFields: false, byUrl: {} };
+                    var live = { hasCoverFields: false, byUrl: {}, coverUrl: null };
                     cols.forEach(function (col, idx) {
                         var localId = col.getAttribute('data-local-id');
                         if (localId) {
                             var loc = findEditLocalById(localId);
                             var locIn = col.querySelector('.edit-local-image-label, .pending-card-label');
                             if (loc && locIn) loc.label = (locIn.value || '').trim();
+                            var locLink = col.querySelector('.pending-link-group, .edit-cover-link-group');
+                            if (loc && locLink) loc.link_group = (locLink.value || '').trim();
+                            var locSel = col.querySelector('.pending-designer-selectable, .edit-cover-designer-selectable');
+                            if (loc && locSel) loc.designer_selectable = !!locSel.checked;
                             return;
                         }
                         var url = col.getAttribute('data-gallery-url');
@@ -2526,18 +2584,18 @@
                         var linked_asset_ids = overrideIn
                             ? Array.prototype.slice.call(overrideIn.options).filter(function (o) { return o.selected; }).map(function (o) { return o.value; })
                             : undefined;
+                        if (!live.byUrl[url]) live.byUrl[url] = {};
+                        live.byUrl[url].label = label;
+                        live.byUrl[url].link_group = link_group;
+                        if (designer_selectable !== undefined) live.byUrl[url].designer_selectable = designer_selectable;
+                        if (linked_asset_ids !== undefined) live.byUrl[url].linked_asset_ids = linked_asset_ids;
                         if (idx === 0) {
                             live.hasCoverFields = true;
+                            live.coverUrl = url;
                             live.cover_label = label;
                             live.cover_link_group = link_group;
                             if (designer_selectable !== undefined) live.cover_designer_selectable = designer_selectable;
                             if (linked_asset_ids !== undefined) live.cover_linked_asset_ids = linked_asset_ids;
-                        } else {
-                            if (!live.byUrl[url]) live.byUrl[url] = {};
-                            live.byUrl[url].label = label;
-                            live.byUrl[url].link_group = link_group;
-                            if (designer_selectable !== undefined) live.byUrl[url].designer_selectable = designer_selectable;
-                            if (linked_asset_ids !== undefined) live.byUrl[url].linked_asset_ids = linked_asset_ids;
                         }
                     });
                     return live;
@@ -2587,24 +2645,24 @@
             var nextItems = items.map(function (it, idx) {
                 var row = Object.assign({}, it);
                 var isCover = idx === 0;
-                if (isCover && live.hasCoverFields) {
-                    if (live.cover_label !== undefined) row.label = live.cover_label;
-                    if (normalizeKind(m.asset_kind) === 'material') row.designer_selectable = false;
-                    else if (live.cover_designer_selectable !== undefined) row.designer_selectable = live.cover_designer_selectable;
-                    if (row.designer_selectable === false) row.link_group = '';
-                    else if (live.cover_link_group !== undefined) row.link_group = live.cover_link_group;
-                    if (live.cover_linked_asset_ids !== undefined) row.linked_asset_ids = live.cover_linked_asset_ids;
-                } else if (it.url && live.byUrl[it.url]) {
-                    var p = live.byUrl[it.url];
+                var p = (it.url && live.byUrl && live.byUrl[it.url]) ? live.byUrl[it.url] : null;
+                if (p) {
                     if (p.label !== undefined) row.label = p.label;
                     if (normalizeKind(m.asset_kind) === 'material') {
-                        row.designer_selectable = true;
+                        row.designer_selectable = !isCover;
                     } else if (p.designer_selectable !== undefined) {
                         row.designer_selectable = p.designer_selectable;
                     }
                     if (row.designer_selectable === false) row.link_group = '';
                     else if (p.link_group !== undefined) row.link_group = p.link_group;
                     if (p.linked_asset_ids !== undefined) row.linked_asset_ids = p.linked_asset_ids;
+                } else if (isCover && live.hasCoverFields && live.coverUrl && live.coverUrl === it.url) {
+                    if (live.cover_label !== undefined) row.label = live.cover_label;
+                    if (normalizeKind(m.asset_kind) === 'material') row.designer_selectable = false;
+                    else if (live.cover_designer_selectable !== undefined) row.designer_selectable = live.cover_designer_selectable;
+                    if (row.designer_selectable === false) row.link_group = '';
+                    else if (live.cover_link_group !== undefined) row.link_group = live.cover_link_group;
+                    if (live.cover_linked_asset_ids !== undefined) row.linked_asset_ids = live.cover_linked_asset_ids;
                 }
                 return row;
             });
@@ -2750,6 +2808,17 @@
                         linked_asset_ids: Array.isArray(p.linked_asset_ids) ? p.linked_asset_ids : undefined
                     };
                 });
+            }
+            if (live && live.coverUrl && live.hasCoverFields) {
+                if (!byUrl[live.coverUrl]) byUrl[live.coverUrl] = { url: live.coverUrl };
+                if (live.cover_label != null) byUrl[live.coverUrl].label = String(live.cover_label || '').trim();
+                if (live.cover_link_group != null) byUrl[live.coverUrl].link_group = String(live.cover_link_group || '').trim();
+                if (live.cover_designer_selectable !== undefined) {
+                    byUrl[live.coverUrl].designer_selectable = live.cover_designer_selectable;
+                }
+                if (live.cover_linked_asset_ids !== undefined) {
+                    byUrl[live.coverUrl].linked_asset_ids = live.cover_linked_asset_ids;
+                }
             }
             document.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
                 var url = inp.getAttribute('data-url');
@@ -3363,6 +3432,7 @@
         function displayGalleryImageLabel(it) {
             var lbl = (it && it.label) ? String(it.label).trim() : '';
             if (!lbl) return '';
+            if (isStorageObjectLabel(lbl, it && it.url)) return '';
             if (vendorImageDerivedKind(it)) return stripLegacyDerivedLabelSuffix(lbl) || lbl;
             return lbl;
         }
@@ -4634,7 +4704,7 @@
             items.forEach(function (it) { byUrl[it.url] = it; });
             var reordered = orderedUrls.map(function (url, idx) {
                 var src = byUrl[url];
-                if (!src) return { url: url, label: labelFromImageUrl(url), sort_order: idx, is_cover: idx === 0 };
+                if (!src) return { url: url, label: '', sort_order: idx, is_cover: idx === 0 };
                 return Object.assign({}, src, { sort_order: idx, is_cover: idx === 0 });
             });
             var next = Object.assign({}, m);
@@ -5561,11 +5631,12 @@
                 var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success" style="font-size:0.65rem">新上傳</span>' : '';
                 var displayLabel = displayGalleryImageLabel(it);
-                if (isCover && (!displayLabel || !String(displayLabel).trim()) && m && m.cover_image_label) {
+                if (isCover && (!displayLabel || !String(displayLabel).trim()) && m && m.cover_image_label
+                    && !isStorageObjectLabel(m.cover_image_label, url)) {
                     displayLabel = String(m.cover_image_label).trim();
                 }
                 var labelField = isCover
-                    ? '<input type="text" class="form-control form-control-sm mt-1 pending-card-label" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
+                    ? '<input type="text" class="form-control form-control-sm mt-1 pending-card-label" id="edit-cover-label" data-url="' + esc(url) + '" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
                 var linkGroupVal = (it.link_group || '').trim();
                 var coverSelectableOk = !(isCover && isMaterialKind) && it.designer_selectable !== false;
@@ -6223,6 +6294,8 @@
             if (!id) return;
             syncEditGalleryLiveMetaToMaterialsAll(id);
             syncEditGalleryLocalOrderFromGrid(grid);
+            clearTimeout(editImageLabelSaveTimer);
+            editImageLabelSaveTimer = null;
             var m = materialsAll.find(function (x) { return x.id === id; });
             var prev = m ? assetImageUrls(m) : [];
             var next = collectEditGalleryOrderFromGrid(grid);
@@ -6343,6 +6416,7 @@
                     return;
                 }
                 afterEditGalleryMutation(id, data, { skipGalleryRender: !!opts.skipRenderOnSuccess });
+                await saveImageLabels(id);
                 if (!opts.silent) {
                     setEditGalleryStatus(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'), 'success');
                     showToast(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'));
@@ -6398,6 +6472,7 @@
                     return;
                 }
                 afterEditGalleryMutation(id, data);
+                await saveImageLabels(id);
                 setEditGalleryStatus('已設為封面', 'success');
                 showToast(tr('baseModels.coverSet', '已設為封面'));
             } catch (err) {
@@ -7507,6 +7582,33 @@
                 .filter(Boolean);
         }
 
+        function catalogGroupIdsFromAsset(m) {
+            if (!m) return [];
+            var ids = Array.isArray(m.catalog_group_ids)
+                ? m.catalog_group_ids.map(String).filter(Boolean)
+                : [];
+            if (ids.length) return ids;
+            return (m.catalog_groups || []).map(function (g) { return g && g.id; }).filter(Boolean).map(String);
+        }
+
+        function editCatalogCheckboxCount() {
+            var box = document.getElementById('edit-catalog-groups');
+            if (!box) return 0;
+            return box.querySelectorAll('input[type=checkbox][data-group-id]').length;
+        }
+
+        function refreshOpenEditCatalogCheckboxes() {
+            var idEl = document.getElementById('edit-id');
+            var id = idEl && idEl.value;
+            if (!id) return;
+            var m = materialsAll.find(function (x) { return String(x.id) === String(id); });
+            if (!m) return;
+            var ids = editCatalogCheckboxCount()
+                ? getSelectedCatalogGroupIds(document.getElementById('edit-catalog-groups'))
+                : catalogGroupIdsFromAsset(m);
+            renderEditCatalogCheckboxes(m.asset_kind, ids);
+        }
+
         function resolveCatalogGroupsForAsset(m) {
             var out = [];
             var seen = {};
@@ -7595,6 +7697,10 @@
                 return;
             }
             if (!flat.length) {
+                if (selectedIds && selectedIds.length) {
+                    container.innerHTML = '<span class="text-muted small">分類載入中…</span>';
+                    return;
+                }
                 var emptyKey = kind === 'material' ? 'baseModels.catalogGroupsEmptyMaterial' : (kind === 'part' ? 'baseModels.catalogGroupsEmptyPart' : 'baseModels.catalogGroupsEmpty');
                 container.innerHTML = '<span class="text-muted small">' + esc(tr(emptyKey, '尚無分類')) + '</span>';
                 return;
@@ -7853,6 +7959,7 @@
             renderAllCatalogGroupsLists();
             fillVendorCatalogFilterSelect();
             refreshAllAssignCatalogCheckboxes();
+            refreshOpenEditCatalogCheckboxes();
         }
 
         async function createCatalogGroup(kind, presetName) {
@@ -10022,7 +10129,7 @@
             var subWrap = document.getElementById('edit-subcategory-wrap');
             if (subWrap) subWrap.classList.toggle('d-none', hideSubcategoryEdit);
             if (kindNorm === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
-            renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
+            renderEditCatalogCheckboxes(m.asset_kind, catalogGroupIdsFromAsset(m));
             var protoLinksWrap = document.getElementById('edit-prototype-links-wrap');
             var linkedProtosWrap = document.getElementById('edit-linked-prototypes-wrap');
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
@@ -10069,7 +10176,7 @@
                 }
                 renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), m.customization_levels || []);
             }
-            renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
+            renderEditCatalogCheckboxes(m.asset_kind, catalogGroupIdsFromAsset(m));
             populateEditTaxonomyFields(m);
         }
 
@@ -10272,8 +10379,14 @@
             if (file) {
                 fd.append('image', file);
             }
-            // 以畫面上實際勾選為準（含全部取消）；勿回退成舊 catalog_group_ids，否則無法清空／像沒存住
-            var editGrpIds = getSelectedCatalogGroupIds(document.getElementById('edit-catalog-groups'));
+            // 勾選格還沒畫出來時不可送 []，否則會把已存「我的分類」整批刪掉
+            var editCatBox = document.getElementById('edit-catalog-groups');
+            var editGrpIds;
+            if (editCatalogCheckboxCount()) {
+                editGrpIds = getSelectedCatalogGroupIds(editCatBox);
+            } else {
+                editGrpIds = catalogGroupIdsFromAsset(editAssetRecord);
+            }
             fd.append('catalog_group_ids', JSON.stringify(editGrpIds));
             if (editKind === 'prototype') {
                 var moqSave = document.getElementById('edit-min-order-qty');
@@ -10314,6 +10427,7 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
+                data.__replaceCatalogGroups = true;
                 patchMaterialsAllItem(id, data);
                 var savedKind = normalizeKind((data && data.asset_kind) || editKind);
                 if (savedKind === 'prototype' || savedKind === 'part' || savedKind === 'material') {

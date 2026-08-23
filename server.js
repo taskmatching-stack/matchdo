@@ -4831,6 +4831,20 @@ function getVendorAssetAllImageUrls(row) {
     return urls;
 }
 
+/** 資料庫裡真正存的名稱（不含 URL 檔名後備）；排序時必須用這個，否則空名稱會被寫成雜湊檔名 */
+function storedVendorAssetLabelByUrl(row) {
+    const map = {};
+    const cover = String(row && row.image_url || '').trim();
+    if (cover) map[cover] = String(row.cover_image_label || '').trim();
+    parseGalleryImages(row && row.gallery_images).forEach(function (g) {
+        if (!g.url) return;
+        const lab = String(g.label || '').trim();
+        if (!map[g.url]) map[g.url] = lab;
+        else if (!map[g.url] && lab) map[g.url] = lab;
+    });
+    return map;
+}
+
 function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
     if (!row || !Array.isArray(orderedUrls) || !orderedUrls.length) return null;
     const items = buildVendorAssetImageItems(row);
@@ -4844,10 +4858,11 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
     }
     if (new Set(reordered).size !== reordered.length) return null;
     if (urlSet.size !== urls.length) return null;
+    const storedLabels = storedVendorAssetLabelByUrl(row);
     const metaByUrl = {};
     items.forEach(function (it) {
         metaByUrl[it.url] = {
-            label: it.label || '',
+            label: storedLabels[it.url] || '',
             ai_derived: normalizeVendorAiDerivedKind(it.ai_derived),
             source_url: it.source_url ? String(it.source_url).trim() : '',
             link_group: it.link_group ? String(it.link_group).trim() : '',
@@ -34134,6 +34149,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             }
         }
         const updates = { updated_at: new Date().toISOString() };
+        const coverUrl = String(row.image_url || '').trim();
         if (body.cover_label !== undefined) {
             updates.cover_image_label = String(body.cover_label || '').trim() || null;
         }
@@ -34142,6 +34158,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             updates.cover_link_group = clg || null;
         }
         let galleryWorking = null;
+        let entriesByUrl = null;
         if (Array.isArray(body.entries) && body.entries.length) {
             const byUrl = {};
             body.entries.forEach(function (ent) {
@@ -34190,6 +34207,16 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 }
                 return next;
             });
+            entriesByUrl = byUrl;
+        }
+        if (coverUrl && entriesByUrl && entriesByUrl[coverUrl]) {
+            const coverPatch = entriesByUrl[coverUrl];
+            if (coverPatch.label !== undefined) {
+                updates.cover_image_label = coverPatch.label || null;
+            }
+            if (coverPatch.link_group !== undefined) {
+                updates.cover_link_group = coverPatch.link_group || null;
+            }
         }
         if (normalizeVendorAssetKind(row.asset_kind) === 'material') {
             // 材料封面一律不可選用
