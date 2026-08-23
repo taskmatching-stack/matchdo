@@ -290,6 +290,18 @@
       return html;
     }
 
+    function fmtDateInput(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function setDefaultDateRange() {
+      var today = new Date();
+      var from = new Date(today);
+      from.setDate(from.getDate() - 29);
+      document.getElementById('filterFrom').value = fmtDateInput(from);
+      document.getElementById('filterTo').value = fmtDateInput(today);
+    }
+
     async function getToken() {
       if (token) return token;
       if (window.AuthService && typeof AuthService.getSession === 'function') {
@@ -465,8 +477,7 @@
       document.getElementById('btnReset').addEventListener('click', function () {
         document.getElementById('filterSource').value = 'all';
         document.getElementById('filterQ').value = '';
-        document.getElementById('filterFrom').value = '';
-        document.getElementById('filterTo').value = '';
+        setDefaultDateRange();
         page = 0;
         loadPage();
       });
@@ -518,6 +529,7 @@
           updateExportZipButton();
         }
       });
+      setDefaultDateRange();
       setTimeout(loadPage, 400);
     });
   })();

@@ -27294,6 +27294,24 @@ async function listVendorEmbedDesigns(manufacturerId, opts) {
     };
 }
 
+/** 後台生圖紀錄：PostgREST 單次約 1000 列，需從最新連取到 offset+limit，不可再 cap 500。 */
+async function fetchSupabaseRowsUpTo(makeQuery, maxN) {
+    const pageSize = 1000;
+    const out = [];
+    let offset = 0;
+    const cap = Math.max(0, parseInt(maxN, 10) || 0);
+    while (out.length < cap) {
+        const take = Math.min(pageSize, cap - out.length);
+        const res = await makeQuery().range(offset, offset + take - 1);
+        if (res.error) return { data: out, error: res.error };
+        const batch = res.data || [];
+        out.push.apply(out, batch);
+        if (batch.length < take) break;
+        offset += batch.length;
+    }
+    return { data: out, error: null };
+}
+
 async function listAdminGenerationRecords(opts) {
     opts = opts || {};
     const source = (opts.source || 'all').trim().toLowerCase();
@@ -27303,19 +27321,20 @@ async function listAdminGenerationRecords(opts) {
     const qText = (opts.q || '').trim().toLowerCase();
     const from = (opts.from || '').trim();
     const to = (opts.to || '').trim();
-    const fetchN = Math.min(500, limit + offset + 50);
+    const fetchN = offset + limit + 1;
     const merged = [];
 
     if (source === 'all' || source === 'site') {
-        let cpQ = supabase
-            .from('custom_products')
-            .select('id, title, description, ai_generated_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
-            .not('ai_generated_image_url', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(fetchN);
-        if (from) cpQ = cpQ.gte('created_at', from);
-        if (to) cpQ = cpQ.lte('created_at', to + 'T23:59:59.999Z');
-        const cpRes = await cpQ;
+        const cpRes = await fetchSupabaseRowsUpTo(function () {
+            let cpQ = supabase
+                .from('custom_products')
+                .select('id, title, description, ai_generated_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
+                .not('ai_generated_image_url', 'is', null)
+                .order('created_at', { ascending: false });
+            if (from) cpQ = cpQ.gte('created_at', from);
+            if (to) cpQ = cpQ.lte('created_at', to + 'T23:59:59.999Z');
+            return cpQ;
+        }, fetchN);
         if (!cpRes.error) {
             (cpRes.data || []).forEach(function (row) {
                 if (customProductRowIsEmbedVisitor(row)) return;
@@ -27344,15 +27363,16 @@ async function listAdminGenerationRecords(opts) {
     }
 
     if (source === 'all' || source === 'embed') {
-        let embQ = supabase
-            .from('vendor_embed_designs')
-            .select('id, embed_instance_id, manufacturer_id, prototype_asset_id, reference_sources, prompt, ai_generated_image_url, generation_seed, referrer_host, billing_type, points_charged, custom_product_id, created_at')
-            .order('created_at', { ascending: false })
-            .limit(fetchN);
-        if (manufacturerId) embQ = embQ.eq('manufacturer_id', manufacturerId);
-        if (from) embQ = embQ.gte('created_at', from);
-        if (to) embQ = embQ.lte('created_at', to + 'T23:59:59.999Z');
-        const embRes = await embQ;
+        const embRes = await fetchSupabaseRowsUpTo(function () {
+            let embQ = supabase
+                .from('vendor_embed_designs')
+                .select('id, embed_instance_id, manufacturer_id, prototype_asset_id, reference_sources, prompt, ai_generated_image_url, generation_seed, referrer_host, billing_type, points_charged, custom_product_id, created_at')
+                .order('created_at', { ascending: false });
+            if (manufacturerId) embQ = embQ.eq('manufacturer_id', manufacturerId);
+            if (from) embQ = embQ.gte('created_at', from);
+            if (to) embQ = embQ.lte('created_at', to + 'T23:59:59.999Z');
+            return embQ;
+        }, fetchN);
         if (!embRes.error) {
             const mfrIds = [...new Set((embRes.data || []).map(function (r) { return r.manufacturer_id; }).filter(Boolean))];
             const mfrNameById = {};
@@ -27391,27 +27411,32 @@ async function listAdminGenerationRecords(opts) {
 
     if (source === 'all' || source === 'promo' || source === 'promo_camera' || source === 'promo_camera_web' || source === 'promo_camera_app' || ADMIN_PROMO_CAMERA_SHOOT_FILTER[source]) {
         const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, generation_meta_json, client_channel, camera_params';
-        let promoQ = supabase
-            .from('product_promo_generations')
-            .select(promoSelectFull)
-            .eq('status', 'success')
-            .not('result_image_url', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(fetchN);
-        if (from) promoQ = promoQ.gte('created_at', from);
-        if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
-        let promoRes = await promoQ;
-        if (promoRes.error && (isSupabaseMissingColumnError(promoRes.error, 'scene_key') || isSupabaseMissingColumnError(promoRes.error, 'generation_mode') || isSupabaseMissingColumnError(promoRes.error, 'generation_meta_json') || isSupabaseMissingColumnError(promoRes.error, 'camera_params') || isSupabaseMissingColumnError(promoRes.error, 'client_channel'))) {
-            promoQ = supabase
-                .from('product_promo_generations')
-                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, client_channel, camera_params')
-                .eq('status', 'success')
-                .not('result_image_url', 'is', null)
-                .order('created_at', { ascending: false })
-                .limit(fetchN);
+        const applyPromoDate = function (promoQ) {
             if (from) promoQ = promoQ.gte('created_at', from);
             if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
-            promoRes = await promoQ;
+            return promoQ;
+        };
+        let promoRes = await fetchSupabaseRowsUpTo(function () {
+            return applyPromoDate(
+                supabase
+                    .from('product_promo_generations')
+                    .select(promoSelectFull)
+                    .eq('status', 'success')
+                    .not('result_image_url', 'is', null)
+                    .order('created_at', { ascending: false })
+            );
+        }, fetchN);
+        if (promoRes.error && (isSupabaseMissingColumnError(promoRes.error, 'scene_key') || isSupabaseMissingColumnError(promoRes.error, 'generation_mode') || isSupabaseMissingColumnError(promoRes.error, 'generation_meta_json') || isSupabaseMissingColumnError(promoRes.error, 'camera_params') || isSupabaseMissingColumnError(promoRes.error, 'client_channel'))) {
+            promoRes = await fetchSupabaseRowsUpTo(function () {
+                return applyPromoDate(
+                    supabase
+                        .from('product_promo_generations')
+                        .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, client_channel, camera_params')
+                        .eq('status', 'success')
+                        .not('result_image_url', 'is', null)
+                        .order('created_at', { ascending: false })
+                );
+            }, fetchN);
         }
         if (!promoRes.error) {
             const shootFilter = ADMIN_PROMO_CAMERA_SHOOT_FILTER[source];

@@ -637,6 +637,7 @@
   function init() {
     initSectionTabs();
     initSubTabs();
+    setQuickRange('30');
     $('btnLoad').addEventListener('click', function () {
       loadedKey = '';
       loadCurrentSection(true);
