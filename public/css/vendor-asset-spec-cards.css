@@ -10,16 +10,16 @@
   margin-top: 0.4rem;
 }
 .va-spec-block {
-  border: 1px solid var(--md-border, rgba(88, 100, 112, 0.14));
+  border: 1px solid rgba(122, 143, 163, 0.32);
   border-radius: 8px;
-  background: var(--md-card, #F0F3F7);
+  background: #fff;
   overflow: hidden;
   margin: 0;
   min-width: 0;
   box-shadow: 0 1px 2px rgba(88, 100, 112, 0.06), 0 2px 8px rgba(88, 100, 112, 0.05);
 }
 .va-spec-block[open] {
-  border-color: rgba(122, 143, 163, 0.35);
+  border-color: rgba(122, 143, 163, 0.45);
 }
 .va-spec-summary {
   list-style: none;
@@ -30,7 +30,7 @@
   align-items: center;
   gap: 0.5rem 0.75rem;
   user-select: none;
-  background: var(--md-primary-softer, rgba(122, 143, 163, 0.08));
+  background: var(--md-primary, #7A8FA3);
 }
 .va-spec-summary::-webkit-details-marker {
   display: none;
@@ -40,8 +40,8 @@
   margin-left: 0.25rem;
   width: 0.55rem;
   height: 0.55rem;
-  border-right: 2px solid #86868b;
-  border-bottom: 2px solid #86868b;
+  border-right: 2px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
   transform: rotate(45deg);
   transition: transform 0.15s ease;
   flex-shrink: 0;
@@ -54,7 +54,7 @@
 .va-spec-kicker {
   font-size: 1rem;
   font-weight: 600;
-  color: #586470;
+  color: #fff;
   letter-spacing: -0.01em;
   flex-shrink: 0;
 }
@@ -63,14 +63,14 @@
   min-width: 0;
   font-size: 0.875rem;
   font-weight: 400;
-  color: #7A8FA3;
+  color: rgba(255, 255, 255, 0.88);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .va-spec-value--pending {
-  color: #C4784A;
+  color: #FFD2B3;
   font-weight: 500;
 }
 .va-spec-value--optional-empty {
@@ -79,8 +79,9 @@
 }
 .va-spec-body {
   padding: 0 1.1rem 1.1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(122, 143, 163, 0.22);
   padding-top: 0.9rem;
+  background: #fff;
 }
 .va-spec-footer {
   padding-top: 0.35rem;
