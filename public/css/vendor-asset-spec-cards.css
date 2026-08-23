@@ -30,7 +30,7 @@
   align-items: center;
   gap: 0.5rem 0.75rem;
   user-select: none;
-  background: var(--md-primary, #7A8FA3);
+  background: #E4E8ED;
 }
 .va-spec-summary::-webkit-details-marker {
   display: none;
@@ -40,8 +40,8 @@
   margin-left: 0.25rem;
   width: 0.55rem;
   height: 0.55rem;
-  border-right: 2px solid rgba(255, 255, 255, 0.9);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
+  border-right: 2px solid #86868b;
+  border-bottom: 2px solid #86868b;
   transform: rotate(45deg);
   transition: transform 0.15s ease;
   flex-shrink: 0;
@@ -54,7 +54,7 @@
 .va-spec-kicker {
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: #586470;
   letter-spacing: -0.01em;
   flex-shrink: 0;
 }
@@ -63,14 +63,14 @@
   min-width: 0;
   font-size: 0.875rem;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.88);
+  color: #7A8FA3;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .va-spec-value--pending {
-  color: #FFD2B3;
+  color: #C4784A;
   font-weight: 500;
 }
 .va-spec-value--optional-empty {
