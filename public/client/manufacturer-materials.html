@@ -1371,7 +1371,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'spec-title-e4e8ed-20260824';
+        window.__MATCHDO_MATERIALS_BUILD = 'me-assets-page-20260824';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -2226,7 +2226,9 @@
         var catalogGroupsCollapseInitedByKind = { prototype: false, material: false, part: false };
         var MATERIALS_PAGE_SIZE_KEY = 'matchdo.vendorMaterialsPageSize';
         var materialsListPageSize = 12;
-        var materialsListOffsetByKind = { prototype: 0, material: 0, part: 0 };
+        var materialsListOffsetByKind = { prototype: 0, material: 0, part: 0, material_combo: 0 };
+        var materialsListTotalByKind = { prototype: 0, material: 0, part: 0, material_combo: 0 };
+        var addFormLinkItems = [];
         var catalogAssetKindSplitOk = true;
 
         function tr(k, fb) {
@@ -5623,7 +5625,7 @@
             function imageLinkOverrideFieldHtml(it) {
                 if (!m || normalizeKind(m.asset_kind) !== 'prototype') return '';
                 var selected = Array.isArray(it && it.linked_asset_ids) ? it.linked_asset_ids.map(String) : [];
-                var options = materialsAll.filter(function (candidate) {
+                var options = ((addFormLinkItems && addFormLinkItems.length) ? addFormLinkItems : materialsAll).filter(function (candidate) {
                     if (!candidate || candidate.id === m.id) return false;
                     var kind = normalizeKind(candidate.asset_kind);
                     return kind === 'material' || kind === 'part';
@@ -8448,7 +8450,17 @@
             var grid = document.getElementById('materials-grid');
             showMaterialsListLoading();
             try {
-                var r = await fetch('/api/me/vendor-assets', { headers: { Authorization: 'Bearer ' + token } });
+                var kindQ = activeKind === 'material_combo' ? 'material' : normalizeKind(activeKind);
+                var offset = materialsListOffsetByKind[activeKind] || 0;
+                var qs = new URLSearchParams();
+                qs.set('limit', String(materialsListPageSize));
+                qs.set('offset', String(offset));
+                if (kindQ === 'prototype' || kindQ === 'part' || kindQ === 'material') qs.set('asset_kind', kindQ);
+                var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
+                var filterGrp = document.getElementById('filter-vendor-catalog') && document.getElementById('filter-vendor-catalog').value;
+                if (filterCat) qs.set('category_key', filterCat);
+                if (filterGrp) qs.set('catalog_group_id', filterGrp);
+                var r = await fetch('/api/me/vendor-assets?' + qs.toString(), { headers: { Authorization: 'Bearer ' + token } });
                 var d = await r.json().catch(function () { return {}; });
                 if (!r.ok) {
                     var listErr = (d && d.error) ? d.error : ('HTTP ' + r.status);
@@ -8460,6 +8472,7 @@
                     m.asset_kind = normalizeKind(m.asset_kind);
                     return m;
                 });
+                materialsListTotalByKind[activeKind] = typeof d.total === 'number' ? d.total : materialsAll.length;
                 // 編輯中：用 DOM 當下值蓋回本機快取，避免整表重載把未存名稱／連動洗掉
                 var openEditId = document.getElementById('edit-id') && document.getElementById('edit-id').value;
                 if (openEditId) syncEditGalleryLiveMetaToMaterialsAll(openEditId);
@@ -8472,18 +8485,38 @@
             }
         }
 
+        async function loadAddFormLinkItems() {
+            try {
+                var headers = { Authorization: 'Bearer ' + token };
+                var results = await Promise.all([
+                    fetch('/api/me/vendor-assets?lite=1', { headers: headers }),
+                    fetch('/api/me/vendor-assets?lite=1&asset_kind=material', { headers: headers })
+                ]);
+                var packs = await Promise.all(results.map(function (r) {
+                    return r.json().catch(function () { return {}; });
+                }));
+                var merged = [];
+                packs.forEach(function (d) {
+                    (d.items || []).forEach(function (m) {
+                        m.asset_kind = normalizeKind(m.asset_kind);
+                        merged.push(m);
+                    });
+                });
+                addFormLinkItems = merged;
+            } catch (_) {
+                addFormLinkItems = [];
+            }
+            renderAllAddFormLinkSections();
+        }
+
         function renderGrid() {
             var grid = document.getElementById('materials-grid');
             var renderGen = ++materialsGridRenderGen;
-            var fullList = itemsForActiveKind();
+            var list = itemsForActiveKind();
             var offset = materialsListOffsetByKind[activeKind] || 0;
             var pageSize = materialsListPageSize;
-            var total = fullList.length;
-            if (offset >= total && total > 0) {
-                offset = Math.max(0, total - (total % pageSize || pageSize));
-                materialsListOffsetByKind[activeKind] = offset;
-            }
-            var list = fullList.slice(offset, offset + pageSize);
+            var total = materialsListTotalByKind[activeKind] || 0;
+            if (activeKind === 'material_combo') total = list.length;
             var rangeEl = document.getElementById('materials-list-range');
             if (window.MatchdoOffsetPager && window.MatchdoOffsetPager.render) {
                 window.MatchdoOffsetPager.render({
@@ -8498,7 +8531,7 @@
                     pageInfoTemplate: tr('baseModels.listPageInfo', '第 {page} / {total} 頁'),
                     onGoToPage: function (newOffset) {
                         materialsListOffsetByKind[activeKind] = newOffset;
-                        renderGrid();
+                        loadMaterials();
                         unlockPageScroll(true);
                     }
                 });
@@ -8836,9 +8869,8 @@
                 filterSel.value = '';
             }
             fillVendorCatalogFilterSelect();
-            renderGrid();
+            loadMaterials();
             updateSupplierImportUi();
-            renderAllAddFormLinkSections();
             var activeForm = document.querySelector('.add-form[data-kind="' + activeKind + '"]');
             if (activeForm) restorePendingDraft(activeForm);
             updateAddOpenButtonLabel();
@@ -9966,12 +9998,13 @@
         function renderAddFormLinkSection(form) {
             if (!form) return;
             var kind = normalizeKind(form.getAttribute('data-kind'));
+            var pool = (addFormLinkItems && addFormLinkItems.length) ? addFormLinkItems : materialsAll;
             var protoBlock = form.querySelector('.add-prototype-links-block');
             var linkedBlock = form.querySelector('.add-linked-prototypes-block');
             if (protoBlock) protoBlock.classList.toggle('d-none', kind !== 'prototype');
             if (linkedBlock) linkedBlock.classList.toggle('d-none', kind !== 'material' && kind !== 'part');
             if (kind === 'prototype') {
-                var candidates = materialsAll.filter(function (m) {
+                var candidates = pool.filter(function (m) {
                     var k = normalizeKind(m.asset_kind);
                     return k === 'material' || k === 'part';
                 }).map(function (m) {
@@ -9992,7 +10025,7 @@
                 var emptyEl = form.querySelector('.add-prototype-links-empty');
                 renderPrototypeLinkRows(listEl, emptyEl, candidates, [], []);
             } else if (kind === 'material' || kind === 'part') {
-                var protoCandidates = materialsAll.filter(function (m) {
+                var protoCandidates = pool.filter(function (m) {
                     return normalizeKind(m.asset_kind) === 'prototype';
                 }).map(function (m) {
                     return {
@@ -10493,9 +10526,15 @@
             if (normalizeKind(document.getElementById('edit-asset-kind').value) !== 'prototype') return;
             fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
         });
-        document.getElementById('filter-category').addEventListener('change', renderGrid);
+        document.getElementById('filter-category').addEventListener('change', function () {
+            resetMaterialsListOffset(activeKind);
+            loadMaterials();
+        });
         var filterVendorCatalog = document.getElementById('filter-vendor-catalog');
-        if (filterVendorCatalog) filterVendorCatalog.addEventListener('change', renderGrid);
+        if (filterVendorCatalog) filterVendorCatalog.addEventListener('change', function () {
+            resetMaterialsListOffset(activeKind);
+            loadMaterials();
+        });
         document.getElementById('main-content').addEventListener('click', function (e) {
             var addBtn = e.target.closest('.btn-add-catalog-group');
             if (addBtn && !isSeedVendor) {
@@ -10793,7 +10832,7 @@
                 if (n !== 12 && n !== 24 && n !== 48) return;
                 setMaterialsListPageSize(n);
                 resetMaterialsListOffset(activeKind);
-                renderGrid();
+                loadMaterials();
             });
         });
         var materialsPrev = document.getElementById('materials-list-prev');
@@ -10801,20 +10840,15 @@
         if (materialsPrev) {
             materialsPrev.addEventListener('click', function () {
                 materialsListOffsetByKind[activeKind] = Math.max(0, (materialsListOffsetByKind[activeKind] || 0) - materialsListPageSize);
-                renderGrid();
+                loadMaterials();
             });
         }
         if (materialsNext) {
             materialsNext.addEventListener('click', function () {
                 materialsListOffsetByKind[activeKind] = (materialsListOffsetByKind[activeKind] || 0) + materialsListPageSize;
-                renderGrid();
+                loadMaterials();
             });
         }
-        ['filter-vendor-catalog', 'filter-category'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.addEventListener('change', function () { resetMaterialsListOffset(activeKind); renderGrid(); });
-        });
-
         document.addEventListener('input', function (e) {
             var t = e.target;
             if (!t) return;
@@ -10899,7 +10933,8 @@
                     loadCapabilities(),
                     loadTaxonomy(),
                     loadUploadPricing(),
-                    applySeedVendorInfoBanner(mfrData.vendor_source)
+                    applySeedVendorInfoBanner(mfrData.vendor_source),
+                    loadAddFormLinkItems()
                 ]);
 
                 await Promise.all([materialsTask, setupTask]);

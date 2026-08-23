@@ -6628,18 +6628,45 @@ async function getMeIndustrySupplier(req, res, opts = {}) {
     return { user, supplier };
 }
 
+const SUPABASE_IN_CHUNK = 80;
+
+async function supabaseSelectIn(table, selectCols, column, ids) {
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    const all = [];
+    for (let i = 0; i < list.length; i += SUPABASE_IN_CHUNK) {
+        const chunk = list.slice(i, i + SUPABASE_IN_CHUNK);
+        const { data, error } = await supabase.from(table).select(selectCols).in(column, chunk);
+        if (error) return { data: all, error };
+        if (data && data.length) Array.prototype.push.apply(all, data);
+    }
+    return { data: all, error: null };
+}
+
 async function enrichVendorAssetsWithSupplierMeta(manufacturerId, items) {
     if (!items || !items.length) return items || [];
     const ready = await supplierCatalogTablesReady();
     if (!ready) return items;
     const assetIds = items.map((r) => r.id).filter(Boolean);
-    const { data: imports } = await supabase
-        .from('manufacturer_supplier_imports')
-        .select('id, vendor_asset_id, catalog_item_id, snapshot_json')
-        .eq('manufacturer_id', manufacturerId)
-        .in('vendor_asset_id', assetIds);
+    const imports = [];
+    try {
+        for (let i = 0; i < assetIds.length; i += SUPABASE_IN_CHUNK) {
+            const chunk = assetIds.slice(i, i + SUPABASE_IN_CHUNK);
+            const { data, error } = await supabase
+                .from('manufacturer_supplier_imports')
+                .select('id, vendor_asset_id, catalog_item_id, snapshot_json')
+                .eq('manufacturer_id', manufacturerId)
+                .in('vendor_asset_id', chunk);
+            if (error) {
+                console.warn('enrichVendorAssetsWithSupplierMeta:', error.message || error);
+                break;
+            }
+            if (data && data.length) Array.prototype.push.apply(imports, data);
+        }
+    } catch (e) {
+        console.warn('enrichVendorAssetsWithSupplierMeta:', e && e.message);
+    }
     const byAsset = {};
-    (imports || []).forEach((row) => {
+    imports.forEach((row) => {
         if (row.vendor_asset_id) byAsset[row.vendor_asset_id] = row;
     });
     return items.map((row) => {
@@ -28227,20 +28254,24 @@ async function batchPrototypeLinkCounts(prototypeRows) {
     });
     const ids = Object.keys(out);
     if (!ids.length || !(await vendorPrototypeLinksTableReady())) return out;
-    const { data: links, error: linkErr } = await supabase
-        .from('vendor_asset_prototype_links')
-        .select('prototype_asset_id, linked_asset_id, manufacturer_id')
-        .in('prototype_asset_id', ids);
+    const { data: links, error: linkErr } = await supabaseSelectIn(
+        'vendor_asset_prototype_links',
+        'prototype_asset_id, linked_asset_id, manufacturer_id',
+        'prototype_asset_id',
+        ids
+    );
     if (linkErr) {
         if (linkErr.code === '42P01') return out;
         throw linkErr;
     }
     const linkedIds = [...new Set((links || []).map((l) => l.linked_asset_id).filter(Boolean))];
     if (!linkedIds.length) return out;
-    const { data: assets, error: assetErr } = await supabase
-        .from('vendor_assets')
-        .select('id, asset_kind')
-        .in('id', linkedIds);
+    const { data: assets, error: assetErr } = await supabaseSelectIn(
+        'vendor_assets',
+        'id, asset_kind',
+        'id',
+        linkedIds
+    );
     if (assetErr) throw assetErr;
     const kindById = {};
     (assets || []).forEach((a) => { kindById[a.id] = normalizeVendorAssetKind(a.asset_kind); });
@@ -30517,7 +30548,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
                 .eq('manufacturer_id', manufacturerId)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false });
-            if (kindQ === 'prototype' || kindQ === 'part') {
+            if (kindQ === 'prototype' || kindQ === 'part' || kindQ === 'material') {
                 q = q.eq('asset_kind', kindQ);
             } else {
                 q = q.in('asset_kind', ['prototype', 'part']);
@@ -30532,7 +30563,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
                 if (!error && list) {
                     list = list.filter((row) => {
                         const k = normalizeVendorAssetKind(row.asset_kind);
-                        if (kindQ === 'prototype' || kindQ === 'part') return k === kindQ;
+                        if (kindQ === 'prototype' || kindQ === 'part' || kindQ === 'material') return k === kindQ;
                         return k === 'prototype' || k === 'part';
                     });
                 }
@@ -30561,22 +30592,55 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
         const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
+        const wantsPage = req.query.limit != null && String(req.query.limit).trim() !== '';
+        const page = wantsPage ? parseVendorAssetsListPageParams(req.query) : null;
+        let catalogGroupIds = null;
+        if (catalogGroupId) {
+            const cg = await getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId);
+            catalogGroupIds = cg.assetIds || [];
+            if (page && !catalogGroupIds.length) {
+                return res.json({
+                    items: [],
+                    total: 0,
+                    limit: page.limit,
+                    offset: page.offset,
+                    viewer: {
+                        user_id: user.id,
+                        email: user.email || null,
+                        manufacturer_id: manufacturerId,
+                        manufacturer_name: manufacturerName
+                    }
+                });
+            }
+        }
         async function runList(selectCols) {
+            const selectOpts = page ? { count: 'exact' } : undefined;
             let query = supabase
                 .from('vendor_assets')
-                .select(selectCols)
+                .select(selectCols, selectOpts)
                 .eq('manufacturer_id', manufacturerId)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false });
             if (categoryKey) query = query.eq('category_key', categoryKey);
             if (assetKindFilter && selectCols.includes('asset_kind')) query = query.eq('asset_kind', assetKindFilter);
+            if (catalogGroupIds) {
+                const idsForQuery = page
+                    ? catalogGroupIds.slice(page.offset, page.offset + page.limit)
+                    : catalogGroupIds;
+                if (!idsForQuery.length) {
+                    return Promise.resolve({ data: [], error: null, count: catalogGroupIds.length });
+                }
+                query = query.in('id', idsForQuery);
+            } else if (page) {
+                query = query.range(page.offset, page.offset + page.limit - 1);
+            }
             return query;
         }
-        let { data: list, error } = await runList(VENDOR_ASSET_SELECT_ME);
+        let { data: list, error, count } = await runList(VENDOR_ASSET_SELECT_ME);
         if (error && error.code === '42703') {
-            ({ data: list, error } = await runList(VENDOR_ASSET_SELECT_ME_LEGACY));
+            ({ data: list, error, count } = await runList(VENDOR_ASSET_SELECT_ME_LEGACY));
             if (error && error.code === '42703') {
-                ({ data: list, error } = await runList(VENDOR_ASSET_SELECT_ME_MINIMAL));
+                ({ data: list, error, count } = await runList(VENDOR_ASSET_SELECT_ME_MINIMAL));
             }
             if (list) {
                 list = list.map((row) => ({
@@ -30595,17 +30659,27 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         if (assetKindFilter && list && list.length && list[0].asset_kind == null) {
             list = list.filter((row) => normalizeVendorAssetKind(row.asset_kind) === assetKindFilter);
         }
-        if (catalogGroupId) {
-            const cg = await getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId);
-            if (cg.assetIds) {
-                const idSet = new Set(cg.assetIds);
-                list = (list || []).filter((row) => idSet.has(row.id));
+        try {
+            list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
+        } catch (enrErr) {
+            console.warn('enrichVendorAssetsWithSupplierMeta:', enrErr && enrErr.message);
+        }
+        if (list && list.length) {
+            try {
+                list = await attachCatalogGroupIdsToAssets(list);
+            } catch (cgErr) {
+                console.warn('attachCatalogGroupIdsToAssets:', cgErr && cgErr.message);
             }
         }
-        list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
-        if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
         const lang = resolveVendorAssetApiLang(req);
-        let mapped = (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); });
+        let mapped = [];
+        (list || []).forEach(function (row) {
+            try {
+                mapped.push(mapVendorAssetForApi(row, lang));
+            } catch (mapErr) {
+                console.warn('mapVendorAssetForApi:', row && row.id, mapErr && mapErr.message);
+            }
+        });
         try {
             mapped = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, mapped);
         } catch (taxErr) {
@@ -30614,7 +30688,11 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const protoRowsForLinks = (list || []).filter((r) => normalizeVendorAssetKind(r.asset_kind) === 'prototype');
         let linkCountsByProtoMe = {};
         if (protoRowsForLinks.length && (await vendorPrototypeLinksTableReady())) {
-            linkCountsByProtoMe = await batchPrototypeLinkCounts(protoRowsForLinks);
+            try {
+                linkCountsByProtoMe = await batchPrototypeLinkCounts(protoRowsForLinks);
+            } catch (linkCntErr) {
+                console.warn('batchPrototypeLinkCounts:', linkCntErr && linkCntErr.message);
+            }
         }
         mapped = mapped.map(function (item) {
             const kind = normalizeVendorAssetKind(item.asset_kind);
@@ -30639,12 +30717,14 @@ app.get('/api/me/vendor-assets', async (req, res) => {
                 guide_share_url: shareUrls.guide_share_url || null
             };
         });
-        /* 廠商後台依分頁在前端各 Tab 篩選；此處回傳完整列表，避免只取 12 筆導致原型／零件列表空白 */
+        const totalCount = catalogGroupIds
+            ? catalogGroupIds.length
+            : (typeof count === 'number' ? count : mapped.length);
         res.json({
             items: mapped,
-            total: mapped.length,
-            limit: mapped.length,
-            offset: 0,
+            total: totalCount,
+            limit: page ? page.limit : mapped.length,
+            offset: page ? page.offset : 0,
             viewer: {
                 user_id: user.id,
                 email: user.email || null,
