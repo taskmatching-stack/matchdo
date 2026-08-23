@@ -123,7 +123,7 @@
     var craftPending = !!(hasLevels && !craftN);
     setVal(form, 'craft', joinParts(craftParts) || t('baseModels.specOptionalSkip', '未選（可略過）'), craftPending ? true : (craftParts.length ? false : 'optional-empty'));
 
-    var linkN = form.querySelectorAll('.add-prototype-links-list input:checked, .add-linked-prototypes-list input:checked').length;
+    var linkN = form.querySelectorAll('.add-prototype-links-list input.proto-link-check:checked, .add-linked-prototypes-list input.form-check-input:checked').length;
     setVal(
       form,
       'links',
@@ -206,7 +206,7 @@
       setVal(form, 'meta', joinParts(metaParts), !moq || !craftN);
     }
 
-    var linkN = countChecked(form, '#edit-prototype-links-list input:checked, #edit-linked-prototypes-list input:checked');
+    var linkN = countChecked(form, '#edit-prototype-links-list input.proto-link-check:checked, #edit-linked-prototypes-list input.form-check-input:checked');
     setVal(
       form,
       'links',

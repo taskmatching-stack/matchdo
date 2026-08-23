@@ -284,6 +284,9 @@
             color: #94a3b8;
             font-size: 0.75rem;
         }
+        .proto-link-more-btn {
+            align-self: flex-start;
+        }
         .proto-link-source-section-title {
             font-size: 0.875rem;
             font-weight: 700;
@@ -1371,7 +1374,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'me-assets-page-20260824';
+        window.__MATCHDO_MATERIALS_BUILD = 'links-folders-more-20260824';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1647,7 +1650,8 @@
         var highlightAssetId = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 1, points_design_to_physical: 10, points_description: 1, points_regenerate_tags: 1 };
         var editPending = { tags: null, semantics: null };
-        var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
+        var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], linked_links: [], loaded: false };
+        var editLinkCandidatesCache = [];
         var editGalleryUploading = false;
         var editGalleryHighlightUrls = new Set();
         /** 已上傳圖：AI 重繪／寫實化／放大預覽後勾選，按「儲存」寫入 */
@@ -9544,7 +9548,18 @@
             var imgInput = form.querySelector('.add-image');
             wireOptimizeBackgroundForm(form);
 
-            if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); schedulePendingDraftSave(form); });
+            if (kind === 'prototype' && subSel) {
+                catSel.addEventListener('change', function () {
+                    fillSubcategorySelect(subSel, catSel.value);
+                    schedulePendingDraftSave(form);
+                    renderAddFormLinkSection(form);
+                });
+            } else if (catSel) {
+                catSel.addEventListener('change', function () {
+                    schedulePendingDraftSave(form);
+                    renderAddFormLinkSection(form);
+                });
+            }
             wireTaxonomySelectsOnForm(form);
             form.addEventListener('input', function (e) {
                 if (e.target && e.target.closest && e.target.closest('.add-title, .add-description, .add-min-order-qty, .add-material-surface-type, .add-customization-levels')) {
@@ -9611,9 +9626,48 @@
             meta.classList.toggle('d-none', !chk.checked);
         }
 
+        function formLinkCategoryKey(form) {
+            if (form && form.querySelector) {
+                var sel = form.querySelector('.add-category');
+                if (sel) return String(sel.value || '').trim();
+            }
+            var editCat = document.getElementById('edit-category');
+            return editCat ? String(editCat.value || '').trim() : '';
+        }
+
+        function uniqueLinkCandidateCount(candidates) {
+            var seen = {};
+            var n = 0;
+            (candidates || []).forEach(function (c) {
+                var id = c && c.id != null ? String(c.id) : '';
+                if (!id || seen[id]) return;
+                seen[id] = true;
+                n += 1;
+            });
+            return n;
+        }
+
+        function partitionLinkCandidatesByCategory(candidates, categoryKey, keepIds) {
+            var cat = String(categoryKey || '').trim();
+            var keep = {};
+            (keepIds || []).forEach(function (id) { keep[String(id)] = true; });
+            var same = [];
+            var other = [];
+            (candidates || []).forEach(function (c) {
+                if (!c || !c.id) return;
+                var id = String(c.id);
+                var ccat = String(c.category_key || '').trim();
+                if (keep[id] || (cat && ccat === cat)) same.push(c);
+                else other.push(c);
+            });
+            return { same: same, other: other };
+        }
+
         function enrichLinkCandidates(candidates) {
             return (candidates || []).map(function (c) {
-                var m = materialsAll.find(function (x) { return x.id === c.id; });
+                var pool = (addFormLinkItems && addFormLinkItems.length) ? addFormLinkItems : materialsAll;
+                var m = pool.find(function (x) { return x.id === c.id; })
+                    || materialsAll.find(function (x) { return x.id === c.id; });
                 var groups = (m && Array.isArray(m.catalog_groups) && m.catalog_groups.length)
                     ? m.catalog_groups
                     : (Array.isArray(c.catalog_groups) ? c.catalog_groups : []);
@@ -9642,11 +9696,12 @@
         }
 
         /** 材料／配件「關聯主產品」：依產品官方主分類分組（非廠商自建資料夾） */
-        function groupLinkCandidatesByOfficialCategory(candidates) {
+        function groupLinkCandidatesByOfficialCategory(candidates, selectedIds) {
             var items = enrichLinkCandidates(candidates);
+            var keep = {};
+            (selectedIds || []).forEach(function (id) { keep[String(id)] = true; });
             var groupOrder = [];
             var groupMap = Object.create(null);
-            var ungrouped = [];
             var catOrder = Object.create(null);
             categories.forEach(function (c, i) {
                 if (c && c.key) catOrder[String(c.key)] = i;
@@ -9654,7 +9709,16 @@
             items.forEach(function (c) {
                 var key = String(c.category_key || '').trim();
                 if (!key) {
-                    ungrouped.push(c);
+                    if (!keep[String(c.id)]) return;
+                    if (!groupMap.__selected) {
+                        groupMap.__selected = {
+                            groupId: '__selected',
+                            groupLabel: '已勾選',
+                            items: []
+                        };
+                        groupOrder.push(groupMap.__selected);
+                    }
+                    groupMap.__selected.items.push(c);
                     return;
                 }
                 if (!groupMap[key]) {
@@ -9673,14 +9737,6 @@
                 if (ia !== ib) return ia - ib;
                 return String(a.groupLabel || '').localeCompare(String(b.groupLabel || ''), 'zh-Hant');
             });
-            if (ungrouped.length) {
-                groupOrder.push({
-                    groupId: '',
-                    groupLabel: tr('baseModels.catalogGroupUncategorized', '未分類'),
-                    items: ungrouped,
-                    isUncategorized: true
-                });
-            }
             return groupOrder;
         }
 
@@ -9727,9 +9783,9 @@
                     sourceKey: s.key,
                     sourceLabel: s.label,
                     groups: (opts.subgroup === 'official_category')
-                        ? groupLinkCandidatesByOfficialCategory(buckets[s.key] || [])
+                        ? groupLinkCandidatesByOfficialCategory(buckets[s.key] || [], opts.selectedIds)
                         : (opts.subgroup === 'catalog'
-                            ? groupLinkCandidatesByCatalog(buckets[s.key] || [])
+                            ? groupLinkCandidatesByCatalog(buckets[s.key] || [], opts.selectedIds)
                             : [{
                                 groupId: s.key,
                                 groupLabel: '',
@@ -9741,57 +9797,63 @@
             });
         }
 
-        function primaryCatalogGroupForCandidate(c) {
-            if (!c || !Array.isArray(c.catalog_groups) || !c.catalog_groups.length) return null;
-            var groups = c.catalog_groups.slice().sort(function (a, b) {
-                return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant');
-            });
-            return groups[0] || null;
+        function catalogGroupsForCandidate(c) {
+            if (!c || !Array.isArray(c.catalog_groups) || !c.catalog_groups.length) return [];
+            return c.catalog_groups.filter(function (g) { return g && g.id; });
         }
 
-        function groupLinkCandidatesByCatalog(candidates) {
-            var items = enrichLinkCandidates(candidates);
-            var groupOrder = [];
-            var groupMap = Object.create(null);
-            var ungrouped = [];
-            items.forEach(function (c) {
-                var g = primaryCatalogGroupForCandidate(c);
-                if (!g || !g.id) {
-                    ungrouped.push(c);
-                    return;
-                }
-                var gid = String(g.id);
-                if (!groupMap[gid]) {
-                    groupMap[gid] = {
-                        groupId: gid,
-                        groupLabel: String(g.name || '').trim(),
-                        items: []
-                    };
-                    groupOrder.push(groupMap[gid]);
-                }
-                groupMap[gid].items.push(c);
+        function sortCatalogLinkGroups(groupOrder, items) {
+            var kinds = {};
+            (items || []).forEach(function (c) { kinds[normalizeKind(c.asset_kind)] = true; });
+            var flat = [];
+            ['material', 'part', 'prototype'].forEach(function (k) {
+                if (kinds[k]) flat = flat.concat(groupsForKind(k) || []);
             });
-            var kind = items.length ? normalizeKind(items[0].asset_kind) : '';
-            var flat = kind ? groupsForKind(kind) : [];
-            if (flat.length) {
-                var orderIdx = Object.create(null);
-                flat.forEach(function (g, i) { orderIdx[String(g.id)] = i; });
+            if (!flat.length) {
                 groupOrder.sort(function (a, b) {
-                    var ia = orderIdx[a.groupId] != null ? orderIdx[a.groupId] : 9999;
-                    var ib = orderIdx[b.groupId] != null ? orderIdx[b.groupId] : 9999;
-                    if (ia !== ib) return ia - ib;
                     return String(a.groupLabel || '').localeCompare(String(b.groupLabel || ''), 'zh-Hant');
                 });
+                return groupOrder;
             }
-            if (ungrouped.length) {
-                groupOrder.push({
-                    groupId: '',
-                    groupLabel: tr('baseModels.catalogGroupUncategorized', '未分類'),
-                    items: ungrouped,
-                    isUncategorized: true
-                });
-            }
+            var orderIdx = Object.create(null);
+            flat.forEach(function (g, i) { orderIdx[String(g.id)] = i; });
+            groupOrder.sort(function (a, b) {
+                var ia = orderIdx[a.groupId] != null ? orderIdx[a.groupId] : 9999;
+                var ib = orderIdx[b.groupId] != null ? orderIdx[b.groupId] : 9999;
+                if (ia !== ib) return ia - ib;
+                return String(a.groupLabel || '').localeCompare(String(b.groupLabel || ''), 'zh-Hant');
+            });
             return groupOrder;
+        }
+
+        function groupLinkCandidatesByCatalog(candidates, selectedIds) {
+            var items = enrichLinkCandidates(candidates);
+            var keep = {};
+            (selectedIds || []).forEach(function (id) { keep[String(id)] = true; });
+            var groupOrder = [];
+            var groupMap = Object.create(null);
+            function ensureGroup(gid, label) {
+                if (groupMap[gid]) return groupMap[gid];
+                groupMap[gid] = { groupId: gid, groupLabel: String(label || '').trim(), items: [] };
+                groupOrder.push(groupMap[gid]);
+                return groupMap[gid];
+            }
+            items.forEach(function (c) {
+                var groups = catalogGroupsForCandidate(c);
+                if (groups.length) {
+                    groups.forEach(function (g) {
+                        ensureGroup(String(g.id), g.name).items.push(c);
+                    });
+                    return;
+                }
+                var catKey = String(c.category_key || '').trim();
+                if (catKey) {
+                    ensureGroup('official:' + catKey, officialCategoryLabel(catKey)).items.push(c);
+                    return;
+                }
+                if (keep[String(c.id)]) ensureGroup('__selected', '已勾選').items.push(c);
+            });
+            return sortCatalogLinkGroups(groupOrder, items);
         }
 
         function buildPrototypeLinkRowElement(c, selected, metaMap) {
@@ -9910,65 +9972,157 @@
             appendGroupedLinkRows(listEl, groupLinkCandidatesByCatalog(candidates), rowBuilder);
         }
 
-        function renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks) {
+        function bindLinkListCheckSync(listEl) {
+            if (!listEl || listEl.getAttribute('data-link-sync') === '1') return;
+            listEl.setAttribute('data-link-sync', '1');
+            listEl.addEventListener('change', function (e) {
+                var t = e.target;
+                if (!t || !t.classList || !t.classList.contains('proto-link-check')) return;
+                var id = String(t.value || '');
+                if (!id) return;
+                var srcRow = t.closest('.prototype-link-row');
+                var srcAllow = srcRow && srcRow.querySelector('.proto-link-allow-multi');
+                var srcPick = srcRow && srcRow.querySelector('.proto-link-pick-group');
+                listEl.querySelectorAll('input.proto-link-check').forEach(function (inp) {
+                    if (inp === t || String(inp.value) !== id) return;
+                    inp.checked = t.checked;
+                    var row = inp.closest('.prototype-link-row');
+                    var allow = row && row.querySelector('.proto-link-allow-multi');
+                    var pick = row && row.querySelector('.proto-link-pick-group');
+                    if (allow && srcAllow) allow.checked = srcAllow.checked;
+                    if (pick && srcPick) pick.value = srcPick.value;
+                    syncPrototypeLinkMetaVisibility(row);
+                });
+                syncPrototypeLinkMetaVisibility(srcRow);
+            });
+        }
+
+        function appendLinkMorePanel(listEl, otherCandidates, rowBuilder, sectionOpts, subgroup, allowSupplier) {
+            var n = uniqueLinkCandidateCount(otherCandidates);
+            if (!n) return;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-secondary btn-sm proto-link-more-btn mt-1';
+            btn.textContent = '顯示其他分類（' + n + '）';
+            var extra = document.createElement('div');
+            extra.className = 'proto-link-more-panel d-none mt-2';
+            var sections = groupLinkCandidatesBySourceSections(otherCandidates, {
+                allowSupplier: allowSupplier,
+                subgroup: subgroup,
+                selectedIds: sectionOpts && sectionOpts.selectedIds instanceof Set
+                    ? Array.from(sectionOpts.selectedIds)
+                    : []
+            });
+            appendSourceSectionedLinkRows(extra, sections, rowBuilder, {
+                collapsible: true,
+                selectedIds: sectionOpts && sectionOpts.selectedIds,
+                defaultCollapsed: true
+            });
+            btn.addEventListener('click', function () {
+                extra.classList.remove('d-none');
+                btn.classList.add('d-none');
+            });
+            listEl.appendChild(btn);
+            listEl.appendChild(extra);
+        }
+
+        function renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks, renderOpts) {
             if (!listEl) return;
             listEl.innerHTML = '';
+            renderOpts = renderOpts || {};
             var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
             var metaMap = buildPrototypeLinkMetaMap(linkedLinks, selectedIds);
             var enriched = enrichLinkCandidates(candidates);
-            if (!enriched.length) {
+            var catKey = renderOpts.categoryKey != null ? String(renderOpts.categoryKey || '').trim() : '';
+            var parts = partitionLinkCandidatesByCategory(enriched, catKey, selectedIds);
+            var primary = catKey ? parts.same : parts.same;
+            var other = parts.other;
+            if (!primary.length && !other.length) {
                 if (emptyEl) emptyEl.classList.remove('d-none');
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            /* 主產品關聯材料／配件：官方｜廠商｜供應商（材料有供應商；零件同規則） */
-            var sections = groupLinkCandidatesBySourceSections(enriched, {
-                allowSupplier: true,
-                subgroup: 'catalog'
-            });
-            appendSourceSectionedLinkRows(listEl, sections, function (c) {
+            if (!catKey && !primary.length) {
+                var hint = document.createElement('p');
+                hint.className = 'text-muted small mb-2';
+                hint.textContent = '請先選主分類，將先列出相同大分類的材料／配件。';
+                listEl.appendChild(hint);
+            }
+            bindLinkListCheckSync(listEl);
+            var rowBuilder = function (c) {
                 return buildPrototypeLinkRowElement(c, selected, metaMap);
-            }, { collapsible: true, selectedIds: selected });
+            };
+            var sectionOpts = { collapsible: true, selectedIds: selected, defaultCollapsed: false };
+            if (primary.length) {
+                var sections = groupLinkCandidatesBySourceSections(primary, {
+                    allowSupplier: true,
+                    subgroup: 'catalog',
+                    selectedIds: selectedIds
+                });
+                appendSourceSectionedLinkRows(listEl, sections, rowBuilder, sectionOpts);
+            }
+            appendLinkMorePanel(listEl, other, rowBuilder, sectionOpts, 'catalog', true);
         }
 
-        function renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds) {
+        function renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds, renderOpts) {
             if (!listEl) return;
             listEl.innerHTML = '';
+            renderOpts = renderOpts || {};
             var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
             var enriched = enrichLinkCandidates(candidates);
-            if (!enriched.length) {
+            var catKey = renderOpts.categoryKey != null ? String(renderOpts.categoryKey || '').trim() : '';
+            var parts = partitionLinkCandidatesByCategory(enriched, catKey, selectedIds);
+            var primary = parts.same;
+            var other = parts.other;
+            if (!primary.length && !other.length) {
                 if (emptyEl) emptyEl.classList.remove('d-none');
                 return;
             }
             if (emptyEl) emptyEl.classList.add('d-none');
-            /* 材料／配件關聯主產品：官方｜廠商，其下再依產品官方分類（可收合） */
-            var sections = groupLinkCandidatesBySourceSections(enriched, {
-                allowSupplier: false,
-                subgroup: 'official_category'
-            });
-            appendSourceSectionedLinkRows(listEl, sections, function (c) {
+            if (!catKey && !primary.length) {
+                var hint = document.createElement('p');
+                hint.className = 'text-muted small mb-2';
+                hint.textContent = '請先選主分類，將先列出相同大分類的主產品。';
+                listEl.appendChild(hint);
+            }
+            var rowBuilder = function (c) {
                 return buildSimpleLinkCheckboxElement(c, selected);
-            }, { collapsible: true, selectedIds: selected });
+            };
+            var sectionOpts = { collapsible: true, selectedIds: selected, defaultCollapsed: false };
+            if (primary.length) {
+                var sections = groupLinkCandidatesBySourceSections(primary, {
+                    allowSupplier: false,
+                    subgroup: 'official_category',
+                    selectedIds: selectedIds
+                });
+                appendSourceSectionedLinkRows(listEl, sections, rowBuilder, sectionOpts);
+            }
+            appendLinkMorePanel(listEl, other, rowBuilder, sectionOpts, 'official_category', false);
         }
 
-        function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds, linkedLinks) {
+        function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds, linkedLinks, renderOpts) {
             var listEl = document.getElementById(containerId);
             var emptyEl = document.getElementById(emptyId);
+            renderOpts = renderOpts || {};
+            var catKey = renderOpts.categoryKey != null ? renderOpts.categoryKey : formLinkCategoryKey(null);
+            var rowOpts = { categoryKey: catKey, defaultCollapsed: false };
             if (containerId === 'edit-linked-prototypes-list') {
-                renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds);
+                renderSimpleLinkCheckboxRows(listEl, emptyEl, candidates, selectedIds, rowOpts);
                 return;
             }
-            renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks);
+            renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks, rowOpts);
         }
 
         function readPrototypeLinkEntries(listEl) {
             if (!listEl) return [];
             var out = [];
+            var seen = {};
             listEl.querySelectorAll('.prototype-link-row').forEach(function (row) {
                 var chk = row.querySelector('.proto-link-check');
                 if (!chk || !chk.checked) return;
                 var id = (chk.value || '').trim();
-                if (!id) return;
+                if (!id || seen[id]) return;
+                seen[id] = true;
                 var allowMulti = row.querySelector('.proto-link-allow-multi');
                 var pickGroup = row.querySelector('.proto-link-pick-group');
                 out.push({
@@ -9990,9 +10144,16 @@
             var sel = kind === 'prototype' ? '.add-prototype-links-list' : '.add-linked-prototypes-list';
             var listEl = form.querySelector(sel);
             if (!listEl) return [];
-            return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"]:checked'))
+            if (kind === 'prototype') {
+                return Array.prototype.slice.call(listEl.querySelectorAll('input.proto-link-check:checked'))
+                    .map(function (inp) { return (inp.value || '').trim(); })
+                    .filter(Boolean)
+                    .filter(function (id, i, arr) { return arr.indexOf(id) === i; });
+            }
+            return Array.prototype.slice.call(listEl.querySelectorAll('input.form-check-input:checked'))
                 .map(function (inp) { return (inp.value || '').trim(); })
-                .filter(Boolean);
+                .filter(Boolean)
+                .filter(function (id, i, arr) { return arr.indexOf(id) === i; });
         }
 
         function renderAddFormLinkSection(form) {
@@ -10004,6 +10165,7 @@
             if (protoBlock) protoBlock.classList.toggle('d-none', kind !== 'prototype');
             if (linkedBlock) linkedBlock.classList.toggle('d-none', kind !== 'material' && kind !== 'part');
             if (kind === 'prototype') {
+                var prevSelected = readAddFormLinkSelections(form, kind);
                 var candidates = pool.filter(function (m) {
                     var k = normalizeKind(m.asset_kind);
                     return k === 'material' || k === 'part';
@@ -10023,8 +10185,12 @@
                 });
                 var listEl = form.querySelector('.add-prototype-links-list');
                 var emptyEl = form.querySelector('.add-prototype-links-empty');
-                renderPrototypeLinkRows(listEl, emptyEl, candidates, [], []);
+                renderPrototypeLinkRows(listEl, emptyEl, candidates, prevSelected, [], {
+                    categoryKey: formLinkCategoryKey(form),
+                    defaultCollapsed: false
+                });
             } else if (kind === 'material' || kind === 'part') {
+                var prevProtoSelected = readAddFormLinkSelections(form, kind);
                 var protoCandidates = pool.filter(function (m) {
                     return normalizeKind(m.asset_kind) === 'prototype';
                 }).map(function (m) {
@@ -10043,7 +10209,10 @@
                 });
                 var lpList = form.querySelector('.add-linked-prototypes-list');
                 var lpEmpty = form.querySelector('.add-linked-prototypes-empty');
-                renderSimpleLinkCheckboxRows(lpList, lpEmpty, protoCandidates, []);
+                renderSimpleLinkCheckboxRows(lpList, lpEmpty, protoCandidates, prevProtoSelected, {
+                    categoryKey: formLinkCategoryKey(form),
+                    defaultCollapsed: false
+                });
             }
         }
 
@@ -10052,7 +10221,8 @@
         }
 
         async function loadEditPrototypeLinks(assetId) {
-            editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
+            editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], linked_links: [], loaded: false };
+            editLinkCandidatesCache = [];
             var protoWrap = document.getElementById('edit-prototype-links-wrap');
             var linkedWrap = document.getElementById('edit-linked-prototypes-wrap');
             if (protoWrap) protoWrap.classList.add('d-none');
@@ -10065,7 +10235,9 @@
                 if (!r.ok) return;
                 editPrototypeLinksPending.linked_asset_ids = data.linked_asset_ids || [];
                 editPrototypeLinksPending.linked_prototype_ids = data.linked_prototype_ids || [];
+                editPrototypeLinksPending.linked_links = data.linked_links || [];
                 editPrototypeLinksPending.loaded = true;
+                editLinkCandidatesCache = data.candidates || [];
                 var kind = normalizeKind(data.asset_kind);
                 if (kind === 'prototype' && protoWrap) {
                     protoWrap.classList.remove('d-none');
@@ -10522,9 +10694,40 @@
             } catch (err) { showToast(err.message, 'danger'); }
         });
 
+        function rerenderEditPrototypeLinks() {
+            var kind = normalizeKind(document.getElementById('edit-asset-kind').value);
+            var catKey = formLinkCategoryKey(null);
+            if (kind === 'prototype') {
+                var selected = readEditPrototypeLinkSelections('edit-prototype-links-list');
+                if (!selected.length) selected = editPrototypeLinksPending.linked_asset_ids || [];
+                renderEditPrototypeLinkCheckboxes(
+                    'edit-prototype-links-list',
+                    'edit-prototype-links-empty',
+                    editLinkCandidatesCache,
+                    selected,
+                    editPrototypeLinksPending.linked_links || [],
+                    { categoryKey: catKey }
+                );
+            } else if (kind === 'material' || kind === 'part') {
+                var protoSelected = Array.prototype.slice.call(
+                    document.querySelectorAll('#edit-linked-prototypes-list input.form-check-input:checked')
+                ).map(function (inp) { return (inp.value || '').trim(); }).filter(Boolean);
+                if (!protoSelected.length) protoSelected = editPrototypeLinksPending.linked_prototype_ids || [];
+                renderEditPrototypeLinkCheckboxes(
+                    'edit-linked-prototypes-list',
+                    'edit-linked-prototypes-empty',
+                    editLinkCandidatesCache,
+                    protoSelected,
+                    [],
+                    { categoryKey: catKey }
+                );
+            }
+        }
+
         document.getElementById('edit-category').addEventListener('change', function () {
-            if (normalizeKind(document.getElementById('edit-asset-kind').value) !== 'prototype') return;
-            fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
+            var kind = normalizeKind(document.getElementById('edit-asset-kind').value);
+            if (kind === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
+            rerenderEditPrototypeLinks();
         });
         document.getElementById('filter-category').addEventListener('change', function () {
             resetMaterialsListOffset(activeKind);
@@ -10953,6 +11156,6 @@
         init();
     })();
     </script>
-    <script src="/js/vendor-asset-spec-summary-ui.js?v=spec-status-20260823b"></script>
+    <script src="/js/vendor-asset-spec-summary-ui.js?v=spec-links-check-20260824"></script>
 </body>
 </html>

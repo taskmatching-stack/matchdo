@@ -28511,10 +28511,12 @@ async function attachCatalogGroupIdsToAssets(items) {
     if (!(await vendorCatalogGroupsTableReady()) || !(await vendorAssetGroupLinksTableReady()) || !items || !items.length) return items;
     const assetIds = items.map((r) => r.id).filter(Boolean);
     if (!assetIds.length) return items;
-    const { data: links, error: linkErr } = await supabase
-        .from('vendor_asset_group_links')
-        .select('asset_id, group_id')
-        .in('asset_id', assetIds);
+    const { data: links, error: linkErr } = await supabaseSelectIn(
+        'vendor_asset_group_links',
+        'asset_id, group_id',
+        'asset_id',
+        assetIds
+    );
     if (linkErr && linkErr.code === '42P01') return items;
     if (linkErr) throw linkErr;
     const groupIds = [...new Set((links || []).map((l) => l.group_id).filter(Boolean))];
@@ -30536,11 +30538,11 @@ app.get('/api/me/vendor-assets', async (req, res) => {
             manufacturerName = (mfrRow && mfrRow.name) ? mfrRow.name : null;
         } catch (_) { /* ignore */ }
 
-        /** 情境圖選卡：輕量列表（跳過語意／關聯／分享 URL 等重處理） */
+        /** 情境圖選卡／上傳聯結：輕量列表（不帶回 gallery／語意，避免官方庫一次炸掉） */
         const lite = String(req.query.lite || '').trim() === '1' || String(req.query.lite || '').toLowerCase() === 'true';
         if (lite) {
-            const LITE_SELECT = 'id, manufacturer_id, title, image_url, gallery_images, asset_kind, cover_image_label, cover_link_group, is_public, created_at, updated_at';
-            const LITE_SELECT_MIN = 'id, manufacturer_id, title, image_url, gallery_images, asset_kind, is_public, created_at, updated_at';
+            const LITE_SELECT = 'id, manufacturer_id, title, image_url, asset_kind, category_key, subcategory_key, is_public, created_at, updated_at';
+            const LITE_SELECT_NO_CAT = 'id, manufacturer_id, title, image_url, asset_kind, is_public, created_at, updated_at';
             const kindQ = String(req.query.asset_kind || '').trim().toLowerCase();
             let q = supabase
                 .from('vendor_assets')
@@ -30557,7 +30559,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
             if (error && error.code === '42703') {
                 ({ data: list, error } = await supabase
                     .from('vendor_assets')
-                    .select(LITE_SELECT_MIN)
+                    .select(LITE_SELECT_NO_CAT)
                     .eq('manufacturer_id', manufacturerId)
                     .order('created_at', { ascending: false }));
                 if (!error && list) {
@@ -30574,7 +30576,17 @@ app.get('/api/me/vendor-assets', async (req, res) => {
                 return res.status(500).json({ error: '查詢失敗' });
             }
             const lang = resolveVendorAssetApiLang(req);
-            const mapped = (list || []).map((row) => mapVendorAssetForApi(row, lang));
+            let mapped = (list || []).map((row) => mapVendorAssetForApi(row, lang));
+            try {
+                mapped = await attachCatalogGroupIdsToAssets(mapped);
+            } catch (catErr) {
+                console.warn('GET /api/me/vendor-assets?lite=1 catalog_groups:', catErr && catErr.message);
+            }
+            try {
+                mapped = await enrichVendorAssetsWithSupplierMeta(manufacturerId, mapped);
+            } catch (supErr) {
+                console.warn('GET /api/me/vendor-assets?lite=1 supplier meta:', supErr && supErr.message);
+            }
             return res.json({
                 items: mapped,
                 total: mapped.length,
