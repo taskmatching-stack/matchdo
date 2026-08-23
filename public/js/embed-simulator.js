@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260809-catalog-tabs';
+  const BUILD = 'embed-simulator-20260824-compose-unselectable';
   const EMBED_ENGINE_BRAND = 'MatchDO Engine';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
@@ -778,14 +778,24 @@
     }
   }
   
+  function isSimImageSelectable(it) {
+    if (typeof MatchdoImageLinkGroups !== 'undefined' && MatchdoImageLinkGroups.isImageItemDesignerSelectable) {
+      return MatchdoImageLinkGroups.isImageItemDesignerSelectable(it);
+    }
+    if (!it || !it.url) return false;
+    if (it.designer_selectable === false) return false;
+    if (it.coverGridCompose) return false;
+    if (/^(多色色卡|多色展示)/.test(String(it.label || '').trim())) return false;
+    return true;
+  }
+
   // === 主產品 image_items：每張圖 = 一個角度（同 product-tree guideTilesForAsset）；略過僅展示 ===
   function getPrototypeImageItems(proto) {
     if (!proto) return [];
     if (Array.isArray(proto.image_items) && proto.image_items.length) {
       var seen = {};
       return proto.image_items.filter(function (it) {
-        if (!it || !it.url) return false;
-        if (it.designer_selectable === false) return false;
+        if (!isSimImageSelectable(it)) return false;
         var u = String(it.url).trim();
         if (!u || seen[u]) return false;
         seen[u] = true;
@@ -801,7 +811,7 @@
     if (Array.isArray(m.image_items) && m.image_items.length) {
       for (var i = 0; i < m.image_items.length; i++) {
         var it = m.image_items[i];
-        if (it && it.url && it.designer_selectable !== false) return String(it.url).trim();
+        if (isSimImageSelectable(it)) return String(it.url).trim();
       }
     }
     return String(m.image_url || '').trim();

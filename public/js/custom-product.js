@@ -1016,7 +1016,14 @@ $(document).ready(function () {
     }
 
     function isDesignerSelectableImageItem(it) {
-        return !!(it && it.url) && it.designer_selectable !== false;
+        if (typeof MatchdoImageLinkGroups !== 'undefined' && MatchdoImageLinkGroups.isImageItemDesignerSelectable) {
+            return MatchdoImageLinkGroups.isImageItemDesignerSelectable(it);
+        }
+        if (!(it && it.url)) return false;
+        if (it.designer_selectable === false) return false;
+        if (it.coverGridCompose) return false;
+        if (/^(多色色卡|多色展示)/.test(String((it.label || '')).trim())) return false;
+        return true;
     }
 
     function filterPrototypeVendorImageItems(imageItems) {
@@ -1039,7 +1046,7 @@ $(document).ready(function () {
 
     /** 選圖彈窗：僅展示圖仍列出供預覽，但不可勾選 */
     function isVendorPickDisplayOnlyItem(it) {
-        return !!(it && it.url) && it.designer_selectable === false;
+        return !!(it && it.url) && !isDesignerSelectableImageItem(it);
     }
 
     function clearRefSlot(key) {
@@ -1917,7 +1924,7 @@ $(document).ready(function () {
         if (!p) return [];
         if (p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
             return p.image_items.filter(function (it) {
-                return it && it.url && it.designer_selectable !== false;
+                return isDesignerSelectableImageItem(it);
             });
         }
         var u = (p.image_url || '').trim();
@@ -1933,10 +1940,8 @@ $(document).ready(function () {
             if (u0) allItems = [{ url: u0, label: '', sort_order: 0, is_cover: true, designer_selectable: true }];
         }
         var imageItems = filterSelectableVendorImageItems(allItems);
-        if (!imageItems.length && allItems.length === 1 && allItems[0].url) {
-            imageItems = [allItems[0]];
-        } else if (!imageItems.length) {
-            var selectable = allItems.filter(function (it) { return it && it.url && it.designer_selectable !== false; });
+        if (!imageItems.length) {
+            var selectable = allItems.filter(function (it) { return isDesignerSelectableImageItem(it); });
             if (selectable.length) imageItems = selectable;
         }
         if (!imageItems.length) return Promise.resolve();

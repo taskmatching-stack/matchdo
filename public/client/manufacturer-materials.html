@@ -1371,7 +1371,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'catalog-groups-keep-20260824';
+        window.__MATCHDO_MATERIALS_BUILD = 'compose-cover-unselectable-20260824';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -3504,15 +3504,30 @@
             return normalizeKind(typeof kindOrAsset === 'string' ? kindOrAsset : (kindOrAsset && kindOrAsset.asset_kind)) === 'material';
         }
 
+        function isComposedCoverGalleryItem(item) {
+            var Compose = materialCoverComposeApi();
+            if (Compose && Compose.isComposedCoverGridItem) return Compose.isComposedCoverGridItem(item);
+            if (!item) return false;
+            if (item.coverGridCompose) return true;
+            return /^(多色色卡|多色展示)/.test(String(item.label || '').trim());
+        }
+
         function designerSelectableFieldHtmlForItem(kindOrAsset, item, isCover, inputClass, dataUrl) {
             if (materialGallerySwatchAutoSelectable(kindOrAsset)) {
                 return isCover ? pendingMaterialCoverLockedHtml() : '';
+            }
+            if (isComposedCoverGalleryItem(item)) {
+                return pendingMaterialCoverLockedHtml();
             }
             if (!vendorDesignerSelectableEnabledForKind(kindOrAsset)) return '';
             return pendingDesignerSelectableFieldHtml(item, inputClass, dataUrl);
         }
 
         function ensureMaterialGalleryItemSelectable(item, kindOrAsset, isCover) {
+            if (isComposedCoverGalleryItem(item)) {
+                item.designer_selectable = false;
+                return item;
+            }
             if (!materialGallerySwatchAutoSelectable(kindOrAsset)) return item;
             item.designer_selectable = !isCover;
             return item;
@@ -5151,7 +5166,7 @@
                     label: coverLabel,
                     coverGridCompose: true,
                     link_group: '',
-                    designer_selectable: isMaterial ? false : true,
+                    designer_selectable: false,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -5201,7 +5216,7 @@
                     label: coverLabel,
                     coverGridCompose: true,
                     link_group: '',
-                    designer_selectable: isMaterial ? false : true,
+                    designer_selectable: false,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,

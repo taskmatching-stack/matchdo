@@ -4769,6 +4769,10 @@ function vendorImageDerivedKind(item) {
     return legacyVendorImageDerivedKind(item.label);
 }
 
+function isVendorComposedCoverLabel(label) {
+    return /^(多色色卡|多色展示)/.test(String(label || '').trim());
+}
+
 function buildVendorAssetImageItems(row) {
     if (!row) return [];
     const kind = normalizeVendorAssetKind(row.asset_kind);
@@ -4780,16 +4784,18 @@ function buildVendorAssetImageItems(row) {
     }
     const items = [];
     const cover = String(row.image_url || '').trim();
-    // 材料封面＝多色色卡：一律僅展示，設計者不可選用（舊資料也強制）
-    const coverSelectable = kind === 'material'
+    // 材料封面＝多色色卡：一律僅展示。拼色封面（多色展示）亦同，舊資料也強制。
+    let coverSelectable = kind === 'material'
         ? false
         : readCoverDesignerSelectableMeta(row.gallery_images);
     if (cover) {
         const coverLinkGroup = normalizeImageLinkGroup(row.cover_link_group);
+        const coverLabel = String(row.cover_image_label || '').trim() || labelFromImageUrl(cover);
+        if (isVendorComposedCoverLabel(coverLabel)) coverSelectable = false;
         const coverItem = {
             url: cover,
             sort_order: 0,
-            label: String(row.cover_image_label || '').trim() || labelFromImageUrl(cover),
+            label: coverLabel,
             is_cover: true,
             designer_selectable: coverSelectable
         };
@@ -4815,6 +4821,7 @@ function buildVendorAssetImageItems(row) {
         const linkedAssetIds = normalizeImageLinkedAssetIds(g.linked_asset_ids);
         if (linkedAssetIds.length) item.linked_asset_ids = linkedAssetIds;
         if (kind !== 'material' && g.designer_selectable === false) item.designer_selectable = false;
+        if (isVendorComposedCoverLabel(item.label)) item.designer_selectable = false;
         items.push(item);
     });
     return items;
@@ -29097,14 +29104,16 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
     (proto.image_items || []).forEach(function (it) {
         if (!it || !it.url) return;
         if (it.designer_selectable === false) return;
+        if (isVendorComposedCoverLabel(it.label)) return;
         validUrlSet[String(it.url).trim()] = true;
     });
     if (!Object.keys(validUrlSet).length) {
         const coverItem = (proto.image_items || []).find(function (it) { return it && it.is_cover && it.url; });
-        if (coverItem && coverItem.designer_selectable !== false) {
+        if (coverItem && coverItem.designer_selectable !== false && !isVendorComposedCoverLabel(coverItem.label)) {
             validUrlSet[String(coverItem.url).trim()] = true;
-        } else if (proto.image_url && readCoverDesignerSelectableMeta(proto.gallery_images) !== false) {
-            // 無 image_items 時：封面預設可選
+        } else if (proto.image_url && readCoverDesignerSelectableMeta(proto.gallery_images) !== false
+            && !isVendorComposedCoverLabel(proto.cover_image_label)) {
+            // 無 image_items 時：封面預設可選（拼色封面除外）
             validUrlSet[String(proto.image_url).trim()] = true;
         }
     }
@@ -29180,7 +29189,7 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
         const items = buildVendorAssetImageItems(r);
         // 材料封面不可選用：embed 改用第一張設計者可選圖
         const pick = (items || []).find(function (it) {
-            return it && it.url && it.designer_selectable !== false;
+            return it && it.url && it.designer_selectable !== false && !isVendorComposedCoverLabel(it.label);
         });
         const url = pick && pick.url ? String(pick.url).trim() : '';
         if (!url) return;

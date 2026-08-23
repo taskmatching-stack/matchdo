@@ -7,6 +7,18 @@
     var COMMON_GROUP = 'common';
     var WARN_SESSION_PREFIX = 'matchdo.linkGroupWarn.';
 
+    function isComposedCoverLabel(label) {
+        return /^(多色色卡|多色展示)/.test(String(label || '').trim());
+    }
+
+    function isImageItemDesignerSelectable(it) {
+        if (!it || !String(it.url || '').trim()) return false;
+        if (it.designer_selectable === false) return false;
+        if (it.coverGridCompose) return false;
+        if (isComposedCoverLabel(it.label)) return false;
+        return true;
+    }
+
     function normalizeLinkGroup(raw) {
         if (raw == null) return '';
         return String(raw).trim().slice(0, 48);
@@ -23,7 +35,7 @@
         for (var i = 0; i < imageItems.length; i++) {
             var it = imageItems[i];
             if (it && String(it.url || '').trim() === u) {
-                if (it.designer_selectable === false) return '';
+                if (!isImageItemDesignerSelectable(it)) return '';
                 return normalizeLinkGroup(it.link_group);
             }
         }
@@ -74,12 +86,12 @@
         if (isActiveLinkGroup(group)) {
             (imageItems || []).forEach(function (it) {
                 if (!it || !it.url || isUrlSelected(list, it.url)) return;
-                if (it.designer_selectable === false) return;
+                if (!isImageItemDesignerSelectable(it)) return;
                 if (normalizeLinkGroup(it.link_group) === group) candidates.push(it);
             });
         } else {
             var one = findImageItem(imageItems, u) || { url: u, link_group: group };
-            if (one.designer_selectable === false) {
+            if (!isImageItemDesignerSelectable(one)) {
                 return { selected: list, action: 'blocked', reason: 'display_only' };
             }
             if (!isUrlSelected(list, u)) candidates.push(one);
@@ -134,7 +146,7 @@
             return (it && it.label != null ? String(it.label) : '').trim();
         };
         var selectable = (imageItems || []).filter(function (it) {
-            return it && it.url && it.designer_selectable !== false;
+            return isImageItemDesignerSelectable(it);
         });
         if (!selectable.length) return [];
 
@@ -217,6 +229,8 @@
 
     global.MatchdoImageLinkGroups = {
         COMMON_GROUP: COMMON_GROUP,
+        isComposedCoverLabel: isComposedCoverLabel,
+        isImageItemDesignerSelectable: isImageItemDesignerSelectable,
         normalizeLinkGroup: normalizeLinkGroup,
         isActiveLinkGroup: isActiveLinkGroup,
         linkGroupForUrl: linkGroupForUrl,

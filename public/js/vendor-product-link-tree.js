@@ -65,7 +65,18 @@
         return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
     }
 
-    /** 色款列：依 url 去重；消費端略過僅展示（含材料封面） */
+    function isImageItemSelectable(it) {
+        if (typeof MatchdoImageLinkGroups !== 'undefined' && MatchdoImageLinkGroups.isImageItemDesignerSelectable) {
+            return MatchdoImageLinkGroups.isImageItemDesignerSelectable(it);
+        }
+        if (!it || !(it.url || '').trim()) return false;
+        if (it.designer_selectable === false) return false;
+        if (it.coverGridCompose) return false;
+        if (/^(多色色卡|多色展示)/.test(String(it.label || '').trim())) return false;
+        return true;
+    }
+
+    /** 色款列：依 url 去重；消費端略過僅展示（含材料封面、拼色封面） */
     function variantImageItems(a, opts) {
         opts = opts || {};
         var forPick = opts.forPick !== false && !IS_VENDOR;
@@ -73,7 +84,7 @@
         return assetImageItems(a).filter(function (it) {
             var u = (it.url || '').trim();
             if (!u || seen[u]) return false;
-            if (forPick && it.designer_selectable === false) return false;
+            if (forPick && !isImageItemSelectable(it)) return false;
             seen[u] = true;
             return true;
         });
@@ -180,7 +191,7 @@
         if (items.length) return items;
         var all = assetImageItems(p);
         if (all.length === 1 && all[0] && all[0].url) return [all[0]];
-        var selectable = all.filter(function (it) { return it && it.url && it.designer_selectable !== false; });
+        var selectable = all.filter(function (it) { return isImageItemSelectable(it); });
         if (selectable.length) return selectable;
         var u = (p.image_url || '').trim();
         if (!all.length && u) return [{ url: u, label: '', sort_order: 0, is_cover: true }];
@@ -858,7 +869,7 @@
         if (!IS_VENDOR && viewItems.length) {
             // 消費端：僅展示圖仍顯示，但不可選
             return viewItems.map(function (it, idx) {
-                var selectable = it.designer_selectable !== false;
+                var selectable = isImageItemSelectable(it);
                 return guideTileHtml(a, aid, kindKey, picked, it, idx, viewItems.length, {
                     displayOnly: !selectable
                 });
