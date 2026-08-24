@@ -1259,7 +1259,7 @@
   "promoCamera.subjectGender": "Gender",
   "promoCamera.subjectGenderFemale": "Female",
   "promoCamera.subjectGenderMale": "Male",
-  "promoCamera.portraitMoodCastHint": "Use the dropdowns for people count and gender. Person and body follow the upload; clothes stay from the scene. Write in the description only to change clothes.",
+  "promoCamera.portraitMoodCastHint": "Use the dropdowns for people count and gender. Person and body follow the upload. Clothes stay from the upload unless you write a description to change them.",
   "promoCamera.moodDraftLabel": "Draft",
   "promoCamera.moodLookLabel": "Mood image",
   "promoCamera.moodSceneBase": "Scene base",

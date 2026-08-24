@@ -1301,7 +1301,7 @@
   "promoCamera.subjectGender": "性別",
   "promoCamera.subjectGenderFemale": "女性",
   "promoCamera.subjectGenderMale": "男性",
-  "promoCamera.portraitMoodCastHint": "人數與性別用下拉。換人與體型依上傳圖；衣服跟場景底圖。要改衣服再寫描述。",
+  "promoCamera.portraitMoodCastHint": "人數與性別用下拉。人與體型依上傳圖。沒寫衣服就留上傳圖的衣服；要改再寫描述。",
   "promoCamera.moodDraftLabel": "草稿繪製",
   "promoCamera.moodLookLabel": "氛圍圖",
   "promoCamera.moodSceneBase": "場景底圖",

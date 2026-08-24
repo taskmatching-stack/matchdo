@@ -119,9 +119,9 @@
                   <label class="form-label small mb-1" for="promoPortraitMoodPipeline">氛圍兩段順序</label>
                   <select id="promoPortraitMoodPipeline" class="form-select form-select-sm">
                     <option value="lite_then_flux" selected>現行：草稿 → 氛圍圖（Lite 先出人物／場景，再 FLUX 套攝影參數）</option>
-                    <option value="flux_then_lite">實驗：FLUX 文生場景 → Banana 換人（臉／膚色／髮型／衣服）並輸出 MP</option>
+                    <option value="flux_then_lite">實驗：FLUX 文生無人物場景 → Banana 放入上傳人物並輸出 MP</option>
                   </select>
-                  <p class="form-text small text-muted mb-0"><code>promo_portrait_mood_pipeline</code> — 實驗：FLUX 純文生場景（含人身上的光影）。Banana 換角色：臉與膚色依上傳圖；髮型／衣服以參考圖為底，描述欄可補充或改。光影仍依 FLUX，並以 1／4／16 MP 出圖。</p>
+                  <p class="form-text small text-muted mb-0"><code>promo_portrait_mood_pipeline</code> — 實驗：FLUX 只生已打好人像光、構圖留人位、畫面沒有人的場景。Banana 把上傳的人放進那道光（不要重打光），並以 1／4／16 MP 出圖。沒寫衣服描述則留上傳圖衣服。</p>
                 </div>
                 <input type="hidden" id="enginePromoPortraitMood" value="flux" />
                 <div class="row g-3">

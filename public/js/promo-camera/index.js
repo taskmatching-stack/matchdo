@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-film-default-20260824';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-empty-scene-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -851,7 +851,7 @@
     var hintEl = document.getElementById('pcPromptHint');
     if (hintEl && isPortraitMode()) {
       hintEl.textContent = mood
-        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。換人與體型依上傳圖；衣服跟場景底圖。要改衣服再寫描述。')
+        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。人與體型依上傳圖。沒寫衣服就留上傳圖的衣服；要改再寫描述。')
         : '';
     }
   }

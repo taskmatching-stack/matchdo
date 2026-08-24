@@ -458,15 +458,22 @@ function buildPromoPortraitMoodCastHint(cast) {
 function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const user = String(o.userPrompt || '').trim();
+    const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
+    const gender = normalizePromoPortraitSubjectGender(o.gender);
+    const zhPerson = gender === 'male' ? '男性' : '女性';
+    const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
     const parts = [
-        '第一張是上傳人像，第二張是 FLUX 場景底圖。兩張的人不是同一個。',
-        '人物與體型用第一張：臉、頭髮、肩頸、身材都要換成上傳的這個人。',
-        '場景、光線、鏡頭、姿勢留第二張。第二張裡的假人臉不准出現在成品。'
+        '第一張是上傳人像，第二張是已打好人像光、構圖留人位、畫面裡沒有人的場景底圖。',
+        peopleCount <= 1
+            ? '把第一張這位' + zhPerson + '放進第二張的光線與預留位置：臉、頭髮、肩頸、身材都跟第一張。'
+            : '放入正好' + zhNum + '位' + zhPerson + '，面孔與體型都依第一張這個人。',
+        '第二張的場景、光線方向、色溫、對比、鏡頭感全部保留，不要重打光、不要改場景。',
+        '姿勢配合第二張的構圖與光線，做出適合該場景的商業人像，不要另起一套光。'
     ];
     if (user) {
-        parts.push('衣服依描述，不要用 FLUX 那套，也不要用上傳圖的衣服：' + user);
+        parts.push('衣服依描述，不要用上傳圖的衣服：' + user);
     } else {
-        parts.push('沒有描述：衣服用第二張 FLUX 場景那套，不要換成上傳圖的衣服。');
+        parts.push('沒有描述：衣服用第一張上傳圖那套，不要另外發明服裝。');
     }
     return parts.join('');
 }
@@ -474,13 +481,13 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
 function promoPortraitMoodSwapClothesCaptions(hasDesc) {
     if (hasDesc) {
         return {
-            sceneLabel: '第二張・FLUX 場景底圖（臉不要這張；衣服看描述）',
-            closing: '成品：人與體型＝第一張；衣服依描述。不准輸出第二張那張臉。'
+            sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
+            closing: '成品：人與體型＝第一張；衣服依描述；光與場景＝第二張。不要重打光。'
         };
     }
     return {
-        sceneLabel: '第二張・FLUX 場景底圖（衣服留這張，臉不要這張）',
-        closing: '成品：人與體型＝第一張；衣服＝第二張。不准輸出第二張那張臉。'
+        sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
+        closing: '成品：人與體型＝第一張；衣服＝第一張；光與場景＝第二張。不要重打光。'
     };
 }
 
@@ -524,7 +531,7 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
     ];
 }
 
-/** 實驗換人：上傳人像在前、場景底圖在後；兩張分開標註，避免 Lite 把場景假人當原圖吐回 */
+/** 實驗放入人物：上傳人像在前、無人物場景底圖在後；跟第二張的光，不要重打光 */
 async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText, geminiOpts) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -604,6 +611,19 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
+/** 現行氛圍第二段：FLUX 用後台攝影參數重拍，不是把底片當濾鏡疊在草稿上 */
+function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
+    const cam = String(cameraBlock || '').trim();
+    if (!cam) return '';
+    if (cam.indexOf('這不是濾鏡') !== -1) return cam;
+    return [
+        '這不是濾鏡、不是調色疊加。',
+        '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
+        '人物身分、姿勢與場景內容不變，只換攝影風格。',
+        cam
+    ].join('');
+}
+
 function promoPortraitMoodCompareLabels(pipeline) {
     if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
         return { ref: '場景底圖', result: '成品' };
@@ -613,12 +633,12 @@ function promoPortraitMoodCompareLabels(pipeline) {
 
 function formatPromoPortraitMoodPromptSent(pipeline, stage1, stage2) {
     if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
-        return '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・換人與輸出】\n' + String(stage2 || '');
+        return '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・放入人物與輸出】\n' + String(stage2 || '');
     }
     return '【階段一・草稿】\n' + String(stage1 || '') + '\n\n【階段二・氛圍圖】\n' + String(stage2 || '');
 }
 
-/** 實驗管線：FLUX 純文生場景（不帶人像圖）→ Banana 換臉／髮型／衣服並以所選 MP 輸出 */
+/** 實驗管線：FLUX 文生已打光、留人位、沒有人的場景 → Gemini 放入上傳人物並以所選 MP 輸出 */
 async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts, extra) {
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
@@ -652,7 +672,9 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     const userPrompt = extra && extra.userPrompt != null ? String(extra.userPrompt).trim() : '';
     const hasDesc = !!userPrompt;
     const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
-        userPrompt: userPrompt
+        userPrompt: userPrompt,
+        peopleCount: extra && extra.peopleCount,
+        gender: extra && extra.gender
     });
     const face = await generatePromoPortraitMoodLiteSwap(
         portraitRefs[0],
@@ -672,7 +694,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
-        throw new Error('換人與輸出失敗，請稍後再試');
+        throw new Error('放入人物與輸出失敗，請稍後再試');
     }
     const draftW = scene.width || scene.gemini_native_width || lookDims.width;
     const draftH = scene.height || scene.gemini_native_height || lookDims.height;
@@ -698,7 +720,9 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             imageRefs,
             (extra && extra.fluxPrompt) || cameraPrompt,
             (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt({
-                userPrompt: extra && extra.userPrompt
+                userPrompt: extra && extra.userPrompt,
+                peopleCount: extra && extra.peopleCount,
+                gender: extra && extra.gender
             }),
             geminiOpts,
             extra
@@ -734,7 +758,7 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
     if (!draft || !draft.buffer || !draft.buffer.length) {
         throw new Error('草稿繪製失敗，請稍後再試');
     }
-    const lookPrompt = String(cameraPrompt || '').trim();
+    const lookPrompt = buildPromoPortraitMoodFluxLookPrompt(cameraPrompt);
     if (!lookPrompt) {
         const err = new Error('請先選擇攝影參數');
         err.status = 400;
@@ -1146,8 +1170,8 @@ async function buildPromoPortraitFluxPrompt(opts) {
 }
 
 /**
- * 人像實驗管線 FLUX 文生圖（無參考圖）。
- * 不可複用 buildPromoPortraitFluxPrompt：那是圖生圖「改為在…」短句，無圖時會被擴寫成群像。
+ * 實驗氛圍階段一：FLUX 純文生「已打好人像光、構圖留人位、畫面沒有人」的場景底圖。
+ * 不可複用 buildPromoPortraitFluxPrompt：那是圖生圖「改為在…」短句；也不可再叫模型畫假人。
  */
 async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -1158,18 +1182,11 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const cameraBlock = String(o.cameraBlock || '').trim();
     const isFormalId = themeKey === 'portrait_formal_id';
     const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
-    const gender = normalizePromoPortraitSubjectGender(o.gender);
-    const zhPerson = gender === 'male' ? '男性' : '女性';
     const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
-    const enOne = gender === 'male' ? 'man' : 'woman';
-    const enMany = gender === 'male' ? 'men' : 'women';
     const parts = [];
 
-    if (peopleCount <= 1) {
-        parts.push('商業人像攝影：畫面中只能有一位' + zhPerson + '。禁止群像、禁止多人、禁止路人、禁止背景人群、禁止家庭合照。');
-    } else {
-        parts.push('商業人像攝影：畫面中正好有' + zhNum + '位' + zhPerson + '。不要增減人數，不要路人與背景人群。');
-    }
+    parts.push('商業人像攝影用的場景底圖：畫面裡不准出現任何人、假人、剪影、肢體，倒影裡也不准有人。');
+    parts.push('這是已經打好商業人像光的實景或棚，不是空房間示意，也不是平面背景紙。');
 
     let place = '';
     if (o.hasSceneImage) {
@@ -1179,31 +1196,30 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     } else if (theme.name) {
         place = '主題：' + String(theme.name).trim();
     }
-    if (place) {
-        parts.push(place + '。該場景只作為人物所在的環境' + (peopleCount <= 1 ? '，不是群聚活動' : '') + '。');
+    if (place) parts.push(place + '。');
+
+    const envBits = [];
+    if (theme.prompt) envBits.push(String(theme.prompt).trim());
+    if (theme.composition) envBits.push(String(theme.composition).trim());
+    if (scene.prompt) envBits.push(String(scene.prompt).trim());
+    if (scene.composition) envBits.push(String(scene.composition).trim());
+    if (envBits.length) {
+        parts.push('環境與光線（只取場景，忽略其中任何人物或服裝，不要畫出來）：' + envBits.join(' '));
     }
 
     if (isFormalId) {
-        if (peopleCount <= 1) {
-            parts.push('證件／正式人像：一位' + zhPerson + '正面或近正面，姿勢端正。');
-        } else {
-            parts.push('正式合影：' + zhNum + '位' + zhPerson + '，姿勢端正。');
-        }
+        parts.push('證件／正式人像用光：正面柔光、背景乾淨。構圖中央留出一位人物站位，但不要畫出人。');
     } else if (peopleCount <= 1) {
-        parts.push('一位' + zhPerson + '在該環境中自然擺姿，適合單人商業人像。');
+        parts.push('構圖依單人商業人像預留主體位置，光線方向與質感要適合之後放進一位人物，但畫面裡不要有人。');
     } else {
-        parts.push(zhNum + '位' + zhPerson + '在該環境中自然擺姿，適合商業人像。');
+        parts.push('構圖依' + zhNum + '人商業人像預留站位與光線，畫面裡不要有人。');
     }
 
     if (user) {
-        parts.push('補充描述（只作用在造型、氛圍與其他特殊需求；人數與性別已由選項決定，不得改成另一種人數）：' + user);
+        parts.push('環境與氛圍補充（不要因此畫出人，也不要畫服裝或假人）：' + user);
     }
     if (cameraBlock) parts.push(cameraBlock);
-    if (peopleCount <= 1) {
-        parts.push('Exactly one ' + enOne + ' in the frame. No other people. No crowd. No group photo.');
-    } else {
-        parts.push('Exactly ' + peopleCount + ' ' + enMany + ' in the frame. No extra people. No crowd.');
-    }
+    parts.push('No people, no person, no mannequin, no human silhouette, no face.');
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.filter(Boolean).join(' ');
 }
@@ -1282,7 +1298,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
                 peopleCount: cast.peopleCount,
                 gender: cast.gender
             })
-            : cameraBlock)
+            : buildPromoPortraitMoodFluxLookPrompt(cameraBlock))
         : await buildPromoPortraitFluxPrompt({
             themeKey,
             themeParts,
@@ -2150,7 +2166,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender
                     })
-                    : cameraBlock)
+                    : buildPromoPortraitMoodFluxLookPrompt(cameraBlock))
                 : await buildPromoPortraitFluxPrompt({
                     themeKey,
                     themeParts,
@@ -2190,7 +2206,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 const step = await runPromoPortraitMoodTwoStep(
                     imageRefs,
                     reverseMood ? '' : finalPrompt,
-                    reverseMood ? fluxPrompt : cameraBlock,
+                    reverseMood ? fluxPrompt : buildPromoPortraitMoodFluxLookPrompt(cameraBlock),
                     {
                         tier: spaceResTier,
                         aspectRatio,
@@ -2623,7 +2639,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     minLongEdge: 1024
                 });
                 draftPrompt = (String(draftPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
-                lookPrompt = cameraBlock;
+                lookPrompt = buildPromoPortraitMoodFluxLookPrompt(cameraBlock);
             }
         } catch (promptErr) {
             return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
