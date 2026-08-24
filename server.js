@@ -438,33 +438,9 @@ function buildPromoPortraitMoodCastHint(cast) {
 function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const user = String(o.userPrompt || '').trim();
-    const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
-    const gender = normalizePromoPortraitSubjectGender(o.gender);
-    const adult = gender === 'male' ? 'male' : 'female';
-    const parts = [
-        'Swap the person and body type. Do not treat this as a clothing edit.',
-        'IMAGE 1 (first image): the real person. Output this identity: same face, eyes, hair, skin, and body type (shoulders, neck, torso, build). Do not keep the generated model\'s face or body.',
-        'IMAGE 2 (later image): generated scene. Keep lighting, camera, background, pose, and the clothes already on the scene person. Put IMAGE 1\'s person into those clothes.',
-        'Relight IMAGE 1\'s person to match IMAGE 2. Do not copy IMAGE 1\'s original lighting or backdrop.',
-        'Do not recolor or restyle the outfit unless the user description explicitly asks to change clothes.',
-        'Natural undistorted face, real skin texture, no plastic or doll-like skin.'
-    ];
-    if (peopleCount <= 1) {
-        parts.push('Output exactly one ' + adult + ' person: the person from IMAGE 1, wearing IMAGE 2\'s clothes.');
-    } else {
-        parts.push('The finished photo should contain ' + peopleCount + ' ' + adult + ' people. The main subject is the IMAGE 1 person with IMAGE 1\'s body, wearing the scene clothes.');
-    }
-    if (user) {
-        parts.push('User description (do not change whose face or body it is unless they ask). Only change clothes if they write a wardrobe change: ' + user);
-    }
-    parts.push('Output a finished photograph at the requested resolution.');
-    parts.push('No text, labels, logos, or watermarks in the image.');
+    const parts = ['將第一張圖中的人物換成第二張圖的這個人。'];
+    if (user) parts.push(user);
     return parts.join(' ');
-}
-
-function buildPromoPortraitMoodSwapTrailing(peopleCount) {
-    void peopleCount;
-    return 'Swap person and body to IMAGE 1. Keep IMAGE 2 lighting, camera, background, pose, and clothes. Do not only recolor the outfit. Do not return IMAGE 2\'s generated face.';
 }
 
 function promoPortraitMoodCompareLabels(pipeline) {
@@ -512,10 +488,12 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         err.status = 400;
         throw err;
     }
-    const faceRefs = portraitRefs.concat([jpegImageRefFromBuffer(scene.buffer)]);
+    const faceRefs = [jpegImageRefFromBuffer(scene.buffer)].concat(portraitRefs);
     const face = await generatePromoPortraitImageWithGemini(
         faceRefs,
-        String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt(),
+        String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
+            userPrompt: extra && extra.userPrompt
+        }),
         {
             model: liteModel,
             tier: userTier,
@@ -523,8 +501,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             aspect_ratio: userAspect,
             minEdge: Math.max(lookDims.width, lookDims.height),
             targetWidth: lookDims.width,
-            targetHeight: lookDims.height,
-            trailingText: buildPromoPortraitMoodSwapTrailing(extra && extra.peopleCount)
+            targetHeight: lookDims.height
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
