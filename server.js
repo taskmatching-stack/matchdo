@@ -438,9 +438,146 @@ function buildPromoPortraitMoodCastHint(cast) {
 function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const user = String(o.userPrompt || '').trim();
-    const parts = ['將第一張圖中的人物換成第二張圖的這個人。'];
-    if (user) parts.push(user);
-    return parts.join(' ');
+    const parts = [
+        '第一張是上傳人像，第二張是 FLUX 場景底圖。兩張的人不是同一個。',
+        '人物與體型用第一張：臉、頭髮、肩頸、身材都要換成上傳的這個人。',
+        '場景、光線、鏡頭、姿勢留第二張。第二張裡的假人臉不准出現在成品。'
+    ];
+    if (user) {
+        parts.push('衣服依描述，不要用 FLUX 那套，也不要用上傳圖的衣服：' + user);
+    } else {
+        parts.push('沒有描述：衣服用第二張 FLUX 場景那套，不要換成上傳圖的衣服。');
+    }
+    return parts.join('');
+}
+
+function promoPortraitMoodSwapClothesCaptions(hasDesc) {
+    if (hasDesc) {
+        return {
+            sceneLabel: '第二張・FLUX 場景底圖（臉不要這張；衣服看描述）',
+            closing: '成品：人與體型＝第一張；衣服依描述。不准輸出第二張那張臉。'
+        };
+    }
+    return {
+        sceneLabel: '第二張・FLUX 場景底圖（衣服留這張，臉不要這張）',
+        closing: '成品：人與體型＝第一張；衣服＝第二張。不准輸出第二張那張臉。'
+    };
+}
+
+function promoPortraitMoodSwapImagePart(img) {
+    return {
+        type: 'image',
+        mime_type: String((img && (img.mime || img.mimeType)) || 'image/jpeg').split(';')[0] || 'image/jpeg',
+        data: String(img && img.base64 ? img.base64 : '')
+    };
+}
+
+function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, hasDesc) {
+    const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
+    return [
+        { type: 'text', text: String(promptText || '').trim() },
+        { type: 'text', text: '第一張・上傳人像（人物與體型）' },
+        promoPortraitMoodSwapImagePart(personRef),
+        { type: 'text', text: cap.sceneLabel },
+        promoPortraitMoodSwapImagePart(sceneRef),
+        { type: 'text', text: cap.closing }
+    ];
+}
+
+function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, promptText, hasDesc) {
+    function inline(img) {
+        return {
+            inlineData: {
+                mimeType: String((img && (img.mime || img.mimeType)) || 'image/jpeg').split(';')[0] || 'image/jpeg',
+                data: String(img && img.base64 ? img.base64 : '')
+            }
+        };
+    }
+    const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
+    return [
+        { text: String(promptText || '').trim() },
+        { text: '第一張・上傳人像（人物與體型）' },
+        inline(personRef),
+        { text: cap.sceneLabel },
+        inline(sceneRef),
+        { text: cap.closing }
+    ];
+}
+
+/** 實驗換人：上傳人像在前、場景底圖在後；兩張分開標註，避免 Lite 把場景假人當原圖吐回 */
+async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText, geminiOpts) {
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    if (!personRef || !personRef.base64) {
+        const err = new Error('請上傳一張人像參考圖');
+        err.status = 400;
+        throw err;
+    }
+    if (!sceneRef || !sceneRef.base64) {
+        throw new Error('場景底圖生成失敗，請稍後再試');
+    }
+    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt();
+    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
+    const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    console.log(
+        '[promo-portrait mood-swap] model=', model,
+        'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
+        'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
+    );
+    let extracted;
+    let apiUsed = 'interactions';
+    try {
+        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim()));
+        const interaction = await runInGeminiImageQueue(() => genAI.interactions.create({
+            model,
+            input,
+            response_format: responseFormat
+        }));
+        const oi = interaction && interaction.output_image;
+        if (!oi || !oi.data) {
+            throw new Error('Gemini Interactions 未回傳圖片');
+        }
+        const buffer = Buffer.from(String(oi.data), 'base64');
+        if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
+        extracted = { buffer, response_format: responseFormat };
+    } catch (interErr) {
+        console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
+        apiUsed = 'generateContent';
+        const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
+            model,
+            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim())) }],
+            config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
+        }));
+        const hit = await extractLargestGeminiResponseImageBuffer(result);
+        if (!hit || !hit.buffer || !hit.buffer.length) {
+            throw interErr;
+        }
+        extracted = { buffer: hit.buffer, response_format: responseFormat };
+    }
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
+    let buffer = extracted.buffer;
+    if (!opts.skipResize) {
+        buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+            extracted.buffer,
+            opts.targetWidth || opts.width,
+            opts.targetHeight || opts.height,
+            {
+                tier: opts.tier || opts.space_resolution_tier,
+                aspect_ratio: opts.aspectRatio || opts.aspect_ratio
+            }
+        );
+    }
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: responseFormat,
+        api: apiUsed,
+        image_provider: 'gemini',
+        gemini_model: model
+    };
 }
 
 function promoPortraitMoodCompareLabels(pipeline) {
@@ -488,12 +625,15 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         err.status = 400;
         throw err;
     }
-    const faceRefs = [jpegImageRefFromBuffer(scene.buffer)].concat(portraitRefs);
-    const face = await generatePromoPortraitImageWithGemini(
-        faceRefs,
-        String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
-            userPrompt: extra && extra.userPrompt
-        }),
+    const userPrompt = extra && extra.userPrompt != null ? String(extra.userPrompt).trim() : '';
+    const hasDesc = !!userPrompt;
+    const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
+        userPrompt: userPrompt
+    });
+    const face = await generatePromoPortraitMoodLiteSwap(
+        portraitRefs[0],
+        jpegImageRefFromBuffer(scene.buffer),
+        swapPrompt,
         {
             model: liteModel,
             tier: userTier,
@@ -501,7 +641,9 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             aspect_ratio: userAspect,
             minEdge: Math.max(lookDims.width, lookDims.height),
             targetWidth: lookDims.width,
-            targetHeight: lookDims.height
+            targetHeight: lookDims.height,
+            userPrompt: userPrompt,
+            hasDesc: hasDesc
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
@@ -531,8 +673,7 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             imageRefs,
             (extra && extra.fluxPrompt) || cameraPrompt,
             (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt({
-                peopleCount: extra && extra.peopleCount,
-                gender: extra && extra.gender
+                userPrompt: extra && extra.userPrompt
             }),
             geminiOpts,
             extra
@@ -2037,6 +2178,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         pipeline: moodPipeline,
                         fluxPrompt: fluxPrompt,
                         facePrompt: moodFacePrompt,
+                        userPrompt: userPrompt,
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender
                     }
@@ -2471,6 +2613,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     pipeline: moodPipeline,
                     fluxPrompt: reverseMood ? draftPrompt : lookPrompt,
                     facePrompt: moodFacePrompt,
+                    userPrompt: userPrompt,
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender
                 }
