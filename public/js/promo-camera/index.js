@@ -851,7 +851,7 @@
     var hintEl = document.getElementById('pcPromptHint');
     if (hintEl && isPortraitMode()) {
       hintEl.textContent = mood
-        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。未寫描述則維持上傳人像的服飾與髮型；要換再寫在描述。體型依上傳人像。')
+        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。換人與體型依上傳圖；衣服跟場景底圖。要改衣服再寫描述。')
         : '';
     }
   }

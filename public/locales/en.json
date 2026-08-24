@@ -1259,7 +1259,7 @@
   "promoCamera.subjectGender": "Gender",
   "promoCamera.subjectGenderFemale": "Female",
   "promoCamera.subjectGenderMale": "Male",
-  "promoCamera.portraitMoodCastHint": "Use the dropdowns for people count and gender. Leave the description empty to keep the uploaded outfit and hair; write there only to change them. Body type follows the uploaded portrait.",
+  "promoCamera.portraitMoodCastHint": "Use the dropdowns for people count and gender. Person and body follow the upload; clothes stay from the scene. Write in the description only to change clothes.",
   "promoCamera.moodDraftLabel": "Draft",
   "promoCamera.moodLookLabel": "Mood image",
   "promoCamera.moodSceneBase": "Scene base",

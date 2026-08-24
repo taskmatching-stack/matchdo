@@ -442,25 +442,20 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const gender = normalizePromoPortraitSubjectGender(o.gender);
     const adult = gender === 'male' ? 'male' : 'female';
     const parts = [
-        'This is a character replacement job. Do not copy or echo the first image as the output.',
-        'IMAGE 1 (first image): generated scene. Keep its lighting, camera, composition, and background.',
-        'IMAGE 2 (later image): the real person. Match identity from IMAGE 2: face and skin tone.',
-        'Body type must match IMAGE 2: overall build, shoulder width, neck, torso proportions, and limb thickness. Do not keep IMAGE 1\'s body if it differs. Fit IMAGE 1\'s pose and lighting onto IMAGE 2\'s physique; do not paste IMAGE 2\'s head onto IMAGE 1\'s body.',
-        'Hair and clothing default to IMAGE 2. Do not keep IMAGE 1\'s wardrobe. Only change hair or clothes if the user description says so; otherwise keep the uploaded person\'s outfit exactly.',
-        'Lighting: from IMAGE 1 only. Relight the person to match IMAGE 1 (key, fill, rim, color temperature). Do not copy lighting from IMAGE 2.',
-        'Natural undistorted face, real skin texture, no plastic or doll-like skin.',
-        'The generated identity and body in IMAGE 1 must not remain on the swapped person.'
+        'Swap the person and body type. Do not treat this as a clothing edit.',
+        'IMAGE 1 (first image): the real person. Output this identity: same face, eyes, hair, skin, and body type (shoulders, neck, torso, build). Do not keep the generated model\'s face or body.',
+        'IMAGE 2 (later image): generated scene. Keep lighting, camera, background, pose, and the clothes already on the scene person. Put IMAGE 1\'s person into those clothes.',
+        'Relight IMAGE 1\'s person to match IMAGE 2. Do not copy IMAGE 1\'s original lighting or backdrop.',
+        'Do not recolor or restyle the outfit unless the user description explicitly asks to change clothes.',
+        'Natural undistorted face, real skin texture, no plastic or doll-like skin.'
     ];
     if (peopleCount <= 1) {
-        parts.push('The finished photo must show exactly one ' + adult + ' person matching IMAGE 2.');
-        parts.push('If IMAGE 1 has more than one person, replace every person and remove extras.');
+        parts.push('Output exactly one ' + adult + ' person: the person from IMAGE 1, wearing IMAGE 2\'s clothes.');
     } else {
-        parts.push('The finished photo should contain ' + peopleCount + ' ' + adult + ' people. The main subject is the IMAGE 2 person with IMAGE 2\'s body type.');
+        parts.push('The finished photo should contain ' + peopleCount + ' ' + adult + ' people. The main subject is the IMAGE 1 person with IMAGE 1\'s body, wearing the scene clothes.');
     }
     if (user) {
-        parts.push('User description (optional outfit / hair / styling changes only; do not restyle lighting or change body type). Unmentioned clothing stays from IMAGE 2: ' + user);
-    } else {
-        parts.push('No user description: keep IMAGE 2 hair and clothing exactly; do not restyle into IMAGE 1\'s outfit.');
+        parts.push('User description (do not change whose face or body it is unless they ask). Only change clothes if they write a wardrobe change: ' + user);
     }
     parts.push('Output a finished photograph at the requested resolution.');
     parts.push('No text, labels, logos, or watermarks in the image.');
@@ -468,11 +463,8 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
 }
 
 function buildPromoPortraitMoodSwapTrailing(peopleCount) {
-    const n = normalizePromoPortraitPeopleCount(peopleCount);
-    if (n <= 1) {
-        return 'Now produce the output: keep IMAGE 1 lighting, camera, and background; replace every person with the single person from IMAGE 2 using IMAGE 2\'s body type and IMAGE 2\'s clothing unless the user description changes the outfit. Do not return IMAGE 1 unchanged.';
-    }
-    return 'Now produce the output: keep IMAGE 1 lighting, camera, and background; the main subject must be the IMAGE 2 person with IMAGE 2\'s body type and IMAGE 2\'s clothing unless the user description changes the outfit. Do not return IMAGE 1 unchanged.';
+    void peopleCount;
+    return 'Swap person and body to IMAGE 1. Keep IMAGE 2 lighting, camera, background, pose, and clothes. Do not only recolor the outfit. Do not return IMAGE 2\'s generated face.';
 }
 
 function promoPortraitMoodCompareLabels(pipeline) {
@@ -520,7 +512,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         err.status = 400;
         throw err;
     }
-    const faceRefs = [jpegImageRefFromBuffer(scene.buffer)].concat(portraitRefs);
+    const faceRefs = portraitRefs.concat([jpegImageRefFromBuffer(scene.buffer)]);
     const face = await generatePromoPortraitImageWithGemini(
         faceRefs,
         String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt(),
