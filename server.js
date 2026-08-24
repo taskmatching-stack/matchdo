@@ -630,6 +630,8 @@ function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
         '這不是濾鏡、不是調色疊加。',
         '用下列條件把畫面重新拍攝。',
         '人物身分、姿勢與場景內容不變，只換攝影風格。',
+        '下列文字只改成像，不要畫成畫面裡的東西。',
+        '邊緣亮度不要比草稿更暗。',
         cam
     ].join('');
 }
@@ -1133,6 +1135,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
         userPrompt: o.userPrompt,
         shotBrief: o.shotBrief,
         cameraBlock: o.cameraBlock,
+        moodDraft: o.moodDraft === true,
         hasSceneImage: !!o.hasSceneImage,
         hasStagingProduct: !!o.hasStagingProduct,
         width: o.width,
@@ -1279,6 +1282,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             sceneParts,
             userPrompt,
             cameraBlock: isMood ? '' : cameraBlock,
+            moodDraft: isMood && !reverseMood,
             hasSceneImage,
             hasStagingProduct,
             width: moodDraftDims.width,
@@ -1985,7 +1989,7 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
     const instructionLines = [
         'You are a commercial portrait photography director.',
         `Output exactly ${count} DISTINCT English shooting variation lines for separate photos in the same session.`,
-        'Each line must differ in framing, body angle, gaze, pose, or camera distance.',
+        'Each line must differ in framing, body angle, gaze, pose, or subject distance.',
         'Keep the same subject identity, theme intent, and any user styling constraints.',
         `Return ONLY a JSON array of ${count} strings. No markdown.`,
         '',
@@ -2098,7 +2102,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         themeKey,
         themeLabel: themeParts.name || themeKey,
         sceneLabel: sceneParts.name || '',
-        cameraBrief
+        cameraBrief: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? '' : cameraBrief
     });
 
     const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
@@ -2144,8 +2148,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     themeParts,
                     sceneParts,
                     userPrompt,
-                    shotBrief,
+                    shotBrief: renderCtx.mode === 'mood' ? '' : shotBrief,
                     cameraBlock: renderCtx.mode === 'mood' ? '' : cameraBlock,
+                    moodDraft: renderCtx.mode === 'mood',
                     hasSceneImage: !!resolvedRefs.hasSceneImage,
                     hasStagingProduct: !!resolvedRefs.hasStagingProduct,
                     width: moodDraftDims ? moodDraftDims.width : w,
@@ -2640,6 +2645,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     sceneParts,
                     userPrompt,
                     cameraBlock: '',
+                    moodDraft: true,
                     hasSceneImage: !!resolvedRefs.hasSceneImage,
                     hasStagingProduct: !!resolvedRefs.hasStagingProduct,
                     width: moodDraftDims.width,
