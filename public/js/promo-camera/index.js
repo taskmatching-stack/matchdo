@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-txt2img-20260824';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-cast-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -827,6 +827,33 @@
     if (clearEl) clearEl.checked = mode === 'clear';
     if (moodEl) moodEl.checked = mode === 'mood';
     syncPortraitThemeVisibility();
+    syncPortraitMoodCastUi();
+  }
+
+  function syncPortraitMoodCastUi() {
+    var mood = isPortraitMode() && String(St.get().portraitRenderMode || '').toLowerCase() === 'mood';
+    document.querySelectorAll('.pc-portrait-mood-cast').forEach(function (el) {
+      el.classList.toggle('d-none', !mood);
+    });
+    var st = St.get();
+    var peopleEl = document.getElementById('pcPortraitPeopleCount');
+    var genderEl = document.getElementById('pcPortraitSubjectGender');
+    if (peopleEl) {
+      if (!(st.portraitPeopleCount >= 1 && st.portraitPeopleCount <= 4)) st.portraitPeopleCount = 1;
+      peopleEl.value = String(st.portraitPeopleCount);
+    }
+    if (genderEl) {
+      if (st.portraitSubjectGender !== 'male' && st.portraitSubjectGender !== 'female') {
+        st.portraitSubjectGender = 'female';
+      }
+      genderEl.value = st.portraitSubjectGender;
+    }
+    var hintEl = document.getElementById('pcPromptHint');
+    if (hintEl && isPortraitMode()) {
+      hintEl.textContent = mood
+        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。未寫描述則維持上傳人像的服飾與髮型；要換再寫在描述。體型依上傳人像。')
+        : '';
+    }
   }
 
   /** 清晰／氛圍都顯示主題（氛圍只把主題送給 Lite） */
@@ -876,6 +903,7 @@
         St.setSpaceResolutionTier('1k');
       }
       syncPortraitThemeVisibility();
+      syncPortraitMoodCastUi();
       refreshHomepageControl();
       refreshSpaceMpSelectLabels();
       syncSpaceResolutionControls();
@@ -1176,7 +1204,6 @@
     } else if (portrait) {
       if (promptLabel) promptLabel.textContent = t('promoCamera.portraitDesc', '描述（服裝／髮型等）');
       if (promptEl) promptEl.placeholder = t('promoCamera.portraitPlaceholder', '例：白色西裝、俐落短髮、自然妝感');
-      if (hintEl) hintEl.textContent = '';
       var genBtnP = document.getElementById('pcGenerateBtn');
       if (genBtnP) {
         var spanP = genBtnP.querySelector('span');
@@ -1192,6 +1219,7 @@
         if (spanD) spanD.textContent = t('promoCamera.generateBtn', '拍照');
       }
     }
+    syncPortraitMoodCastUi();
 
     renderSpaceThumbs();
     renderPlanningSimThumb();
@@ -2217,6 +2245,10 @@
   function syncPromptFromDom() {
     var promptEl = document.getElementById('pcPromptInput');
     if (promptEl) St.get().userPrompt = (promptEl.value || '').trim();
+    var peopleEl = document.getElementById('pcPortraitPeopleCount');
+    if (peopleEl && St.setPortraitPeopleCount) St.setPortraitPeopleCount(peopleEl.value);
+    var genderEl = document.getElementById('pcPortraitSubjectGender');
+    if (genderEl && St.setPortraitSubjectGender) St.setPortraitSubjectGender(genderEl.value);
   }
 
   function updateGenerateBtn() {
@@ -2613,6 +2645,25 @@
         updatePortraitBatchUi();
         updateGenerateBtn();
         updatePoints();
+      });
+    }
+
+    var peopleCountEl = document.getElementById('pcPortraitPeopleCount');
+    if (peopleCountEl) {
+      peopleCountEl.addEventListener('change', function () {
+        if (St.setPortraitPeopleCount) St.setPortraitPeopleCount(peopleCountEl.value);
+        if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+          window.PromoCameraSpecSummary.refresh();
+        }
+      });
+    }
+    var genderEl = document.getElementById('pcPortraitSubjectGender');
+    if (genderEl) {
+      genderEl.addEventListener('change', function () {
+        if (St.setPortraitSubjectGender) St.setPortraitSubjectGender(genderEl.value);
+        if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+          window.PromoCameraSpecSummary.refresh();
+        }
       });
     }
 

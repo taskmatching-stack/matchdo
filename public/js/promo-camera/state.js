@@ -53,6 +53,8 @@
     themeKey: '',
     sceneKey: '',
     portraitRenderMode: 'clear',
+    portraitPeopleCount: 1,
+    portraitSubjectGender: 'female',
     aspectRatio: '1:1',
     megapixels: 1,
     width: 1024,
@@ -194,6 +196,16 @@
   function setPortraitRenderMode(mode) {
     var m = String(mode || '').toLowerCase();
     state.portraitRenderMode = (m === 'mood') ? 'mood' : 'clear';
+  }
+
+  function setPortraitPeopleCount(n) {
+    var v = parseInt(n, 10);
+    state.portraitPeopleCount = (v >= 1 && v <= 4) ? v : 1;
+  }
+
+  function setPortraitSubjectGender(g) {
+    var s = String(g || '').toLowerCase();
+    state.portraitSubjectGender = (s === 'male') ? 'male' : 'female';
   }
 
   function addImage(url, sourceType, sourceId) {
@@ -752,6 +764,12 @@
       fluxPayload.height = state.height;
       fluxPayload.aspect_ratio = state.aspectRatio;
       fluxPayload.portrait_render_mode = state.portraitRenderMode === 'mood' ? 'mood' : 'clear';
+      if (state.portraitRenderMode === 'mood') {
+        fluxPayload.portrait_people_count = state.portraitPeopleCount >= 1 && state.portraitPeopleCount <= 4
+          ? state.portraitPeopleCount
+          : 1;
+        fluxPayload.portrait_subject_gender = state.portraitSubjectGender === 'male' ? 'male' : 'female';
+      }
     }
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;
@@ -802,6 +820,8 @@
     getThemesForMode: getThemesForMode,
     setShootMode: setShootMode,
     setPortraitRenderMode: setPortraitRenderMode,
+    setPortraitPeopleCount: setPortraitPeopleCount,
+    setPortraitSubjectGender: setPortraitSubjectGender,
     setSpaceStyleSource: setSpaceStyleSource,
     setSpaceUseType: setSpaceUseType,
     getSpaceZoneIntentsForUseType: getSpaceZoneIntentsForUseType,

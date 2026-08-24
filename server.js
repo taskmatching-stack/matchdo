@@ -402,30 +402,78 @@ async function getPromoPortraitMoodPipeline() {
     return 'lite_then_flux';
 }
 
+function normalizePromoPortraitPeopleCount(raw) {
+    const n = parseInt(raw, 10);
+    if (n >= 1 && n <= 4) return n;
+    return 1;
+}
+
+function normalizePromoPortraitSubjectGender(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (s === 'male' || s === 'man' || s === 'm' || s === '男' || s === '男性') return 'male';
+    return 'female';
+}
+
+function resolvePromoPortraitCastFromBody(body) {
+    const b = body && typeof body === 'object' ? body : {};
+    return {
+        peopleCount: normalizePromoPortraitPeopleCount(
+            b.portrait_people_count != null ? b.portrait_people_count : b.people_count
+        ),
+        gender: normalizePromoPortraitSubjectGender(
+            b.portrait_subject_gender || b.subject_gender || b.gender
+        )
+    };
+}
+
+function buildPromoPortraitMoodCastHint(cast) {
+    const peopleCount = normalizePromoPortraitPeopleCount(cast && cast.peopleCount);
+    const gender = normalizePromoPortraitSubjectGender(cast && cast.gender);
+    const adult = gender === 'male' ? 'male adult' : 'female adult';
+    const adults = gender === 'male' ? 'male adults' : 'female adults';
+    if (peopleCount <= 1) return 'The scene contains exactly one ' + adult + '.';
+    return 'The scene contains exactly ' + peopleCount + ' ' + adults + '.';
+}
+
 function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const user = String(o.userPrompt || '').trim();
+    const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
+    const gender = normalizePromoPortraitSubjectGender(o.gender);
+    const adult = gender === 'male' ? 'male' : 'female';
     const parts = [
         'This is a character replacement job. Do not copy or echo the first image as the output.',
-        'IMAGE 1 (first image): generated scene. Keep its lighting, camera, composition, background, and overall pose language.',
-        'IMAGE 2 (later image): the real person to use. The finished photo must show this person only.',
-        'If IMAGE 1 has more than one person, replace every person: remove extras so the result contains exactly one person matching IMAGE 2.',
-        'Identity: face and skin tone from IMAGE 2.',
-        'Hair and clothing: from IMAGE 2. If the user description specifies hairstyle or wardrobe, follow that description. If silent, keep hair and clothing from IMAGE 2.',
+        'IMAGE 1 (first image): generated scene. Keep its lighting, camera, composition, and background.',
+        'IMAGE 2 (later image): the real person. Match identity from IMAGE 2: face and skin tone.',
+        'Body type must match IMAGE 2: overall build, shoulder width, neck, torso proportions, and limb thickness. Do not keep IMAGE 1\'s body if it differs. Fit IMAGE 1\'s pose and lighting onto IMAGE 2\'s physique; do not paste IMAGE 2\'s head onto IMAGE 1\'s body.',
+        'Hair and clothing default to IMAGE 2. Do not keep IMAGE 1\'s wardrobe. Only change hair or clothes if the user description says so; otherwise keep the uploaded person\'s outfit exactly.',
         'Lighting: from IMAGE 1 only. Relight the person to match IMAGE 1 (key, fill, rim, color temperature). Do not copy lighting from IMAGE 2.',
         'Natural undistorted face, real skin texture, no plastic or doll-like skin.',
-        'The generated identity in IMAGE 1 must not remain.'
+        'The generated identity and body in IMAGE 1 must not remain on the swapped person.'
     ];
+    if (peopleCount <= 1) {
+        parts.push('The finished photo must show exactly one ' + adult + ' person matching IMAGE 2.');
+        parts.push('If IMAGE 1 has more than one person, replace every person and remove extras.');
+    } else {
+        parts.push('The finished photo should contain ' + peopleCount + ' ' + adult + ' people. The main subject is the IMAGE 2 person with IMAGE 2\'s body type.');
+    }
     if (user) {
-        parts.push('User description (hair, clothing, and styling only; do not restyle lighting): ' + user);
+        parts.push('User description (optional outfit / hair / styling changes only; do not restyle lighting or change body type). Unmentioned clothing stays from IMAGE 2: ' + user);
+    } else {
+        parts.push('No user description: keep IMAGE 2 hair and clothing exactly; do not restyle into IMAGE 1\'s outfit.');
     }
     parts.push('Output a finished photograph at the requested resolution.');
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.join(' ');
 }
 
-const PROMO_PORTRAIT_MOOD_SWAP_TRAILING =
-    'Now produce the output: keep IMAGE 1 lighting, camera, and background; replace every person with the single person from IMAGE 2. Do not return IMAGE 1 unchanged.';
+function buildPromoPortraitMoodSwapTrailing(peopleCount) {
+    const n = normalizePromoPortraitPeopleCount(peopleCount);
+    if (n <= 1) {
+        return 'Now produce the output: keep IMAGE 1 lighting, camera, and background; replace every person with the single person from IMAGE 2 using IMAGE 2\'s body type and IMAGE 2\'s clothing unless the user description changes the outfit. Do not return IMAGE 1 unchanged.';
+    }
+    return 'Now produce the output: keep IMAGE 1 lighting, camera, and background; the main subject must be the IMAGE 2 person with IMAGE 2\'s body type and IMAGE 2\'s clothing unless the user description changes the outfit. Do not return IMAGE 1 unchanged.';
+}
 
 function promoPortraitMoodCompareLabels(pipeline) {
     if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
@@ -442,7 +490,7 @@ function formatPromoPortraitMoodPromptSent(pipeline, stage1, stage2) {
 }
 
 /** 實驗管線：FLUX 純文生場景（不帶人像圖）→ Banana 換臉／髮型／衣服並以所選 MP 輸出 */
-async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts) {
+async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts, extra) {
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
     const userTier = promoSpaceGemini.normalizeSpaceResolutionTier(
@@ -484,7 +532,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             minEdge: Math.max(lookDims.width, lookDims.height),
             targetWidth: lookDims.width,
             targetHeight: lookDims.height,
-            trailingText: PROMO_PORTRAIT_MOOD_SWAP_TRAILING
+            trailingText: buildPromoPortraitMoodSwapTrailing(extra && extra.peopleCount)
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
@@ -513,8 +561,12 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
         return runPromoPortraitMoodFluxThenLite(
             imageRefs,
             (extra && extra.fluxPrompt) || cameraPrompt,
-            (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt(),
-            geminiOpts
+            (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt({
+                peopleCount: extra && extra.peopleCount,
+                gender: extra && extra.gender
+            }),
+            geminiOpts,
+            extra
         );
     }
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
@@ -970,9 +1022,19 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const user = String(o.userPrompt || '').trim();
     const cameraBlock = String(o.cameraBlock || '').trim();
     const isFormalId = themeKey === 'portrait_formal_id';
+    const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
+    const gender = normalizePromoPortraitSubjectGender(o.gender);
+    const zhPerson = gender === 'male' ? '男性' : '女性';
+    const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
+    const enOne = gender === 'male' ? 'man' : 'woman';
+    const enMany = gender === 'male' ? 'men' : 'women';
     const parts = [];
 
-    parts.push('商業人像攝影：畫面中只能有一位人物。禁止群像、禁止多人、禁止路人、禁止背景人群、禁止家庭合照。');
+    if (peopleCount <= 1) {
+        parts.push('商業人像攝影：畫面中只能有一位' + zhPerson + '。禁止群像、禁止多人、禁止路人、禁止背景人群、禁止家庭合照。');
+    } else {
+        parts.push('商業人像攝影：畫面中正好有' + zhNum + '位' + zhPerson + '。不要增減人數，不要路人與背景人群。');
+    }
 
     let place = '';
     if (o.hasSceneImage) {
@@ -983,20 +1045,30 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
         place = '主題：' + String(theme.name).trim();
     }
     if (place) {
-        parts.push(place + '。該場景只作為這一位人物所在的環境，不是群聚活動。');
+        parts.push(place + '。該場景只作為人物所在的環境' + (peopleCount <= 1 ? '，不是群聚活動' : '') + '。');
     }
 
     if (isFormalId) {
-        parts.push('證件／正式人像：一位人物正面或近正面，姿勢端正。');
+        if (peopleCount <= 1) {
+            parts.push('證件／正式人像：一位' + zhPerson + '正面或近正面，姿勢端正。');
+        } else {
+            parts.push('正式合影：' + zhNum + '位' + zhPerson + '，姿勢端正。');
+        }
+    } else if (peopleCount <= 1) {
+        parts.push('一位' + zhPerson + '在該環境中自然擺姿，適合單人商業人像。');
     } else {
-        parts.push('一位人物在該環境中自然擺姿，適合單人商業人像。');
+        parts.push(zhNum + '位' + zhPerson + '在該環境中自然擺姿，適合商業人像。');
     }
 
     if (user) {
-        parts.push('補充描述（只作用在這一位人物的造型與氛圍，不得解讀成多人）：' + user);
+        parts.push('補充描述（只作用在造型、氛圍與其他特殊需求；人數與性別已由選項決定，不得改成另一種人數）：' + user);
     }
     if (cameraBlock) parts.push(cameraBlock);
-    parts.push('Exactly one person in the frame. No other people. No crowd. No group photo.');
+    if (peopleCount <= 1) {
+        parts.push('Exactly one ' + enOne + ' in the frame. No other people. No crowd. No group photo.');
+    } else {
+        parts.push('Exactly ' + peopleCount + ' ' + enMany + ' in the frame. No extra people. No crowd.');
+    }
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.filter(Boolean).join(' ');
 }
@@ -1030,11 +1102,18 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const isMood = renderCtx.mode === 'mood';
     const moodPipeline = isMood ? await getPromoPortraitMoodPipeline() : 'lite_then_flux';
     const reverseMood = isMood && moodPipeline === 'flux_then_lite';
+    const cast = resolvePromoPortraitCastFromBody(b);
     const moodDraftDims = isMood && !reverseMood
         ? promoSpaceGemini.resolveSpaceOutputDimensions({ tier: '1k', aspect_ratio: outDims.aspectRatio || '1:1' })
         : outDims;
-    const facePrompt = reverseMood ? buildPromoPortraitMoodFaceRefinePrompt({ userPrompt }) : '';
-    const geminiPrompt = reverseMood
+    const facePrompt = reverseMood
+        ? buildPromoPortraitMoodFaceRefinePrompt({
+            userPrompt,
+            peopleCount: cast.peopleCount,
+            gender: cast.gender
+        })
+        : '';
+    let geminiPrompt = reverseMood
         ? facePrompt
         : await buildPromoPortraitFinalPrompt({
             themeKey,
@@ -1049,6 +1128,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             tier: isMood ? '1k' : outDims.tier,
             minLongEdge: isMood ? 1024 : portraitMinLongEdgeForTier(outDims.tier)
         });
+    if (isMood && !reverseMood) {
+        geminiPrompt = (String(geminiPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(cast)).trim();
+    }
     const fluxPrompt = isMood
         ? (reverseMood
             ? await buildPromoPortraitFluxTextToImagePrompt({
@@ -1061,7 +1143,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
                 hasStagingProduct,
                 width: outDims.width,
                 height: outDims.height,
-                tier: outDims.tier
+                tier: outDims.tier,
+                peopleCount: cast.peopleCount,
+                gender: cast.gender
             })
             : cameraBlock)
         : await buildPromoPortraitFluxPrompt({
@@ -1873,7 +1957,14 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const geminiModel = await getPromoPortraitModelName();
     const moodPipeline = renderCtx.mode === 'mood' ? await getPromoPortraitMoodPipeline() : 'lite_then_flux';
     const reverseMood = moodPipeline === 'flux_then_lite';
-    const moodFacePrompt = reverseMood ? buildPromoPortraitMoodFaceRefinePrompt({ userPrompt }) : '';
+    const portraitCast = resolvePromoPortraitCastFromBody(body);
+    const moodFacePrompt = reverseMood
+        ? buildPromoPortraitMoodFaceRefinePrompt({
+            userPrompt,
+            peopleCount: portraitCast.peopleCount,
+            gender: portraitCast.gender
+        })
+        : '';
     const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
 
     const results = [];
@@ -1890,7 +1981,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 : null;
             finalPrompt = reverseMood
                 ? moodFacePrompt
-                : await buildPromoPortraitFinalPrompt({
+                    : await buildPromoPortraitFinalPrompt({
                     themeKey,
                     themeParts,
                     sceneParts,
@@ -1904,6 +1995,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     tier: moodDraftDims ? '1k' : spaceResTier,
                     minLongEdge: moodDraftDims ? 1024 : portraitMinLongEdgeForTier(spaceResTier)
                 });
+            if (renderCtx.mode === 'mood' && !reverseMood) {
+                finalPrompt = (String(finalPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
+            }
             fluxPrompt = renderCtx.mode === 'mood'
                 ? (reverseMood
                     ? await buildPromoPortraitFluxTextToImagePrompt({
@@ -1917,7 +2011,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         hasStagingProduct: !!resolvedRefs.hasStagingProduct,
                         width: w,
                         height: h,
-                        tier: spaceResTier
+                        tier: spaceResTier,
+                        peopleCount: portraitCast.peopleCount,
+                        gender: portraitCast.gender
                     })
                     : cameraBlock)
                 : await buildPromoPortraitFluxPrompt({
@@ -1971,7 +2067,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     {
                         pipeline: moodPipeline,
                         fluxPrompt: fluxPrompt,
-                        facePrompt: moodFacePrompt
+                        facePrompt: moodFacePrompt,
+                        peopleCount: portraitCast.peopleCount,
+                        gender: portraitCast.gender
                     }
                 );
                 buffer = step.look && step.look.buffer;
@@ -2120,6 +2218,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     portrait_render_mode: renderCtx.mode || null,
                     mood_pipeline: renderCtx.mode === 'mood',
                     mood_pipeline_kind: renderCtx.mode === 'mood' ? moodPipeline : null,
+                    portrait_people_count: renderCtx.mode === 'mood' ? portraitCast.peopleCount : null,
+                    portrait_subject_gender: renderCtx.mode === 'mood' ? portraitCast.gender : null,
                     mood_stage: renderCtx.mode === 'mood' ? 'look' : null,
                     space_resolution_tier: spaceResTier
                 },
@@ -2339,7 +2439,14 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if (renderCtx.mode === 'mood') {
         const moodPipeline = await getPromoPortraitMoodPipeline();
         const reverseMood = moodPipeline === 'flux_then_lite';
-        const moodFacePrompt = reverseMood ? buildPromoPortraitMoodFaceRefinePrompt({ userPrompt }) : '';
+        const portraitCast = resolvePromoPortraitCastFromBody(body);
+        const moodFacePrompt = reverseMood
+            ? buildPromoPortraitMoodFaceRefinePrompt({
+                userPrompt,
+                peopleCount: portraitCast.peopleCount,
+                gender: portraitCast.gender
+            })
+            : '';
         const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
         let draftPrompt;
         let lookPrompt;
@@ -2355,7 +2462,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     hasStagingProduct: !!resolvedRefs.hasStagingProduct,
                     width: w,
                     height: h,
-                    tier: spaceResTier
+                    tier: spaceResTier,
+                    peopleCount: portraitCast.peopleCount,
+                    gender: portraitCast.gender
                 });
                 lookPrompt = moodFacePrompt;
             } else {
@@ -2376,6 +2485,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     tier: '1k',
                     minLongEdge: 1024
                 });
+                draftPrompt = (String(draftPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
                 lookPrompt = cameraBlock;
             }
         } catch (promptErr) {
@@ -2391,7 +2501,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 {
                     pipeline: moodPipeline,
                     fluxPrompt: reverseMood ? draftPrompt : lookPrompt,
-                    facePrompt: moodFacePrompt
+                    facePrompt: moodFacePrompt,
+                    peopleCount: portraitCast.peopleCount,
+                    gender: portraitCast.gender
                 }
             );
         } catch (genErr) {

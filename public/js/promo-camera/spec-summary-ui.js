@@ -124,6 +124,11 @@
     var renderLabel = (renderMode && renderMode.checked)
       ? t('promoCamera.renderMoodShort', '氛圍 BETA')
       : t('promoCamera.renderClearShort', '清晰');
+    if (renderMode && renderMode.checked) {
+      var peopleLab = textOfSelect('pcPortraitPeopleCount');
+      var genderLab = textOfSelect('pcPortraitSubjectGender');
+      renderLabel = joinParts([renderLabel, peopleLab, genderLab]);
+    }
     var renderWrap = document.querySelector('.pc-portrait-only');
     if (renderWrap && !renderWrap.classList.contains('d-none')) {
       setVal('portraitRender', renderLabel);
