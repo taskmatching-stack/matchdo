@@ -39,6 +39,7 @@
     spaceZoneIntentKeys: [],
     floorPlanImage: '',
     layoutReferenceImage: '',
+    planningSimFurnitureImage: '',
     layoutGenerationId: null,
     spaceMapMarkers: {},
     spaceMarkActiveLetter: 'A',
@@ -470,6 +471,10 @@
     state.floorPlanImage = url || '';
   }
 
+  function setPlanningSimFurnitureImage(url) {
+    state.planningSimFurnitureImage = url || '';
+  }
+
   function setLayoutReference(url, generationId) {
     state.layoutReferenceImage = url || '';
     state.layoutGenerationId = generationId ? String(generationId) : null;
@@ -807,6 +812,7 @@
     setSpaceAspectRatio: setSpaceAspectRatio,
     applySpaceDimensions: applySpaceDimensions,
     setFloorPlanImage: setFloorPlanImage,
+    setPlanningSimFurnitureImage: setPlanningSimFurnitureImage,
     setLayoutReference: setLayoutReference,
     clearLayoutReference: clearLayoutReference,
     setSpaceMarkActiveLetter: setSpaceMarkActiveLetter,

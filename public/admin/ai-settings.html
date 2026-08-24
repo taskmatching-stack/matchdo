@@ -113,17 +113,25 @@
                 </div>
               </div>
               <div class="border rounded p-3 bg-light">
-                <h6 class="small fw-bold mb-2">氛圍模式（兩段：草稿 Lite → 氛圍圖 FLUX）</h6>
-                <p class="form-text small text-muted mb-3">草稿用 Nano Banana lite（帶主題／場景／描述，<strong>不帶</strong>攝影參數）；氛圍圖把草稿丟給 FLUX，<strong>只帶</strong>攝影參數。</p>
+                <h6 class="small fw-bold mb-2">氛圍模式（兩段對照）</h6>
+                <p class="form-text small text-muted mb-3">前台仍只顯示「氛圍模式」。此處切換兩段順序，方便和現行品質對照。前台不顯示模型名稱。</p>
+                <div class="mb-3">
+                  <label class="form-label small mb-1" for="promoPortraitMoodPipeline">氛圍兩段順序</label>
+                  <select id="promoPortraitMoodPipeline" class="form-select form-select-sm">
+                    <option value="lite_then_flux" selected>現行：草稿 → 氛圍圖（Lite 先出人物／場景，再 FLUX 套攝影參數）</option>
+                    <option value="flux_then_lite">實驗：FLUX 文生場景 → Banana 換人（臉／膚色／髮型／衣服）並輸出 MP</option>
+                  </select>
+                  <p class="form-text small text-muted mb-0"><code>promo_portrait_mood_pipeline</code> — 實驗：FLUX 純文生場景（含人身上的光影）。Banana 換角色：臉與膚色依上傳圖；髮型／衣服以參考圖為底，描述欄可補充或改。光影仍依 FLUX，並以 1／4／16 MP 出圖。</p>
+                </div>
                 <input type="hidden" id="enginePromoPortraitMood" value="flux" />
                 <div class="row g-3">
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortraitMood">草稿 · Gemini 模型（Nano Banana Lite）</label>
+                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortraitMood">Lite／修臉 · Gemini 模型</label>
                     <input type="text" id="aiConfigGeminiModelPromoPortraitMood" class="form-control form-control-sm font-monospace" placeholder="gemini-3.1-flash-lite-image" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait_mood</code></p>
+                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait_mood</code> — 現行當草稿；實驗當換人與輸出</p>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">氛圍圖 · FLUX 模型</label>
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型</label>
                     <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code>（建議 <code>flux-2-pro</code>）</p>
                   </div>
@@ -162,6 +170,21 @@
                   <label class="form-label small mb-1" for="aiConfigGeminiModelPromoSpaceLayout">Gemini 模型名稱</label>
                   <input type="text" id="aiConfigGeminiModelPromoSpaceLayout" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
                   <p class="form-text small text-muted mb-0"><code>gemini_model_promo_space_layout</code> — 手填 model id</p>
+                </div>
+              </div>
+            </div>
+            <div class="border rounded p-3 mb-3 bg-white">
+              <h6 class="small fw-bold mb-2">規劃模擬（空間圖＋家具／陳設）</h6>
+              <div class="row g-3">
+                <div class="col-md-8">
+                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPlanningSim">Gemini 模型名稱</label>
+                  <input type="text" id="aiConfigGeminiModelPromoPlanningSim" class="form-control form-control-sm font-monospace" placeholder="gemini-3.1-flash-image" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_planning_sim</code> — 僅後台可見；請用 Flash 生圖，勿填 lite。前台不顯示模型名稱。</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="aiConfigPointsPromoPlanningSim">點數／次</label>
+                  <input type="number" id="aiConfigPointsPromoPlanningSim" class="form-control form-control-sm" min="0" step="1" value="20" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>points_promo_planning_sim</code> — 與「會員方案」同一欄。未定價可先填 0；前台暫不顯示金額。</p>
                 </div>
               </div>
             </div>
@@ -392,6 +415,10 @@
       }
       portraitDefaultMode.value = dm;
     }
+    var moodPipeline = document.getElementById('promoPortraitMoodPipeline');
+    if (moodPipeline) {
+      moodPipeline.value = data.promo_portrait_mood_pipeline === 'flux_then_lite' ? 'flux_then_lite' : 'lite_then_flux';
+    }
     if (portrait) {
       var syncEng = (portraitDefaultMode && portraitDefaultMode.value === 'mood')
         ? ((portraitMood && portraitMood.value) || 'flux')
@@ -417,6 +444,7 @@
       if (ps.promo_portrait_default_render_mode) pp.push('人像預設模式');
       if (ps.promo_portrait_clear_engine) pp.push('清晰引擎');
       if (ps.promo_portrait_mood_engine) pp.push('氛圍引擎');
+      if (ps.promo_portrait_mood_pipeline) pp.push('氛圍兩段順序');
       if (ps.promo_portrait_engine) pp.push('人像引擎(相容)');
       if (ps.gemini_model_promo_portrait) pp.push('清晰模型');
       if (ps.gemini_model_promo_portrait_mood) pp.push('氛圍草稿Lite');
@@ -425,6 +453,7 @@
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
       if (ps.bfl_flux_model_promo_space_eye_level) pp.push('平視FLUX');
       if (ps.gemini_model_promo_space_layout) pp.push('ISO');
+      if (ps.gemini_model_promo_planning_sim) pp.push('規劃模擬');
       promoHint.textContent = pp.length
         ? '（已從資料庫載入：' + pp.join('、') + '）'
         : '（尚未寫入 DB；目前為程式預設）';
@@ -476,6 +505,7 @@
     var inpPattern = document.getElementById('aiConfigGeminiModelPatternExtract');
     var inpSpaceLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
     var inpSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
+    var inpPlanningSim = document.getElementById('aiConfigGeminiModelPromoPlanningSim');
     var inpPortrait = document.getElementById('aiConfigGeminiModelPromoPortrait');
     var inpPortraitMood = document.getElementById('aiConfigGeminiModelPromoPortraitMood');
     var hint = document.getElementById('aiConfigDbHint');
@@ -490,6 +520,7 @@
     if (data.gemini_model_pattern_extract != null && inpPattern) inpPattern.value = data.gemini_model_pattern_extract;
     if (data.gemini_model_promo_space_layout != null && inpSpaceLayout) inpSpaceLayout.value = data.gemini_model_promo_space_layout;
     if (data.gemini_model_promo_space_eye_level != null && inpSpaceEye) inpSpaceEye.value = data.gemini_model_promo_space_eye_level;
+    if (data.gemini_model_promo_planning_sim != null && inpPlanningSim) inpPlanningSim.value = data.gemini_model_promo_planning_sim;
     if (data.gemini_model_promo_portrait != null && inpPortrait) inpPortrait.value = data.gemini_model_promo_portrait;
     if (data.gemini_model_promo_portrait_mood != null && inpPortraitMood) inpPortraitMood.value = data.gemini_model_promo_portrait_mood;
     if (hint && data.saved_in_db) {
@@ -655,6 +686,7 @@
     var gPortraitMood = document.getElementById('aiConfigGeminiModelPromoPortraitMood');
     var gSpaceEye = document.getElementById('aiConfigGeminiModelPromoSpaceEyeLevel');
     var gLayout = document.getElementById('aiConfigGeminiModelPromoSpaceLayout');
+    var gPlanningSim = document.getElementById('aiConfigGeminiModelPromoPlanningSim');
     var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
     var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
     var defaultMode = (portraitDefaultMode && portraitDefaultMode.value === 'mood') ? 'mood' : 'clear';
@@ -662,19 +694,25 @@
     var moodEng = (portraitMood && portraitMood.value) || 'flux';
     var legacyEng = defaultMode === 'mood' ? moodEng : clearEng;
     if (portrait) portrait.value = legacyEng;
+    var moodPipelineEl = document.getElementById('promoPortraitMoodPipeline');
     var payload = {
       promo_portrait_default_render_mode: defaultMode,
       promo_portrait_clear_engine: clearEng,
       promo_portrait_mood_engine: moodEng,
+      promo_portrait_mood_pipeline: (moodPipelineEl && moodPipelineEl.value === 'flux_then_lite') ? 'flux_then_lite' : 'lite_then_flux',
       promo_portrait_engine: legacyEng,
       promo_space_eye_level_engine: (spaceEye && spaceEye.value) || 'auto',
       gemini_model_promo_portrait: (gPortrait && gPortrait.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_portrait_mood: (gPortraitMood && gPortraitMood.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_promo_space_eye_level: (gSpaceEye && gSpaceEye.value.trim()) || 'gemini-3-pro-image',
       gemini_model_promo_space_layout: (gLayout && gLayout.value.trim()) || 'gemini-3-pro-image',
+      gemini_model_promo_planning_sim: (gPlanningSim && gPlanningSim.value.trim()) || 'gemini-3.1-flash-image',
       bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
     };
+    var ptsEl = document.getElementById('aiConfigPointsPromoPlanningSim');
+    var ptsVal = ptsEl ? parseInt(ptsEl.value, 10) : 20;
+    if (!Number.isFinite(ptsVal) || ptsVal < 0) ptsVal = 20;
     var btn = document.getElementById('btnSavePromoCameraModels');
     if (btn) btn.disabled = true;
     try {
@@ -684,8 +722,19 @@
         showMsg(data.error || '儲存失敗', true);
         return;
       }
+      var ptsRes = await fetch('/api/admin/points-config', {
+        method: 'PATCH',
+        headers: headers,
+        body: JSON.stringify({ points_promo_planning_sim: ptsVal })
+      });
+      var ptsData = await ptsRes.json().catch(function () { return {}; });
+      if (!ptsRes.ok) {
+        showMsg('模型已儲存，但規劃模擬點數失敗：' + (ptsData.error || '請到會員方案頁再存一次'), true);
+        await loadAiConfig();
+        return;
+      }
       await loadAiConfig();
-      showMsg('商攝已儲存：人像預設「' + defaultMode + '」清晰「' + payload.gemini_model_promo_portrait + '」氛圍草稿「' + payload.gemini_model_promo_portrait_mood + '」氛圍FLUX「' + payload.bfl_flux_model_promo_portrait + '」。請重新整理攝影模擬頁。');
+      showMsg('商攝已儲存（含規劃模擬 ' + ptsVal + ' 點／次）。請重新整理攝影模擬頁。');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
@@ -736,6 +785,14 @@
         return;
       }
       applyAiConfigToForm(data);
+      try {
+        var pres = await fetch('/api/admin/points-config', { headers: headers });
+        var pdata = await pres.json();
+        var ptsInp = document.getElementById('aiConfigPointsPromoPlanningSim');
+        if (pres.ok && ptsInp && pdata.points_promo_planning_sim != null) {
+          ptsInp.value = pdata.points_promo_planning_sim;
+        }
+      } catch (_) {}
     } catch (e) {
       showMsg('載入失敗：' + (e.message || ''), true);
     }

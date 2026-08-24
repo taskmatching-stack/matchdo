@@ -142,11 +142,24 @@
     });
   }
 
+  function planningSim(payload) {
+    return authHeaders(true).then(function (headers) {
+      return fetch('/api/promo-camera/planning-sim', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload || {})
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
   global.PromoCameraApi = {
     authHeaders: authHeaders,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
     generate: generate,
+    planningSim: planningSim,
     portraitPromptPreview: portraitPromptPreview,
     loadDigitalAssets: loadDigitalAssets,
     fetchMeCredits: fetchMeCredits,

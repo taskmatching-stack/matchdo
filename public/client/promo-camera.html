@@ -197,6 +197,36 @@
             </div>
           </details>
 
+          <details class="pc-spec-block pc-space-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.planningSim">規劃模擬</span>
+              <span class="pc-spec-value" data-pc-spec="planningSim">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.planningSimHint">將家具／陳設套進目前空間圖（優先用剛生成的結果，否則用平面配置或 ISO 地圖）。</p>
+              <div id="pcPlanningSimThumb" class="d-flex flex-wrap gap-2 mb-1"></div>
+              <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="pcPickPlanningSimBtn"><i class="bi bi-images"></i> <span data-i18n="promoCamera.assetLibrary">資產庫</span></button>
+                <label class="btn btn-sm btn-outline-secondary mb-0">
+                  <i class="bi bi-upload"></i> <span data-i18n="promoCamera.uploadShort">上傳</span>
+                  <input type="file" id="pcPlanningSimInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-secondary mb-0" id="pcPlanningSimUrlBtn" data-i18n="promoCamera.pasteUrl">貼網址</button>
+              </div>
+              <div id="pcPlanningSimUrlRow" class="d-none mb-2">
+                <div class="input-group input-group-sm">
+                  <input type="url" class="form-control" id="pcPlanningSimUrlInput" data-i18n-placeholder="promoCamera.pasteUrlPlaceholder" placeholder="https://" autocomplete="off" />
+                  <button type="button" class="btn btn-outline-primary" id="pcPlanningSimUrlApply" data-i18n="promoCamera.pasteUrlApply">套用</button>
+                </div>
+              </div>
+              <label class="form-label small mb-1" for="pcPlanningSimPrompt" data-i18n="promoCamera.planningSimPrompt">補充（選填）</label>
+              <input type="text" id="pcPlanningSimPrompt" class="form-control form-control-sm" data-i18n-placeholder="promoCamera.planningSimPromptPh" placeholder="例：換成窗邊那張沙發" />
+              <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-primary" id="pcPlanningSimApplyBtn" disabled><span data-i18n="promoCamera.planningSimApply">套用至規劃</span></button>
+              </div>
+            </div>
+          </details>
+
           <details class="pc-spec-block pc-portrait-only d-none">
             <summary class="pc-spec-summary">
               <span class="pc-spec-kicker" data-i18n="promoCamera.renderStyle">生成風格</span>
@@ -466,12 +496,12 @@
   <script src="/js/matchdo-promo-image.js?v=20260823draftzoom"></script>
   <script src="/js/digital-asset-picker.js?v=5"></script>
   <script src="/js/image-lightbox.js?v=20260731v"></script>
-  <script src="/js/promo-camera/api.js?v=20260821prompt1"></script>
-  <script src="/js/promo-camera/state.js?v=20260823mood2"></script>
+  <script src="/js/promo-camera/api.js?v=20260824txt2img"></script>
+  <script src="/js/promo-camera/state.js?v=20260824txt2img"></script>
   <script src="/js/show-on-homepage-control.js?v=20260823mood2"></script>
-  <script src="/js/promo-camera/index.js?v=20260823mood2"></script>
+  <script src="/js/promo-camera/index.js?v=20260824txt2img"></script>
   <script src="/js/promo-camera/presets.js?v=20260731b"></script>
-  <script src="/js/promo-camera/spec-summary-ui.js?v=20260823mood2"></script>
+  <script src="/js/promo-camera/spec-summary-ui.js?v=20260824txt2img"></script>
   <script src="/js/site-footer.js"></script>
 </body>
 </html>

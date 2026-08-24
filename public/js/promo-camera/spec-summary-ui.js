@@ -96,14 +96,20 @@
     var styleLabel = styleRadio && styleRadio.value === 'image'
       ? t('promoCamera.styleImage', '風格圖')
       : t('promoCamera.stylePrompt', '文字風格');
-    setVal(
-      'spaceLayout',
+    setVal('spaceLayout',
       joinParts([
         floorN ? t('promoCamera.layoutSelected', '已選配置') : t('promoCamera.layoutNone', '未選配置'),
         viewLabel,
         styleLabel
       ]),
       !floorN
+    );
+
+    var planN = thumbCount('pcPlanningSimThumb');
+    setVal(
+      'planningSim',
+      planN ? t('promoCamera.planningSimSelected', '已選圖') : t('promoCamera.planningSimNone', '未選'),
+      !planN ? 'optional-empty' : false
     );
 
     var theme = textOfSelect('pcThemeSelect');

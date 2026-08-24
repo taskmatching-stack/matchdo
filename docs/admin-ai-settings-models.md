@@ -66,12 +66,14 @@
 | **印花 AI 重繪** | `gemini_model_print_asset` | `getPrintAssetOptimizeModelName()` | 印花資產 AI 重繪（預設 Lite；滿額可 FLUX） |
 | **空間攝影・ISO 空間地圖** | `gemini_model_promo_space_layout` | `getPromoSpaceLayoutModelName()` | `/promo-camera` 空間 `layout_plan` |
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
+| **規劃模擬** | `gemini_model_promo_planning_sim` | `getPromoPlanningSimModelName()` | `/promo-camera` 空間「規劃模擬」（空間圖＋家具／陳設；預設 Nano Banana 2） |
 | **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
-| **人像攝影・氛圍草稿** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍模式第一段（Nano Banana Lite；不帶攝影參數） |
+| **人像攝影・氛圍 Lite** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍兩段的 Lite：現行＝草稿；實驗＝修臉 |
+| **人像攝影・氛圍順序** | `promo_portrait_mood_pipeline` | `getPromoPortraitMoodPipeline()` | `lite_then_flux`（現行）／`flux_then_lite`（實驗：FLUX 文生場景 → Banana 換臉／髮型／衣服並輸出 MP） |
 
 **商攝・空間解析度（程式，非 DB 鍵）**：前台 `space_resolution_tier: 2k|4k` → 後端 `config.imageConfig.imageSize: "2K"|"4K"`（[官方 image generation](https://ai.google.dev/gemini-api/docs/image-generation)；**K 须大写**）。不足时 sharp 补至 ≥2048／4096。
 
-**商攝・空間點數（`/admin/membership.html` → 點數規則，非本頁）**：
+**商攝・空間點數**（`/admin/ai-settings.html` 規劃模擬卡片，以及 `/admin/membership.html` 點數規則；同一 `payment_config` 鍵）：
 
 | `payment_config.key` | 預設 | 說明 |
 |----------------------|------|------|
@@ -79,8 +81,9 @@
 | `points_promo_space_layout_gemini_4k` | 50 | ISO 4K 點／張 |
 | `points_promo_space_eye_level_gemini` | 30 | 平視 2K 點／張 |
 | `points_promo_space_eye_level_gemini_4k` | 50 | 平視 4K 點／張 |
+| `points_promo_planning_sim` | 20 | 規劃模擬點／次（前台暫不顯示金額；未定價可填 0） |
 
-Seed：`docs/add-promo-space-gemini-config.sql`。空間平視 FLUX 備援：`docs/add-promo-space-eye-level-flux-backup.sql`（`promo_space_eye_level_engine`、`bfl_flux_model_promo_space_eye_level`）。人像 FLUX：`bfl_flux_model_promo_portrait`（與 `bfl_flux_model_promo_image` 分開；未寫入 DB 時用程式預設 `flux-2-pro`）。
+Seed：`docs/add-promo-space-gemini-config.sql`。規劃模擬：`docs/add-promo-planning-sim-config.sql`。空間平視 FLUX 備援：`docs/add-promo-space-eye-level-flux-backup.sql`（`promo_space_eye_level_engine`、`bfl_flux_model_promo_space_eye_level`）。人像 FLUX：`bfl_flux_model_promo_portrait`（與 `bfl_flux_model_promo_image` 分開；未寫入 DB 時用程式預設 `flux-2-pro`）。
 
 **環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`、`GEMINI_MODEL_MATERIAL_COMBO_LITE`、`GEMINI_MODEL_MATERIAL_COMBO_FLASH`、`GEMINI_MODEL_PRINT_ASSET`。
 
@@ -97,9 +100,11 @@ Seed：`docs/add-promo-space-gemini-config.sql`。空間平視 FLUX 備援：`do
 | `gemini_model_print_asset` | `gemini-3.1-flash-lite-image` |
 | `gemini_model_promo_space_layout` | `gemini-3-pro-image` |
 | `gemini_model_promo_space_eye_level` | `gemini-3-pro-image` |
+| `gemini_model_promo_planning_sim` | `gemini-3.1-flash-image`（Nano Banana 2） |
 | `gemini_model_promo_portrait` | `gemini-3-pro-image` |
 | `gemini_model_promo_portrait_mood` | `gemini-3.1-flash-lite-image` |
 | `promo_portrait_engine` | `gemini`（可 `auto`／`flux`） |
+| `promo_portrait_mood_pipeline` | `lite_then_flux` |
 | `bfl_flux_model_promo_portrait` | `flux-2-pro` |
 
 材料組合詳見 `docs/PLAN-material-dual-color-gemini-test.md`。  

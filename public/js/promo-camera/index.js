@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-lite-flux-20260823';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-txt2img-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -452,6 +452,20 @@
     el.appendChild(details);
   }
 
+  function moodStageLabels(data) {
+    var kind = data && (data.mood_pipeline_kind || (data.results && data.results[0] && data.results[0].mood_pipeline_kind));
+    if (kind === 'flux_then_lite') {
+      return {
+        ref: t('promoCamera.moodSceneBase', '場景底圖'),
+                    result: t('promoCamera.moodFaceRefine', '成品')
+      };
+    }
+    return {
+      ref: t('promoCamera.moodDraftLabel', '草稿繪製'),
+      result: t('promoCamera.moodLookLabel', '氛圍圖')
+    };
+  }
+
   function showResultArea(url, data, payload) {
     if (data && data.batch && Array.isArray(data.results) && data.results.length > 1) {
       showPortraitBatchResults(data, payload);
@@ -467,6 +481,7 @@
     if (!compareRef && payload && payload.shoot_mode === 'space' && payload.space_output_type === 'layout_plan' && St.get().floorPlanImage) {
       compareRef = St.get().floorPlanImage;
     }
+    var moodLabs = moodStageLabels(data);
     var meta = Object.assign({}, data || {}, {
       aspect_ratio: payload.aspect_ratio,
       theme_key: payload.theme_key,
@@ -474,10 +489,10 @@
       user_prompt: payload.user_prompt,
       compare_ref_url: compareRef,
       compare_ref_label: (data && data.compare_ref_label) || (data && (data.draft_image_url || data.draft_imageData)
-        ? t('promoCamera.moodDraftLabel', '草稿繪製')
+        ? moodLabs.ref
         : (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖')),
       compare_result_label: (data && data.compare_result_label) || (data && (data.draft_image_url || data.draft_imageData)
-        ? t('promoCamera.moodLookLabel', '氛圍圖')
+        ? moodLabs.result
         : (payload.space_output_type === 'eye_level'
           ? '平視攝影'
           : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖')))
@@ -533,16 +548,17 @@
       if (r.draft_image_url || r.draft_imageData) {
         var draftLab = document.createElement('p');
         draftLab.className = 'small text-muted mb-1';
-        draftLab.textContent = t('promoCamera.moodDraftLabel', '草稿繪製');
+        var labs = moodStageLabels(r.mood_pipeline_kind ? r : data);
+        draftLab.textContent = r.compare_ref_label || labs.ref;
         var draftImg = document.createElement('img');
         draftImg.src = r.draft_image_url || r.draft_imageData;
-        draftImg.alt = t('promoCamera.moodDraftLabel', '草稿繪製');
+        draftImg.alt = r.compare_ref_label || labs.ref;
         draftImg.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger mb-2';
         item.appendChild(draftLab);
         item.appendChild(draftImg);
         var lookLab = document.createElement('p');
         lookLab.className = 'small text-muted mb-1';
-        lookLab.textContent = t('promoCamera.moodLookLabel', '氛圍圖');
+        lookLab.textContent = r.compare_result_label || labs.result;
         item.appendChild(lookLab);
       }
       var img = document.createElement('img');
@@ -1105,15 +1121,19 @@
       syncSpaceMpSelectOptions();
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
+      updatePlanningSimApplyBtn();
     } else if (portrait) {
       var modes = (St.get().options && St.get().options.portrait_render_modes) || {};
       var modeKey = String(St.get().portraitRenderMode || 'clear').toLowerCase();
       var pack = modes[modeKey] || {};
       var portraitEng = String(pack.engine || (St.get().options || {}).promo_portrait_engine || '').toLowerCase();
-      /* 氛圍／FLUX 不支援 16MP：mood 改 1k，其餘 flux 改 2k */
+      var moodAllows16 = Array.isArray(pack.mp_tiers) && pack.mp_tiers.indexOf(16) >= 0;
+      /* 氛圍若由 Banana 輸出可 16MP；現行 FLUX 氛圍仍不支援 */
       if (St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
-        if (modeKey === 'mood' || portraitEng === 'flux') {
-          St.setSpaceResolutionTier(modeKey === 'mood' ? '1k' : '2k');
+        if (modeKey === 'mood' && !moodAllows16) {
+          St.setSpaceResolutionTier('1k');
+        } else if (modeKey !== 'mood' && portraitEng === 'flux') {
+          St.setSpaceResolutionTier('2k');
         }
       }
       syncSpaceMpSelectOptions();
@@ -1174,6 +1194,7 @@
     }
 
     renderSpaceThumbs();
+    renderPlanningSimThumb();
     renderSceneRefThumbs();
     syncPortraitSceneConflictUi();
     renderStagingProductThumbs();
@@ -1652,6 +1673,113 @@
     }
   }
 
+  function getPlanningSimEnvImage() {
+    var last = St.get().lastResult;
+    var lastUrl = last && (last.image_url || last.imageData);
+    var lastIsSpace = last && (last.shoot_mode === 'space' || last.space_output_type);
+    if (lastIsSpace && lastUrl) return lastUrl;
+    if (isSpaceEyeLevel() && St.get().layoutReferenceImage) return St.get().layoutReferenceImage;
+    return St.get().floorPlanImage || lastUrl || '';
+  }
+
+  function planningSimClientChannel() {
+    if (document.body && document.body.classList) {
+      if (document.body.classList.contains('pc-embed-design')) return 'embed';
+      if (document.body.classList.contains('pc-app-shell')) return 'app';
+    }
+    return 'web';
+  }
+
+  function renderPlanningSimThumb() {
+    var wrap = document.getElementById('pcPlanningSimThumb');
+    if (!wrap) return;
+    var url = St.get().planningSimFurnitureImage;
+    if (!url) {
+      wrap.innerHTML = '';
+      updatePlanningSimApplyBtn();
+      if (window.PromoCameraSpecSummary && window.PromoCameraSpecSummary.refresh) {
+        window.PromoCameraSpecSummary.refresh();
+      }
+      return;
+    }
+    wrap.innerHTML = '<div class="position-relative d-inline-block">' +
+      '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
+      '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-planning-sim" style="line-height:1;font-size:10px;">×</button></div>';
+    var rm = wrap.querySelector('.pc-remove-planning-sim');
+    if (rm) {
+      rm.addEventListener('click', function () {
+        St.setPlanningSimFurnitureImage('');
+        renderPlanningSimThumb();
+      });
+    }
+    updatePlanningSimApplyBtn();
+    if (window.PromoCameraSpecSummary && window.PromoCameraSpecSummary.refresh) {
+      window.PromoCameraSpecSummary.refresh();
+    }
+  }
+
+  function updatePlanningSimApplyBtn() {
+    var btn = document.getElementById('pcPlanningSimApplyBtn');
+    if (!btn) return;
+    btn.disabled = !isSpaceMode() || !St.get().planningSimFurnitureImage || !getPlanningSimEnvImage() || !!St.get().generating;
+  }
+
+  function setPlanningSimFurniture(url) {
+    St.setPlanningSimFurnitureImage(url || '');
+    renderPlanningSimThumb();
+  }
+
+  function applyPlanningSim() {
+    var env = getPlanningSimEnvImage();
+    var furn = St.get().planningSimFurnitureImage;
+    if (!env) {
+      showResultError(t('promoCamera.planningSimNeedSpace', '請先有平面配置或生成結果'));
+      return;
+    }
+    if (!furn) {
+      showResultError(t('promoCamera.planningSimNeedFurniture', '請選擇家具／陳設圖'));
+      return;
+    }
+    if (!Api.planningSim) return;
+    var promptEl = document.getElementById('pcPlanningSimPrompt');
+    var st = St.get();
+    st.generating = true;
+    updateGenerateBtn();
+    updatePlanningSimApplyBtn();
+    clearResultArea();
+    showResultLoading();
+    var payload = {
+      environment_image: env,
+      furniture_image: furn,
+      user_prompt: promptEl ? String(promptEl.value || '').trim() : '',
+      aspect_ratio: st.aspectRatio || '1:1',
+      space_resolution_tier: st.spaceResolutionTier || '2k',
+      client_channel: planningSimClientChannel(),
+      show_on_homepage: (window.MatchdoShowOnHomepageControl
+        ? window.MatchdoShowOnHomepageControl.readChecked('pcShowOnHomepage')
+        : true)
+    };
+    Api.planningSim(payload).then(function (res) {
+      st.generating = false;
+      updateGenerateBtn();
+      updatePlanningSimApplyBtn();
+      if (!res.ok || !res.data || !res.data.success) {
+        showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'));
+        return;
+      }
+      var d = res.data;
+      St.get().lastResult = d;
+      var url = d.image_url || d.imageData || '';
+      showResultArea(url, d, payload);
+      updatePlanningSimApplyBtn();
+    }).catch(function () {
+      st.generating = false;
+      updateGenerateBtn();
+      updatePlanningSimApplyBtn();
+      showResultError(t('promoCamera.generateFailed', '生成失敗，請稍後再試。'));
+    });
+  }
+
   function renderStyleThumb() {
     var wrap = document.getElementById('pcStyleThumb');
     if (!wrap) return;
@@ -2098,6 +2226,7 @@
     /* 全站 .btn-primary { background !important } 會蓋掉 Bootstrap disabled 灰色，
        導致看起來能按、游標卻不變 —— 必須正確切 disabled，並靠下方 CSS 顯示不可點 */
     btn.disabled = !St.canGenerate();
+    updatePlanningSimApplyBtn();
   }
 
   function onImagesAdded(urls, sourceType, sourceId) {
@@ -2154,6 +2283,11 @@
             renderLayoutRefThumbs();
             updateGenerateBtn();
           });
+          hideBootstrapModal(modalEl);
+          return;
+        }
+        if (assetPickTarget === 'planning_sim') {
+          setPlanningSimFurniture(u);
           hideBootstrapModal(modalEl);
           return;
         }
@@ -2244,6 +2378,44 @@
 
     var pickFloorBtn = document.getElementById('pcPickFloorPlanBtn');
     if (pickFloorBtn) pickFloorBtn.addEventListener('click', function () { openAssetPicker('floor'); });
+
+    var pickPlanningSimBtn = document.getElementById('pcPickPlanningSimBtn');
+    if (pickPlanningSimBtn) pickPlanningSimBtn.addEventListener('click', function () { openAssetPicker('planning_sim'); });
+    var planningSimInput = document.getElementById('pcPlanningSimInput');
+    if (planningSimInput) {
+      planningSimInput.addEventListener('change', function (e) {
+        var files = e.target.files;
+        if (!files || !files[0]) return;
+        readFileAsDataUrl(files[0], function (url) {
+          setPlanningSimFurniture(url);
+        });
+        e.target.value = '';
+      });
+    }
+    var planningSimUrlBtn = document.getElementById('pcPlanningSimUrlBtn');
+    var planningSimUrlRow = document.getElementById('pcPlanningSimUrlRow');
+    if (planningSimUrlBtn && planningSimUrlRow) {
+      planningSimUrlBtn.addEventListener('click', function () {
+        planningSimUrlRow.classList.toggle('d-none');
+      });
+    }
+    var planningSimUrlApply = document.getElementById('pcPlanningSimUrlApply');
+    if (planningSimUrlApply) {
+      planningSimUrlApply.addEventListener('click', function () {
+        var inp = document.getElementById('pcPlanningSimUrlInput');
+        var raw = inp ? String(inp.value || '').trim() : '';
+        if (!/^https?:\/\//i.test(raw)) {
+          showResultError(t('promoCamera.pasteUrlInvalid', '請貼上 http 或 https 圖片網址'));
+          return;
+        }
+        setPlanningSimFurniture(raw);
+        if (planningSimUrlRow) planningSimUrlRow.classList.add('d-none');
+      });
+    }
+    var planningSimApplyBtn = document.getElementById('pcPlanningSimApplyBtn');
+    if (planningSimApplyBtn) {
+      planningSimApplyBtn.addEventListener('click', function () { applyPlanningSim(); });
+    }
 
     var pickLayoutBtn = document.getElementById('pcPickLayoutBtn');
     if (pickLayoutBtn) pickLayoutBtn.addEventListener('click', function () { openAssetPicker('layout'); });
@@ -2485,6 +2657,7 @@
           St.get().lastResult = d;
           var url = d.image_url || d.imageData || '';
           showResultArea(url, d, payload);
+          updatePlanningSimApplyBtn();
         }).catch(function () {
           st.generating = false;
           updateGenerateBtn();
@@ -2639,6 +2812,7 @@
         St.setSpaceResolutionTier('1k');
       }
       fillSpaceUseTypes();
+      updatePlanningSimApplyBtn();
       updatePricingIntro();
       refreshSpaceMpSelectLabels();
       syncSpaceResolutionControls();
