@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-independent-20260824';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-film-default-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -902,6 +902,8 @@
       if (v === 'mood' && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
       }
+      fillCameraSelects();
+      updateLcd();
       syncPortraitThemeVisibility();
       syncPortraitMoodCastUi();
       refreshHomepageControl();

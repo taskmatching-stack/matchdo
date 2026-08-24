@@ -190,12 +190,21 @@
       if (defMode === 'mood' || defMode === 'clear') {
         state.portraitRenderMode = defMode;
       }
+      applyPortraitMoodFilmLookDefault();
     }
   }
 
   function setPortraitRenderMode(mode) {
     var m = String(mode || '').toLowerCase();
     state.portraitRenderMode = (m === 'mood') ? 'mood' : 'clear';
+    applyPortraitMoodFilmLookDefault();
+  }
+
+  /** 人像氛圍：成像來源預設底片模擬（清晰仍走人像參數預設） */
+  function applyPortraitMoodFilmLookDefault() {
+    if (state.shootMode !== 'portrait') return;
+    if (state.portraitRenderMode !== 'mood') return;
+    setLookMode('film');
   }
 
   function setPortraitPeopleCount(n) {
@@ -403,6 +412,7 @@
       }
     }
     applyShootModeCameraDefaults();
+    applyPortraitMoodFilmLookDefault();
   }
 
   function setSpaceStyleSource(src) {
