@@ -460,12 +460,13 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const user = String(o.userPrompt || '').trim();
     const parts = [
         '第一張是上傳人像，第二張是 FLUX 場景底圖。兩張的人不是同一個。',
-        '臉、肩頸、身材用第一張這個人。場景、光線、鏡頭、姿勢留第二張。不准輸出第二張那張臉。'
+        '人物與體型用第一張：臉、頭髮、肩頸、身材都要換成上傳的這個人。',
+        '場景、光線、鏡頭、姿勢留第二張。第二張裡的假人臉不准出現在成品。'
     ];
     if (user) {
-        parts.push('衣服與頭髮依描述改在這個人身上；描述沒寫到的頭髮跟上傳圖。不要留第二張假人的衣服或髮型，也不要用上傳圖的衣服：' + user);
+        parts.push('衣服依描述，不要用 FLUX 那套，也不要用上傳圖的衣服：' + user);
     } else {
-        parts.push('沒有描述：衣服用第二張 FLUX 場景那套；頭髮跟上傳圖，不要第二張假人的髮型。');
+        parts.push('沒有描述：衣服用第二張 FLUX 場景那套，不要換成上傳圖的衣服。');
     }
     return parts.join('');
 }
@@ -473,18 +474,14 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
 function promoPortraitMoodSwapClothesCaptions(hasDesc) {
     if (hasDesc) {
         return {
-            sceneLabel: '第二張・FLUX 場景底圖（臉不要這張；衣服與頭髮看描述）',
-            closing: '成品：臉與體型＝第一張；衣服與頭髮依描述。不准輸出第二張那張臉。'
+            sceneLabel: '第二張・FLUX 場景底圖（臉不要這張；衣服看描述）',
+            closing: '成品：人與體型＝第一張；衣服依描述。不准輸出第二張那張臉。'
         };
     }
     return {
-        sceneLabel: '第二張・FLUX 場景底圖（衣服留這張，臉與頭髮不要這張）',
-        closing: '成品：臉、頭髮、體型＝第一張；衣服＝第二張。不准輸出第二張那張臉。'
+        sceneLabel: '第二張・FLUX 場景底圖（衣服留這張，臉不要這張）',
+        closing: '成品：人與體型＝第一張；衣服＝第二張。不准輸出第二張那張臉。'
     };
-}
-
-function isPromoPortraitProImageModel(model) {
-    return /pro-image/i.test(String(model || ''));
 }
 
 function promoPortraitMoodSwapImagePart(img) {
@@ -546,17 +543,16 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     const geminiClient = createStatelessGeminiClient();
-    const hasDesc = !!(opts.userPrompt && String(opts.userPrompt).trim());
-    const preferGenerateContent = isPromoPortraitProImageModel(model);
     console.log(
         '[promo-portrait mood-swap] model=', model,
         'generationId=', generationId,
-        'preferGenerateContent=', preferGenerateContent,
         'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
         'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
     );
-    async function runMoodSwapInteractions() {
-        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, hasDesc);
+    let extracted;
+    let apiUsed = 'interactions';
+    try {
+        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim()));
         const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
             model,
             input,
@@ -569,34 +565,20 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         }
         const buffer = Buffer.from(String(oi.data), 'base64');
         if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
-        return { buffer, response_format: responseFormat, api: 'interactions' };
-    }
-    async function runMoodSwapGenerateContent() {
+        extracted = { buffer, response_format: responseFormat };
+    } catch (interErr) {
+        console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
+        apiUsed = 'generateContent';
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
-            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, hasDesc) }],
+            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim())) }],
             config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
         }));
         const hit = await extractLargestGeminiResponseImageBuffer(result);
         if (!hit || !hit.buffer || !hit.buffer.length) {
-            throw new Error('Gemini generateContent 未回傳圖片');
+            throw interErr;
         }
-        return { buffer: hit.buffer, response_format: responseFormat, api: 'generateContent' };
-    }
-    let extracted;
-    let apiUsed = preferGenerateContent ? 'generateContent' : 'interactions';
-    try {
-        extracted = preferGenerateContent ? await runMoodSwapGenerateContent() : await runMoodSwapInteractions();
-        apiUsed = extracted.api || apiUsed;
-    } catch (firstErr) {
-        const fallbackName = preferGenerateContent ? 'interactions' : 'generateContent';
-        console.warn('[promo-portrait mood-swap]', apiUsed, 'failed, fallback', fallbackName + ':', firstErr && firstErr.message);
-        try {
-            extracted = preferGenerateContent ? await runMoodSwapInteractions() : await runMoodSwapGenerateContent();
-            apiUsed = extracted.api || fallbackName;
-        } catch (secondErr) {
-            throw firstErr;
-        }
+        extracted = { buffer: hit.buffer, response_format: responseFormat };
     }
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
     let buffer = extracted.buffer;
@@ -1214,7 +1196,7 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     }
 
     if (user) {
-        parts.push('補充描述（場景、衣服、氛圍與其他特殊需求；人數與性別已由選項決定。髮型不要依這段描述畫，頭髮由後段依描述處理）：' + user);
+        parts.push('補充描述（只作用在造型、氛圍與其他特殊需求；人數與性別已由選項決定，不得改成另一種人數）：' + user);
     }
     if (cameraBlock) parts.push(cameraBlock);
     if (peopleCount <= 1) {
