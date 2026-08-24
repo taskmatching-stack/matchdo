@@ -187,7 +187,7 @@
         state.themeKey = themes[0].key || '';
       }
       var defMode = String(data.promo_portrait_default_render_mode || '').toLowerCase();
-      if (defMode === 'mood' || defMode === 'clear') {
+      if (defMode === 'mood' || defMode === 'clear' || defMode === 'hybrid') {
         state.portraitRenderMode = defMode;
       }
       applyPortraitMoodFilmLookDefault();
@@ -196,14 +196,16 @@
 
   function setPortraitRenderMode(mode) {
     var m = String(mode || '').toLowerCase();
-    state.portraitRenderMode = (m === 'mood') ? 'mood' : 'clear';
+    if (m === 'hybrid' || m === 'mix' || m === 'mixed') state.portraitRenderMode = 'hybrid';
+    else if (m === 'mood') state.portraitRenderMode = 'mood';
+    else state.portraitRenderMode = 'clear';
     applyPortraitMoodFilmLookDefault();
   }
 
   /** 人像氛圍：成像來源預設底片模擬（清晰仍走人像參數預設） */
   function applyPortraitMoodFilmLookDefault() {
     if (state.shootMode !== 'portrait') return;
-    if (state.portraitRenderMode !== 'mood') return;
+    if (state.portraitRenderMode !== 'mood' && state.portraitRenderMode !== 'hybrid') return;
     setLookMode('film');
   }
 
@@ -782,8 +784,10 @@
       fluxPayload.width = state.width;
       fluxPayload.height = state.height;
       fluxPayload.aspect_ratio = state.aspectRatio;
-      fluxPayload.portrait_render_mode = state.portraitRenderMode === 'mood' ? 'mood' : 'clear';
-      if (state.portraitRenderMode === 'mood') {
+      fluxPayload.portrait_render_mode = state.portraitRenderMode === 'hybrid'
+        ? 'hybrid'
+        : (state.portraitRenderMode === 'mood' ? 'mood' : 'clear');
+      if (state.portraitRenderMode === 'mood' || state.portraitRenderMode === 'hybrid') {
         fluxPayload.portrait_people_count = state.portraitPeopleCount >= 1 && state.portraitPeopleCount <= 4
           ? state.portraitPeopleCount
           : 1;

@@ -120,11 +120,12 @@
     else if (scene) themeParts.push(scene);
     setVal('themeScene', joinParts(themeParts), !theme);
 
-    var renderMode = document.getElementById('pcPortraitRenderMood');
-    var renderLabel = (renderMode && renderMode.checked)
-      ? t('promoCamera.renderMoodShort', '氛圍 BETA')
-      : t('promoCamera.renderClearShort', '清晰');
-    if (renderMode && renderMode.checked) {
+    var moodEl = document.getElementById('pcPortraitRenderMood');
+    var hybridEl = document.getElementById('pcPortraitRenderHybrid');
+    var renderLabel = t('promoCamera.renderClearShort', '清晰');
+    if (hybridEl && hybridEl.checked) renderLabel = t('promoCamera.renderHybridShort', '混合');
+    else if (moodEl && moodEl.checked) renderLabel = t('promoCamera.renderMoodShort', '氛圍');
+    if ((moodEl && moodEl.checked) || (hybridEl && hybridEl.checked)) {
       var peopleLab = textOfSelect('pcPortraitPeopleCount');
       var genderLab = textOfSelect('pcPortraitSubjectGender');
       renderLabel = joinParts([renderLabel, peopleLab, genderLab]);

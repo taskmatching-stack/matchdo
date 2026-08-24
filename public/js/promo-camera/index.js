@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-empty-scene-20260824';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-hybrid-mode-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -820,18 +820,26 @@
     updateGenerateBtn();
   }
 
+  function portraitRenderMode() {
+    var m = String(St.get().portraitRenderMode || 'clear').toLowerCase();
+    if (m === 'hybrid' || m === 'mood') return m;
+    return 'clear';
+  }
+
   function syncPortraitRenderModeUi() {
-    var mode = String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood' ? 'mood' : 'clear';
+    var mode = portraitRenderMode();
     var clearEl = document.getElementById('pcPortraitRenderClear');
     var moodEl = document.getElementById('pcPortraitRenderMood');
+    var hybridEl = document.getElementById('pcPortraitRenderHybrid');
     if (clearEl) clearEl.checked = mode === 'clear';
     if (moodEl) moodEl.checked = mode === 'mood';
+    if (hybridEl) hybridEl.checked = mode === 'hybrid';
     syncPortraitThemeVisibility();
     syncPortraitMoodCastUi();
   }
 
   function syncPortraitMoodCastUi() {
-    var mood = isPortraitMode() && String(St.get().portraitRenderMode || '').toLowerCase() === 'mood';
+    var mood = isPortraitMode() && (portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid');
     document.querySelectorAll('.pc-portrait-mood-cast').forEach(function (el) {
       el.classList.toggle('d-none', !mood);
     });
@@ -894,12 +902,15 @@
   function bindPortraitRenderMode() {
     var clearEl = document.getElementById('pcPortraitRenderClear');
     var moodEl = document.getElementById('pcPortraitRenderMood');
+    var hybridEl = document.getElementById('pcPortraitRenderHybrid');
     if (!clearEl || clearEl.getAttribute('data-pc-bound') === '1') return;
     function onChange() {
-      var v = (moodEl && moodEl.checked) ? 'mood' : 'clear';
+      var v = 'clear';
+      if (hybridEl && hybridEl.checked) v = 'hybrid';
+      else if (moodEl && moodEl.checked) v = 'mood';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
-      /* 氛圍預設 1MP；清晰維持使用者目前選擇 */
-      if (v === 'mood' && St.setSpaceResolutionTier) {
+      /* 氛圍／混合預設 1MP；清晰維持使用者目前選擇 */
+      if ((v === 'mood' || v === 'hybrid') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
       }
       fillCameraSelects();
@@ -918,6 +929,7 @@
     clearEl.setAttribute('data-pc-bound', '1');
     clearEl.addEventListener('change', onChange);
     if (moodEl) moodEl.addEventListener('change', onChange);
+    if (hybridEl) hybridEl.addEventListener('change', onChange);
   }
 
   function syncOutputCountSelects() {
@@ -981,7 +993,7 @@
     mpEl.innerHTML = html;
     if (want.indexOf(parseInt(cur, 10)) < 0) {
       /* 氛圍預設 1MP（列表第一項）；其餘維持選最高可用檔 */
-      var mood = portrait && String(St.get().portraitRenderMode || '').toLowerCase() === 'mood';
+      var mood = portrait && (portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid');
       var fallback = mood ? (want[0] || 1) : (want[want.length - 1] || want[0]);
       mpEl.value = String(fallback);
       if (St.setSpaceMegapixels) St.setSpaceMegapixels(mpEl.value);
@@ -1160,9 +1172,9 @@
       var moodAllows16 = Array.isArray(pack.mp_tiers) && pack.mp_tiers.indexOf(16) >= 0;
       /* 氛圍若由 Banana 輸出可 16MP；現行 FLUX 氛圍仍不支援 */
       if (St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
-        if (modeKey === 'mood' && !moodAllows16) {
+        if ((modeKey === 'mood' || modeKey === 'hybrid') && !moodAllows16) {
           St.setSpaceResolutionTier('1k');
-        } else if (modeKey !== 'mood' && portraitEng === 'flux') {
+        } else if (modeKey !== 'mood' && modeKey !== 'hybrid' && portraitEng === 'flux') {
           St.setSpaceResolutionTier('2k');
         }
       }
@@ -1244,7 +1256,7 @@
 
   function homepageControlOpts() {
     var portrait = isPortraitMode();
-    var mood = portrait && String(St.get().portraitRenderMode || 'clear').toLowerCase() === 'mood';
+    var mood = portrait && (portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid');
     return {
       defaultChecked: !portrait,
       forceOptional: !!mood
@@ -2862,7 +2874,7 @@
       }
       syncPortraitRenderModeUi();
       /* 氛圍模式預設解析度 1MP */
-      if (String(St.get().portraitRenderMode || '').toLowerCase() === 'mood' && St.setSpaceResolutionTier) {
+      if ((portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
       }
       fillSpaceUseTypes();

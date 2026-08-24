@@ -107,6 +107,7 @@ const GEMINI_MODEL_PRINT_ASSET_DEFAULT = 'gemini-3.1-flash-lite-image';
 const GEMINI_MODEL_PATTERN_EXTRACT_DEFAULT = 'gemini-3.1-flash-lite-image';
 /** 人像氛圍草稿：Nano Banana Lite（清晰模式仍用 Pro） */
 const GEMINI_MODEL_PROMO_PORTRAIT_MOOD_DEFAULT = 'gemini-3.1-flash-lite-image';
+const GEMINI_MODEL_PROMO_PORTRAIT_HYBRID_DEFAULT = 'gemini-3.1-flash-lite-image';
 /** 商攝・規劃模擬：Nano Banana 2（Gemini 3.1 Flash Image）；可後台 gemini_model_promo_planning_sim */
 const GEMINI_MODEL_PROMO_PLANNING_SIM_DEFAULT = 'gemini-3.1-flash-image';
 const visualSemantics = require('./lib/visual-semantics');
@@ -365,6 +366,16 @@ async function getPromoPortraitMoodLiteModelName() {
     return process.env.GEMINI_MODEL_PROMO_PORTRAIT_MOOD || GEMINI_MODEL_PROMO_PORTRAIT_MOOD_DEFAULT;
 }
 
+/** 人像混合：Banana 放入人物（後台 gemini_model_promo_portrait_hybrid，與氛圍草稿分開） */
+async function getPromoPortraitHybridLiteModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_promo_portrait_hybrid').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_PROMO_PORTRAIT_HYBRID || GEMINI_MODEL_PROMO_PORTRAIT_HYBRID_DEFAULT;
+}
+
 function jpegImageRefFromBuffer(buffer) {
     return { base64: Buffer.from(buffer).toString('base64'), mime: 'image/jpeg' };
 }
@@ -415,10 +426,7 @@ function normalizePromoPortraitMoodPipeline(raw) {
 }
 
 async function getPromoPortraitMoodPipeline() {
-    try {
-        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'promo_portrait_mood_pipeline').maybeSingle();
-        return normalizePromoPortraitMoodPipeline(row?.value);
-    } catch (_) {}
+    /* 氛圍固定走現行 Lite→FLUX；混合模式是獨立 render mode，不讀此鍵 */
     return 'lite_then_flux';
 }
 
@@ -502,12 +510,13 @@ function promoPortraitMoodSwapImagePart(img) {
 
 function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, hasDesc) {
     const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
+    /* 圖在前：避免第二次請求時模型只吃文字、略過參考圖 */
     return [
-        { type: 'text', text: String(promptText || '').trim() },
         { type: 'text', text: '第一張・上傳人像（人物與體型）' },
         promoPortraitMoodSwapImagePart(personRef),
         { type: 'text', text: cap.sceneLabel },
         promoPortraitMoodSwapImagePart(sceneRef),
+        { type: 'text', text: String(promptText || '').trim() },
         { type: 'text', text: cap.closing }
     ];
 }
@@ -523,11 +532,11 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
     }
     const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
     return [
-        { text: String(promptText || '').trim() },
         { text: '第一張・上傳人像（人物與體型）' },
         inline(personRef),
         { text: cap.sceneLabel },
         inline(sceneRef),
+        { text: String(promptText || '').trim() },
         { text: cap.closing }
     ];
 }
@@ -657,11 +666,11 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     const scene = await generatePromoPortraitFluxTextToImage(scenePrompt, {
         aspectRatio: userAspect,
         aspect_ratio: userAspect
-    });
+    }, (extra && (extra.fluxConfigKey || extra.fluxConfigKey)) || 'bfl_flux_model_promo_portrait_hybrid');
     if (!scene || !scene.buffer || !scene.buffer.length) {
         throw new Error('場景底圖生成失敗，請稍後再試');
     }
-    const liteModel = await getPromoPortraitMoodLiteModelName();
+    const liteModel = (extra && extra.liteModelName) || await getPromoPortraitHybridLiteModelName();
     const portraitRefs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
     if (!portraitRefs.length) {
         const err = new Error('請上傳一張人像參考圖');
@@ -984,8 +993,8 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     };
 }
 
-/** 人像實驗管線：FLUX 純文生圖（不帶參考圖）；最長邊 1024，最終 MP 由 Banana 輸出 */
-async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts) {
+/** 人像混合管線：FLUX 純文生圖（不帶參考圖）；最長邊 1024，最終 MP 由 Banana 輸出 */
+async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts, fluxConfigKey) {
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
     }
@@ -998,8 +1007,9 @@ async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts) {
         aspect_ratio: aspect
     });
     const fluxSize = clampBflFluxOutputSize(sceneDims.width, sceneDims.height, 1024);
-    const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_portrait');
-    const fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
+    const configKey = String(fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait_hybrid';
+    const endpointUrl = await getBflFluxEndpointForConfigKey(configKey);
+    const fluxModel = await getBflFluxModelIdForConfigKey(configKey);
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundTextToImage(
         endpointUrl,
@@ -1082,7 +1092,7 @@ async function resolvePromoPortraitOutputDims(body, enginePref) {
         const moodPipeline = await getPromoPortraitMoodPipeline();
         const renderMode = normalizePromoPortraitRenderMode(b.portrait_render_mode || b.render_mode)
             || await getPromoPortraitDefaultRenderMode();
-        const bananaOwnsOutput = renderMode === 'mood' && moodPipeline === 'flux_then_lite';
+        const bananaOwnsOutput = renderMode === 'hybrid';
         if (eng === 'flux' && spaceResTier === '4k' && !bananaOwnsOutput) spaceResTier = '2k';
     } catch (_) {}
     const aspectRatio = String(b.aspect_ratio || '').trim() || '1:1';
@@ -1169,8 +1179,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
 }
 
 /**
- * 實驗氛圍階段一：FLUX 純文生「已打好人像光、構圖留人位、畫面沒有人」的場景底圖。
- * 不可複用 buildPromoPortraitFluxPrompt：那是圖生圖「改為在…」短句；也不可再叫模型畫假人。
+ * 混合模式階段一：FLUX 純文生空景。不送鏡頭 fragment（那些句子會讓模型畫出相機／鏡頭本體）。
  */
 async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -1178,14 +1187,12 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const themeKey = String(o.themeKey || '').trim();
     const user = String(o.userPrompt || '').trim();
-    const cameraBlock = String(o.cameraBlock || '').trim();
     const isFormalId = themeKey === 'portrait_formal_id';
     const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
-    const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
     const parts = [];
 
-    parts.push('商業人像用的場景底圖：畫面裡不准出現任何人、假人、剪影、肢體，倒影裡也不准有人。');
-    parts.push('這是已經打好商業人像光的實景或棚，不是空房間示意，也不是平面背景紙。');
+    parts.push('空景環境底圖：畫面裡不准出現任何人、假人、剪影、肢體，倒影裡也不准有人。');
+    parts.push('已布置好商業拍攝用的實景光，不是空房間示意，也不是平面背景紙。');
 
     let place = '';
     if (o.hasSceneImage) {
@@ -1207,17 +1214,16 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     }
 
     if (isFormalId) {
-        parts.push('證件／正式人像用光：正面柔光、背景乾淨。構圖中央留出一位人物站位，但不要畫出人。');
+        parts.push('證件用光：正面柔光、背景乾淨。畫面中央留空，只畫環境。');
     } else if (peopleCount <= 1) {
-        parts.push('構圖依單人商業人像預留主體位置，光線方向與質感要適合之後放進一位人物，但畫面裡不要有人。');
+        parts.push('構圖在中景留出一塊空曠主體位置，只畫環境與光線。');
     } else {
-        parts.push('構圖依' + zhNum + '人商業人像預留站位與光線，畫面裡不要有人。');
+        parts.push('構圖預留群像站位的空間與光線，畫面裡不要有人。');
     }
 
     if (user) {
         parts.push('環境與氛圍補充（不要因此畫出人，也不要畫服裝或假人）：' + user);
     }
-    if (cameraBlock) parts.push(cameraBlock);
     parts.push('No people, no person, no mannequin, no human silhouette, no face.');
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.filter(Boolean).join(' ');
@@ -1249,9 +1255,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
     const cameraBlock = camPack.block || '';
     const outDims = await resolvePromoPortraitOutputDims(b, renderCtx.engine);
-    const isMood = renderCtx.mode === 'mood';
-    const moodPipeline = isMood ? await getPromoPortraitMoodPipeline() : 'lite_then_flux';
-    const reverseMood = isMood && moodPipeline === 'flux_then_lite';
+    const isMood = renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid';
+    const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
+    const reverseMood = renderCtx.mode === 'hybrid';
     const cast = resolvePromoPortraitCastFromBody(b);
     const moodDraftDims = isMood && !reverseMood
         ? promoSpaceGemini.resolveSpaceOutputDimensions({ tier: '1k', aspect_ratio: outDims.aspectRatio || '1:1' })
@@ -2073,7 +2079,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
-    if (renderCtx.mode === 'mood' && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
+    if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
 
@@ -2105,8 +2111,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         ? crypto.randomUUID()
         : ('pc-batch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9));
     const geminiModel = await getPromoPortraitModelName();
-    const moodPipeline = renderCtx.mode === 'mood' ? await getPromoPortraitMoodPipeline() : 'lite_then_flux';
-    const reverseMood = moodPipeline === 'flux_then_lite';
+    const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
+    const reverseMood = renderCtx.mode === 'hybrid';
     const portraitCast = resolvePromoPortraitCastFromBody(body);
     const moodFacePrompt = reverseMood
         ? buildPromoPortraitMoodFaceRefinePrompt({
@@ -2148,7 +2154,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             if (renderCtx.mode === 'mood' && !reverseMood) {
                 finalPrompt = (String(finalPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
             }
-            fluxPrompt = renderCtx.mode === 'mood'
+            fluxPrompt = (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')
                 ? (reverseMood
                     ? await buildPromoPortraitFluxTextToImagePrompt({
                         themeKey,
@@ -2201,7 +2207,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodDraftProvider = 'gemini';
         let moodLookProvider = 'flux';
         try {
-            if (renderCtx.mode === 'mood') {
+            if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
                 const step = await runPromoPortraitMoodTwoStep(
                     imageRefs,
                     reverseMood ? '' : finalPrompt,
@@ -2219,6 +2225,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         fluxPrompt: fluxPrompt,
                         facePrompt: moodFacePrompt,
                         userPrompt: userPrompt,
+                        liteModelName: reverseMood ? await getPromoPortraitHybridLiteModelName() : undefined,
+                        fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
@@ -2368,11 +2376,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     gemini_model: usedGeminiModel || null,
                     flux_model: usedFluxModel || null,
                     portrait_render_mode: renderCtx.mode || null,
-                    mood_pipeline: renderCtx.mode === 'mood',
-                    mood_pipeline_kind: renderCtx.mode === 'mood' ? moodPipeline : null,
-                    portrait_people_count: renderCtx.mode === 'mood' ? portraitCast.peopleCount : null,
-                    portrait_subject_gender: renderCtx.mode === 'mood' ? portraitCast.gender : null,
-                    mood_stage: renderCtx.mode === 'mood' ? 'look' : null,
+                    mood_pipeline: renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid',
+                    mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
+                    portrait_people_count: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? portraitCast.peopleCount : null,
+                    portrait_subject_gender: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? portraitCast.gender : null,
+                    mood_stage: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? 'look' : null,
                     space_resolution_tier: spaceResTier
                 },
                 completed_at: new Date().toISOString(),
@@ -2460,11 +2468,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             megapixels: promoImageMegapixelsFromResolution(Math.min(shotW, 2048), Math.min(shotH, 2048)),
             camera_params: cameraParamsSnapshot,
             image_provider: imageProvider,
-            mood_pipeline_kind: renderCtx.mode === 'mood' ? moodPipeline : null,
-            compare_ref_label: renderCtx.mode === 'mood' ? moodLabels.ref : undefined,
-            compare_result_label: renderCtx.mode === 'mood' ? moodLabels.result : undefined,
+            mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
+            compare_ref_label: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodLabels.ref : undefined,
+            compare_result_label: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodLabels.result : undefined,
             final_prompt: finalPrompt,
-            prompt_sent: renderCtx.mode === 'mood'
+            prompt_sent: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')
                 ? formatPromoPortraitMoodPromptSent(
                     moodPipeline,
                     reverseMood ? fluxPrompt : (draftPromptUsed || ''),
@@ -2506,7 +2514,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
         portrait_render_mode: renderCtx.mode || null,
-        mood_pipeline_kind: renderCtx.mode === 'mood' ? moodPipeline : null,
+        mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
         image_provider: first.image_provider || 'gemini',
         space_resolution_tier: spaceResTier,
         camera_params: first.camera_params || null
@@ -2568,7 +2576,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
-    if (renderCtx.mode === 'mood' && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
+    if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
 
@@ -2588,9 +2596,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         aspect_ratio: aspectRatio
     };
 
-    if (renderCtx.mode === 'mood') {
-        const moodPipeline = await getPromoPortraitMoodPipeline();
-        const reverseMood = moodPipeline === 'flux_then_lite';
+    if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
+        const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
+        const reverseMood = renderCtx.mode === 'hybrid';
         const portraitCast = resolvePromoPortraitCastFromBody(body);
         const moodFacePrompt = reverseMood
             ? buildPromoPortraitMoodFaceRefinePrompt({
@@ -2655,6 +2663,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     fluxPrompt: reverseMood ? draftPrompt : lookPrompt,
                     facePrompt: moodFacePrompt,
                     userPrompt: userPrompt,
+                    liteModelName: reverseMood ? await getPromoPortraitHybridLiteModelName() : undefined,
+                    fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender,
                     generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
@@ -3968,6 +3978,7 @@ async function getPromoPortraitEngine() {
 function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
+    if (s === 'hybrid' || s === 'mix' || s === 'mixed' || s === '混合' || s === '混合模式') return 'hybrid';
     if (s === 'clear' || s === 'sharp' || s === '清晰') return 'clear';
     return '';
 }
@@ -3983,6 +3994,7 @@ async function getPromoPortraitDefaultRenderMode() {
 }
 
 async function getPromoPortraitEngineForRenderMode(mode) {
+    if (mode === 'hybrid') return 'gemini';
     const m = mode === 'mood' ? 'mood' : 'clear';
     const key = m === 'mood' ? 'promo_portrait_mood_engine' : 'promo_portrait_clear_engine';
     const envKey = m === 'mood' ? 'PROMO_PORTRAIT_MOOD_ENGINE' : 'PROMO_PORTRAIT_CLEAR_ENGINE';
@@ -4003,7 +4015,7 @@ async function resolvePromoPortraitRenderContext(body) {
     return {
         mode: mode,
         engine: engine,
-        mp_tiers: engine === 'flux' ? [1, 4] : [1, 4, 16]
+        mp_tiers: mode === 'hybrid' ? [1, 4, 16] : (engine === 'flux' ? [1, 4] : [1, 4, 16])
     };
 }
 
@@ -13117,6 +13129,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'gemini_model_promo_planning_sim',
             'gemini_model_promo_portrait',
             'gemini_model_promo_portrait_mood',
+            'gemini_model_promo_portrait_hybrid',
             'promo_portrait_default_render_mode',
             'promo_portrait_mood_pipeline',
             ...engineKeys,
@@ -13149,6 +13162,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_promo_planning_sim: byKey.gemini_model_promo_planning_sim || process.env.GEMINI_MODEL_PROMO_PLANNING_SIM || GEMINI_MODEL_PROMO_PLANNING_SIM_DEFAULT,
             gemini_model_promo_portrait: byKey.gemini_model_promo_portrait || process.env.GEMINI_MODEL_PROMO_PORTRAIT || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT,
             gemini_model_promo_portrait_mood: byKey.gemini_model_promo_portrait_mood || process.env.GEMINI_MODEL_PROMO_PORTRAIT_MOOD || GEMINI_MODEL_PROMO_PORTRAIT_MOOD_DEFAULT,
+            gemini_model_promo_portrait_hybrid: byKey.gemini_model_promo_portrait_hybrid || process.env.GEMINI_MODEL_PROMO_PORTRAIT_HYBRID || GEMINI_MODEL_PROMO_PORTRAIT_HYBRID_DEFAULT,
             vendor_asset_optimize_engine: vendorEngine,
             material_dual_color_engine: comboEngine,
             print_asset_engine: printEngine,
@@ -13175,6 +13189,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_promo_planning_sim: !!byKey.gemini_model_promo_planning_sim,
                 gemini_model_promo_portrait: !!byKey.gemini_model_promo_portrait,
                 gemini_model_promo_portrait_mood: !!byKey.gemini_model_promo_portrait_mood,
+                gemini_model_promo_portrait_hybrid: !!byKey.gemini_model_promo_portrait_hybrid,
                 vendor_asset_optimize_engine: !!byKey.vendor_asset_optimize_engine,
                 material_dual_color_engine: !!byKey.material_dual_color_engine,
                 print_asset_engine: !!byKey.print_asset_engine,
@@ -13241,12 +13256,15 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_promo_portrait_mood !== undefined) {
             upserts.push({ key: 'gemini_model_promo_portrait_mood', value: String(body.gemini_model_promo_portrait_mood).trim(), updated_at: now });
         }
+        if (body.gemini_model_promo_portrait_hybrid !== undefined) {
+            upserts.push({ key: 'gemini_model_promo_portrait_hybrid', value: String(body.gemini_model_promo_portrait_hybrid).trim(), updated_at: now });
+        }
         if (body.promo_portrait_default_render_mode !== undefined) {
             const mode = normalizePromoPortraitRenderMode(body.promo_portrait_default_render_mode);
             if (!mode) {
                 return res.status(400).json({
                     error: '人像預設模式無效',
-                    hint: '請選 clear 或 mood'
+                    hint: '請選 clear、mood 或 hybrid'
                 });
             }
             upserts.push({ key: 'promo_portrait_default_render_mode', value: mode, updated_at: now });
@@ -13323,6 +13341,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_promo_planning_sim: byKey.gemini_model_promo_planning_sim ?? null,
             gemini_model_promo_portrait: byKey.gemini_model_promo_portrait ?? null,
             gemini_model_promo_portrait_mood: byKey.gemini_model_promo_portrait_mood ?? null,
+            gemini_model_promo_portrait_hybrid: byKey.gemini_model_promo_portrait_hybrid ?? null,
             vendor_asset_optimize_engine: byKey.vendor_asset_optimize_engine
                 ? normalizeOptimizeEnginePref(byKey.vendor_asset_optimize_engine)
                 : null,
@@ -16955,7 +16974,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_promo_image: 'flux-2-pro',
     bfl_flux_model_promo_space_eye_level: 'flux-2-max',
     /* 人像氛圍：官網鎖臉實測為 max；pro 一致性較弱 */
-    bfl_flux_model_promo_portrait: 'flux-2-max'
+    bfl_flux_model_promo_portrait: 'flux-2-max',
+    bfl_flux_model_promo_portrait_hybrid: 'flux-2-max'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
@@ -18654,7 +18674,8 @@ app.get('/api/promo-camera/options', async (req, res) => {
             promo_portrait_default_render_mode: portraitDefaultMode,
             portrait_render_modes: {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
-                mood: { engine: moodEng, mp_tiers: moodMpTiers, pipeline: moodPipeline }
+                mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
+                hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' }
             },
             portrait_mp_tiers: portraitDefaultMode === 'mood' ? moodMpTiers : (clearEng === 'flux' ? [1, 4] : [1, 4, 16])
         });
