@@ -406,22 +406,26 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const user = String(o.userPrompt || '').trim();
     const parts = [
-        'The first image is a text-to-image scene. Keep its lighting, camera, pose, composition, and background.',
-        'The later image is the original person. This is a character swap only: replace the generated person with this individual.',
-        'Match identity from the original photo: face and skin tone must match the reference.',
-        'Hair and clothing: start from the original photo. If the user description specifies hairstyle or wardrobe, follow that description to supplement or adjust them. If the description is silent, keep hair and clothing from the original photo.',
-        'Do not copy lighting, shadows, or exposure from the original photo.',
-        'The swapped person must be relit to match the first image: same key light, fill, rim, color temperature, and how light falls on face, hair, and clothes.',
+        'This is a character replacement job. Do not copy or echo the first image as the output.',
+        'IMAGE 1 (first image): generated scene. Keep its lighting, camera, composition, background, and overall pose language.',
+        'IMAGE 2 (later image): the real person to use. The finished photo must show this person only.',
+        'If IMAGE 1 has more than one person, replace every person: remove extras so the result contains exactly one person matching IMAGE 2.',
+        'Identity: face and skin tone from IMAGE 2.',
+        'Hair and clothing: from IMAGE 2. If the user description specifies hairstyle or wardrobe, follow that description. If silent, keep hair and clothing from IMAGE 2.',
+        'Lighting: from IMAGE 1 only. Relight the person to match IMAGE 1 (key, fill, rim, color temperature). Do not copy lighting from IMAGE 2.',
         'Natural undistorted face, real skin texture, no plastic or doll-like skin.',
-        'Do not keep the generated person\'s identity if it conflicts with the original photo.'
+        'The generated identity in IMAGE 1 must not remain.'
     ];
     if (user) {
-        parts.push('User description (use this for hair, clothing, and styling only; do not restyle lighting): ' + user);
+        parts.push('User description (hair, clothing, and styling only; do not restyle lighting): ' + user);
     }
     parts.push('Output a finished photograph at the requested resolution.');
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.join(' ');
 }
+
+const PROMO_PORTRAIT_MOOD_SWAP_TRAILING =
+    'Now produce the output: keep IMAGE 1 lighting, camera, and background; replace every person with the single person from IMAGE 2. Do not return IMAGE 1 unchanged.';
 
 function promoPortraitMoodCompareLabels(pipeline) {
     if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
@@ -462,9 +466,13 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         throw new Error('場景底圖生成失敗，請稍後再試');
     }
     const liteModel = await getPromoPortraitMoodLiteModelName();
-    const faceRefs = [jpegImageRefFromBuffer(scene.buffer)].concat(
-        (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; })
-    );
+    const portraitRefs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
+    if (!portraitRefs.length) {
+        const err = new Error('請上傳一張人像參考圖');
+        err.status = 400;
+        throw err;
+    }
+    const faceRefs = [jpegImageRefFromBuffer(scene.buffer)].concat(portraitRefs);
     const face = await generatePromoPortraitImageWithGemini(
         faceRefs,
         String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt(),
@@ -475,7 +483,8 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             aspect_ratio: userAspect,
             minEdge: Math.max(lookDims.width, lookDims.height),
             targetWidth: lookDims.width,
-            targetHeight: lookDims.height
+            targetHeight: lookDims.height,
+            trailingText: PROMO_PORTRAIT_MOOD_SWAP_TRAILING
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
@@ -667,6 +676,8 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
         refs.forEach(function (r) {
             parts.push({ inlineData: { mimeType: r.mime || 'image/jpeg', data: r.base64 } });
         });
+        const trailing = String(opts.trailingText || '').trim();
+        if (trailing) parts.push({ text: trailing });
         const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
             model,
             contents: [{ role: 'user', parts }],
@@ -787,7 +798,8 @@ async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts) {
         fluxSize.height,
         seed,
         'jpeg',
-        process.env.BFL_API_KEY
+        process.env.BFL_API_KEY,
+        { promptUpsampling: false }
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
@@ -947,6 +959,49 @@ async function buildPromoPortraitFluxPrompt(opts) {
 }
 
 /**
+ * 人像實驗管線 FLUX 文生圖（無參考圖）。
+ * 不可複用 buildPromoPortraitFluxPrompt：那是圖生圖「改為在…」短句，無圖時會被擴寫成群像。
+ */
+async function buildPromoPortraitFluxTextToImagePrompt(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const theme = o.themeParts || { name: '', prompt: '', composition: '' };
+    const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
+    const themeKey = String(o.themeKey || '').trim();
+    const user = String(o.userPrompt || '').trim();
+    const cameraBlock = String(o.cameraBlock || '').trim();
+    const isFormalId = themeKey === 'portrait_formal_id';
+    const parts = [];
+
+    parts.push('商業人像攝影：畫面中只能有一位人物。禁止群像、禁止多人、禁止路人、禁止背景人群、禁止家庭合照。');
+
+    let place = '';
+    if (o.hasSceneImage) {
+        place = '場景依參考場景環境';
+    } else if (scene.name) {
+        place = '場景：' + String(scene.name).trim();
+    } else if (theme.name) {
+        place = '主題：' + String(theme.name).trim();
+    }
+    if (place) {
+        parts.push(place + '。該場景只作為這一位人物所在的環境，不是群聚活動。');
+    }
+
+    if (isFormalId) {
+        parts.push('證件／正式人像：一位人物正面或近正面，姿勢端正。');
+    } else {
+        parts.push('一位人物在該環境中自然擺姿，適合單人商業人像。');
+    }
+
+    if (user) {
+        parts.push('補充描述（只作用在這一位人物的造型與氛圍，不得解讀成多人）：' + user);
+    }
+    if (cameraBlock) parts.push(cameraBlock);
+    parts.push('Exactly one person in the frame. No other people. No crowd. No group photo.');
+    parts.push('No text, labels, logos, or watermarks in the image.');
+    return parts.filter(Boolean).join(' ');
+}
+
+/**
  * 人像提示詞組裝預覽／除錯（不呼叫生圖）。
  * 與 generate 同一套 buildPromoPortrait*／cameraBlock。
  */
@@ -996,7 +1051,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         });
     const fluxPrompt = isMood
         ? (reverseMood
-            ? await buildPromoPortraitFluxPrompt({
+            ? await buildPromoPortraitFluxTextToImagePrompt({
                 themeKey,
                 themeParts,
                 sceneParts,
@@ -1059,9 +1114,11 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         space_resolution_tier: outDims.tier,
         flux_request: engine === 'flux'
             ? {
-                prompt_upsampling: true,
+                prompt_upsampling: !reverseMood,
+                disable_pup: !!reverseMood,
                 safety_tolerance: 2,
-                skip_prompt_translation: true,
+                skip_prompt_translation: !reverseMood,
+                text_to_image: !!reverseMood,
                 model: fluxModel,
                 bfl_max_edge: 1024,
                 output_format: 'jpeg',
@@ -1187,7 +1244,9 @@ async function generatePromoSpaceImageViaInteractions(model, promptText, imageRe
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     const input = promoSpaceGemini.buildPromoSpaceInteractionsInput(promptText, imageRefs);
-    console.log('[promo-space interactions] model=', model, 'response_format=', JSON.stringify(responseFormat), 'refs=', input.length - 1);
+    const trailing = String(opts.trailingText || '').trim();
+    if (trailing) input.push({ type: 'text', text: trailing });
+    console.log('[promo-space interactions] model=', model, 'response_format=', JSON.stringify(responseFormat), 'refs=', (imageRefs && imageRefs.length) || 0);
     const interaction = await runInGeminiImageQueue(() => genAI.interactions.create({
         model,
         input,
@@ -1847,7 +1906,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 });
             fluxPrompt = renderCtx.mode === 'mood'
                 ? (reverseMood
-                    ? await buildPromoPortraitFluxPrompt({
+                    ? await buildPromoPortraitFluxTextToImagePrompt({
                         themeKey,
                         themeParts,
                         sceneParts,
@@ -2286,7 +2345,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         let lookPrompt;
         try {
             if (reverseMood) {
-                draftPrompt = await buildPromoPortraitFluxPrompt({
+                draftPrompt = await buildPromoPortraitFluxTextToImagePrompt({
                     themeKey,
                     themeParts,
                     sceneParts,
@@ -16837,9 +16896,14 @@ async function optimizeVendorAssetImageWithFlux(
 }
 
 /** 通用 BFL 文生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
-async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed, outputFormat, BFL_API_KEY) {
+async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed, outputFormat, BFL_API_KEY, extraBody) {
     return runInBflQueue(async () => {
-    prompt = await translatePromptToEnglishForFlux(prompt);
+    const extra = extraBody && typeof extraBody === 'object' ? extraBody : {};
+    if (extra.skipPromptTranslation) {
+        prompt = String(prompt || '').trim();
+    } else {
+        prompt = await translatePromptToEnglishForFlux(prompt);
+    }
     const body = {
         prompt,
         width: Math.min(2048, Math.max(512, Number(width) || 1024)),
@@ -16848,6 +16912,13 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
         safety_tolerance: 2
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
+    if (extra.promptUpsampling === true) {
+        body.prompt_upsampling = true;
+        body.disable_pup = false;
+    } else if (extra.promptUpsampling === false) {
+        body.disable_pup = true;
+        body.prompt_upsampling = false;
+    }
     const createRes = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
