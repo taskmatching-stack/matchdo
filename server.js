@@ -621,14 +621,14 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
-/** 現行氛圍第二段：重拍（1f79f35），不是把 fragment 當濾鏡疊在草稿上 */
+/** 現行氛圍第二段：重拍。後台 fragment 照送；包裝句不提相機／鏡頭 */
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
     if (cam.indexOf('重新拍攝') !== -1) return cam;
     return [
         '這不是濾鏡、不是調色疊加。',
-        '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
+        '用下列條件把畫面重新拍攝。',
         '人物身分、姿勢與場景內容不變，只換攝影風格。',
         cam
     ].join('');
