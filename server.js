@@ -621,17 +621,33 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
+/** FLUX 圖生圖會把 falloff／softer corners／cinematic 畫成暗角；清晰 Gemini 不會。其餘 fragment 照送。 */
+function sanitizePromoPortraitFluxLookFragments(block) {
+    return String(block || '')
+        .replace(/\bsmooth bokeh falloff\b/gi, 'smooth bokeh')
+        .replace(/\bbokeh falloff\b/gi, 'bokeh')
+        .replace(/\bfalloff\b/gi, '')
+        .replace(/\bsofter corners\b/gi, '')
+        .replace(/\bvignet(?:te|ting)\b/gi, '')
+        .replace(/\bdark(?:ened)? corners\b/gi, '')
+        .replace(/\bcinematic mood\b/gi, '')
+        .replace(/\bcinematic\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+\./g, '.')
+        .replace(/\.\s*\./g, '.')
+        .trim();
+}
+
 /** 現行氛圍第二段：重拍。後台 fragment 照送；包裝句不提相機／鏡頭 */
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
-    const cam = String(cameraBlock || '').trim();
+    const cam = sanitizePromoPortraitFluxLookFragments(cameraBlock);
     if (!cam) return '';
     if (cam.indexOf('重新拍攝') !== -1) return cam;
     return [
         '這不是濾鏡、不是調色疊加。',
         '用下列條件把畫面重新拍攝。',
         '人物身分、姿勢與場景內容不變，只換攝影風格。',
-        '下列文字只改成像，不要畫成畫面裡的東西。',
-        '邊緣亮度不要比草稿更暗。',
+        '不要暗角。No vignette.',
         cam
     ].join('');
 }
