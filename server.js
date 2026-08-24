@@ -369,6 +369,26 @@ function jpegImageRefFromBuffer(buffer) {
     return { base64: Buffer.from(buffer).toString('base64'), mime: 'image/jpeg' };
 }
 
+function newPromoPortraitGenerationId() {
+    try {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+    } catch (_) {}
+    return 'pc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function sanitizePromoPortraitGenerationId(raw) {
+    const s = String(raw || '').trim();
+    if (/^[A-Za-z0-9._-]{8,80}$/.test(s)) return s;
+    return newPromoPortraitGenerationId();
+}
+
+/** 換人必須一發一結：不用全域 genAI，避免 SDK 把上次 interaction 當對話接下去 */
+function createStatelessGeminiClient() {
+    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+}
+
 async function persistPromoPortraitGeneration(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const buffer = o.buffer;
@@ -517,12 +537,16 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     if (!sceneRef || !sceneRef.base64) {
         throw new Error('場景底圖生成失敗，請稍後再試');
     }
-    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt();
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const generationId = sanitizePromoPortraitGenerationId(opts.generationId);
+    const basePrompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt();
+    const prompt = '【獨立新圖 ' + generationId + '】不要沿用先前任何成品。' + basePrompt;
     const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    const geminiClient = createStatelessGeminiClient();
     console.log(
         '[promo-portrait mood-swap] model=', model,
+        'generationId=', generationId,
         'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
         'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
     );
@@ -530,10 +554,11 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     let apiUsed = 'interactions';
     try {
         const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim()));
-        const interaction = await runInGeminiImageQueue(() => genAI.interactions.create({
+        const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
             model,
             input,
-            response_format: responseFormat
+            response_format: responseFormat,
+            store: false
         }));
         const oi = interaction && interaction.output_image;
         if (!oi || !oi.data) {
@@ -545,7 +570,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     } catch (interErr) {
         console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
-        const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
+        const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
             contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim())) }],
             config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
@@ -643,7 +668,8 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             targetWidth: lookDims.width,
             targetHeight: lookDims.height,
             userPrompt: userPrompt,
-            hasDesc: hasDesc
+            hasDesc: hasDesc,
+            generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
     if (!face || !face.buffer || !face.buffer.length) {
@@ -2180,7 +2206,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         facePrompt: moodFacePrompt,
                         userPrompt: userPrompt,
                         peopleCount: portraitCast.peopleCount,
-                        gender: portraitCast.gender
+                        gender: portraitCast.gender,
+                        generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     }
                 );
                 buffer = step.look && step.look.buffer;
@@ -2615,7 +2642,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     facePrompt: moodFacePrompt,
                     userPrompt: userPrompt,
                     peopleCount: portraitCast.peopleCount,
-                    gender: portraitCast.gender
+                    gender: portraitCast.gender,
+                    generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                 }
             );
         } catch (genErr) {

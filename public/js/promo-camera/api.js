@@ -52,6 +52,7 @@
       return fetch('/api/promo-camera/generate', {
         method: 'POST',
         headers: headers,
+        cache: 'no-store',
         body: JSON.stringify(payload || {})
       }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });

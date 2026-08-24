@@ -236,6 +236,15 @@
     state.sourceId = null;
   }
 
+  function newClientGenerationId() {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch (_) {}
+    return 'pc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
   function setLookMode(mode) {
     state.lookMode = mode === 'film' ? 'film' : 'digital';
     applyLookModeDefaults();
@@ -776,6 +785,9 @@
     }
     if (state.shootMode === 'portrait' && state.sceneReferenceImage) {
       fluxPayload.scene_image = state.sceneReferenceImage;
+    }
+    if (state.shootMode === 'portrait') {
+      fluxPayload.client_generation_id = newClientGenerationId();
     }
     return fluxPayload;
   }

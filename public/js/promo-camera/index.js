@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-cast-20260824';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-mood-independent-20260824';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -2692,6 +2692,7 @@
         }
       }
       st.generating = true;
+      if (isPortraitMode()) st.lastResult = null;
       updateGenerateBtn();
       clearResultArea();
       showResultLoading();
