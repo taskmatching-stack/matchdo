@@ -477,6 +477,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
             : '放入正好' + zhNum + '位' + zhPerson + '，面孔與體型都依第一張這個人。',
         '第二張的場景、構圖全部保留，不要改場景。',
         '人物必須融入第二張的光影：受光面、陰影方向、色溫、對比、環境反光都跟場景走，不要保留上傳圖自己的打光。',
+        '光影與人物邊緣要自然過渡，髮絲、肩線與背景接在一起。',
         '姿勢配合第二張的構圖與光線。'
     ];
     const cam = String(o.cameraBlock || '').trim();
@@ -496,12 +497,12 @@ function promoPortraitMoodSwapClothesCaptions(hasDesc) {
     if (hasDesc) {
         return {
             sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-            closing: '成品：人與體型＝第一張；衣服依描述；場景＝第二張。人物光影要融入第二張。'
+            closing: '成品：人與體型＝第一張；衣服依描述；場景＝第二張。光影與邊緣自然過渡。'
         };
     }
     return {
         sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-        closing: '成品：人與體型＝第一張；衣服＝第一張；場景＝第二張。人物光影要融入第二張。'
+        closing: '成品：人與體型＝第一張；衣服＝第一張；場景＝第二張。光影與邊緣自然過渡。'
     };
 }
 

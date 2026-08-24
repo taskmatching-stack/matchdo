@@ -123,7 +123,7 @@
     var moodEl = document.getElementById('pcPortraitRenderMood');
     var hybridEl = document.getElementById('pcPortraitRenderHybrid');
     var renderLabel = t('promoCamera.renderClearShort', '清晰');
-    if (hybridEl && hybridEl.checked) renderLabel = t('promoCamera.renderHybridShort', '混合');
+    if (hybridEl && hybridEl.checked) renderLabel = t('promoCamera.renderHybridShort', '混合') + ' BETA';
     else if (moodEl && moodEl.checked) renderLabel = t('promoCamera.renderMoodShort', '氛圍');
     if ((moodEl && moodEl.checked) || (hybridEl && hybridEl.checked)) {
       var peopleLab = textOfSelect('pcPortraitPeopleCount');
