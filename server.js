@@ -2420,7 +2420,10 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let draftImageUrl = null;
         let draftImageData = null;
         let draftGenerationId = null;
-        if (draftBuffer && draftBuffer.length) {
+        let draftImageUrl = null;
+        let draftImageData = null;
+        let draftGenerationId = null;
+        if (isAdmin && draftBuffer && draftBuffer.length) {
             const draftSaved = await persistPromoPortraitGeneration({
                 userId: currentUser.id,
                 buffer: draftBuffer,
@@ -2486,8 +2489,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             camera_params: cameraParamsSnapshot,
             image_provider: imageProvider,
             mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
-            compare_ref_label: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodLabels.ref : undefined,
-            compare_result_label: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodLabels.result : undefined,
+            compare_ref_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')) ? moodLabels.ref : undefined,
+            compare_result_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')) ? moodLabels.result : undefined,
             final_prompt: finalPrompt,
             prompt_sent: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')
                 ? formatPromoPortraitMoodPromptSent(
@@ -2750,7 +2753,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             baseRow.parent_record_kind = 'user_design';
             baseRow.parent_record_id = sourceId;
         }
-        const draftSaved = await persistPromoPortraitGeneration({
+        const draftSaved = isAdmin
+            ? await persistPromoPortraitGeneration({
             userId: currentUser.id,
             buffer: step.draft.buffer,
             row: Object.assign({}, baseRow, {
@@ -2781,7 +2785,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     space_resolution_tier: reverseMood ? spaceResTier : '1k'
                 }
             })
-        });
+        })
+            : { id: null, resultImageUrl: null, warning: null };
         const lookSaved = await persistPromoPortraitGeneration({
             userId: currentUser.id,
             buffer: step.look.buffer,
@@ -2813,19 +2818,21 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             })
         });
         const lookData = step.look.buffer.toString('base64');
-        const draftData = step.draft.buffer.toString('base64');
+        const draftData = isAdmin && step.draft && step.draft.buffer
+            ? step.draft.buffer.toString('base64')
+            : null;
         return res.json({
             success: true,
             mood_pipeline: true,
             mood_pipeline_kind: moodPipeline,
             id: lookSaved.id,
-            draft_id: draftSaved.id,
+            draft_id: isAdmin ? (draftSaved.id || null) : null,
             saved_to_library: !!lookSaved.id,
-            library_warning: lookSaved.warning || draftSaved.warning || null,
+            library_warning: lookSaved.warning || (isAdmin ? draftSaved.warning : null) || null,
             imageData: 'data:image/jpeg;base64,' + lookData,
             image_url: lookSaved.resultImageUrl,
-            draft_imageData: 'data:image/jpeg;base64,' + draftData,
-            draft_image_url: draftSaved.resultImageUrl,
+            draft_imageData: draftData ? ('data:image/jpeg;base64,' + draftData) : null,
+            draft_image_url: isAdmin ? (draftSaved.resultImageUrl || null) : null,
             points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
             balance: balanceAfter,
             width: lookW,
@@ -2842,9 +2849,11 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             prompt_sent: formatPromoPortraitMoodPromptSent(moodPipeline, draftPrompt, lookPrompt),
             gemini_prompt: reverseMood ? lookPrompt : draftPrompt,
             flux_prompt: reverseMood ? draftPrompt : lookPrompt,
-            compare_ref_url: draftSaved.resultImageUrl || ('data:image/jpeg;base64,' + draftData),
-            compare_ref_label: moodLabels.ref,
-            compare_result_label: moodLabels.result
+            compare_ref_url: isAdmin && draftData
+                ? (draftSaved.resultImageUrl || ('data:image/jpeg;base64,' + draftData))
+                : undefined,
+            compare_ref_label: isAdmin ? moodLabels.ref : undefined,
+            compare_result_label: isAdmin ? moodLabels.result : undefined
         });
     }
 
