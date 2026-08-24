@@ -751,7 +751,7 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             targetWidth: lookDims.width,
             targetHeight: lookDims.height
         },
-        {}
+        { promptUpsampling: false }
     );
     if (!look || !look.buffer || !look.buffer.length) {
         throw new Error('氛圍圖生成失敗，請稍後再試');
@@ -918,7 +918,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 氛圍 FLUX：upsampling 開（使用者實測關閉時可用比例過低） */
+    /* 現行氛圍第二段會傳 promptUpsampling: false；其餘路徑預設開（曾因關閉可用比例過低） */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -930,7 +930,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: true,
+            promptUpsampling: fo.promptUpsampling !== false,
             skipPromptTranslation: true,
             safetyTolerance: 2
         }
@@ -1333,8 +1333,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         space_resolution_tier: outDims.tier,
         flux_request: engine === 'flux'
             ? {
-                prompt_upsampling: !reverseMood,
-                disable_pup: !!reverseMood,
+                prompt_upsampling: false,
+                disable_pup: true,
                 safety_tolerance: 2,
                 skip_prompt_translation: !reverseMood,
                 text_to_image: !!reverseMood,
