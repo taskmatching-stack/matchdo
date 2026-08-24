@@ -467,8 +467,9 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         peopleCount <= 1
             ? '把第一張這位' + zhPerson + '放進第二張的光線與預留位置：臉、頭髮、肩頸、身材都跟第一張。'
             : '放入正好' + zhNum + '位' + zhPerson + '，面孔與體型都依第一張這個人。',
-        '第二張的場景、光線方向、色溫、對比、鏡頭感全部保留，不要重打光、不要改場景。',
-        '姿勢配合第二張的構圖與光線，做出適合該場景的商業人像，不要另起一套光。'
+        '第二張的場景、構圖全部保留，不要改場景。',
+        '人物必須融入第二張的光影：受光面、陰影方向、色溫、對比、環境反光都跟場景走，不要保留上傳圖自己的打光。',
+        '姿勢配合第二張的構圖與光線。'
     ];
     if (user) {
         parts.push('衣服依描述，不要用上傳圖的衣服：' + user);
@@ -482,12 +483,12 @@ function promoPortraitMoodSwapClothesCaptions(hasDesc) {
     if (hasDesc) {
         return {
             sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-            closing: '成品：人與體型＝第一張；衣服依描述；光與場景＝第二張。不要重打光。'
+            closing: '成品：人與體型＝第一張；衣服依描述；場景＝第二張。人物光影要融入第二張。'
         };
     }
     return {
         sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-        closing: '成品：人與體型＝第一張；衣服＝第一張；光與場景＝第二張。不要重打光。'
+        closing: '成品：人與體型＝第一張；衣服＝第一張；場景＝第二張。人物光影要融入第二張。'
     };
 }
 
@@ -531,7 +532,7 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
     ];
 }
 
-/** 實驗放入人物：上傳人像在前、無人物場景底圖在後；跟第二張的光，不要重打光 */
+/** 實驗放入人物：上傳人像在前、無人物場景底圖在後；人物光影融入第二張 */
 async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText, geminiOpts) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -611,15 +612,13 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
-/** 現行氛圍第二段：FLUX 用後台攝影參數重拍，不是把底片當濾鏡疊在草稿上 */
+/** 現行氛圍第二段：用後台 fragment 換成像，不是濾鏡疊加；提示裡不加「鏡頭／相機參數」標籤 */
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
     if (cam.indexOf('這不是濾鏡') !== -1) return cam;
     return [
-        '這不是濾鏡、不是調色疊加。',
-        '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
-        '人物身分、姿勢與場景內容不變，只換攝影風格。',
+        '這不是濾鏡、不是調色疊加。換成這種成像風格。人物身分、姿勢與場景內容不變。',
         cam
     ].join('');
 }
@@ -1185,7 +1184,7 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
     const parts = [];
 
-    parts.push('商業人像攝影用的場景底圖：畫面裡不准出現任何人、假人、剪影、肢體，倒影裡也不准有人。');
+    parts.push('商業人像用的場景底圖：畫面裡不准出現任何人、假人、剪影、肢體，倒影裡也不准有人。');
     parts.push('這是已經打好商業人像光的實景或棚，不是空房間示意，也不是平面背景紙。');
 
     let place = '';
@@ -1990,7 +1989,7 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
     } else {
         instructionLines.push('No specific user styling—vary naturally within the theme.');
     }
-    if (cameraBrief) instructionLines.push(`Camera setup (shared): ${cameraBrief}`);
+    if (cameraBrief) instructionLines.push(cameraBrief);
     instructionLines.push('', 'Rules: each string is 1-2 sentences; photographic direction only; no duplicate phrasing.');
     try {
         const result = await runInGeminiQueue(() => genAI.models.generateContent({
@@ -2083,7 +2082,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
     const cameraBlock = camPack.block || '';
     const cameraResolved = camPack.resolved || {};
-    const cameraBrief = Object.values(cameraResolved).filter(Boolean).join('; ');
+    const cameraBrief = cameraBlock;
 
     const shotBriefs = await expandPortraitShotBriefsWithGeminiLite({
         count: outputCount,
