@@ -467,6 +467,15 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   width: 100%;
   align-items: stretch;
 }
+#promo-camera-app .pc-spec-choice-row--triple {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.35rem;
+}
+#promo-camera-app .pc-spec-choice-row--triple .pc-spec-choice-btn {
+  padding: 0.45rem 0.25rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
 #promo-camera-app .pc-spec-choice-input {
   position: absolute;
   opacity: 0;

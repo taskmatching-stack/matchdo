@@ -621,13 +621,15 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
-/** 現行氛圍第二段：用後台 fragment 換成像，不是濾鏡疊加；提示裡不加「鏡頭／相機參數」標籤 */
+/** 現行氛圍第二段：重拍（1f79f35），不是把 fragment 當濾鏡疊在草稿上 */
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
-    if (cam.indexOf('這不是濾鏡') !== -1) return cam;
+    if (cam.indexOf('重新拍攝') !== -1) return cam;
     return [
-        '這不是濾鏡、不是調色疊加。換成這種成像風格。人物身分、姿勢與場景內容不變。',
+        '這不是濾鏡、不是調色疊加。',
+        '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
+        '人物身分、姿勢與場景內容不變，只換攝影風格。',
         cam
     ].join('');
 }
