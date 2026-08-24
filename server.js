@@ -479,6 +479,11 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         '人物必須融入第二張的光影：受光面、陰影方向、色溫、對比、環境反光都跟場景走，不要保留上傳圖自己的打光。',
         '姿勢配合第二張的構圖與光線。'
     ];
+    const cam = String(o.cameraBlock || '').trim();
+    if (cam) {
+        parts.push('第二張底圖的成像條件，人物受光與色調要對齊：');
+        parts.push(cam);
+    }
     if (user) {
         parts.push('衣服依描述，不要用上傳圖的衣服：' + user);
     } else {
@@ -685,7 +690,8 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
         userPrompt: userPrompt,
         peopleCount: extra && extra.peopleCount,
-        gender: extra && extra.gender
+        gender: extra && extra.gender,
+        cameraBlock: extra && extra.cameraBlock
     });
     const face = await generatePromoPortraitMoodLiteSwap(
         portraitRefs[0],
@@ -733,7 +739,8 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt({
                 userPrompt: extra && extra.userPrompt,
                 peopleCount: extra && extra.peopleCount,
-                gender: extra && extra.gender
+                gender: extra && extra.gender,
+                cameraBlock: extra && extra.cameraBlock
             }),
             geminiOpts,
             extra
@@ -1270,7 +1277,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         ? buildPromoPortraitMoodFaceRefinePrompt({
             userPrompt,
             peopleCount: cast.peopleCount,
-            gender: cast.gender
+            gender: cast.gender,
+            cameraBlock
         })
         : '';
     let geminiPrompt = reverseMood
@@ -2123,7 +2131,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         ? buildPromoPortraitMoodFaceRefinePrompt({
             userPrompt,
             peopleCount: portraitCast.peopleCount,
-            gender: portraitCast.gender
+            gender: portraitCast.gender,
+            cameraBlock
         })
         : '';
     const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
@@ -2235,6 +2244,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender,
+                        cameraBlock: cameraBlock,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     }
                 );
@@ -2610,7 +2620,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             ? buildPromoPortraitMoodFaceRefinePrompt({
                 userPrompt,
                 peopleCount: portraitCast.peopleCount,
-                gender: portraitCast.gender
+                gender: portraitCast.gender,
+                cameraBlock
             })
             : '';
         const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
@@ -2674,6 +2685,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender,
+                    cameraBlock: cameraBlock,
                     generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                 }
             );
