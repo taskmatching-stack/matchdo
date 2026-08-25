@@ -19,7 +19,7 @@
   <link href="/css/image-lightbox.css" rel="stylesheet" />
   <link href="/css/promo-camera.css?v=20260821betabadge2" rel="stylesheet" />
   <link href="/css/promo-camera-presets.css?v=20260803a" rel="stylesheet" />
-  <link href="/css/promo-camera-app.css?v=20260821specui4" rel="stylesheet" />
+  <link href="/css/promo-camera-app.css?v=20260826align" rel="stylesheet" />
   <link href="/css/digital-asset-picker.css?v=2" rel="stylesheet" />
 </head>
 <body class="bg-light pc-app-shell">
@@ -233,19 +233,57 @@
             </div>
           </details>
 
+          <details class="pc-spec-block pc-space-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.planningSim">規劃模擬</span>
+              <span class="pc-spec-value" data-pc-spec="planningSim">—</span>
+            </summary>
+            <div class="pc-spec-body">
+              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.planningSimHint">將家具／陳設套進目前空間圖（優先用剛生成的結果，否則用平面配置或 ISO 地圖）。</p>
+              <div id="pcPlanningSimThumb" class="d-flex flex-wrap gap-2 mb-2"></div>
+              <div class="pc-app-split-actions mb-2">
+                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickPlanningSimBtn">
+                  <i class="bi bi-images"></i>
+                  <span data-i18n="promoCamera.assetLibrary">資產庫</span>
+                </button>
+                <label class="pc-app-action pc-app-action--upload mb-0">
+                  <i class="bi bi-upload"></i>
+                  <span data-i18n="promoCamera.uploadShort">上傳</span>
+                  <input type="file" id="pcPlanningSimInput" accept="image/*" hidden />
+                </label>
+                <button type="button" class="pc-app-action pc-app-action--pick" id="pcPlanningSimUrlBtn">
+                  <span data-i18n="promoCamera.pasteUrl">貼網址</span>
+                </button>
+              </div>
+              <div id="pcPlanningSimUrlRow" class="d-none mb-2">
+                <div class="input-group input-group-sm">
+                  <input type="url" class="form-control" id="pcPlanningSimUrlInput" data-i18n-placeholder="promoCamera.pasteUrlPlaceholder" placeholder="https://" autocomplete="off" />
+                  <button type="button" class="btn btn-outline-primary" id="pcPlanningSimUrlApply" data-i18n="promoCamera.pasteUrlApply">套用</button>
+                </div>
+              </div>
+              <label class="pc-app-row-label mb-1" for="pcPlanningSimPrompt" data-i18n="promoCamera.planningSimPrompt">補充（選填）</label>
+              <input type="text" id="pcPlanningSimPrompt" class="form-control form-control-sm" data-i18n-placeholder="promoCamera.planningSimPromptPh" placeholder="例：換成窗邊那張沙發" />
+              <div class="mt-2">
+                <button type="button" class="btn btn-sm btn-primary" id="pcPlanningSimApplyBtn" disabled><span data-i18n="promoCamera.planningSimApply">套用至規劃</span></button>
+              </div>
+            </div>
+          </details>
+
           <details class="pc-spec-block pc-portrait-only d-none">
             <summary class="pc-spec-summary">
               <span class="pc-spec-kicker" data-i18n="promoCamera.renderStyle">生成風格</span>
               <span class="pc-spec-value" data-pc-spec="portraitRender">清晰</span>
             </summary>
             <div class="pc-spec-body">
-              <div class="pc-spec-choice-row" role="group" data-i18n-aria-label="promoCamera.renderStyle" aria-label="生成風格">
+              <div class="pc-spec-choice-row pc-spec-choice-row--triple" role="group" data-i18n-aria-label="promoCamera.renderStyle" aria-label="生成風格">
                 <input class="pc-spec-choice-input" type="radio" name="pcPortraitRenderMode" id="pcPortraitRenderClear" value="clear" checked />
                 <label class="pc-spec-choice-btn" for="pcPortraitRenderClear" data-i18n="promoCamera.renderClear">清晰模式</label>
                 <input class="pc-spec-choice-input" type="radio" name="pcPortraitRenderMode" id="pcPortraitRenderMood" value="mood" />
-                <label class="pc-spec-choice-btn" for="pcPortraitRenderMood"><span data-i18n="promoCamera.renderMood">氛圍模式</span> <span class="badge align-middle pc-beta-badge">BETA</span></label>
+                <label class="pc-spec-choice-btn" for="pcPortraitRenderMood" data-i18n="promoCamera.renderMood">氛圍模式</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcPortraitRenderMode" id="pcPortraitRenderHybrid" value="hybrid" />
+                <label class="pc-spec-choice-btn" for="pcPortraitRenderHybrid"><span data-i18n="promoCamera.renderHybrid">混合模式</span> <span class="badge align-middle pc-beta-badge">BETA</span></label>
               </div>
-              <p class="form-text small text-muted mb-0 mt-2" data-i18n="promoCamera.renderStyleHint">清晰偏銳利還原；氛圍偏情境氛圍。解析度選項會隨模式調整。</p>
+              <p class="form-text small text-muted mb-0 mt-2" data-i18n="promoCamera.renderStyleHint">清晰：一次出圖。氛圍：先草稿再套攝影參數。混合：先空景再放入上傳人物。</p>
             </div>
           </details>
 
@@ -270,6 +308,22 @@
                   <i class="bi bi-chevron-right pc-app-picker-chevron" aria-hidden="true"></i>
                 </button>
                 <select id="pcSceneSelect" class="pc-app-select-native d-none" tabindex="-1" aria-hidden="true"></select>
+              </div>
+              <div class="pc-app-row pc-app-row--select mb-2 pc-portrait-mood-cast d-none">
+                <label class="pc-app-row-label" for="pcPortraitPeopleCount" data-i18n="promoCamera.peopleCount">人數</label>
+                <select id="pcPortraitPeopleCount" class="pc-app-inline-select">
+                  <option value="1" selected data-i18n="promoCamera.peopleCount1">1 人</option>
+                  <option value="2" data-i18n="promoCamera.peopleCount2">2 人</option>
+                  <option value="3" data-i18n="promoCamera.peopleCount3">3 人</option>
+                  <option value="4" data-i18n="promoCamera.peopleCount4">4 人</option>
+                </select>
+              </div>
+              <div class="pc-app-row pc-app-row--select mb-2 pc-portrait-mood-cast d-none">
+                <label class="pc-app-row-label" for="pcPortraitSubjectGender" data-i18n="promoCamera.subjectGender">性別</label>
+                <select id="pcPortraitSubjectGender" class="pc-app-inline-select">
+                  <option value="female" selected data-i18n="promoCamera.subjectGenderFemale">女性</option>
+                  <option value="male" data-i18n="promoCamera.subjectGenderMale">男性</option>
+                </select>
               </div>
               <div class="pc-app-row pc-portrait-only d-none">
                 <div class="w-100">

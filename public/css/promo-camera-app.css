@@ -918,8 +918,18 @@ body.pc-app-shell .pc-space-layout-only.d-none,
 body.pc-app-shell .pc-space-eye-only.d-none {
   display: none !important;
 }
-body.pc-app-shell .pc-portrait-only.d-none {
+body.pc-app-shell .pc-portrait-only.d-none,
+body.pc-app-shell .pc-portrait-mood-cast.d-none {
   display: none !important;
+}
+body.pc-app-shell .pc-spec-choice-row--triple {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.35rem;
+}
+body.pc-app-shell .pc-spec-choice-row--triple .pc-spec-choice-btn {
+  padding: 0.45rem 0.2rem;
+  font-size: 0.75rem;
 }
 body.pc-app-shell .pc-staging-product-only.d-none,
 body.pc-app-shell .pc-space-output-only.d-none,
