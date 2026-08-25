@@ -26511,6 +26511,29 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
             ? body.promo_portrait_prompt_auto_polish
             : body.auto_polish;
         const autoPolish = parsePaymentConfigOnOff(raw, true);
+
+        async function saveAutoPolishViaDb() {
+            if (!DB_URL) return null;
+            const pool = new Pool({ connectionString: DB_URL });
+            const client = await pool.connect();
+            try {
+                try {
+                    await client.query("NOTIFY pgrst, 'reload schema'");
+                } catch (_) {}
+                const r = await client.query(
+                    `UPDATE public.profiles
+                     SET promo_portrait_prompt_auto_polish = $1
+                     WHERE id = $2
+                     RETURNING id, promo_portrait_prompt_auto_polish`,
+                    [autoPolish, user.id]
+                );
+                return r.rows[0] || null;
+            } finally {
+                client.release();
+                await pool.end();
+            }
+        }
+
         const { data, error } = await supabase
             .from('profiles')
             .update({ promo_portrait_prompt_auto_polish: autoPolish })
@@ -26518,7 +26541,27 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
             .select('id, promo_portrait_prompt_auto_polish')
             .maybeSingle();
         if (error) {
-            if (error.code === '42703' || /promo_portrait_prompt_auto_polish/.test(String(error.message || ''))) {
+            const msg = String(error.message || '');
+            const schemaMiss = error.code === '42703' || error.code === 'PGRST204' || /promo_portrait_prompt_auto_polish/.test(msg);
+            if (schemaMiss) {
+                try {
+                    const row = await saveAutoPolishViaDb();
+                    if (row) {
+                        return res.json({
+                            success: true,
+                            promo_portrait_prompt_auto_polish: row.promo_portrait_prompt_auto_polish !== false
+                        });
+                    }
+                } catch (dbErr) {
+                    const dbMsg = String((dbErr && dbErr.message) || '');
+                    if (dbErr && dbErr.code === '42703') {
+                        return res.status(503).json({
+                            error: '尚未啟用此欄位，請先在後台執行 migration：promo-portrait-prompt-auto-polish'
+                        });
+                    }
+                    console.error('PATCH /api/me/promo-portrait-prompt-settings db:', dbErr);
+                    return res.status(500).json({ error: dbMsg || '儲存失敗' });
+                }
                 return res.status(503).json({
                     error: '尚未啟用此欄位，請先在後台執行 migration：promo-portrait-prompt-auto-polish'
                 });

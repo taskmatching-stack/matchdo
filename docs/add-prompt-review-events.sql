@@ -23,3 +23,5 @@ ALTER TABLE public.prompt_review_events ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE public.prompt_review_events IS
   '描述審核事件：polished=自動潤飾後仍生圖；blocked=攔截無法生圖。';
+
+NOTIFY pgrst, 'reload schema';

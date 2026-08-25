@@ -9,3 +9,5 @@ COMMENT ON COLUMN public.profiles.prompt_review_block_streak IS
   '連續描述審核攔截次數；通過後歸零。';
 COMMENT ON COLUMN public.profiles.prompt_review_throttle_until IS
   '此時間前降低／暫停商攝生圖。';
+
+NOTIFY pgrst, 'reload schema';
