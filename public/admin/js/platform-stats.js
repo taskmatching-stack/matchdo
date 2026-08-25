@@ -249,7 +249,7 @@
     var title = esc(cat.category_name) + ' (' + esc(cat.category_key) + ')';
     var label = esc(cat.category_name);
     if (cat.is_active === false) label += ' <span class="badge bg-secondary">停</span>';
-    return '<button type="button" class="cat-toggle" data-cat="' + gk + '" aria-expanded="true" title="收合／展開子分類">▼</button>'
+    return '<button type="button" class="cat-toggle" data-cat="' + gk + '" aria-expanded="false" title="收合／展開子分類">▶</button>'
       + '<span title="' + title + '">' + label + '</span>';
   }
 
@@ -326,7 +326,7 @@
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + catHeadMainCell(cat) + '</td><td class="col-sub">合計</td>'
         + vendorNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + vendorNumCells(sub) + '</tr>');
+        html.push('<tr class="row-sub row-cat-body d-none' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + vendorNumCells(sub) + '</tr>');
       });
     });
     return html.join('');
@@ -344,7 +344,7 @@
       var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + numCell(cat.records) + numCell(cat.images) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
+        html.push('<tr class="row-sub row-cat-body d-none' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + numCell(sub.records) + numCell(sub.images) + '</tr>');
       });
     });
     return html.join('');
@@ -373,7 +373,7 @@
       var main = orphanMode ? '<code class="small">' + esc(cat.category_key) + '</code>' : catHeadMainCell(cat);
       html.push('<tr class="row-cat-head row-total' + cls + '" data-cat="' + gk + '"><td class="col-main">' + main + '</td><td class="col-sub">合計</td>' + promoNumCells(cat) + '</tr>');
       subs.forEach(function (sub) {
-        html.push('<tr class="row-sub row-cat-body' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + promoNumCells(sub) + '</tr>');
+        html.push('<tr class="row-sub row-cat-body d-none' + cls + rowInactiveClass(sub.is_active, true) + '" data-cat="' + gk + '"><td class="col-main cat-main-empty"></td><td class="col-sub">' + subCell(sub) + '</td>' + promoNumCells(sub) + '</tr>');
       });
     });
     return html.join('');
