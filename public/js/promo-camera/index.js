@@ -2307,7 +2307,7 @@
       listEl: document.getElementById('pcAssetList'),
       emptyEl: document.getElementById('pcAssetEmpty'),
       loadingEl: document.getElementById('pcAssetLoading'),
-      initialTab: assetPickTarget === 'layout' ? 'promo' : 'designs',
+      initialTab: 'promo',
       onPick: function (pick) {
         var u = pick && pick.url;
         if (!u) return;
