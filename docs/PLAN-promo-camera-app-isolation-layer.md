@@ -73,7 +73,7 @@ Capacitor 初始化時，自 L3b **複製快照**到 `apps/matchdo-promo-camera/
 
 ## 參考
 
-- **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)
+- **進度 handoff：** [`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md)（**§9** 包成 App 已有／還缺）
 - Cursor 規則：`.cursor/rules/promo-camera-app-isolation.mdc`
 - Capacitor／Store：`docs/PLAN-promo-camera-capacitor-app.md`
 - L4 目錄：`apps/matchdo-promo-camera/README.md`

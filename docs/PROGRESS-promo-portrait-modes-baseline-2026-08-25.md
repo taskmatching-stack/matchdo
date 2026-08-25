@@ -14,4 +14,5 @@
 
 前台混合有 **BETA**。草稿／場景底圖對照：僅管理員。
 
-相關：`.cursor/rules/promo-camera-app-isolation.mdc`（勿改線上 PWA 殼）。
+相關：`.cursor/rules/promo-camera-app-isolation.mdc`（勿改線上 PWA 殼）。  
+包 App 缺口：[`PROGRESS-promo-camera-app-store.md`](PROGRESS-promo-camera-app-store.md) **§9**。
