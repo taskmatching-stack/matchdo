@@ -376,6 +376,49 @@ async function getPromoPortraitHybridLiteModelName() {
     return process.env.GEMINI_MODEL_PROMO_PORTRAIT_HYBRID || GEMINI_MODEL_PROMO_PORTRAIT_HYBRID_DEFAULT;
 }
 
+/** 人像描述安全審核模型：後台專用欄優先，未填則沿用翻譯模型 */
+async function getPromoPortraitPromptReviewModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_promo_portrait_prompt_review').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    const fromEnv = String(process.env.GEMINI_MODEL_PROMO_PORTRAIT_PROMPT_REVIEW || '').trim();
+    if (fromEnv) return fromEnv;
+    return getTranslationModelName();
+}
+
+function parsePaymentConfigOnOff(raw, defaultOn) {
+    if (raw === true) return true;
+    if (raw === false) return false;
+    if (raw == null) return defaultOn !== false;
+    const v = String(raw).trim().toLowerCase();
+    if (!v) return defaultOn !== false;
+    if (v === '0' || v === 'false' || v === 'off' || v === 'no' || v === 'disabled') return false;
+    if (v === '1' || v === 'true' || v === 'on' || v === 'yes' || v === 'enabled') return true;
+    return defaultOn !== false;
+}
+
+/** 帳號設定：是否自動潤飾人像描述。未寫入／欄位不存在時預設開。關閉仍審查攔截。 */
+async function isPromoPortraitPromptAutoPolishEnabled(userId) {
+    const uid = String(userId || '').trim();
+    if (!uid) return true;
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('promo_portrait_prompt_auto_polish')
+            .eq('id', uid)
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42703') return true;
+            console.warn('isPromoPortraitPromptAutoPolishEnabled:', error.message);
+            return true;
+        }
+        if (data && data.promo_portrait_prompt_auto_polish === false) return false;
+    } catch (_) {}
+    return true;
+}
+
 function jpegImageRefFromBuffer(buffer) {
     return { base64: Buffer.from(buffer).toString('base64'), mime: 'image/jpeg' };
 }
@@ -2028,6 +2071,130 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
     }
 }
 
+/** 對齊 Gemini 生圖禁止項 + BFL FLUX Usage Policy（人像）。時裝／泳裝／商業親密仍放行。 */
+const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
+    'You are a pre-filter for commercial PORTRAIT stills that will be sent to Gemini image models and/or FLUX (BFL).',
+    'Align with those APIs: Gemini forbids sexually explicit images, CSAM, and non-consensual intimate imagery; FLUX Usage Policy forbids sexual/intimate depiction of a real person without consent, CSAM/NCII, and any sexual/obscene/harmful depiction of minors.',
+    'Judge ONLY the user description. Ignore system camera, theme, film, or lens wording.',
+    '',
+    'ALLOW (ok=true, rewritten MUST be empty):',
+    '- Adults 18+ fashion, editorial, beauty, fitness, lifestyle portraits.',
+    '- Swimwear, bikini, lingerie worn as clothing; visible skin, cleavage, midriff, legs, wet look, sheer fashion if still clothing.',
+    '- Words like sexy, seductive, glamorous, alluring, body-hugging, low-cut, wet hair, bedroom light — if the body stays clothed and there is no sex act.',
+    '- Romantic or commercially suggestive poses (hug, kiss, gaze, reclining) without sexual acts or genitals.',
+    '- Tasteful spa/beach/nightclub/bedroom fashion editorials that stay clothed.',
+    '- Non-sexual family or child-in-scene as ordinary commercial photography (no sexualization).',
+    '',
+    'REWRITE (ok=false + rewritten): adult content those APIs typically block, but commercial intent can be kept:',
+    '- Full nudity, naked, no clothes, undress, strip, topless/bottomless, exposed breasts or genitals as the subject.',
+    '- Sexual acts, pornography, erotic sex instructions, fetish sex, masturbation, explicit genital/anus focus.',
+    '- Graphic sexual violence between adults → recast as non-violent clothed editorial (do not keep assault).',
+    '- Named living real person (celebrity/public figure) combined with nude or sexual/intimate depiction → recast as an anonymous adult fashion model; keep scene, clothing style if wearable, lighting, people count, pose direction, mood.',
+    'Rewritten must stay in the user language. Keep scene, wearable clothing style, lighting, people count, pose direction, mood. Only remove blocked sexual/nude parts. No camera/lens/film jargon. Do not invent a new concept.',
+    '',
+    'HARD FAIL (ok=false, rewritten MUST be empty):',
+    '- Anyone 17 or under, or child/teen/school framing, in any nude, sexual, or sexualized way. Never rewrite this into a keepable version.',
+    '- CSAM or any sexual content involving minors.',
+    '- Non-consensual intimate imagery of a real identifiable person when the request is specifically to undress or sexualize that named person and cannot be recast without keeping that identity plus intimate intent.',
+    '',
+    'If ok=true, rewritten must be empty.',
+    'Return JSON only: {"ok":true,"rewritten":"","reason":""} or {"ok":false,"rewritten":"...","reason":"..."}'
+].join('\n');
+
+function parsePromoPortraitPromptReviewJson(raw) {
+    let t = String(raw || '').trim();
+    if (!t) return null;
+    if (t.startsWith('```')) {
+        t = t.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    const m = t.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+        const obj = JSON.parse(m[0]);
+        if (!obj || typeof obj !== 'object') return null;
+        return {
+            ok: obj.ok === true || obj.ok === 'true',
+            rewritten: String(obj.rewritten || '').trim().slice(0, 2000),
+            reason: String(obj.reason || '').trim().slice(0, 200)
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+function withTimeoutMs(promise, ms, label) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label || 'timeout')), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function reviewPromoPortraitUserPromptOnce(text, model) {
+    const result = await runInGeminiQueue(() => withTimeoutMs(genAI.models.generateContent({
+        model,
+        contents: [{
+            role: 'user',
+            parts: [{ text: PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION + '\n\nUser description:\n' + text }]
+        }]
+    }), 8000, 'prompt review timeout'));
+    const parsed = parsePromoPortraitPromptReviewJson(result && result.text);
+    if (!parsed) throw new Error('prompt review returned no JSON');
+    return parsed;
+}
+
+/** 始終審查。autoPolish=false 時明顯違規改攔截、不改寫。技術失敗重試一次後仍無結果則丟錯。 */
+async function reviewPromoPortraitUserPrompt(original, opts) {
+    const src = String(original || '').trim();
+    if (!src) return { prompt: '', rewritten: false };
+    const autoPolish = !(opts && opts.autoPolish === false);
+    if (!process.env.GEMINI_API_KEY) {
+        const err = new Error('人像描述審核服務暫未設定，請稍後再試');
+        err.status = 503;
+        throw err;
+    }
+    const model = await getPromoPortraitPromptReviewModelName();
+    let lastErr = null;
+    for (let i = 0; i < 2; i++) {
+        try {
+            const parsed = await reviewPromoPortraitUserPromptOnce(src, model);
+            if (parsed.ok) return { prompt: src, rewritten: false };
+            if (!autoPolish) {
+                const err = new Error('人像描述未通過安全審核，無法生圖。關閉自動潤飾後不會改寫描述，請自行修改後再試');
+                err.status = 400;
+                throw err;
+            }
+            const rewritten = parsed.rewritten;
+            if (!rewritten) {
+                const err = new Error('人像描述無法通過安全審核，請修改後再試');
+                err.status = 400;
+                throw err;
+            }
+            return { prompt: rewritten, rewritten: true, reason: parsed.reason || '' };
+        } catch (e) {
+            if (e && e.status === 400) throw e;
+            lastErr = e;
+            console.warn('reviewPromoPortraitUserPrompt try', i + 1, e && e.message);
+        }
+    }
+    const err = new Error('人像描述審核失敗，請稍後再試');
+    err.status = 503;
+    if (lastErr) console.warn('reviewPromoPortraitUserPrompt failed after retry:', lastErr.message || lastErr);
+    throw err;
+}
+
+async function resolveReviewedPromoPortraitUserPrompt(body, userId) {
+    const original = String((body && (body.user_prompt || body.prompt)) || '').trim();
+    if (!original) return '';
+    const autoPolish = await isPromoPortraitPromptAutoPolishEnabled(userId);
+    const reviewed = await reviewPromoPortraitUserPrompt(original, { autoPolish });
+    if (body) {
+        body.user_prompt = reviewed.prompt;
+        if (body.prompt != null) body.prompt = reviewed.prompt;
+    }
+    return reviewed.prompt;
+}
+
 async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const body = ctx.body || {};
     const currentUser = ctx.currentUser;
@@ -2060,7 +2227,15 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if (!themeKey) {
         return res.status(400).json({ success: false, error: '請選擇拍攝主題' });
     }
-    const userPrompt = String(body.user_prompt || body.prompt || '').trim();
+    let userPrompt;
+    try {
+        userPrompt = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+    } catch (reviewErr) {
+        return res.status(reviewErr.status || 503).json({
+            success: false,
+            error: (reviewErr && reviewErr.message) || '人像描述審核失敗，請稍後再試'
+        });
+    }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
     const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
         ? body.source_type
@@ -2570,7 +2745,15 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if (!themeKey) {
         return res.status(400).json({ success: false, error: '請選擇拍攝主題' });
     }
-    const userPrompt = String(body.user_prompt || body.prompt || '').trim();
+    let userPrompt;
+    try {
+        userPrompt = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+    } catch (reviewErr) {
+        return res.status(reviewErr.status || 503).json({
+            success: false,
+            error: (reviewErr && reviewErr.message) || '人像描述審核失敗，請稍後再試'
+        });
+    }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
     const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
         ? body.source_type
@@ -13156,6 +13339,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'gemini_model_promo_portrait',
             'gemini_model_promo_portrait_mood',
             'gemini_model_promo_portrait_hybrid',
+            'gemini_model_promo_portrait_prompt_review',
+            'promo_portrait_prompt_review_enabled',
             'promo_portrait_default_render_mode',
             'promo_portrait_mood_pipeline',
             ...engineKeys,
@@ -13189,6 +13374,13 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model_promo_portrait: byKey.gemini_model_promo_portrait || process.env.GEMINI_MODEL_PROMO_PORTRAIT || GEMINI_MODEL_PROMO_SPACE_LAYOUT_DEFAULT,
             gemini_model_promo_portrait_mood: byKey.gemini_model_promo_portrait_mood || process.env.GEMINI_MODEL_PROMO_PORTRAIT_MOOD || GEMINI_MODEL_PROMO_PORTRAIT_MOOD_DEFAULT,
             gemini_model_promo_portrait_hybrid: byKey.gemini_model_promo_portrait_hybrid || process.env.GEMINI_MODEL_PROMO_PORTRAIT_HYBRID || GEMINI_MODEL_PROMO_PORTRAIT_HYBRID_DEFAULT,
+            gemini_model_promo_portrait_prompt_review: byKey.gemini_model_promo_portrait_prompt_review || process.env.GEMINI_MODEL_PROMO_PORTRAIT_PROMPT_REVIEW || '',
+            promo_portrait_prompt_review_enabled: parsePaymentConfigOnOff(
+                byKey.promo_portrait_prompt_review_enabled != null
+                    ? byKey.promo_portrait_prompt_review_enabled
+                    : process.env.PROMO_PORTRAIT_PROMPT_REVIEW_ENABLED,
+                true
+            ),
             vendor_asset_optimize_engine: vendorEngine,
             material_dual_color_engine: comboEngine,
             print_asset_engine: printEngine,
@@ -13216,6 +13408,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 gemini_model_promo_portrait: !!byKey.gemini_model_promo_portrait,
                 gemini_model_promo_portrait_mood: !!byKey.gemini_model_promo_portrait_mood,
                 gemini_model_promo_portrait_hybrid: !!byKey.gemini_model_promo_portrait_hybrid,
+                gemini_model_promo_portrait_prompt_review: !!byKey.gemini_model_promo_portrait_prompt_review,
+                promo_portrait_prompt_review_enabled: !!byKey.promo_portrait_prompt_review_enabled,
                 vendor_asset_optimize_engine: !!byKey.vendor_asset_optimize_engine,
                 material_dual_color_engine: !!byKey.material_dual_color_engine,
                 print_asset_engine: !!byKey.print_asset_engine,
@@ -13284,6 +13478,16 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         }
         if (body.gemini_model_promo_portrait_hybrid !== undefined) {
             upserts.push({ key: 'gemini_model_promo_portrait_hybrid', value: String(body.gemini_model_promo_portrait_hybrid).trim(), updated_at: now });
+        }
+        if (body.gemini_model_promo_portrait_prompt_review !== undefined) {
+            upserts.push({ key: 'gemini_model_promo_portrait_prompt_review', value: String(body.gemini_model_promo_portrait_prompt_review).trim(), updated_at: now });
+        }
+        if (body.promo_portrait_prompt_review_enabled !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_prompt_review_enabled',
+                value: parsePaymentConfigOnOff(body.promo_portrait_prompt_review_enabled, true) ? '1' : '0',
+                updated_at: now
+            });
         }
         if (body.promo_portrait_default_render_mode !== undefined) {
             const mode = normalizePromoPortraitRenderMode(body.promo_portrait_default_render_mode);
@@ -13368,6 +13572,10 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model_promo_portrait: byKey.gemini_model_promo_portrait ?? null,
             gemini_model_promo_portrait_mood: byKey.gemini_model_promo_portrait_mood ?? null,
             gemini_model_promo_portrait_hybrid: byKey.gemini_model_promo_portrait_hybrid ?? null,
+            gemini_model_promo_portrait_prompt_review: byKey.gemini_model_promo_portrait_prompt_review ?? null,
+            promo_portrait_prompt_review_enabled: byKey.promo_portrait_prompt_review_enabled != null
+                ? parsePaymentConfigOnOff(byKey.promo_portrait_prompt_review_enabled, true)
+                : null,
             vendor_asset_optimize_engine: byKey.vendor_asset_optimize_engine
                 ? normalizeOptimizeEnginePref(byKey.vendor_asset_optimize_engine)
                 : null,
@@ -26083,6 +26291,7 @@ app.get('/api/me/profile', async (req, res) => {
             const out = { ...profile, id: user.id, email: profile.email || user.email || '' };
             if (out.can_delete_media_wall == null) out.can_delete_media_wall = false;
             out.media_wall_manage = profileCanDeleteMediaWall(profile);
+            if (out.promo_portrait_prompt_auto_polish == null) out.promo_portrait_prompt_auto_polish = true;
             return res.json(out);
         }
         res.json({
@@ -26091,10 +26300,61 @@ app.get('/api/me/profile', async (req, res) => {
             full_name: user.user_metadata?.full_name || '',
             role: 'user',
             can_delete_media_wall: false,
-            media_wall_manage: false
+            media_wall_manage: false,
+            promo_portrait_prompt_auto_polish: true
         });
     } catch (e) {
         console.error('GET /api/me/profile 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/me/promo-portrait-prompt-settings — 帳號：人像描述自動潤飾（關閉仍攔截）
+app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const raw = body.promo_portrait_prompt_auto_polish !== undefined
+            ? body.promo_portrait_prompt_auto_polish
+            : body.auto_polish;
+        const autoPolish = parsePaymentConfigOnOff(raw, true);
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({ promo_portrait_prompt_auto_polish: autoPolish })
+            .eq('id', user.id)
+            .select('id, promo_portrait_prompt_auto_polish')
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42703' || /promo_portrait_prompt_auto_polish/.test(String(error.message || ''))) {
+                return res.status(503).json({
+                    error: '尚未啟用此欄位，請先在後台執行 migration：promo-portrait-prompt-auto-polish'
+                });
+            }
+            console.error('PATCH /api/me/promo-portrait-prompt-settings:', error);
+            return res.status(500).json({ error: '儲存失敗' });
+        }
+        if (!data) {
+            const upsert = await supabase.from('profiles').upsert({
+                id: user.id,
+                email: user.email || null,
+                promo_portrait_prompt_auto_polish: autoPolish
+            }, { onConflict: 'id' }).select('id, promo_portrait_prompt_auto_polish').maybeSingle();
+            if (upsert.error) {
+                console.error('PATCH /api/me/promo-portrait-prompt-settings upsert:', upsert.error);
+                return res.status(500).json({ error: '儲存失敗' });
+            }
+            return res.json({
+                success: true,
+                promo_portrait_prompt_auto_polish: autoPolish
+            });
+        }
+        res.json({
+            success: true,
+            promo_portrait_prompt_auto_polish: data.promo_portrait_prompt_auto_polish !== false
+        });
+    } catch (e) {
+        console.error('PATCH /api/me/promo-portrait-prompt-settings 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

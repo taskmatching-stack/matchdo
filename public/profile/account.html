@@ -55,6 +55,16 @@
                                     <dd class="col-sm-9" id="profile-credits">—</dd>
                                 </dl>
                                 <hr>
+                                <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-2"></i><span data-i18n="profile.portraitPromptReviewTitle">商攝人像描述審核</span></h6>
+                                <p class="small text-muted mb-2" data-i18n="profile.portraitPromptReviewHelp">預設開啟自動潤飾（不扣點）。關閉後仍會審查；明顯違規會被攔截、無法生圖，只是不會自動改寫你的描述。</p>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="portraitPromptAutoPolish" checked>
+                                    <label class="form-check-label" for="portraitPromptAutoPolish" data-i18n="profile.portraitPromptAutoPolish">啟用自動潤飾</label>
+                                </div>
+                                <div id="portraitPromptAutoPolishRisk" class="alert alert-warning py-2 small d-none" data-i18n="profile.portraitPromptReviewOffRisk">關閉風險：描述若被判定明顯違規，不會自動潤飾，生圖會被攔截。請自行修改後再送出。審查機制不會因關閉而停止。</div>
+                                <button type="button" class="btn btn-sm btn-primary" id="btnSavePortraitPromptReview" data-i18n="profile.portraitPromptReviewSave">儲存此設定</button>
+                                <span id="portraitPromptReviewSaveMsg" class="small ms-2"></span>
+                                <hr>
                                 <h6 class="text-muted mb-2"><i class="bi bi-telephone me-2"></i><span data-i18n="profile.contactSection">聯絡資訊</span></h6>
                                 <div id="profile-contact-wrap" class="mb-3">
                                     <p class="text-muted small mb-0" id="profile-contact-empty" data-i18n="profile.contactEmpty">尚未填寫，請至「聯絡資訊設定」填寫。</p>
@@ -120,6 +130,48 @@
                 document.getElementById('profile-name').textContent = p.full_name || '—';
                 var roleKey = p.role === 'admin' ? 'profile.roleAdmin' : (p.role === 'tester' ? 'profile.roleTester' : 'profile.roleUser');
                 document.getElementById('profile-role').textContent = t(roleKey, p.role || '—');
+
+                var polishEl = document.getElementById('portraitPromptAutoPolish');
+                var riskEl = document.getElementById('portraitPromptAutoPolishRisk');
+                function syncPortraitPromptRisk() {
+                    if (!polishEl || !riskEl) return;
+                    if (polishEl.checked) riskEl.classList.add('d-none');
+                    else riskEl.classList.remove('d-none');
+                }
+                if (polishEl) {
+                    polishEl.checked = p.promo_portrait_prompt_auto_polish !== false;
+                    polishEl.addEventListener('change', syncPortraitPromptRisk);
+                    syncPortraitPromptRisk();
+                }
+                var saveBtn = document.getElementById('btnSavePortraitPromptReview');
+                if (saveBtn && !saveBtn._bound) {
+                    saveBtn._bound = true;
+                    saveBtn.addEventListener('click', async function () {
+                        var msgEl = document.getElementById('portraitPromptReviewSaveMsg');
+                        var wantOn = !!(polishEl && polishEl.checked);
+                        if (!wantOn && !window.confirm(t('profile.portraitPromptReviewOffConfirm', '關閉後不會自動潤飾違規描述，明顯違規仍會被攔截、無法生圖。確定關閉？'))) {
+                            if (polishEl) polishEl.checked = true;
+                            syncPortraitPromptRisk();
+                            return;
+                        }
+                        saveBtn.disabled = true;
+                        if (msgEl) msgEl.textContent = '';
+                        try {
+                            var saveRes = await fetch('/api/me/promo-portrait-prompt-settings', {
+                                method: 'PATCH',
+                                headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                                body: JSON.stringify({ promo_portrait_prompt_auto_polish: wantOn })
+                            });
+                            var saveData = await saveRes.json().catch(function () { return {}; });
+                            if (!saveRes.ok) throw new Error(saveData.error || t('profile.portraitPromptReviewSaveFailed', '儲存失敗'));
+                            if (msgEl) msgEl.textContent = t('profile.portraitPromptReviewSaved', '已儲存');
+                        } catch (saveErr) {
+                            if (msgEl) msgEl.textContent = saveErr.message || t('profile.portraitPromptReviewSaveFailed', '儲存失敗');
+                        } finally {
+                            saveBtn.disabled = false;
+                        }
+                    });
+                }
 
                 if (creditsRes.ok) {
                     var cred = await creditsRes.json();

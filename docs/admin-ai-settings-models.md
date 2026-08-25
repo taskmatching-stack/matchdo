@@ -69,6 +69,8 @@
 | **規劃模擬** | `gemini_model_promo_planning_sim` | `getPromoPlanningSimModelName()` | `/promo-camera` 空間「規劃模擬」（空間圖＋家具／陳設；預設 Nano Banana 2） |
 | **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
 | **人像攝影・氛圍 Lite** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍兩段的 Lite：現行＝草稿；實驗＝修臉 |
+| **人像描述安全審核** | `gemini_model_promo_portrait_prompt_review` | `getPromoPortraitPromptReviewModelName()` | 後台手填文字模型；空白則沿用翻譯模型 `gemini_model`。不扣點；失敗不生圖 |
+| **人像描述自動潤飾** | `profiles.promo_portrait_prompt_auto_polish` | `isPromoPortraitPromptAutoPolishEnabled()` | 帳號設定；預設開。關閉仍攔截，不略過審查 |
 | **人像攝影・氛圍順序** | `promo_portrait_mood_pipeline` | `getPromoPortraitMoodPipeline()` | `lite_then_flux`（現行）／`flux_then_lite`（實驗：FLUX 文生場景 → Banana 換臉／髮型／衣服並輸出 MP） |
 
 **商攝・空間解析度（程式，非 DB 鍵）**：前台 `space_resolution_tier: 2k|4k` → 後端 `config.imageConfig.imageSize: "2K"|"4K"`（[官方 image generation](https://ai.google.dev/gemini-api/docs/image-generation)；**K 须大写**）。不足时 sharp 补至 ≥2048／4096。
@@ -103,6 +105,8 @@ Seed：`docs/add-promo-space-gemini-config.sql`。規劃模擬：`docs/add-promo
 | `gemini_model_promo_planning_sim` | `gemini-3.1-flash-image`（Nano Banana 2） |
 | `gemini_model_promo_portrait` | `gemini-3-pro-image` |
 | `gemini_model_promo_portrait_mood` | `gemini-3.1-flash-lite-image` |
+| `gemini_model_promo_portrait_prompt_review` | （空白＝沿用 `gemini_model`） |
+| `promo_portrait_prompt_auto_polish`（profiles） | `true`（開自動潤飾；關閉仍審查攔截） |
 | `promo_portrait_engine` | `gemini`（可 `auto`／`flux`） |
 | `promo_portrait_mood_pipeline` | `lite_then_flux` |
 | `bfl_flux_model_promo_portrait` | `flux-2-pro` |
