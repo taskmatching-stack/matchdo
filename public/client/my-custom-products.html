@@ -42,8 +42,21 @@
             background: #EAEEF3;
         }
         .product-card .card-body {
-            padding: 0.45rem 0.55rem 0.55rem;
+            padding: 0.35rem 0.45rem 0.45rem;
         }
+        .asset-card-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.22rem;
+            margin-top: auto;
+        }
+        .asset-card-btns .btn {
+            font-size: 0.68rem;
+            padding: 0.18rem 0.25rem;
+            white-space: nowrap;
+        }
+        .promo-show-homepage-wrap { margin-bottom: 0.35rem !important; }
+        .promo-show-homepage-hint { font-size: 0.65rem; margin-bottom: 0.35rem !important; line-height: 1.3; }
         .product-card .card-title {
             font-size: 0.86rem;
             line-height: 1.25;
@@ -414,7 +427,10 @@
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-3 text-muted">載入中...</p>
                 </div>
-                <div id="productsList" class="row g-4" style="display:none;"></div>
+                <div id="productsList" class="row g-2" style="display:none;"></div>
+                <div id="productsLoadMoreWrap" class="text-center py-2" style="display:none;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="productsLoadMoreBtn">載入更多舊圖</button>
+                </div>
                 <div id="productsLoadSentinel" class="py-1" aria-hidden="true"></div>
                 <p class="text-muted small mb-3 d-none" id="designDirectionFilterNote"></p>
                 <div id="emptyState" class="empty-state" style="display:none;">
@@ -445,7 +461,10 @@
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-3 text-muted">載入材料組合…</p>
                 </div>
-                <div id="comboList" class="row g-4" style="display:none;"></div>
+                <div id="comboList" class="row g-2" style="display:none;"></div>
+                <div id="comboLoadMoreWrap" class="text-center py-2" style="display:none;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="comboLoadMoreBtn">載入更多舊圖</button>
+                </div>
                 <div id="comboEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-layout-split" style="font-size:4rem;color:#D8DEE6;"></i>
                     <h4 class="mt-3">尚無材料組合</h4>
@@ -474,7 +493,10 @@
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-3 text-muted">載入印花…</p>
                 </div>
-                <div id="printList" class="row g-4" style="display:none;"></div>
+                <div id="printList" class="row g-2" style="display:none;"></div>
+                <div id="printLoadMoreWrap" class="text-center py-2" style="display:none;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="printLoadMoreBtn">載入更多舊圖</button>
+                </div>
                 <div id="printEmpty" class="empty-state">
                     <i class="bi bi-postage" style="font-size:4rem;color:#D8DEE6;"></i>
                     <h4 class="mt-3">尚無印花</h4>
@@ -488,7 +510,15 @@
             <!-- ── Tab 3：情境圖 ── -->
             <div class="tab-pane fade" id="pane-promo">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">產品情境圖與商攝導演生成紀錄（含空間 ISO）；卡片標籤區分類型。此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
+                    <div>
+                        <p class="text-muted mb-1 small">產品情境圖與商攝導演生成紀錄（含空間 ISO）。此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
+                        <div class="d-flex flex-wrap gap-1" id="promoKindFilters" role="group" aria-label="情境圖分類">
+                            <button type="button" class="btn btn-sm btn-secondary" data-promo-kind="all">全部</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="product">產品</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="space">空間</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="portrait">人像</button>
+                        </div>
+                    </div>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
                         <i class="bi bi-megaphone me-1"></i>生成情境圖
                     </a>
@@ -497,7 +527,10 @@
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-3 text-muted">載入情境圖…</p>
                 </div>
-                <div id="promoList" class="row g-4" style="display:none;"></div>
+                <div id="promoList" class="row g-2" style="display:none;"></div>
+                <div id="promoLoadMoreWrap" class="text-center py-2" style="display:none;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="promoLoadMoreBtn">載入更多舊圖</button>
+                </div>
                 <div id="promoEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-megaphone" style="font-size:4rem;color:#D8DEE6;"></i>
                     <h4 class="mt-3">尚無情境圖</h4>
@@ -639,11 +672,44 @@
         let comboLoaded = false;
         let printLoaded = false;
         const PRODUCTS_PAGE_SIZE = 24;
+        const ASSET_PAGE_SIZE = 24;
         let productsOffset = 0;
         let productsHasMore = false;
         let productsLoading = false;
         let productsTotalLoaded = 0;
         let productsScrollObserver = null;
+        let promoOffset = 0;
+        let promoHasMore = false;
+        let promoBusy = false;
+        let comboOffset = 0;
+        let comboHasMore = false;
+        let comboBusy = false;
+        let printOffset = 0;
+        let printHasMore = false;
+        let printBusy = false;
+        let promoKindFilter = 'all';
+
+        function setLoadMoreVisible(wrapId, show) {
+            var el = document.getElementById(wrapId);
+            if (el) el.style.display = show ? 'block' : 'none';
+        }
+
+        function toSiteImageUrl(u) {
+            var s = String(u || '').trim();
+            if (!s) return '';
+            if (/^data:/i.test(s)) return s;
+            try {
+                var parsed = new URL(s, window.location.origin);
+                if (parsed.origin === window.location.origin) return parsed.href;
+                if (/supabase\.co$/i.test(parsed.hostname) || parsed.pathname.indexOf('/storage/') !== -1) {
+                    return window.location.origin + '/api/proxy-image?url=' + encodeURIComponent(parsed.href);
+                }
+                return parsed.href;
+            } catch (_) {
+                if (s.charAt(0) === '/') return (window.location.origin || '') + s;
+                return s;
+            }
+        }
 
         function refreshDesignsBadge() {
             const badgeEl = document.getElementById('badgeDesigns');
@@ -667,6 +733,7 @@
             const sentinel = document.getElementById('productsLoadSentinel');
             if (!sentinel) return;
             if (productsScrollObserver) productsScrollObserver.disconnect();
+            setLoadMoreVisible('productsLoadMoreWrap', productsHasMore);
             if (!productsHasMore) return;
             productsScrollObserver = new IntersectionObserver(function (entries) {
                 if (entries[0] && entries[0].isIntersecting && productsHasMore && !productsLoading) {
@@ -707,6 +774,29 @@
             currentUser = await AuthService.getCurrentUser();
             const session = await AuthService.getSession();
             authToken = session?.access_token || null;
+            var productsMoreBtn = document.getElementById('productsLoadMoreBtn');
+            if (productsMoreBtn) productsMoreBtn.addEventListener('click', function () { loadProducts(true); });
+            var comboMoreBtn = document.getElementById('comboLoadMoreBtn');
+            if (comboMoreBtn) comboMoreBtn.addEventListener('click', function () { loadMaterialCombos(true); });
+            var printMoreBtn = document.getElementById('printLoadMoreBtn');
+            if (printMoreBtn) printMoreBtn.addEventListener('click', function () { loadPrintAssets(true); });
+            var promoMoreBtn = document.getElementById('promoLoadMoreBtn');
+            if (promoMoreBtn) promoMoreBtn.addEventListener('click', function () { loadPromoImages(true); });
+            document.querySelectorAll('#promoKindFilters [data-promo-kind]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var kind = btn.getAttribute('data-promo-kind') || 'all';
+                    if (kind === promoKindFilter) return;
+                    promoKindFilter = kind;
+                    document.querySelectorAll('#promoKindFilters [data-promo-kind]').forEach(function (b) {
+                        var on = b.getAttribute('data-promo-kind') === promoKindFilter;
+                        b.classList.toggle('btn-secondary', on);
+                        b.classList.toggle('btn-outline-secondary', !on);
+                    });
+                    promoLoaded = true;
+                    promoOffset = 0;
+                    loadPromoImages(false);
+                });
+            });
 
             loadProducts(false);
             loadDesignsBadgeCount();
@@ -960,19 +1050,23 @@
             }
         }
 
-        async function loadMaterialCombos() {
+        async function loadMaterialCombos(append, fillLimit) {
             const loading = document.getElementById('comboLoading');
             const list = document.getElementById('comboList');
             const empty = document.getElementById('comboEmpty');
             const badge = document.getElementById('badgeCombo');
-            if (loading) loading.style.display = 'block';
-            if (list) { list.style.display = 'none'; list.innerHTML = ''; }
-            if (empty) empty.style.display = 'none';
+            if (comboBusy) return;
+            comboBusy = true;
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
                 if (!token) throw new Error('未登入');
-                var url = '/api/me/material-combo-generations?limit=48';
+                const offset = append ? comboOffset : 0;
+                if (!append) {
+                    if (loading) loading.style.display = 'block';
+                    if (empty) empty.style.display = 'none';
+                }
+                var url = '/api/me/material-combo-generations?limit=' + ((append && fillLimit) ? fillLimit : ASSET_PAGE_SIZE) + '&offset=' + offset;
                 if (comboCategoryFilterValue) url += '&category=' + encodeURIComponent(comboCategoryFilterValue);
                 const response = await fetch(url, {
                     headers: { Authorization: 'Bearer ' + token }
@@ -981,9 +1075,12 @@
                 if (!response.ok) throw new Error(data.error || '載入失敗');
                 fillCategoryFilterSelect(document.getElementById('comboCategoryFilter'), data.categories || [], comboCategoryFilterValue);
                 const items = data.items || [];
-                if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
+                comboHasMore = !!data.hasMore;
+                comboOffset = offset + items.length;
+                if (badge) badge.textContent = comboHasMore ? (comboOffset + '+') : String(comboOffset);
                 if (loading) loading.style.display = 'none';
-                if (!items.length) {
+                if (!append && !items.length) {
+                    if (list) { list.style.display = 'none'; list.innerHTML = ''; }
                     if (empty) {
                         empty.style.display = 'block';
                         const p = empty.querySelector('p');
@@ -993,29 +1090,34 @@
                             p.textContent = '此分類尚無材料組合，可改選「全部」或清除篩選。';
                         }
                     }
+                    setLoadMoreVisible('comboLoadMoreWrap', false);
                     return;
                 }
+                if (empty) empty.style.display = 'none';
                 if (list) {
                     list.style.display = 'flex';
-                    list.innerHTML = '';
+                    if (!append) list.innerHTML = '';
                     items.forEach(function (item) {
                         list.appendChild(createComboCard(item));
                     });
                 }
+                setLoadMoreVisible('comboLoadMoreWrap', comboHasMore);
             } catch (error) {
                 console.error('載入材料組合失敗:', error);
                 if (loading) loading.style.display = 'none';
-                if (empty) {
+                if (!append && empty) {
                     empty.style.display = 'block';
                     const p = empty.querySelector('p');
                     if (p) p.textContent = '載入失敗：' + error.message;
                 }
+            } finally {
+                comboBusy = false;
             }
         }
 
         function createComboCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-6 col-md-4 col-xl-3';
+            col.className = 'col-6 col-md-3 col-xl-2';
             const combo = item.material_combo || null;
             var title = (item.title || '').trim();
             if (!title && combo && combo.main && combo.accent) {
@@ -1039,11 +1141,11 @@
                         <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>
-                        <div class="d-grid gap-2 mt-auto">
+                        <div class="asset-card-btns">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
@@ -1098,6 +1200,11 @@
                     list.innerHTML = '';
                     if (empty) empty.style.display = 'block';
                     if (badge) badge.textContent = '0';
+                    setLoadMoreVisible('comboLoadMoreWrap', false);
+                } else if (list) {
+                    comboOffset = cols;
+                    if (comboHasMore) loadMaterialCombos(true, 1);
+                    else setLoadMoreVisible('comboLoadMoreWrap', false);
                 }
                 showAlert('已刪除材料組合', 'success');
             } catch (err) {
@@ -1121,19 +1228,23 @@
             }).catch(function () {});
         }
 
-        async function loadPrintAssets() {
+        async function loadPrintAssets(append, fillLimit) {
             const loading = document.getElementById('printLoading');
             const list = document.getElementById('printList');
             const empty = document.getElementById('printEmpty');
             const badge = document.getElementById('badgePrint');
-            if (loading) loading.style.display = 'block';
-            if (list) { list.style.display = 'none'; list.innerHTML = ''; }
-            if (empty) empty.style.display = 'none';
+            if (printBusy) return;
+            printBusy = true;
             try {
                 const session = await AuthService.getSession();
                 const tok = session?.access_token;
                 if (!tok) throw new Error('未登入');
-                var url = '/api/me/print-generations?limit=48';
+                const offset = append ? printOffset : 0;
+                if (!append) {
+                    if (loading) loading.style.display = 'block';
+                    if (empty) empty.style.display = 'none';
+                }
+                var url = '/api/me/print-generations?limit=' + ((append && fillLimit) ? fillLimit : ASSET_PAGE_SIZE) + '&offset=' + offset;
                 if (printCategoryFilterValue) url += '&category=' + encodeURIComponent(printCategoryFilterValue);
                 const response = await fetch(url, {
                     headers: { Authorization: 'Bearer ' + tok }
@@ -1142,9 +1253,12 @@
                 if (!response.ok) throw new Error(data.error || '載入失敗');
                 fillCategoryFilterSelect(document.getElementById('printCategoryFilter'), data.categories || [], printCategoryFilterValue);
                 const items = data.items || [];
-                if (badge) badge.textContent = data.hasMore ? (items.length + '+') : String(items.length);
+                printHasMore = !!data.hasMore;
+                printOffset = offset + items.length;
+                if (badge) badge.textContent = printHasMore ? (printOffset + '+') : String(printOffset);
                 if (loading) loading.style.display = 'none';
-                if (!items.length) {
+                if (!append && !items.length) {
+                    if (list) { list.style.display = 'none'; list.innerHTML = ''; }
                     if (empty) {
                         empty.style.display = 'block';
                         const p = empty.querySelector('p');
@@ -1154,29 +1268,34 @@
                             p.textContent = '此分類尚無印花，可改選「全部」或清除篩選。';
                         }
                     }
+                    setLoadMoreVisible('printLoadMoreWrap', false);
                     return;
                 }
+                if (empty) empty.style.display = 'none';
                 if (list) {
                     list.style.display = 'flex';
-                    list.innerHTML = '';
+                    if (!append) list.innerHTML = '';
                     items.forEach(function (item) {
                         list.appendChild(createPrintCard(item));
                     });
                 }
+                setLoadMoreVisible('printLoadMoreWrap', printHasMore);
             } catch (error) {
                 console.error('載入印花失敗:', error);
                 if (loading) loading.style.display = 'none';
-                if (empty) {
+                if (!append && empty) {
                     empty.style.display = 'block';
                     const p = empty.querySelector('p');
                     if (p) p.textContent = '載入失敗：' + error.message;
                 }
+            } finally {
+                printBusy = false;
             }
         }
 
         function createPrintCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-6 col-md-4 col-xl-3';
+            col.className = 'col-6 col-md-3 col-xl-2';
             const meta = item.print_meta || null;
             var title = (item.title || '').trim();
             if (!title && meta && meta.print_type) title = String(meta.print_type);
@@ -1195,11 +1314,11 @@
                         <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
                         ${catBadge}
                         <div class="text-muted small mb-2">${escapeHtml(kindLabel)} · <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}</div>
-                        <div class="d-grid gap-2 mt-auto">
+                        <div class="asset-card-btns">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
@@ -1254,6 +1373,11 @@
                     list.innerHTML = '';
                     if (empty) empty.style.display = 'block';
                     if (badge) badge.textContent = '0';
+                    setLoadMoreVisible('printLoadMoreWrap', false);
+                } else if (list) {
+                    printOffset = cols;
+                    if (printHasMore) loadPrintAssets(true, 1);
+                    else setLoadMoreVisible('printLoadMoreWrap', false);
                 }
                 showAlert('已刪除印花', 'success');
             } catch (err) {
@@ -1297,41 +1421,57 @@
             }
         }
 
-        async function loadPromoImages() {
+        async function loadPromoImages(append, fillLimit) {
             const loading = document.getElementById('promoLoading');
             const list = document.getElementById('promoList');
             const empty = document.getElementById('promoEmpty');
             const badge = document.getElementById('badgePromo');
+            if (promoBusy) return;
+            promoBusy = true;
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
                 if (!token) throw new Error('未登入');
-                const response = await fetch('/api/promo-image/generations?limit=48', {
+                const offset = append ? promoOffset : 0;
+                const limit = (append && fillLimit) ? fillLimit : ASSET_PAGE_SIZE;
+                if (!append && loading) loading.style.display = 'block';
+                var promoUrl = '/api/promo-image/generations?limit=' + limit + '&offset=' + offset;
+                if (promoKindFilter && promoKindFilter !== 'all') promoUrl += '&shoot_mode=' + encodeURIComponent(promoKindFilter);
+                const response = await fetch(promoUrl, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || '載入失敗');
                 const items = data.items || [];
-                if (badge) badge.textContent = items.length;
+                promoHasMore = !!data.hasMore;
+                promoOffset = offset + items.length;
+                if (badge) badge.textContent = promoHasMore ? (promoOffset + '+') : String(promoOffset);
                 if (loading) loading.style.display = 'none';
-                if (!items.length) {
+                if (!append && !items.length) {
+                    if (list) { list.style.display = 'none'; list.innerHTML = ''; }
                     if (empty) empty.style.display = 'block';
+                    setLoadMoreVisible('promoLoadMoreWrap', false);
                     return;
                 }
+                if (empty) empty.style.display = 'none';
                 if (list) {
                     list.style.display = 'flex';
-                    list.innerHTML = '';
+                    if (!append) list.innerHTML = '';
                     items.forEach(function (item) {
                         list.appendChild(createPromoCard(item));
                     });
                 }
+                setLoadMoreVisible('promoLoadMoreWrap', promoHasMore);
             } catch (error) {
                 console.error('載入情境圖失敗:', error);
                 if (loading) loading.style.display = 'none';
-                if (empty) {
+                if (!append && empty) {
                     empty.style.display = 'block';
-                    empty.querySelector('p').textContent = '載入失敗：' + error.message;
+                    var ep = empty.querySelector('p');
+                    if (ep) ep.textContent = '載入失敗：' + error.message;
                 }
+            } finally {
+                promoBusy = false;
             }
         }
 
@@ -1346,7 +1486,7 @@
 
         function createPromoCard(item) {
             const col = document.createElement('div');
-            col.className = 'col-6 col-md-4 col-xl-3';
+            col.className = 'col-6 col-md-3 col-xl-2';
             const ratio = formatPromoAspectRatio(item);
             const title = (item.asset_kind_label || '情境圖').trim();
             const kindBadge = title !== '情境圖'
@@ -1415,11 +1555,11 @@
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-gen-desc" data-id="${escapeHtml(String(item.id || ''))}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-regen-tags" data-id="${escapeHtml(String(item.id || ''))}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
                         </div>
-                        <div class="d-grid gap-2 mt-auto">
-                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
+                        <div class="asset-card-btns">
+                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
-                            <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
@@ -1570,6 +1710,11 @@
                     list.style.display = 'none';
                     const empty = document.getElementById('promoEmpty');
                     if (empty) empty.style.display = 'block';
+                    setLoadMoreVisible('promoLoadMoreWrap', false);
+                } else if (list) {
+                    promoOffset = list.children.length;
+                    if (promoHasMore) loadPromoImages(true, 1);
+                    else setLoadMoreVisible('promoLoadMoreWrap', false);
                 }
                 showAlert('已刪除情境圖', 'success');
             } catch (err) {
@@ -1606,7 +1751,7 @@
             }
         }
 
-        async function loadProducts(append) {
+        async function loadProducts(append, fillLimit) {
             if (productsLoading) return;
             if (!authToken) {
                 document.getElementById('loadingSpinner').style.display = 'none';
@@ -1616,7 +1761,7 @@
             productsLoading = true;
             const offset = append ? productsOffset : 0;
             try {
-                const response = await fetch('/api/custom-products?list=1&limit=' + PRODUCTS_PAGE_SIZE + '&offset=' + offset, {
+                const response = await fetch('/api/custom-products?list=1&limit=' + ((append && fillLimit) ? fillLimit : PRODUCTS_PAGE_SIZE) + '&offset=' + offset, {
                     headers: { Authorization: 'Bearer ' + authToken }
                 });
                 const data = await response.json();
@@ -1681,7 +1826,7 @@
 
         function createProductCard(product, eagerImage) {
             const col = document.createElement('div');
-            col.className = 'col-6 col-md-4 col-xl-3';
+            col.className = 'col-6 col-md-3 col-xl-2';
             col.dataset.productId = product.id;
 
             const statusInfo = getStatusInfo(product.status);
@@ -1996,6 +2141,12 @@
                 if (list && !list.querySelector('[data-product-id]')) {
                     list.style.display = 'none';
                     document.getElementById('emptyState').style.display = 'block';
+                    setLoadMoreVisible('productsLoadMoreWrap', false);
+                } else if (list) {
+                    productsOffset = list.children.length;
+                    productsTotalLoaded = productsOffset;
+                    if (productsHasMore) loadProducts(true, 1);
+                    else setLoadMoreVisible('productsLoadMoreWrap', false);
                 }
                 showAlert('已刪除', 'success');
             } catch (error) {
@@ -2144,7 +2295,7 @@
                         const contactBtnHtml = mfrUserId
                             ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</a>`
                             : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
-                        return `<div class="col-6 col-md-4 col-xl-3">
+                        return `<div class="col-6 col-md-3 col-xl-2">
                             <div class="card product-card h-100">
                                 ${img
                                     ? `<div class="product-image-wrap"><img src="${img}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(title)}" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`

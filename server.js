@@ -18340,17 +18340,33 @@ function mapUserPromoGenerationListItem(row) {
 }
 
 /** 使用者「我的數位資產 → 情境圖」列表（對齊管理區：缺欄位時 fallback，避免整頁空白） */
-async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd) {
+function applyPromoShootModeListFilter(q, shootFilter) {
+    const f = String(shootFilter || '').trim().toLowerCase();
+    if (f === 'portrait') {
+        return q.eq('generation_mode', 'camera_advanced').filter('generation_meta_json->>shoot_mode', 'eq', 'portrait');
+    }
+    if (f === 'space') {
+        return q.eq('generation_mode', 'camera_advanced').filter('generation_meta_json->>shoot_mode', 'eq', 'space');
+    }
+    if (f === 'product') {
+        return q.or('generation_mode.is.null,generation_mode.eq.standard,generation_meta_json->>shoot_mode.eq.product');
+    }
+    return q;
+}
+
+async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd, shootFilter) {
     const uid = String(userId || '').trim();
     if (!uid) return { data: [], error: null };
-    const baseQuery = (selectCols) => supabase.from('product_promo_generations')
-        .select(selectCols)
-        .eq('user_id', uid)
-        .eq('status', 'success')
-        .not('result_image_url', 'is', null)
-        .neq('result_image_url', '')
-        .order('created_at', { ascending: false })
-        .range(offsetN, rangeEnd);
+    const baseQuery = (selectCols) => applyPromoShootModeListFilter(
+        supabase.from('product_promo_generations')
+            .select(selectCols)
+            .eq('user_id', uid)
+            .eq('status', 'success')
+            .not('result_image_url', 'is', null)
+            .neq('result_image_url', '')
+            .order('created_at', { ascending: false }),
+        shootFilter
+    ).range(offsetN, rangeEnd);
     const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json';
     const selectNoMeta = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, ai_tags, generation_mode';
     const selectNoTags = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, generation_mode, generation_meta_json';
@@ -19668,7 +19684,13 @@ app.get('/api/promo-image/generations', async (req, res) => {
         const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
         const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
         const rangeEnd = offsetN + limitN;
-        let { data, error } = await fetchUserPromoGenerationListRows(user.id, offsetN, rangeEnd);
+        const shootFilter = String(req.query.shoot_mode || req.query.kind || '').trim().toLowerCase();
+        let { data, error } = await fetchUserPromoGenerationListRows(user.id, offsetN, rangeEnd, shootFilter);
+        if (error && shootFilter && /generation_mode|generation_meta_json|shoot_mode/i.test(error.message || '')) {
+            const retry = await fetchUserPromoGenerationListRows(user.id, offsetN, rangeEnd);
+            data = retry.data;
+            error = retry.error;
+        }
         if (error) {
             console.error('GET /api/promo-image/generations:', error);
             return res.status(500).json({ error: error.message || '載入失敗' });
@@ -19682,9 +19704,18 @@ app.get('/api/promo-image/generations', async (req, res) => {
         } catch (appealErr) {
             console.warn('GET /api/promo-image/generations appeals:', appealErr && appealErr.message);
         }
-        const items = pageRows.map(function (row) {
+        let items = pageRows.map(function (row) {
             return Object.assign(mapUserPromoGenerationListItem(row), mapPromoSpaceAppealSummary(appealMap[String(row.id)]));
         });
+        if (shootFilter === 'portrait' || shootFilter === 'space' || shootFilter === 'product') {
+            items = items.filter(function (item) {
+                const k = String(item.asset_kind || '');
+                if (shootFilter === 'portrait') return k === 'promo_camera_portrait';
+                if (shootFilter === 'space') return k === 'promo_camera_space_layout' || k === 'promo_camera_space_eye_level';
+                if (shootFilter === 'product') return k === 'promo_camera_product' || k === 'promo_scene';
+                return true;
+            });
+        }
         res.json({ success: true, items: items, count: items.length, offset: offsetN, hasMore: hasMore });
     } catch (e) {
         console.error('GET /api/promo-image/generations:', e);
