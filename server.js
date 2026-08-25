@@ -2420,9 +2420,6 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let draftImageUrl = null;
         let draftImageData = null;
         let draftGenerationId = null;
-        let draftImageUrl = null;
-        let draftImageData = null;
-        let draftGenerationId = null;
         if (isAdmin && draftBuffer && draftBuffer.length) {
             const draftSaved = await persistPromoPortraitGeneration({
                 userId: currentUser.id,
