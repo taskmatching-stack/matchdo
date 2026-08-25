@@ -419,6 +419,116 @@ async function isPromoPortraitPromptAutoPolishEnabled(userId) {
     return true;
 }
 
+/** 連續審核攔截後降低該帳號商攝生圖頻率（記憶體＋profiles；欄位未建仍可降速）。 */
+const PROMPT_REVIEW_THROTTLE_MEM = new Map();
+
+function promptReviewCooldownMs(streak) {
+    const n = Number(streak) || 0;
+    if (n < 3) return 0;
+    if (n < 6) return 10 * 60 * 1000;
+    if (n < 10) return 60 * 60 * 1000;
+    return 12 * 60 * 60 * 1000;
+}
+
+function formatPromptReviewThrottleMessage(waitSec) {
+    const sec = Math.max(1, waitSec | 0);
+    if (sec >= 3600) {
+        const hours = Math.ceil(sec / 3600);
+        return '短時間內多次未通過審核，請 ' + hours + ' 小時後再試';
+    }
+    if (sec >= 60) {
+        const mins = Math.ceil(sec / 60);
+        return '短時間內多次未通過審核，請 ' + mins + ' 分鐘後再試';
+    }
+    return '短時間內多次未通過審核，請 ' + sec + ' 秒後再試';
+}
+
+function readPromptReviewThrottleMem(userId) {
+    const hit = PROMPT_REVIEW_THROTTLE_MEM.get(userId);
+    if (!hit) return { streak: 0, until: 0 };
+    return { streak: Number(hit.streak) || 0, until: Number(hit.until) || 0 };
+}
+
+function writePromptReviewThrottleMem(userId, streak, until) {
+    PROMPT_REVIEW_THROTTLE_MEM.set(userId, { streak: Number(streak) || 0, until: Number(until) || 0 });
+}
+
+async function persistPromptReviewThrottle(userId, streak, until) {
+    try {
+        const { error } = await supabase.from('profiles').update({
+            prompt_review_block_streak: Math.max(0, Number(streak) || 0),
+            prompt_review_throttle_until: until ? new Date(until).toISOString() : null
+        }).eq('id', userId);
+        if (error && error.code !== '42703') {
+            console.warn('persistPromptReviewThrottle:', error.message);
+        }
+    } catch (_) {}
+}
+
+async function loadPromptReviewThrottleState(userId) {
+    const mem = readPromptReviewThrottleMem(userId);
+    if (mem.streak || mem.until) return mem;
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('prompt_review_block_streak, prompt_review_throttle_until')
+            .eq('id', userId)
+            .maybeSingle();
+        if (error) {
+            if (error.code !== '42703') console.warn('loadPromptReviewThrottleState:', error.message);
+            return mem;
+        }
+        const streak = Number(data && data.prompt_review_block_streak) || 0;
+        const until = data && data.prompt_review_throttle_until ? Date.parse(data.prompt_review_throttle_until) : 0;
+        const state = { streak, until: Number.isFinite(until) ? until : 0 };
+        writePromptReviewThrottleMem(userId, state.streak, state.until);
+        return state;
+    } catch (_) {
+        return mem;
+    }
+}
+
+async function assertAccountGenerateThrottle(userId, isAdmin) {
+    const uid = String(userId || '').trim();
+    if (!uid || isAdmin) return;
+    const state = await loadPromptReviewThrottleState(uid);
+    const waitMs = (state.until || 0) - Date.now();
+    if (waitMs <= 0) return;
+    const waitSec = Math.ceil(waitMs / 1000);
+    const err = new Error(formatPromptReviewThrottleMessage(waitSec));
+    err.status = 429;
+    err.retryAfterSec = waitSec;
+    throw err;
+}
+
+function sendGenerateThrottle(res, err) {
+    const sec = err.retryAfterSec || 60;
+    res.set('Retry-After', String(sec));
+    return res.status(429).json({
+        success: false,
+        error: err.message || formatPromptReviewThrottleMessage(sec),
+        retry_after: sec,
+        code: 'prompt_review_throttled'
+    });
+}
+
+async function recordPromptReviewBlock(userId) {
+    const uid = String(userId || '').trim();
+    if (!uid) return;
+    const state = await loadPromptReviewThrottleState(uid);
+    const streak = (state.streak || 0) + 1;
+    const until = Date.now() + promptReviewCooldownMs(streak);
+    writePromptReviewThrottleMem(uid, streak, until);
+    persistPromptReviewThrottle(uid, streak, until || null).catch(() => {});
+}
+
+async function clearPromptReviewBlockStreak(userId) {
+    const uid = String(userId || '').trim();
+    if (!uid) return;
+    writePromptReviewThrottleMem(uid, 0, 0);
+    persistPromptReviewThrottle(uid, 0, null).catch(() => {});
+}
+
 function jpegImageRefFromBuffer(buffer) {
     return { base64: Buffer.from(buffer).toString('base64'), mime: 'image/jpeg' };
 }
@@ -2130,6 +2240,29 @@ function withTimeoutMs(promise, ms, label) {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+function insertPromptReviewEvent(row) {
+    const action = row && row.action;
+    if (action !== 'polished' && action !== 'blocked') return;
+    Promise.resolve().then(async function () {
+        const payload = {
+            user_id: row.userId || null,
+            action: action,
+            original_prompt: String(row.originalPrompt || '').slice(0, 4000),
+            rewritten_prompt: row.rewrittenPrompt ? String(row.rewrittenPrompt).slice(0, 4000) : null,
+            reason: String(row.reason || '').slice(0, 500),
+            auto_polish: row.autoPolish == null ? null : !!row.autoPolish,
+            client_channel: row.clientChannel ? String(row.clientChannel).slice(0, 40) : null,
+            shoot_mode: row.shootMode ? String(row.shootMode).slice(0, 40) : 'portrait'
+        };
+        const { error } = await supabase.from('prompt_review_events').insert(payload);
+        if (error && error.code !== '42P01') {
+            console.warn('insertPromptReviewEvent:', error.message);
+        }
+    }).catch(function (e) {
+        console.warn('insertPromptReviewEvent:', e && e.message);
+    });
+}
+
 async function reviewPromoPortraitUserPromptOnce(text, model) {
     const result = await runInGeminiQueue(() => withTimeoutMs(genAI.models.generateContent({
         model,
@@ -2148,8 +2281,15 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
     const src = String(original || '').trim();
     if (!src) return { prompt: '', rewritten: false };
     const autoPolish = !(opts && opts.autoPolish === false);
+    const logUserId = opts && opts.userId;
+    const logCtx = {
+        userId: logUserId,
+        autoPolish: autoPolish,
+        clientChannel: opts && opts.clientChannel,
+        shootMode: (opts && opts.shootMode) || 'portrait'
+    };
     if (!process.env.GEMINI_API_KEY) {
-        const err = new Error('人像描述審核服務暫未設定，請稍後再試');
+        const err = new Error('描述審核服務暫未設定，請稍後再試');
         err.status = 503;
         throw err;
     }
@@ -2160,16 +2300,32 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
             const parsed = await reviewPromoPortraitUserPromptOnce(src, model);
             if (parsed.ok) return { prompt: src, rewritten: false };
             if (!autoPolish) {
-                const err = new Error('人像描述未通過安全審核，無法生圖。關閉自動潤飾後不會改寫描述，請自行修改後再試');
+                insertPromptReviewEvent(Object.assign({}, logCtx, {
+                    action: 'blocked',
+                    originalPrompt: src,
+                    reason: parsed.reason || 'blocked'
+                }));
+                const err = new Error('描述未通過安全審核，無法生圖。關閉自動潤飾後不會改寫描述，請自行修改後再試');
                 err.status = 400;
                 throw err;
             }
             const rewritten = parsed.rewritten;
             if (!rewritten) {
-                const err = new Error('人像描述無法通過安全審核，請修改後再試');
+                insertPromptReviewEvent(Object.assign({}, logCtx, {
+                    action: 'blocked',
+                    originalPrompt: src,
+                    reason: parsed.reason || 'blocked'
+                }));
+                const err = new Error('描述無法通過安全審核，請修改後再試');
                 err.status = 400;
                 throw err;
             }
+            insertPromptReviewEvent(Object.assign({}, logCtx, {
+                action: 'polished',
+                originalPrompt: src,
+                rewrittenPrompt: rewritten,
+                reason: parsed.reason || 'polished'
+            }));
             return { prompt: rewritten, rewritten: true, reason: parsed.reason || '' };
         } catch (e) {
             if (e && e.status === 400) throw e;
@@ -2177,7 +2333,7 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
             console.warn('reviewPromoPortraitUserPrompt try', i + 1, e && e.message);
         }
     }
-    const err = new Error('人像描述審核失敗，請稍後再試');
+    const err = new Error('描述審核失敗，請稍後再試');
     err.status = 503;
     if (lastErr) console.warn('reviewPromoPortraitUserPrompt failed after retry:', lastErr.message || lastErr);
     throw err;
@@ -2185,14 +2341,28 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
 
 async function resolveReviewedPromoPortraitUserPrompt(body, userId) {
     const original = String((body && (body.user_prompt || body.prompt)) || '').trim();
-    if (!original) return '';
+    if (!original) return { prompt: '', rewritten: false };
     const autoPolish = await isPromoPortraitPromptAutoPolishEnabled(userId);
-    const reviewed = await reviewPromoPortraitUserPrompt(original, { autoPolish });
+    const reviewed = await reviewPromoPortraitUserPrompt(original, {
+        autoPolish: autoPolish,
+        userId: userId,
+        clientChannel: body && body.client_channel,
+        shootMode: 'portrait'
+    });
     if (body) {
         body.user_prompt = reviewed.prompt;
         if (body.prompt != null) body.prompt = reviewed.prompt;
     }
-    return reviewed.prompt;
+    return {
+        prompt: reviewed.prompt,
+        rewritten: !!reviewed.rewritten
+    };
+}
+
+/** 僅審核 400（無法生圖）計入連續擋下。自動潤飾後仍生圖的不算擋下，並中斷連續次數。 */
+async function applyPromptReviewStreakAfterReview(userId, reviewed) {
+    if (!userId) return;
+    await clearPromptReviewBlockStreak(userId);
 }
 
 async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
@@ -2229,11 +2399,16 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     }
     let userPrompt;
     try {
-        userPrompt = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+        const reviewed = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+        userPrompt = reviewed.prompt;
+        await applyPromptReviewStreakAfterReview(currentUser && currentUser.id, reviewed);
     } catch (reviewErr) {
+        if (reviewErr && reviewErr.status === 400) {
+            await recordPromptReviewBlock(currentUser && currentUser.id);
+        }
         return res.status(reviewErr.status || 503).json({
             success: false,
-            error: (reviewErr && reviewErr.message) || '人像描述審核失敗，請稍後再試'
+            error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
         });
     }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
@@ -2747,11 +2922,16 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     }
     let userPrompt;
     try {
-        userPrompt = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+        const reviewed = await resolveReviewedPromoPortraitUserPrompt(body, currentUser && currentUser.id);
+        userPrompt = reviewed.prompt;
+        await applyPromptReviewStreakAfterReview(currentUser && currentUser.id, reviewed);
     } catch (reviewErr) {
+        if (reviewErr && reviewErr.status === 400) {
+            await recordPromptReviewBlock(currentUser && currentUser.id);
+        }
         return res.status(reviewErr.status || 503).json({
             success: false,
-            error: (reviewErr && reviewErr.message) || '人像描述審核失敗，請稍後再試'
+            error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
         });
     }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
@@ -19101,6 +19281,12 @@ app.post('/api/promo-camera/planning-sim', express.json({ limit: '15mb' }), asyn
         if (!currentUser) {
             return res.status(401).json({ success: false, error: '請先登入後再使用規劃模擬' });
         }
+        try {
+            await assertAccountGenerateThrottle(currentUser.id, isAdmin);
+        } catch (thErr) {
+            if (thErr && thErr.status === 429) return sendGenerateThrottle(res, thErr);
+            throw thErr;
+        }
         return handlePromoCameraPlanningSimGenerate(req, res, { body: req.body || {}, currentUser, isAdmin });
     } catch (e) {
         console.error('POST /api/promo-camera/planning-sim:', e);
@@ -19124,6 +19310,12 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
         }
         if (!currentUser) {
             return res.status(401).json({ success: false, error: '請先登入後再使用商攝導演' });
+        }
+        try {
+            await assertAccountGenerateThrottle(currentUser.id, isAdmin);
+        } catch (thErr) {
+            if (thErr && thErr.status === 429) return sendGenerateThrottle(res, thErr);
+            throw thErr;
         }
         const body = req.body || {};
         const shootMode = String(body.shoot_mode || 'product').trim().toLowerCase();
@@ -31288,6 +31480,104 @@ app.get('/api/admin/generation-records', async (req, res) => {
         return res.json(payload);
     } catch (e) {
         console.error('GET /api/admin/generation-records:', e);
+        return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+function sanitizePromptReviewSearch(raw) {
+    return String(raw || '').trim().replace(/[%_,]/g, ' ').slice(0, 80);
+}
+
+// GET /api/admin/prompt-review-events — 管理員：潤飾／擋下記錄
+app.get('/api/admin/prompt-review-events', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const action = String(req.query.action || 'all').trim();
+        const q = sanitizePromptReviewSearch(req.query.q);
+        const from = String(req.query.from || '').trim();
+        const to = String(req.query.to || '').trim();
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+        function applyFilters(qb) {
+            let qy = qb;
+            if (action === 'polished' || action === 'blocked') qy = qy.eq('action', action);
+            if (from) qy = qy.gte('created_at', from + 'T00:00:00.000Z');
+            if (to) qy = qy.lte('created_at', to + 'T23:59:59.999Z');
+            if (q) {
+                qy = qy.or('original_prompt.ilike.%' + q + '%,rewritten_prompt.ilike.%' + q + '%,reason.ilike.%' + q + '%');
+            }
+            return qy;
+        }
+
+        const listQ = applyFilters(
+            supabase.from('prompt_review_events').select('*', { count: 'exact' })
+        ).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+        const { data: rows, error, count } = await listQ;
+        if (error) {
+            if (error.code === '42P01') {
+                return res.json({
+                    items: [],
+                    total: 0,
+                    has_more: false,
+                    summary: { polished: 0, blocked: 0 },
+                    hint: '請先在後台執行 migration：prompt-review-events'
+                });
+            }
+            console.error('GET /api/admin/prompt-review-events:', error);
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+
+        const ids = Array.from(new Set((rows || []).map((r) => r.user_id).filter(Boolean)));
+        let emailById = {};
+        if (ids.length) {
+            const { data: profiles } = await supabase.from('profiles').select('id, email, full_name').in('id', ids);
+            (profiles || []).forEach((p) => {
+                emailById[p.id] = { email: p.email || '', full_name: p.full_name || '' };
+            });
+        }
+
+        const items = (rows || []).map((r) => {
+            const who = emailById[r.user_id] || {};
+            return {
+                id: r.id,
+                user_id: r.user_id,
+                user_email: who.email || '',
+                user_name: who.full_name || '',
+                action: r.action,
+                original_prompt: r.original_prompt || '',
+                rewritten_prompt: r.rewritten_prompt || '',
+                reason: r.reason || '',
+                auto_polish: r.auto_polish,
+                client_channel: r.client_channel || '',
+                shoot_mode: r.shoot_mode || '',
+                created_at: r.created_at
+            };
+        });
+
+        let polished = 0;
+        let blocked = 0;
+        const sumPolished = applyFilters(
+            supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'polished')
+        );
+        const sumBlocked = applyFilters(
+            supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'blocked')
+        );
+        const [pRes, bRes] = await Promise.all([sumPolished, sumBlocked]);
+        if (!pRes.error) polished = pRes.count || 0;
+        if (!bRes.error) blocked = bRes.count || 0;
+        if (action === 'polished') { polished = count || 0; blocked = 0; }
+        if (action === 'blocked') { blocked = count || 0; polished = 0; }
+
+        return res.json({
+            items: items,
+            total: count || 0,
+            has_more: offset + items.length < (count || 0),
+            summary: { polished: polished, blocked: blocked }
+        });
+    } catch (e) {
+        console.error('GET /api/admin/prompt-review-events:', e);
         return res.status(500).json({ error: '查詢失敗' });
     }
 });

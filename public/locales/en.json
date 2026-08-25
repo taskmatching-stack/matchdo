@@ -1539,7 +1539,7 @@
   "profile.displayName": "Display name",
   "profile.role": "Role",
   "profile.currentCredits": "Points",
-  "profile.portraitPromptReviewTitle": "Portrait prompt review",
+  "profile.portraitPromptReviewTitle": "Generation prompt review",
   "profile.portraitPromptReviewHelp": "Auto-polish is on by default (no points). Turning it off still reviews the prompt; clear violations are blocked and will not generate. Only the automatic rewrite is skipped.",
   "profile.portraitPromptAutoPolish": "Enable auto-polish",
   "profile.portraitPromptReviewOffRisk": "If you turn this off, violating prompts will not be rewritten. Generation will still be blocked. Please edit the prompt yourself. Review is never fully disabled.",
