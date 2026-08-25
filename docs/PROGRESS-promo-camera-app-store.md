@@ -142,11 +142,12 @@ npm run cap:open:android  # 或 cap:run:android
 ## 7. 日後 backlog（接續時從這裡開始）
 
 1. Cloud Shell deploy §3 → iPhone Safari 實測 PWA 引導
-2. **Capacitor C2**：登入 deep link、選項／上傳／生圖在真機／模擬器端到端
-3. **Capacitor C3**：IAP + `POST /api/payment/iap/verify`（送審必備）
-4. **Codemagic** iOS IPA → TestFlight（照 [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md) §B；費用見 Capacitor 規劃 §7.4）
-5. **Android AAB** Play 內測（Windows 本機可出）
-6. **`sync-www.mjs`**：若 L3b 新增依賴（例 `pwa-install-prompt.js`），確認允許清單有 copy 進 Store bundle
+2. **Android 殼**能開、能打 API（C1 已部分完成）
+3. **IAP 測試線（提早，UI 可醜）**：買點 → `POST /api/payment/iap/verify` → 點數增加
+4. 登入 deep link（殼內 WebView 已能登則可晚做）
+5. **Codemagic** iOS IPA → TestFlight（照 [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md) §B；費用見 Capacitor 規劃 §7.4）
+6. **Android AAB** Play 內測（Windows 本機可出）
+7. **`sync-www.mjs`**：若 L3b 新增依賴（例 `pwa-install-prompt.js`），確認允許清單有 copy 進 Store bundle
 
 ---
 
@@ -156,6 +157,7 @@ npm run cap:open:android  # 或 cap:run:android
 |------|------|
 | 2026-08-01 | 初版 handoff；PWA 加入主畫面引導與文件一併 push |
 | 2026-08-25 | 補 §9 缺口、**§10 上架前逐步清單** |
+| 2026-08-25 | §10：Android 殼之後**先跑通 IAP 測試線**（買點→核銷→加點），漂亮 UI 後做 |
 
 ---
 
@@ -179,8 +181,8 @@ npm run cap:open:android  # 或 cap:run:android
 
 | 缺口 | 說明 |
 |------|------|
-| 登入回 App | 深鏈／InAppBrowser：瀏覽器登完要回到 App |
-| IAP + 後端核銷 | 送審幾乎必備；規劃 `POST /api/payment/iap/verify` 未做 |
+| 登入回 App | 深鏈／InAppBrowser：瀏覽器登完要回到 App（殼內已能登可晚做） |
+| IAP + 後端核銷 | **殼能跑就先測**：買點 → `POST /api/payment/iap/verify` → 點數增加；漂亮 UI 後補 |
 | 原生橋 | `app-native-bridge.js` 仍是占位（相機、相簿、分享、IAP） |
 | iOS 出包 | Apple Developer（約 USD 99／年）+ Mac 或 Codemagic → IPA → TestFlight |
 | Android 上架 | Play 帳號（約 USD 25 一次）+ AAB 內測 |
@@ -201,6 +203,8 @@ npm run cap:open:android  # 或 cap:run:android
 
 **現況：** C0～C1 已完成（隔離包、`sync-www`、Android 模擬器可開頁、API origin）。C2 起未做。跟我說「做第 N 步」即可接著做。
 
+**順序定案：** Android 殼能跑之後，**立刻**做「買點 → 後端核銷 → 點數增加」測試線。不必先做漂亮儲值頁；流程通了再補 UI、deep link、商店素材。
+
 ### 你先準備（不寫程式，可與第 1～2 步並行）
 
 | # | 項 | 狀態 | 誰做 |
@@ -209,18 +213,20 @@ npm run cap:open:android  # 或 cap:run:android
 | B | [Apple Developer](https://developer.apple.com/programs/) | ⏸ 約 USD 99／年；沒有就不能 TestFlight／IAP | 你 |
 | C | 隱私權頁、支援 URL、客服信箱 | ⏸ Store 必填；站上尚無獨立隱私頁 | 你定文案，我可做成頁 |
 
-### 開發步驟（依序；內測可先做 1～2，送審必須做到 5）
+### 開發步驟（依序；殼起來後立刻跑 IAP 測試線；送審前要有核銷＋加點）
 
 | 步 | 內容 | 完成才算過 | 狀態 |
 |----|------|------------|------|
 | **1** | 線上 PWA 真機驗 [`/promo-camera-app`](https://matchdo.cc/promo-camera-app) | iPhone Safari「加入主畫面」；登入、扣點、清晰／氛圍／混合生圖 | ⏸ 你測；品質基準 `8b998fe` |
-| **2** | Windows 再打 Android 殼 | `apps/matchdo-promo-camera` → `npm run cap:run:android`；能開 UI、參數、打 `matchdo.cc` API | ⏸ 模擬器曾開過頁；**登入回 App、真機生圖未驗** |
-| **3** | 登入回 App | 系統瀏覽器／InAppBrowser 開登入 → Deep Link 回 App 仍是同一 session | ⏸ C2 核心 |
-| **4** | 原生相簿／相機／分享 | 實作 `app-native-bridge.js`（套件已在 `package.json`，橋仍是空的） | ⏸ 可與 3 同輪，但別改線上 PWA |
-| **5** | IAP + 後端核銷 | App 內買點；`POST /api/payment/iap/verify` 寫入點數；**禁止** App 內開綠界 | ⏸ 送審幾乎必備 |
-| **6** | 商店素材 | 1024² 圖示、Splash、手機截圖、年齡分級、審查說明（攝影模擬工具） | ⏸ |
-| **7** | Android AAB → Play **內測** | 封閉測試跑通登入＋生圖＋（若已做）IAP | ⏸ |
-| **8** | iOS：Codemagic → TestFlight | 照 [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md)；Windows 打不出 IPA | ⏸ 需完成 B |
+| **2** | Windows 打 Android 殼 | `apps/matchdo-promo-camera` → `npm run cap:run:android`；能開 UI、參數、打 `matchdo.cc` API | ⏸ 模擬器曾開過頁 |
+| **3** | **IAP 測試線**（UI 可先醜） | Play 測試商品買一次 → 後端核銷 → **該帳號點數增加**。一顆測試鈕即可；**禁止** App 內開綠界 | ⏸ 殼能跑就做；需 A 與 Play 測試帳號 |
+| **4** | 登入回 App | 若殼內 WebView 已能登入，可延後。跳出系統瀏覽器才做 Deep Link | ⏸ |
+| **5** | 原生相簿／相機／分享 | 實作 `app-native-bridge.js`（套件已在 `package.json`，橋仍是空的） | ⏸ 別改線上 PWA |
+| **6** | 儲值 UI 與商店素材 | 把第 3 步測試鈕收成像樣的買點頁；1024² 圖示、Splash、截圖、年齡分級 | ⏸ |
+| **7** | Android AAB → Play **內測** | 封閉測試：登入＋生圖＋買點加點 | ⏸ |
+| **8** | iOS：Codemagic → TestFlight | 照 [`HOW-TO-promo-camera-ios-xcode-and-cloud.md`](HOW-TO-promo-camera-ios-xcode-and-cloud.md)；同一條核銷 API | ⏸ 需完成 B |
 | **9** | 雙平台正式送審 | 去掉外開儲值；隱私問卷、IAP 商品過審 | ⏸ |
 
-**這一步不要做：** 整站進 App、Flutter 重寫、為 Store 改 `promo-camera-app.html`／`app-shell.js`、把未完成 IAP 的包送正式審核。
+**第 3 步要通的鏈：** Play Billing 收據 → `POST /api/payment/iap/verify` → 寫入點數 → App 重抓餘額。先 Android 測試軌；iOS 收據格式第 8 步再接同一支 API。
+
+**這一步不要做：** 整站進 App、Flutter 重寫、為 Store 改 `promo-camera-app.html`／`app-shell.js`、把未完成核銷的包送正式審核。

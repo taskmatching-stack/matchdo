@@ -145,7 +145,7 @@ HTML 目前從 CDN 載入，Store bundle **應改成本機**：
 |---|------|------|
 | 1 | **API 絕對位址** | 本地 `file`/`capacitor://` 下相對路徑 `/api/...` 會打錯；需 `window.__MATCHDO_API_ORIGIN = 'https://matchdo.cc'`（或 build 注入），**僅 App bundle 分支**，不破坏線上 PWA。 |
 | 2 | **登入** | HTML 內 `/login.html` 不在 bundle；需 **InAppBrowser / 系統瀏覽器** 開 `https://matchdo.cc/login.html?returnUrl=...` + **Deep Link / Universal Link** 回 App，或另做精簡 `www/login.html`。 |
-| 3 | **儲值（審核必過）** | App 內 **Apple IAP + Google Play Billing**；後端新增 receipt verify → 寫入 `user_credits`。**不可** App 內開綠界 credits 頁（現 `app-shell.js` 新分頁開 credits 僅適用 PWA）。 |
+| 3 | **儲值（審核必過）** | App 內 **Apple IAP + Google Play Billing**；後端 receipt verify → 寫入點數。Android 殼起來後**先跑通測試線**（一顆鈕即可），漂亮儲值頁後補。**不可** App 內開綠界 credits 頁（現 `app-shell.js` 新分頁開 credits 僅適用 PWA）。 |
 | 4 | **隱私權／支援 URL** | Store 必填；可指向 `matchdo.cc` 既有頁或新增靜態頁。 |
 | 5 | **App 圖示與 splash** | Store 1024² 等；與 `promo-camera-app.webmanifest` 分開維護。 |
 | 6 | **生圖紀錄** | 已支援 `client_channel: app`；Store 版可再加 metadata（例：`distribution: capacitor`）。 |
@@ -162,8 +162,8 @@ HTML 目前從 CDN 載入，Store bundle **應改成本機**：
 |------|------|------------|
 | **C0** | 本文件 + `apps/matchdo-promo-camera` 空殼、`sync-www` 腳本 | 0.5～1 |
 | **C1** | Capacitor 初始化、www bundle、vendor CDN、Android 真機可開頁 | 2～3 |
-| **C2** | API origin、登入 deep link / InAppBrowser、選項／上傳／生圖打通 | 3～5 |
-| **C3** | IAP（RevenueCat 或原生）+ 後端 verify API + App 儲值 UI | 8～12 |
+| **C2** | API origin、選項／上傳／生圖打通；登入 deep link 可晚於 IAP 測試線 | 3～5 |
+| **C3** | **先** IAP 測試線（買點→verify→加點，UI 可醜）再補儲值頁；RevenueCat 或原生 + 後端 verify | 8～12 |
 | **C4** | iOS 雲端建置（Codemagic 等）+ 簽章 + TestFlight 內測 | 2～4（首次含學習） |
 | **C5** | Store 文案、截圖、隱私問卷、審核來回 | 3～7（日曆天，非全職） |
 
@@ -273,8 +273,8 @@ HTML 目前從 CDN 載入，Store bundle **應改成本機**：
 
 ### 7.3 建議路線（無 Mac 開發者）
 
-1. **Windows**：C0～C3 + **Android 內測／Play 封測**（先驗證 bundle + API + 登入 + 生圖）。  
-2. **並行**：申請 Apple Developer、設計 IAP 商品、後端 verify。  
+1. **Windows**：C0～C1 殼能跑 → **立刻** IAP 測試線（買點→核銷→加點）→ 再補登入 deep link／儲值 UI。  
+2. **並行**：申請 Apple Developer、Play／App Store IAP 測試商品、後端 verify。  
 3. **Codemagic**（首選）或 GitHub Actions：同一 repo `apps/matchdo-promo-camera` push 即打 iOS。  
 4. **TestFlight** 給自己測 iOS → 再正式送審。  
 

@@ -191,7 +191,7 @@ Repo 根或 `apps/matchdo-promo-camera/` 可放 `codemagic.yaml`（尚未建立�
 | 4 | 圖示、Splash、截圖 | 與 PWA manifest 分開 |
 | 5 | 審核文案 | 說明為攝影模擬工具、點數用途 |
 
-內測階段可先「能開頁、能打 API」；**不要**把「外開綠界儲值」的包送正式審核。
+Android 殼能跑之後，**先**把「買點 → 後端核銷 → 點數增加」測通（UI 可醜）；iOS 接同一支 verify API。內測不要外開綠界；**不要**把未核銷的包送正式審核。
 
 ---
 
