@@ -51,7 +51,7 @@
       width: 18%; white-space: normal; word-break: break-word;
       border-right: 2px solid #adb5bd;
     }
-    .table-cat-stats .col-num { width: 8.75%; }
+    .table-cat-stats .col-num { width: 5.8%; }
     .table-cat-stats .col-promo-page { border-right: 2px solid #adb5bd !important; }
     .table-cat-stats.table-promo-stats th.col-main,
     .table-cat-stats.table-promo-stats td.col-main { width: 14%; }
@@ -176,6 +176,7 @@
               <span class="ph-nums text-muted">圖數＝封面＋圖庫；官＝官方版型庫</span>
               <span class="ph-nums">原型 官 <strong id="vaOfficialProtoRec">—</strong> / 廠 <strong id="vaVendorProtoRec">—</strong> 筆</span>
               <span class="ph-nums">材料 官 <strong id="vaOfficialMatRec">—</strong> / 廠 <strong id="vaVendorMatRec">—</strong> 筆</span>
+              <span class="ph-nums">配件 官 <strong id="vaOfficialPartRec">—</strong> / 廠 <strong id="vaVendorPartRec">—</strong> 筆</span>
             </div>
             <div class="stats-table-wrap">
               <table class="table table-sm table-hover mb-0 table-cat-stats">
@@ -185,10 +186,12 @@
                     <th class="col-sub" rowspan="2">子分類</th>
                     <th class="col-num-group" colspan="4">原型</th>
                     <th class="col-num-group" colspan="4">材料</th>
+                    <th class="col-num-group" colspan="4">配件</th>
                   </tr>
                   <tr>
                     <th class="col-num col-proto">官筆</th><th class="col-num col-proto">廠筆</th><th class="col-num col-proto">官圖</th><th class="col-num col-proto col-group-end">廠圖</th>
-                    <th class="col-num col-mat">官筆</th><th class="col-num col-mat">廠筆</th><th class="col-num col-mat">官圖</th><th class="col-num col-mat">廠圖</th>
+                    <th class="col-num col-mat">官筆</th><th class="col-num col-mat">廠筆</th><th class="col-num col-mat">官圖</th><th class="col-num col-mat col-group-end">廠圖</th>
+                    <th class="col-num col-part">官筆</th><th class="col-num col-part">廠筆</th><th class="col-num col-part">官圖</th><th class="col-num col-part">廠圖</th>
                   </tr>
                 </thead>
                 <tbody id="tblVendor"></tbody>
@@ -358,6 +361,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
-  <script src="/admin/js/platform-stats.js?v=20260825-cat-collapsed"></script>
+  <script src="/admin/js/platform-stats.js?v=20260826-parts"></script>
 </body>
 </html>

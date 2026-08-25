@@ -184,7 +184,9 @@
       official_prototype_records: 0, vendor_prototype_records: 0,
       official_prototype_images: 0, vendor_prototype_images: 0,
       official_material_records: 0, vendor_material_records: 0,
-      official_material_images: 0, vendor_material_images: 0
+      official_material_images: 0, vendor_material_images: 0,
+      official_part_records: 0, vendor_part_records: 0,
+      official_part_images: 0, vendor_part_images: 0
     };
     (categories || []).forEach(function (c) {
       t.official_prototype_records += c.official_prototype_records || 0;
@@ -195,6 +197,10 @@
       t.vendor_material_records += c.vendor_material_records || 0;
       t.official_material_images += c.official_material_images || 0;
       t.vendor_material_images += c.vendor_material_images || 0;
+      t.official_part_records += c.official_part_records || 0;
+      t.vendor_part_records += c.vendor_part_records || 0;
+      t.official_part_images += c.official_part_images || 0;
+      t.vendor_part_images += c.vendor_part_images || 0;
     });
     return t;
   }
@@ -307,16 +313,21 @@
       + numCell(row.official_material_records, 'col-mat')
       + numCell(row.vendor_material_records, 'col-mat')
       + numCell(row.official_material_images, 'col-mat')
-      + numCell(row.vendor_material_images, 'col-mat');
+      + numCell(row.vendor_material_images, 'col-mat col-group-end')
+      + numCell(row.official_part_records, 'col-part')
+      + numCell(row.vendor_part_records, 'col-part')
+      + numCell(row.official_part_images, 'col-part')
+      + numCell(row.vendor_part_images, 'col-part');
   }
 
   function hasVendorRowData(row) {
-    return row && (row.prototype_records || row.prototype_images || row.material_records || row.material_images);
+    return row && (row.prototype_records || row.prototype_images || row.material_records || row.material_images
+      || row.part_records || row.part_images);
   }
 
   function renderVendorRows(categories) {
     if (!categories || !categories.length) {
-      return '<tr><td colspan="10" class="text-muted p-2">尚無分類或資料</td></tr>';
+      return '<tr><td colspan="14" class="text-muted p-2">尚無分類或資料</td></tr>';
     }
     var html = [];
     categories.forEach(function (cat) {
@@ -454,6 +465,8 @@
     $('vaVendorProtoRec').textContent = vs.vendor_prototype_records != null ? vs.vendor_prototype_records : '—';
     $('vaOfficialMatRec').textContent = vs.official_material_records != null ? vs.official_material_records : '—';
     $('vaVendorMatRec').textContent = vs.vendor_material_records != null ? vs.vendor_material_records : '—';
+    $('vaOfficialPartRec').textContent = vs.official_part_records != null ? vs.official_part_records : '—';
+    $('vaVendorPartRec').textContent = vs.vendor_part_records != null ? vs.vendor_part_records : '—';
     $('ddRec').textContent = (dd.summary && dd.summary.records != null) ? dd.summary.records : '—';
     $('ddImg').textContent = (dd.summary && dd.summary.images != null) ? dd.summary.images : '—';
     $('psPromoPage').textContent = (ps.summary && ps.summary.promo_page != null) ? ps.summary.promo_page : '—';
@@ -493,6 +506,12 @@
           vendor_material_records: c.vendor_material_records,
           official_material_images: c.official_material_images,
           vendor_material_images: c.vendor_material_images,
+          part_records: c.part_records,
+          part_images: c.part_images,
+          official_part_records: c.official_part_records,
+          vendor_part_records: c.vendor_part_records,
+          official_part_images: c.official_part_images,
+          vendor_part_images: c.vendor_part_images,
           subcategories: c.subcategories || []
         };
       });
