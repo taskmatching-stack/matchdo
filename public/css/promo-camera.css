@@ -457,6 +457,42 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   color: #F7C9B0;
   font-weight: 500;
 }
+/* 空間攝影前三項：莫蘭迪同彩度底色＋文字（卡片本體可見差異） */
+#promo-camera-app {
+  --pc-space-setup: var(--md-primary, #7A8FA3);
+  --pc-space-layout: var(--md-sage, #8FA89E);
+  --pc-space-plan: #A39282;
+}
+#promo-camera-app .pc-spec-tone-setup {
+  background: #E8EDF2;
+  border-color: rgba(122, 143, 163, 0.38);
+}
+#promo-camera-app .pc-spec-tone-layout {
+  background: #E6EEEB;
+  border-color: rgba(143, 168, 158, 0.42);
+}
+#promo-camera-app .pc-spec-tone-plan {
+  background: #EEE8E3;
+  border-color: rgba(163, 146, 130, 0.4);
+}
+#promo-camera-app .pc-spec-tone-setup > .pc-spec-summary .pc-spec-kicker,
+#promo-camera-app .pc-spec-tone-setup > .pc-spec-summary .pc-spec-value,
+#promo-camera-app .pc-spec-tone-setup > .pc-spec-summary .pc-spec-value--pending,
+#promo-camera-app .pc-spec-tone-setup > .pc-spec-summary .pc-spec-value--optional-empty {
+  color: var(--pc-space-setup);
+}
+#promo-camera-app .pc-spec-tone-layout > .pc-spec-summary .pc-spec-kicker,
+#promo-camera-app .pc-spec-tone-layout > .pc-spec-summary .pc-spec-value,
+#promo-camera-app .pc-spec-tone-layout > .pc-spec-summary .pc-spec-value--pending,
+#promo-camera-app .pc-spec-tone-layout > .pc-spec-summary .pc-spec-value--optional-empty {
+  color: var(--pc-space-layout);
+}
+#promo-camera-app .pc-spec-tone-plan > .pc-spec-summary .pc-spec-kicker,
+#promo-camera-app .pc-spec-tone-plan > .pc-spec-summary .pc-spec-value,
+#promo-camera-app .pc-spec-tone-plan > .pc-spec-summary .pc-spec-value--pending,
+#promo-camera-app .pc-spec-tone-plan > .pc-spec-summary .pc-spec-value--optional-empty {
+  color: var(--pc-space-plan);
+}
 #promo-camera-app .pc-spec-lead {
   display: none;
 }
@@ -513,7 +549,7 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
 #promo-camera-app .pc-spec-choice-btn:hover {
   border-color: rgba(122, 143, 163, 0.55);
 }
-/* BETA 徽章：空間攝影／氛圍模式共用醒目橘黃 */
+/* BETA 徽章：人像混合模式 */
 #promo-camera-app .pc-beta-badge {
   font-size: 0.65em;
   font-weight: 600;
