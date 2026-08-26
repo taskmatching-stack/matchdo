@@ -13804,7 +13804,7 @@ app.get('/api/admin/migrations', async (req, res) => {
                 migrations: []
             });
         }
-        const pool = new Pool({ connectionString: DB_URL });
+        const pool = new Pool({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
         const client = await pool.connect();
         try {
             const migrations = await adminMigrations.getMigrationStatuses(client);
@@ -13831,7 +13831,7 @@ app.post('/api/admin/migrations/:id/run', express.json(), async (req, res) => {
             });
         }
         const id = (req.params.id || '').trim();
-        const pool = new Pool({ connectionString: DB_URL });
+        const pool = new Pool({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
         const client = await pool.connect();
         try {
             const result = await adminMigrations.runMigrationById(id, client);
@@ -26514,7 +26514,10 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
 
         async function saveAutoPolishViaDb() {
             if (!DB_URL) return null;
-            const pool = new Pool({ connectionString: DB_URL });
+            const pool = new Pool({
+                connectionString: DB_URL,
+                ssl: { rejectUnauthorized: false }
+            });
             const client = await pool.connect();
             try {
                 await client.query(`
@@ -26566,7 +26569,6 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
             }
         } catch (dbErr) {
             console.error('PATCH /api/me/promo-portrait-prompt-settings db:', dbErr);
-            return res.status(500).json({ error: (dbErr && dbErr.message) || '儲存失敗' });
         }
 
         const { data, error } = await supabase
