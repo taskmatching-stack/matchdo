@@ -549,6 +549,36 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
 #promo-camera-app .pc-spec-choice-btn:hover {
   border-color: rgba(122, 143, 163, 0.55);
 }
+#promo-camera-app .pc-spec-choice-btn.pc-tone-clear {
+  background: #E8EDF2;
+  border-color: rgba(122, 143, 163, 0.38);
+  color: var(--pc-space-setup);
+}
+#promo-camera-app .pc-spec-choice-btn.pc-tone-mood {
+  background: #E6EEEB;
+  border-color: rgba(143, 168, 158, 0.42);
+  color: var(--pc-space-layout);
+}
+#promo-camera-app .pc-spec-choice-btn.pc-tone-hybrid {
+  background: #EEE8E3;
+  border-color: rgba(163, 146, 130, 0.4);
+  color: var(--pc-space-plan);
+}
+#promo-camera-app .pc-spec-choice-input:checked + .pc-spec-choice-btn.pc-tone-clear {
+  border-color: var(--pc-space-setup);
+  box-shadow: 0 0 0 1px var(--pc-space-setup);
+  color: var(--pc-space-setup);
+}
+#promo-camera-app .pc-spec-choice-input:checked + .pc-spec-choice-btn.pc-tone-mood {
+  border-color: var(--pc-space-layout);
+  box-shadow: 0 0 0 1px var(--pc-space-layout);
+  color: var(--pc-space-layout);
+}
+#promo-camera-app .pc-spec-choice-input:checked + .pc-spec-choice-btn.pc-tone-hybrid {
+  border-color: var(--pc-space-plan);
+  box-shadow: 0 0 0 1px var(--pc-space-plan);
+  color: var(--pc-space-plan);
+}
 /* BETA 徽章：人像混合模式 */
 #promo-camera-app .pc-beta-badge {
   font-size: 0.65em;
