@@ -399,7 +399,12 @@ function parsePaymentConfigOnOff(raw, defaultOn) {
     return defaultOn !== false;
 }
 
-/** 帳號設定：是否自動潤飾人像描述。未寫入／欄位不存在時預設開。關閉仍審查攔截。 */
+function readAutoPolishFlag(raw) {
+    if (raw === false || raw === 'false' || raw === 0 || raw === '0') return false;
+    if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
+    return null;
+}
+
 async function isPromoPortraitPromptAutoPolishEnabled(userId) {
     const uid = String(userId || '').trim();
     if (!uid) return true;
@@ -409,12 +414,18 @@ async function isPromoPortraitPromptAutoPolishEnabled(userId) {
             .select('promo_portrait_prompt_auto_polish')
             .eq('id', uid)
             .maybeSingle();
-        if (error) {
-            if (error.code === '42703') return true;
+        if (!error) {
+            const fromProfile = readAutoPolishFlag(data && data.promo_portrait_prompt_auto_polish);
+            if (fromProfile !== null) return fromProfile;
+        } else if (error.code !== '42703' && error.code !== 'PGRST204') {
             console.warn('isPromoPortraitPromptAutoPolishEnabled:', error.message);
-            return true;
         }
-        if (data && data.promo_portrait_prompt_auto_polish === false) return false;
+    } catch (_) {}
+    try {
+        const { data: au } = await supabase.auth.admin.getUserById(uid);
+        const meta = au && au.user && au.user.user_metadata;
+        const fromMeta = readAutoPolishFlag(meta && meta.promo_portrait_prompt_auto_polish);
+        if (fromMeta !== null) return fromMeta;
     } catch (_) {}
     return true;
 }
@@ -26483,7 +26494,9 @@ app.get('/api/me/profile', async (req, res) => {
             const out = { ...profile, id: user.id, email: profile.email || user.email || '' };
             if (out.can_delete_media_wall == null) out.can_delete_media_wall = false;
             out.media_wall_manage = profileCanDeleteMediaWall(profile);
-            if (out.promo_portrait_prompt_auto_polish == null) out.promo_portrait_prompt_auto_polish = true;
+            if (out.promo_portrait_prompt_auto_polish == null) {
+                out.promo_portrait_prompt_auto_polish = await isPromoPortraitPromptAutoPolishEnabled(user.id);
+            }
             return res.json(out);
         }
         res.json({
@@ -26511,82 +26524,68 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
             ? body.promo_portrait_prompt_auto_polish
             : body.auto_polish;
         const autoPolish = parsePaymentConfigOnOff(raw, true);
+        let saved = false;
 
-        async function saveAutoPolishViaDb() {
-            if (!DB_URL) return null;
+        const restUpd = await supabase
+            .from('profiles')
+            .update({ promo_portrait_prompt_auto_polish: autoPolish })
+            .eq('id', user.id)
+            .select('id');
+        if (!restUpd.error && restUpd.data && restUpd.data.length) saved = true;
+
+        if (!saved && DB_URL) {
             const pool = new Pool({
                 connectionString: DB_URL,
                 ssl: { rejectUnauthorized: false }
             });
             const client = await pool.connect();
             try {
-                await client.query(`
-                    ALTER TABLE public.profiles
-                    ADD COLUMN IF NOT EXISTS promo_portrait_prompt_auto_polish boolean NOT NULL DEFAULT true
-                `);
-                let r = await client.query(
+                try {
+                    await client.query(`
+                        ALTER TABLE public.profiles
+                        ADD COLUMN IF NOT EXISTS promo_portrait_prompt_auto_polish boolean NOT NULL DEFAULT true
+                    `);
+                } catch (alterErr) {
+                    console.warn('promo auto-polish add column:', alterErr && alterErr.message);
+                }
+                const r = await client.query(
                     `UPDATE public.profiles
                      SET promo_portrait_prompt_auto_polish = $1
                      WHERE id = $2
-                     RETURNING id, promo_portrait_prompt_auto_polish`,
+                     RETURNING id`,
                     [autoPolish, user.id]
                 );
-                if (!r.rows[0] && user.email) {
-                    r = await client.query(
-                        `UPDATE public.profiles
-                         SET promo_portrait_prompt_auto_polish = $1
-                         WHERE lower(email) = lower($2)
-                         RETURNING id, promo_portrait_prompt_auto_polish`,
-                        [autoPolish, user.email]
-                    );
-                }
-                if (!r.rows[0]) {
-                    r = await client.query(
-                        `INSERT INTO public.profiles (id, email, promo_portrait_prompt_auto_polish)
-                         VALUES ($1, $2, $3)
-                         ON CONFLICT (id) DO UPDATE SET promo_portrait_prompt_auto_polish = EXCLUDED.promo_portrait_prompt_auto_polish
-                         RETURNING id, promo_portrait_prompt_auto_polish`,
-                        [user.id, user.email || null, autoPolish]
-                    );
-                }
+                if (r.rows[0]) saved = true;
                 try {
                     await client.query("NOTIFY pgrst, 'reload schema'");
                 } catch (_) {}
-                return r.rows[0] || null;
+            } catch (dbErr) {
+                console.warn('PATCH promo-portrait-prompt-settings db:', dbErr && dbErr.message);
             } finally {
                 client.release();
                 await pool.end();
             }
         }
 
-        try {
-            const row = await saveAutoPolishViaDb();
-            if (row) {
-                return res.json({
-                    success: true,
-                    promo_portrait_prompt_auto_polish: row.promo_portrait_prompt_auto_polish !== false
-                });
+        if (!saved) {
+            try {
+                const { data: au } = await supabase.auth.admin.getUserById(user.id);
+                const meta = Object.assign({}, (au && au.user && au.user.user_metadata) || {});
+                meta.promo_portrait_prompt_auto_polish = autoPolish;
+                const { error: metaErr } = await supabase.auth.admin.updateUserById(user.id, { user_metadata: meta });
+                if (metaErr) throw metaErr;
+                saved = true;
+            } catch (metaErr) {
+                console.error('PATCH promo-portrait-prompt-settings meta:', metaErr);
             }
-        } catch (dbErr) {
-            console.error('PATCH /api/me/promo-portrait-prompt-settings db:', dbErr);
         }
 
-        const { data, error } = await supabase
-            .from('profiles')
-            .upsert({
-                id: user.id,
-                email: user.email || null,
-                promo_portrait_prompt_auto_polish: autoPolish
-            }, { onConflict: 'id' })
-            .select('id, promo_portrait_prompt_auto_polish')
-            .maybeSingle();
-        if (error) {
-            console.error('PATCH /api/me/promo-portrait-prompt-settings:', error);
+        if (!saved) {
             return res.status(500).json({ error: '儲存失敗' });
         }
         res.json({
             success: true,
-            promo_portrait_prompt_auto_polish: data ? data.promo_portrait_prompt_auto_polish !== false : autoPolish
+            promo_portrait_prompt_auto_polish: autoPolish
         });
     } catch (e) {
         console.error('PATCH /api/me/promo-portrait-prompt-settings 異常:', e);
