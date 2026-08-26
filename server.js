@@ -26526,20 +26526,26 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
         const autoPolish = parsePaymentConfigOnOff(raw, true);
         let saved = false;
 
-        const restUpd = await supabase
-            .from('profiles')
-            .update({ promo_portrait_prompt_auto_polish: autoPolish })
-            .eq('id', user.id)
-            .select('id');
-        if (!restUpd.error && restUpd.data && restUpd.data.length) saved = true;
+        try {
+            const restUpd = await supabase
+                .from('profiles')
+                .update({ promo_portrait_prompt_auto_polish: autoPolish })
+                .eq('id', user.id)
+                .select('id');
+            if (!restUpd.error && restUpd.data && restUpd.data.length) saved = true;
+        } catch (restErr) {
+            console.warn('PATCH promo-portrait-prompt-settings rest:', restErr && restErr.message);
+        }
 
         if (!saved && DB_URL) {
-            const pool = new Pool({
-                connectionString: DB_URL,
-                ssl: { rejectUnauthorized: false }
-            });
-            const client = await pool.connect();
+            let pool = null;
+            let client = null;
             try {
+                pool = new Pool({
+                    connectionString: DB_URL,
+                    ssl: { rejectUnauthorized: false }
+                });
+                client = await pool.connect();
                 try {
                     await client.query(`
                         ALTER TABLE public.profiles
@@ -26562,8 +26568,8 @@ app.patch('/api/me/promo-portrait-prompt-settings', express.json(), async (req, 
             } catch (dbErr) {
                 console.warn('PATCH promo-portrait-prompt-settings db:', dbErr && dbErr.message);
             } finally {
-                client.release();
-                await pool.end();
+                if (client) try { client.release(); } catch (_) {}
+                if (pool) try { await pool.end(); } catch (_) {}
             }
         }
 
