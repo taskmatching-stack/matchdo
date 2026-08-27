@@ -29012,7 +29012,7 @@ async function listAdminGenerationRecords(opts) {
         const cpRes = await fetchSupabaseRowsUpTo(function () {
             let cpQ = supabase
                 .from('custom_products')
-                .select('id, title, description, ai_generated_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
+                .select('id, title, description, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
                 .not('ai_generated_image_url', 'is', null)
                 .order('created_at', { ascending: false });
             if (from) cpQ = cpQ.gte('created_at', from);
@@ -29034,6 +29034,7 @@ async function listAdminGenerationRecords(opts) {
                     title: row.title || '',
                     prompt: prompt,
                     generation_seed: row.generation_seed,
+                    reference_image_url: row.reference_image_url || null,
                     reference_sources: row.reference_sources || [],
                     owner_id: row.owner_id || null,
                     category: row.category || null,

@@ -132,6 +132,7 @@
                 <tr>
                   <th style="width:36px"><input type="checkbox" class="form-check-input" id="chkAllPage" title="全選本頁"></th>
                   <th style="width:76px">成圖</th>
+                  <th style="width:92px">參考圖</th>
                   <th>來源</th>
                   <th>標題／描述</th>
                   <th>帳號／廠商</th>
@@ -139,7 +140,7 @@
                 </tr>
               </thead>
               <tbody id="recordsBody">
-                <tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>
               </tbody>
             </table>
           </div>
@@ -212,6 +213,32 @@
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function collectRowRefUrls(row) {
+      var urls = [];
+      function add(u) {
+        u = String(u || '').trim();
+        if (!u || u.indexOf('data:') === 0) return;
+        if (urls.indexOf(u) >= 0) return;
+        urls.push(u);
+      }
+      add(row && row.source_image_url);
+      add(row && row.reference_image_url);
+      (row && row.reference_sources || []).forEach(function (s) {
+        if (!s) return;
+        add(s.image_url || s.url);
+      });
+      return urls;
+    }
+
+    function renderRefThumbs(row, sizePx) {
+      var urls = collectRowRefUrls(row);
+      var px = sizePx || 64;
+      if (!urls.length) return '<span class="text-muted">—</span>';
+      return urls.slice(0, 3).map(function (u) {
+        return '<img src="' + esc(u) + '" class="rec-thumb" alt="參考" title="參考圖" style="width:' + px + 'px;height:' + px + 'px">';
+      }).join(' ');
     }
 
     function fmtTime(iso) {
@@ -332,7 +359,7 @@
       var chkAll = document.getElementById('chkAllPage');
       if (chkAll) chkAll.checked = false;
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">無符合紀錄</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">無符合紀錄</td></tr>';
         return;
       }
       body.innerHTML = items.map(function (row, idx) {
@@ -346,7 +373,7 @@
         var chk = canResume
           ? '<input type="checkbox" class="form-check-input rec-chk" data-idx="' + idx + '">'
           : '<span class="text-muted">—</span>';
-        return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + sourceBadge(row) + '</td>' +
+        return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + renderRefThumbs(row, 64) + '</td><td>' + sourceBadge(row) + '</td>' +
           '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
           '<td class="small">' + who + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
       }).join('');
@@ -368,8 +395,21 @@
       var row = items[idx];
       if (!row) return;
       var url = row.ai_generated_image_url || '';
-      var html = (url ? '<p><img src="' + esc(url) + '" class="img-fluid rounded border mb-2" alt=""></p>' : '') +
-        '<dl class="row mb-2">' +
+      var refUrls = collectRowRefUrls(row);
+      var html = '<div class="d-flex flex-wrap gap-3 mb-3">';
+      html += '<div><div class="small text-muted mb-1">成圖</div>' +
+        (url ? '<img src="' + esc(url) + '" class="rounded border" style="max-width:220px;max-height:220px;object-fit:contain" alt="">' : '<span class="text-muted">—</span>') +
+        '</div>';
+      html += '<div><div class="small text-muted mb-1">參考圖</div>';
+      if (refUrls.length) {
+        refUrls.forEach(function (u) {
+          html += '<img src="' + esc(u) + '" class="rounded border me-1 mb-1" style="width:96px;height:96px;object-fit:cover" alt="參考">';
+        });
+      } else {
+        html += '<p class="text-muted mb-0">無參考圖</p>';
+      }
+      html += '</div></div>';
+      html += '<dl class="row mb-2">' +
         '<dt class="col-sm-3">來源</dt><dd class="col-sm-9">' + esc(sourceLabel(row)) + '</dd>' +
         '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(fmtTime(row.created_at)) + '</dd>' +
         '<dt class="col-sm-3">標題</dt><dd class="col-sm-9">' + esc(row.title || '—') + '</dd>' +
@@ -459,7 +499,7 @@
     async function loadPage() {
       var tok = await getToken();
       if (!tok) return;
-      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>';
+      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>';
       var qs = new URLSearchParams({
         limit: String(perPage),
         offset: String(page * perPage),
@@ -476,7 +516,7 @@
       });
       var data = await r.json().catch(function () { return {}; });
       if (!r.ok) {
-        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="6" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
+        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="7" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
         return;
       }
       items = data.items || [];
