@@ -627,6 +627,54 @@
     return St.get().shootMode || 'product';
   }
 
+  function promoCameraRootPath() {
+    var p = String(window.location.pathname || '');
+    if (p.indexOf('/promo-camera-app') === 0) return '/promo-camera-app';
+    return '/promo-camera';
+  }
+
+  function normalizeShootMode(raw) {
+    var m = String(raw || '').toLowerCase();
+    if (m === 'space') return 'space';
+    if (m === 'portrait') return 'portrait';
+    return 'product';
+  }
+
+  function shootModeFromLocation() {
+    var p = String(window.location.pathname || '').replace(/\/+$/, '');
+    if (/\/portrait$/i.test(p)) return 'portrait';
+    if (/\/space$/i.test(p)) return 'space';
+    if (/\/product$/i.test(p)) return 'product';
+    var q = new URLSearchParams(window.location.search || '').get('mode');
+    return normalizeShootMode(q);
+  }
+
+  function urlForShootMode(mode) {
+    var m = normalizeShootMode(mode);
+    var seg = m === 'space' ? '/space' : (m === 'portrait' ? '/portrait' : '/product');
+    return promoCameraRootPath() + seg + (window.location.search || '') + (window.location.hash || '');
+  }
+
+  function syncShootModeLinks() {
+    var q = window.location.search || '';
+    var root = promoCameraRootPath();
+    var map = { pcModeProduct: '/product', pcModeSpace: '/space', pcModePortrait: '/portrait' };
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.tagName === 'A') el.setAttribute('href', root + map[id] + q);
+    });
+    var can = document.querySelector('link[rel="canonical"]');
+    if (can) {
+      var m = getShootMode();
+      var seg = m === 'space' ? '/space' : (m === 'portrait' ? '/portrait' : '/product');
+      can.setAttribute('href', root + seg);
+    }
+    var loginA = document.getElementById('pcCreditsLoginLink');
+    if (loginA) {
+      loginA.setAttribute('href', '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search));
+    }
+  }
+
   function isSpaceMode() {
     return getShootMode() === 'space';
   }
@@ -1280,9 +1328,10 @@
     if (themeEl && st.themeKey) themeEl.value = st.themeKey;
   }
 
-  function setShootMode(mode) {
-    St.setShootMode(mode);
-    if (mode === 'space' || mode === 'portrait') {
+  function setShootMode(mode, opts) {
+    var m = normalizeShootMode(mode);
+    St.setShootMode(m);
+    if (m === 'space' || m === 'portrait') {
       updateSpaceDimsHint();
     } else {
       updateDimsHint();
@@ -1293,6 +1342,12 @@
     updateLcd();
     applyShootModeUi();
     renderMessages();
+    if (!opts || !opts.skipHistory) {
+      var next = urlForShootMode(m);
+      var cur = window.location.pathname + window.location.search + window.location.hash;
+      if (next !== cur) history.pushState({ shootMode: m }, '', next);
+    }
+    syncShootModeLinks();
   }
 
   function renderLayoutRefThumbs() {
@@ -2379,9 +2434,20 @@
     var modeProduct = document.getElementById('pcModeProduct');
     var modeSpace = document.getElementById('pcModeSpace');
     var modePortrait = document.getElementById('pcModePortrait');
-    if (modeProduct) modeProduct.addEventListener('click', function () { setShootMode('product'); });
-    if (modeSpace) modeSpace.addEventListener('click', function () { setShootMode('space'); });
-    if (modePortrait) modePortrait.addEventListener('click', function () { setShootMode('portrait'); });
+    function bindModeNav(el, mode) {
+      if (!el) return;
+      el.addEventListener('click', function (e) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+        e.preventDefault();
+        setShootMode(mode);
+      });
+    }
+    bindModeNav(modeProduct, 'product');
+    bindModeNav(modeSpace, 'space');
+    bindModeNav(modePortrait, 'portrait');
+    window.addEventListener('popstate', function () {
+      setShootMode(shootModeFromLocation(), { skipHistory: true });
+    });
 
     var spaceUseSel = document.getElementById('pcSpaceUseType');
     if (spaceUseSel) {
@@ -2855,6 +2921,7 @@
     St.get().generating = false;
     updateLcd();
     bindEvents();
+    setShootMode(shootModeFromLocation(), { skipHistory: true });
     initFromQuery();
     if (window.MatchdoShowOnHomepageControl) {
       window.MatchdoShowOnHomepageControl.init('pcShowOnHomepage', 'pcShowOnHomepageHint', homepageControlOpts());

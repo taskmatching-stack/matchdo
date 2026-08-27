@@ -10771,6 +10771,7 @@ function servePromoCameraPage(req, res) {
     });
 }
 app.get(['/promo-camera', '/promo-camera/'], servePromoCameraPage);
+app.get(['/promo-camera/product', '/promo-camera/product/', '/promo-camera/space', '/promo-camera/space/', '/promo-camera/portrait', '/promo-camera/portrait/'], servePromoCameraPage);
 app.get('/client/promo-camera.html', (req, res) => redirectWithQuery301(req, res, '/promo-camera'));
 const promoCameraAppHtmlPath = path.join(__dirname, 'public', 'client', 'promo-camera-app.html');
 function servePromoCameraAppPage(req, res) {
@@ -10782,6 +10783,7 @@ function servePromoCameraAppPage(req, res) {
     });
 }
 app.get(['/promo-camera-app', '/promo-camera-app/'], servePromoCameraAppPage);
+app.get(['/promo-camera-app/product', '/promo-camera-app/product/', '/promo-camera-app/space', '/promo-camera-app/space/', '/promo-camera-app/portrait', '/promo-camera-app/portrait/'], servePromoCameraAppPage);
 app.get('/client/promo-camera-app.html', (req, res) => redirectWithQuery301(req, res, '/promo-camera-app'));
 app.get('/promo-camera-app.webmanifest', (req, res) => {
     res.type('application/manifest+json');
