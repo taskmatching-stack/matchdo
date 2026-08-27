@@ -178,7 +178,7 @@
   <script src="/config/auth-config.js"></script>
   <script src="/js/auth-middleware.js"></script>
   <script src="/admin/js/admin-common.js"></script>
-  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/js/provenance-resume-ui.js?v=20260828refs1"></script>
   <script>
   (function () {
@@ -189,6 +189,43 @@
     var items = [];
     var detailModal = null;
     var selectedIdx = {};
+
+    function showDetailModal() {
+      var el = document.getElementById('detailModal');
+      if (!el) return;
+      if (window.bootstrap && typeof bootstrap.Modal === 'function') {
+        if (!detailModal) detailModal = new bootstrap.Modal(el);
+        detailModal.show();
+        return;
+      }
+      el.classList.add('show');
+      el.style.display = 'block';
+      el.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      if (!document.getElementById('detailModalBackdrop')) {
+        var bd = document.createElement('div');
+        bd.id = 'detailModalBackdrop';
+        bd.className = 'modal-backdrop fade show';
+        document.body.appendChild(bd);
+        bd.addEventListener('click', hideDetailModal);
+      }
+    }
+
+    function hideDetailModal() {
+      var el = document.getElementById('detailModal');
+      if (window.bootstrap && detailModal) {
+        detailModal.hide();
+        return;
+      }
+      if (el) {
+        el.classList.remove('show');
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+      }
+      document.body.classList.remove('modal-open');
+      var bd = document.getElementById('detailModalBackdrop');
+      if (bd) bd.remove();
+    }
 
     function mapRowToResumeItem(row) {
       if (!window.ProvenanceResumeUI || !row || !row.id) return null;
@@ -492,8 +529,7 @@
         btnResume.classList.add('d-none');
         btnPdf.classList.add('d-none');
       }
-      if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
-      detailModal.show();
+      showDetailModal();
     }
 
     async function loadPage() {
