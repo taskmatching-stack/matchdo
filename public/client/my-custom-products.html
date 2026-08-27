@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>我的數位資產 - MatchDO 合做</title>
+    <title data-i18n-doc-title="myCustomProducts.docTitle">我的數位資產 - MatchDO 合做</title>
+    <script src="/js/i18n.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="/css/style.css" rel="stylesheet">
@@ -368,11 +369,11 @@
     <div class="container-fluid page-title-bar">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
-                <h3 class="mb-0 text-dark" id="pageHeading"><i class="bi bi-images me-2" id="pageHeadingIcon"></i><span id="pageHeadingText">我的數位資產</span></h3>
+                <h3 class="mb-0 text-dark" id="pageHeading"><i class="bi bi-images me-2" id="pageHeadingIcon"></i><span id="pageHeadingText" data-i18n="myCustomProducts.title">我的數位資產</span></h3>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-0" id="pageBreadcrumb">
-                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
-                        <li class="breadcrumb-item active" id="breadcrumbActive">我的數位資產</li>
+                        <li class="breadcrumb-item"><a href="/index.html" data-i18n="myCustomProducts.home">首頁</a></li>
+                        <li class="breadcrumb-item active" id="breadcrumbActive" data-i18n="myCustomProducts.title">我的數位資產</li>
                     </ol>
                 </nav>
             </div>
@@ -383,31 +384,31 @@
         <ul class="nav nav-tabs mb-4" id="assetTabs">
             <li class="nav-item">
                 <a class="nav-link active" id="tab-designs" data-bs-toggle="tab" href="#pane-designs">
-                    <i class="bi bi-pencil-square me-1" id="tabDesignsIcon"></i><span id="tabDesignsLabel">設計稿</span>
+                    <i class="bi bi-pencil-square me-1" id="tabDesignsIcon"></i><span id="tabDesignsLabel" data-i18n="myCustomProducts.tabDesigns">設計稿</span>
                     <span class="badge bg-secondary ms-1" id="badgeDesigns">…</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-combo" data-bs-toggle="tab" href="#pane-combo">
-                    <i class="bi bi-layout-split me-1"></i>材料組合
+                    <i class="bi bi-layout-split me-1"></i><span data-i18n="myCustomProducts.tabCombo">材料組合</span>
                     <span class="badge bg-secondary ms-1" id="badgeCombo">…</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-print" data-bs-toggle="tab" href="#pane-print">
-                    <i class="bi bi-postage me-1"></i>印花
+                    <i class="bi bi-postage me-1"></i><span data-i18n="myCustomProducts.tabPrint">印花</span>
                     <span class="badge bg-secondary ms-1" id="badgePrint">0</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-promo" data-bs-toggle="tab" href="#pane-promo">
-                    <i class="bi bi-megaphone me-1"></i>情境圖
+                    <i class="bi bi-megaphone me-1"></i><span data-i18n="myCustomProducts.tabPromo">情境圖</span>
                     <span class="badge bg-secondary ms-1" id="badgePromo">…</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-favs" data-bs-toggle="tab" href="#pane-favs">
-                    <i class="bi bi-heart-fill me-1 text-danger"></i>我的最愛
+                    <i class="bi bi-heart-fill me-1 text-danger"></i><span data-i18n="myCustomProducts.tabFavs">我的最愛</span>
                     <span class="badge bg-danger ms-1" id="badgeFavs">…</span>
                 </a>
             </li>
@@ -417,28 +418,28 @@
             <!-- ── Tab 1：我的設計 ── -->
             <div class="tab-pane fade show active" id="pane-designs">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small" id="designsIntro">管理您的設計，開啟開關讓廠商搜尋</p>
+                    <p class="text-muted mb-0 small" id="designsIntro" data-i18n="myCustomProducts.designsIntro">管理您的設計，開啟開關讓廠商搜尋</p>
                     <a href="/custom-product.html" class="btn btn-primary btn-sm" id="btnCreateDesign">
-                        <i class="bi bi-plus-lg me-1"></i><span id="btnCreateDesignText">建立新設計</span>
+                        <i class="bi bi-plus-lg me-1"></i><span id="btnCreateDesignText" data-i18n="myCustomProducts.btnCreateDesign">建立新設計</span>
                     </a>
                 </div>
                 <div id="designDirectionAdvisorTeaser" class="alert alert-light border small mb-3 d-none" role="note"></div>
                 <div id="loadingSpinner" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入中...</p>
+                    <p class="mt-3 text-muted" data-i18n="myCustomProducts.loading">載入中...</p>
                 </div>
                 <div id="productsList" class="row g-2" style="display:none;"></div>
                 <div id="productsLoadMoreWrap" class="text-center py-2" style="display:none;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="productsLoadMoreBtn">載入更多舊圖</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="productsLoadMoreBtn" data-i18n="myCustomProducts.loadMore">載入更多舊圖</button>
                 </div>
                 <div id="productsLoadSentinel" class="py-1" aria-hidden="true"></div>
                 <p class="text-muted small mb-3 d-none" id="designDirectionFilterNote"></p>
                 <div id="emptyState" class="empty-state" style="display:none;">
                     <i class="bi bi-inbox" style="font-size:4rem;color:#D8DEE6;"></i>
-                    <h4 class="mt-3" id="emptyTitle">尚無設計資產</h4>
-                    <p id="emptyDesc">建立您的第一個設計，或從工具生成</p>
+                    <h4 class="mt-3" id="emptyTitle" data-i18n="myCustomProducts.emptyDesignsTitle">尚無設計資產</h4>
+                    <p id="emptyDesc" data-i18n="myCustomProducts.emptyDesignsDesc">建立您的第一個設計，或從工具生成</p>
                     <a href="/custom-product.html" class="btn btn-primary mt-3" id="emptyCreateBtn">
-                        <i class="bi bi-plus-lg me-1"></i><span id="emptyCreateBtnText">開始建立</span>
+                        <i class="bi bi-plus-lg me-1"></i><span id="emptyCreateBtnText" data-i18n="myCustomProducts.btnStartCreate">開始建立</span>
                     </a>
                 </div>
             </div>
@@ -446,31 +447,31 @@
             <!-- ── Tab 2：材料組合 ── -->
             <div class="tab-pane fade" id="pane-combo">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <p class="text-muted mb-0 small">雙色材料組合生成紀錄；可設定名稱／分類便於管理，並於產品設計頁右側資產庫選用。</p>
+                    <p class="text-muted mb-0 small" data-i18n="myCustomProducts.comboIntro">雙色材料組合生成紀錄；可設定名稱／分類便於管理，並於產品設計頁右側資產庫選用。</p>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <label class="small text-muted mb-0" for="comboCategoryFilter">分類</label>
+                        <label class="small text-muted mb-0" for="comboCategoryFilter" data-i18n="myCustomProducts.category">分類</label>
                         <select id="comboCategoryFilter" class="form-select form-select-sm" style="width:auto;min-width:8rem;">
-                            <option value="">全部</option>
+                            <option value="" data-i18n="myCustomProducts.filterAll">全部</option>
                         </select>
                         <a href="/client/material-dual-color.html?return=design" class="btn btn-primary btn-sm">
-                            <i class="bi bi-layout-split me-1"></i>生成材料組合
+                            <i class="bi bi-layout-split me-1"></i><span data-i18n="myCustomProducts.btnGenerateCombo">生成材料組合</span>
                         </a>
                     </div>
                 </div>
                 <div id="comboLoading" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入材料組合…</p>
+                    <p class="mt-3 text-muted" data-i18n="myCustomProducts.loadingCombo">載入材料組合…</p>
                 </div>
                 <div id="comboList" class="row g-2" style="display:none;"></div>
                 <div id="comboLoadMoreWrap" class="text-center py-2" style="display:none;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="comboLoadMoreBtn">載入更多舊圖</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="comboLoadMoreBtn" data-i18n="myCustomProducts.loadMore">載入更多舊圖</button>
                 </div>
                 <div id="comboEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-layout-split" style="font-size:4rem;color:#D8DEE6;"></i>
-                    <h4 class="mt-3">尚無材料組合</h4>
-                    <p>於「材料組合」頁生成成功後會自動出現於此；亦可在產品設計頁右側資產庫切換「材料組合」分頁選用。</p>
+                    <h4 class="mt-3" data-i18n="myCustomProducts.emptyComboTitle">尚無材料組合</h4>
+                    <p data-i18n="myCustomProducts.emptyComboDesc">於「材料組合」頁生成成功後會自動出現於此；亦可在產品設計頁右側資產庫切換「材料組合」分頁選用。</p>
                     <a href="/client/material-dual-color.html?return=design" class="btn btn-primary mt-3">
-                        <i class="bi bi-layout-split me-1"></i>去生成材料組合
+                        <i class="bi bi-layout-split me-1"></i><span data-i18n="myCustomProducts.btnGoGenerateCombo">去生成材料組合</span>
                     </a>
                 </div>
             </div>
@@ -478,31 +479,31 @@
             <!-- ── Tab：印花 ── -->
             <div class="tab-pane fade" id="pane-print">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <p class="text-muted mb-0 small">印花圖稿資產；可設定名稱／分類。上傳免費，AI 重繪才扣點。</p>
+                    <p class="text-muted mb-0 small" data-i18n="myCustomProducts.printIntro">印花圖稿資產；可設定名稱／分類。上傳免費，AI 重繪才扣點。</p>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <label class="small text-muted mb-0" for="printCategoryFilter">分類</label>
+                        <label class="small text-muted mb-0" for="printCategoryFilter" data-i18n="myCustomProducts.category">分類</label>
                         <select id="printCategoryFilter" class="form-select form-select-sm" style="width:auto;min-width:8rem;">
-                            <option value="">全部</option>
+                            <option value="" data-i18n="myCustomProducts.filterAll">全部</option>
                         </select>
                         <a href="/client/print-asset.html" class="btn btn-primary btn-sm">
-                            <i class="bi bi-postage me-1"></i>上傳／重繪印花
+                            <i class="bi bi-postage me-1"></i><span data-i18n="myCustomProducts.btnUploadPrint">上傳／重繪印花</span>
                         </a>
                     </div>
                 </div>
                 <div id="printLoading" class="text-center py-5" style="display:none;">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入印花…</p>
+                    <p class="mt-3 text-muted" data-i18n="myCustomProducts.loadingPrint">載入印花…</p>
                 </div>
                 <div id="printList" class="row g-2" style="display:none;"></div>
                 <div id="printLoadMoreWrap" class="text-center py-2" style="display:none;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="printLoadMoreBtn">載入更多舊圖</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="printLoadMoreBtn" data-i18n="myCustomProducts.loadMore">載入更多舊圖</button>
                 </div>
                 <div id="printEmpty" class="empty-state">
                     <i class="bi bi-postage" style="font-size:4rem;color:#D8DEE6;"></i>
-                    <h4 class="mt-3">尚無印花</h4>
-                    <p>上傳圖稿後可免費存入；若需要 AI 重繪（對齊材料色卡重繪）成功後才扣點。</p>
+                    <h4 class="mt-3" data-i18n="myCustomProducts.emptyPrintTitle">尚無印花</h4>
+                    <p data-i18n="myCustomProducts.emptyPrintDesc">上傳圖稿後可免費存入；若需要 AI 重繪（對齊材料色卡重繪）成功後才扣點。</p>
                     <a href="/client/print-asset.html" class="btn btn-primary mt-3">
-                        <i class="bi bi-postage me-1"></i>去建立印花
+                        <i class="bi bi-postage me-1"></i><span data-i18n="myCustomProducts.btnGoCreatePrint">去建立印花</span>
                     </a>
                 </div>
             </div>
@@ -511,32 +512,32 @@
             <div class="tab-pane fade" id="pane-promo">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <p class="text-muted mb-1 small">產品情境圖與商攝導演生成紀錄（含空間 ISO）。此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
+                        <p class="text-muted mb-1 small" data-i18n="myCustomProducts.promoIntro">產品情境圖與商攝導演生成紀錄（含空間 ISO）。此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
                         <div class="d-flex flex-wrap gap-1" id="promoKindFilters" role="group" aria-label="情境圖分類">
-                            <button type="button" class="btn btn-sm btn-secondary" data-promo-kind="all">全部</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="product">產品</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="space">空間</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="portrait">人像</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-promo-kind="all" data-i18n="myCustomProducts.filterAll">全部</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="product" data-i18n="myCustomProducts.filterProduct">產品</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="space" data-i18n="myCustomProducts.filterSpace">空間</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="portrait" data-i18n="myCustomProducts.filterPortrait">人像</button>
                         </div>
                     </div>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
-                        <i class="bi bi-megaphone me-1"></i>生成情境圖
+                        <i class="bi bi-megaphone me-1"></i><span data-i18n="myCustomProducts.btnGeneratePromo">生成情境圖</span>
                     </a>
                 </div>
                 <div id="promoLoading" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入情境圖…</p>
+                    <p class="mt-3 text-muted" data-i18n="myCustomProducts.loadingPromo">載入情境圖…</p>
                 </div>
                 <div id="promoList" class="row g-2" style="display:none;"></div>
                 <div id="promoLoadMoreWrap" class="text-center py-2" style="display:none;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="promoLoadMoreBtn">載入更多舊圖</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="promoLoadMoreBtn" data-i18n="myCustomProducts.loadMore">載入更多舊圖</button>
                 </div>
                 <div id="promoEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-megaphone" style="font-size:4rem;color:#D8DEE6;"></i>
-                    <h4 class="mt-3">尚無情境圖</h4>
-                    <p>生成成功後會自動出現於此。若當時未寫入資料庫，請在生成結果按「儲存到數位資產庫」。</p>
+                    <h4 class="mt-3" data-i18n="myCustomProducts.promoEmptyTitle">尚無情境圖</h4>
+                    <p data-i18n="myCustomProducts.promoEmptyDesc">生成成功後會自動出現於此。若當時未寫入資料庫，請在生成結果按「儲存到數位資產庫」。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary mt-3">
-                        <i class="bi bi-megaphone me-1"></i>去生成情境圖
+                        <i class="bi bi-megaphone me-1"></i><span data-i18n="myCustomProducts.btnGoGeneratePromo">去生成情境圖</span>
                     </a>
                 </div>
             </div>
@@ -544,22 +545,22 @@
             <!-- ── Tab 4：我的最愛 ── -->
             <div class="tab-pane fade" id="pane-favs">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">從媒體牆收藏的廠商作品，可直接聯絡廠商發案</p>
+                    <p class="text-muted mb-0 small" data-i18n="myCustomProducts.favsIntro">從媒體牆收藏的廠商作品，可直接聯絡廠商發案</p>
                     <a href="/" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-grid me-1"></i>去媒體牆收藏
+                        <i class="bi bi-grid me-1"></i><span data-i18n="myCustomProducts.btnGoWallFav">去媒體牆收藏</span>
                     </a>
                 </div>
                 <div id="favsLoading" class="text-center py-5">
                     <div class="spinner-border text-danger" role="status"></div>
-                    <p class="mt-3 text-muted">載入收藏中...</p>
+                    <p class="mt-3 text-muted" data-i18n="myCustomProducts.loadingFavs">載入收藏中...</p>
                 </div>
                 <div id="favsList" class="row g-4" style="display:none;"></div>
                 <div id="favsEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-heart" style="font-size:4rem;color:#D8DEE6;"></i>
-                    <h4 class="mt-3">尚無收藏</h4>
-                    <p>在媒體牆按愛心即可收藏廠商作品</p>
+                    <h4 class="mt-3" data-i18n="myCustomProducts.emptyFavsTitle">尚無收藏</h4>
+                    <p data-i18n="myCustomProducts.emptyFavsDesc">在媒體牆按愛心即可收藏廠商作品</p>
                     <a href="/" class="btn btn-outline-danger mt-3">
-                        <i class="bi bi-grid me-1"></i>前往媒體牆
+                        <i class="bi bi-grid me-1"></i><span data-i18n="myCustomProducts.btnGoWall">前往媒體牆</span>
                     </a>
                 </div>
             </div>
@@ -599,6 +600,12 @@
 
         function useForDesignDraftLabel() {
             return uiT('myCustomProducts.useForDesignDraft', '用於設計稿', 'Use in design draft');
+        }
+
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+            });
         }
 
         const isDesignDirectionView = (function () {
@@ -1915,7 +1922,7 @@
                             <span><i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}</span>
                             ${!isCompleted ? `
                             <label class="design-mfg-row mb-0" for="mfg-toggle-${product.id}">
-                                <span class="small text-secondary">開放搜尋</span>
+                                <span class="small text-secondary">${escapeHtml(uiT('myCustomProducts.openSearch', '開放搜尋', 'Open search'))}</span>
                                 <input class="form-check-input mfg-toggle" type="checkbox" role="switch"
                                     id="mfg-toggle-${product.id}" data-id="${product.id}"
                                     ${isOpen ? 'checked' : ''}>
@@ -1924,17 +1931,17 @@
                         </div>
 
                         <div class="design-actions mt-auto">
-                            <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">詳情</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-provenance-resume" data-kind="user_design" data-id="${product.id}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
+                            <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">${escapeHtml(uiT('myCustomProducts.viewDetail', '詳情', 'Details'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-provenance-resume" data-kind="user_design" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
                             <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
                             <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
                             <div class="dropdown">
-                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">更多</button>
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">${escapeHtml(uiT('myCustomProducts.more', '更多', 'More'))}</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="${makersHref}"><i class="bi bi-shop me-1"></i>找製作方</a></li>
                                     ${!isCompleted ? `<li><button type="button" class="dropdown-item btn-mark-done" data-id="${product.id}"><i class="bi bi-check-circle me-1"></i>標記完成</button></li>` : ''}
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><button type="button" class="dropdown-item text-danger btn-delete-design" data-id="${product.id}"><i class="bi bi-trash me-1"></i>刪除</button></li>
+                                    <li><button type="button" class="dropdown-item text-danger btn-delete-design" data-id="${product.id}"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button></li>
                                 </ul>
                             </div>
                         </div>
@@ -2191,21 +2198,25 @@
 
         function getStatusInfo(status) {
             const statusMap = {
-                'draft': { text: '草稿', class: 'bg-secondary' },
-                'analyzing': { text: '分析中', class: 'bg-info' },
-                'matched': { text: '已媒合', class: 'bg-success' },
-                'contacted': { text: '已聯繫', class: 'bg-warning' },
-                'completed': { text: '已完成', class: 'bg-primary' }
+                'draft': { text: uiT('myCustomProducts.statusDraft', '草稿', 'Draft'), class: 'bg-secondary' },
+                'analyzing': { text: uiT('myCustomProducts.statusAnalyzing', '分析中', 'Analyzing'), class: 'bg-info' },
+                'matched': { text: uiT('myCustomProducts.statusMatched', '已媒合', 'Matched'), class: 'bg-success' },
+                'contacted': { text: uiT('myCustomProducts.statusContacted', '已聯繫', 'Contacted'), class: 'bg-warning' },
+                'completed': { text: uiT('myCustomProducts.statusCompleted', '已完成', 'Completed'), class: 'bg-primary' }
             };
             return statusMap[status] || { text: status, class: 'bg-secondary' };
         }
 
         function formatDate(dateString) {
             const date = new Date(dateString);
-            return date.toLocaleDateString('zh-TW', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit' 
+            var loc = 'zh-TW';
+            try {
+                if (window.i18n && window.i18n.getLang && String(window.i18n.getLang()).toLowerCase().indexOf('en') === 0) loc = 'en-US';
+            } catch (_) {}
+            return date.toLocaleDateString(loc, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
             });
         }
 
