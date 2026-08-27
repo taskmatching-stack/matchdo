@@ -2721,7 +2721,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 user_id: currentUser.id,
                 source_type: sourceType,
                 source_id: sourceId || null,
-                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                source_image_url: primaryUrl || null,
                 aspect_ratio: aspectRatio,
                 width: shotW,
                 height: shotH,
@@ -2750,6 +2750,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     portrait_prompt_expanded: true,
                     staging_product: !!resolvedRefs.hasStagingProduct,
                     scene_image: !!resolvedRefs.hasSceneImage,
+                    reference_images: promoReferenceImagesFromUrls(refUrls),
                     image_provider: imageProvider,
                     gemini_model: usedGeminiModel || null,
                     flux_model: usedFluxModel || null,
@@ -2789,7 +2790,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     user_id: currentUser.id,
                     source_type: sourceType,
                     source_id: sourceId || null,
-                    source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                    source_image_url: primaryUrl || null,
                     aspect_ratio: aspectRatio,
                     width: draftW,
                     height: draftH,
@@ -3105,7 +3106,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             user_id: currentUser.id,
             source_type: sourceType,
             source_id: sourceId || null,
-            source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+            source_image_url: primaryUrl || null,
             aspect_ratio: aspectRatio,
             width: lookW,
             height: lookH,
@@ -3357,7 +3358,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             user_id: currentUser.id,
             source_type: sourceType,
             source_id: sourceId || null,
-            source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+            source_image_url: primaryUrl || null,
             aspect_ratio: aspectRatio,
             width: w,
             height: h,
@@ -3579,7 +3580,7 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
             user_id: currentUser.id,
             source_type: eyeRefs.layoutGenerationId ? 'digital_asset' : 'upload',
             source_id: eyeRefs.layoutGenerationId || null,
-            source_image_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
+            source_image_url: eyeRefs.layoutUrl || null,
             aspect_ratio: aspectRatio,
             width: w,
             height: h,
@@ -3822,7 +3823,7 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
                 user_id: currentUser.id,
                 source_type: eyeRefs.layoutGenerationId ? 'digital_asset' : 'upload',
                 source_id: eyeRefs.layoutGenerationId || null,
-                source_image_url: eyeRefs.layoutUrl ? String(eyeRefs.layoutUrl).slice(0, 2000) : null,
+                source_image_url: eyeRefs.layoutUrl || null,
                 aspect_ratio: aspectRatio,
                 width: w,
                 height: h,
@@ -4069,7 +4070,7 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
             user_id: currentUser.id,
             source_type: 'upload',
             source_id: null,
-            source_image_url: primaryUrl ? String(primaryUrl).slice(0, 2000) : null,
+            source_image_url: primaryUrl || null,
             aspect_ratio: aspectRatio,
             width: w,
             height: h,
@@ -18595,9 +18596,197 @@ function extractMissingColumnFromSupabaseError(err) {
     return m && m[1] ? m[1] : null;
 }
 
+function isDataImageUrl(url) {
+    return /^data:image\//i.test(String(url || '').trim());
+}
+
+function isUsableStoredImageUrl(url) {
+    const s = String(url || '').trim();
+    if (!s || isDataImageUrl(s)) return false;
+    return /^https?:\/\//i.test(s) || s.startsWith('/');
+}
+
+/** 上傳 data: 參考圖到 storage，避免 source_image_url 因 data: 被丟棄或截斷 */
+async function persistPromoReferenceImageUrl(userId, url) {
+    const s = String(url || '').trim();
+    if (!s) return null;
+    if (!isDataImageUrl(s)) {
+        return isUsableStoredImageUrl(s) ? s.slice(0, 2000) : null;
+    }
+    const m = s.match(/^data:image\/[\w+.-]+;base64,([\s\S]+)$/);
+    if (!m) return null;
+    let buf;
+    try {
+        buf = Buffer.from(m[1].replace(/\s/g, ''), 'base64');
+    } catch (_) {
+        return null;
+    }
+    if (!buf || !buf.length) return null;
+    return uploadPromoResultImageBuffer(userId, buf);
+}
+
+function promoReferenceImagesFromUrls(urls) {
+    return (urls || []).map(function (u, i) {
+        return { role: i === 0 ? 'primary' : ('reference_' + (i + 1)), url: u };
+    }).filter(function (r) { return r && r.url; });
+}
+
+async function persistPromoGenerationMetaReferenceImages(userId, meta) {
+    const next = meta && typeof meta === 'object' ? Object.assign({}, meta) : {};
+    const out = [];
+    const seen = {};
+    async function add(role, url) {
+        const persisted = await persistPromoReferenceImageUrl(userId, url);
+        if (!persisted || seen[persisted]) return persisted;
+        seen[persisted] = true;
+        out.push({ role: role || 'reference', url: persisted });
+        return persisted;
+    }
+    if (Array.isArray(next.reference_images)) {
+        for (let i = 0; i < next.reference_images.length; i++) {
+            const r = next.reference_images[i];
+            if (!r) continue;
+            await add(r.role || r.role_key || 'reference', r.url || r.image_url);
+        }
+    }
+    const extraKeys = [
+        ['floor_plan_source_url', 'floor_plan'],
+        ['layout_reference_url', 'floor_plan'],
+        ['scene_image_url', 'scene'],
+        ['style_image_url', 'style'],
+        ['staging_product_url', 'staging_product']
+    ];
+    for (let i = 0; i < extraKeys.length; i++) {
+        const key = extraKeys[i][0];
+        const role = extraKeys[i][1];
+        if (next[key]) {
+            const u = await add(role, next[key]);
+            next[key] = u;
+        }
+    }
+    if (out.length) next.reference_images = out;
+    return next;
+}
+
+async function persistPromoGenerationInsertPayload(payload) {
+    const current = Object.assign({}, payload);
+    const userId = current.user_id;
+    try {
+        current.source_image_url = await persistPromoReferenceImageUrl(userId, current.source_image_url);
+        current.generation_meta_json = await persistPromoGenerationMetaReferenceImages(userId, parsePromoGenerationMetaJson(current.generation_meta_json));
+        if (current.source_image_url) {
+            const meta = current.generation_meta_json && typeof current.generation_meta_json === 'object'
+                ? current.generation_meta_json
+                : {};
+            const refs = Array.isArray(meta.reference_images) ? meta.reference_images.slice() : [];
+            if (!refs.some(function (r) { return r && r.url === current.source_image_url; })) {
+                refs.unshift({
+                    role: 'primary',
+                    url: current.source_image_url,
+                    source_type: current.source_type || null,
+                    source_id: current.source_id || null
+                });
+            }
+            meta.reference_images = refs;
+            current.generation_meta_json = meta;
+        }
+    } catch (persistErr) {
+        console.warn('persist promo reference images:', persistErr && persistErr.message);
+        if (isDataImageUrl(current.source_image_url)) current.source_image_url = null;
+    }
+    return current;
+}
+
+function collectPromoListRefsFromRow(row) {
+    const refs = [];
+    const seen = {};
+    function add(url, title, type, id) {
+        const u = isUsableStoredImageUrl(url) ? String(url).trim() : '';
+        if (!u || seen[u]) return;
+        seen[u] = true;
+        refs.push({
+            image_url: u,
+            title: title || '參考圖',
+            type: type || 'upload',
+            id: id || null
+        });
+    }
+    const sourceType = String((row && row.source_type) || '').trim();
+    const sourceTitle = (sourceType === 'custom_product' || sourceType === 'digital_asset')
+        ? '來源設計稿'
+        : (sourceType === 'vendor_asset' ? '來源素材' : '參考圖');
+    add(row && row.source_image_url, sourceTitle, sourceType || 'upload', row && row.source_id);
+    const meta = parsePromoGenerationMetaJson(row && row.generation_meta_json);
+    (Array.isArray(meta.reference_images) ? meta.reference_images : []).forEach(function (r) {
+        if (!r) return;
+        add(r.url || r.image_url, r.role === 'primary' ? sourceTitle : (r.role === 'floor_plan' ? '平面配置' : '參考圖'), sourceType || 'upload', row && row.source_id);
+    });
+    add(meta.floor_plan_source_url || meta.layout_reference_url, '平面配置', 'upload', null);
+    add(meta.scene_image_url, '場景參考', 'upload', null);
+    add(meta.style_image_url, '風格參考', 'upload', null);
+    add(meta.staging_product_url, '陳列產品', 'upload', null);
+    return refs;
+}
+
+async function enrichPromoRowsMissingSourceImages(rows) {
+    const list = rows || [];
+    const customIds = [];
+    const vendorIds = [];
+    list.forEach(function (row) {
+        if (!row || isUsableStoredImageUrl(row.source_image_url) || !row.source_id) return;
+        const t = String(row.source_type || '').trim();
+        if (t === 'custom_product' || t === 'digital_asset') customIds.push(row.source_id);
+        else if (t === 'vendor_asset') vendorIds.push(row.source_id);
+    });
+    const customMap = {};
+    const vendorMap = {};
+    const uniqCustom = [...new Set(customIds.map(function (id) { return String(id); }))];
+    const uniqVendor = [...new Set(vendorIds.map(function (id) { return String(id); }))];
+    if (uniqCustom.length) {
+        let { data, error } = await supabase.from('custom_products')
+            .select('id, title, ai_generated_image_url, reference_image_url')
+            .in('id', uniqCustom);
+        if (error && /ai_generated_image_url|column/i.test(error.message || '')) {
+            ({ data, error } = await supabase.from('custom_products').select('id, title, reference_image_url').in('id', uniqCustom));
+        }
+        if (!error) {
+            (data || []).forEach(function (p) {
+                if (p && p.id) customMap[p.id] = p;
+            });
+        }
+    }
+    if (uniqVendor.length) {
+        const { data, error } = await supabase.from('vendor_assets').select('id, title, image_url').in('id', uniqVendor);
+        if (!error) {
+            (data || []).forEach(function (p) {
+                if (p && p.id) vendorMap[p.id] = p;
+            });
+        }
+    }
+    list.forEach(function (row) {
+        if (!row || isUsableStoredImageUrl(row.source_image_url) || !row.source_id) return;
+        const t = String(row.source_type || '').trim();
+        if (t === 'custom_product' || t === 'digital_asset') {
+            const p = customMap[row.source_id];
+            const url = p && (p.ai_generated_image_url || p.reference_image_url);
+            if (isUsableStoredImageUrl(url)) {
+                row.source_image_url = url;
+                row._source_ref_title = (p && p.title) || '來源設計稿';
+            }
+        } else if (t === 'vendor_asset') {
+            const p = vendorMap[row.source_id];
+            if (p && isUsableStoredImageUrl(p.image_url)) {
+                row.source_image_url = p.image_url;
+                row._source_ref_title = p.title || '來源素材';
+            }
+        }
+    });
+    return list;
+}
+
 /** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
 async function insertProductPromoGenerationRow(payload) {
-    let current = Object.assign({}, payload);
+    let current = await persistPromoGenerationInsertPayload(payload);
     const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at', 'credit_transaction_id', 'generation_meta_json', 'parent_record_kind', 'parent_record_id'];
     let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
@@ -18729,6 +18918,8 @@ function mapUserPromoGenerationListItem(row) {
         created_at: row.created_at,
         source_type: row.source_type || null,
         source_id: row.source_id || null,
+        source_image_url: isUsableStoredImageUrl(row.source_image_url) ? String(row.source_image_url).trim() : null,
+        references: collectPromoListRefsFromRow(row),
         show_on_homepage: row.show_on_homepage === true,
         generation_mode: row.generation_mode || meta.generation_mode || null,
         asset_kind: assetKind,
@@ -18768,13 +18959,16 @@ async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd, shoot
             .order('created_at', { ascending: false }),
         shootFilter
     ).range(offsetN, rangeEnd);
-    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json';
-    const selectNoMeta = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, ai_tags, generation_mode';
-    const selectNoTags = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, generation_mode, generation_meta_json';
-    const selectNoDesc = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, generation_mode, generation_meta_json';
-    const selectNoShow = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, generation_mode, generation_meta_json';
-    const selectLegacy = 'id, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, generation_mode, generation_meta_json';
+    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json';
+    const selectNoMeta = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode';
+    const selectNoTags = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, generation_mode, generation_meta_json';
+    const selectNoDesc = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, generation_mode, generation_meta_json';
+    const selectNoShow = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, generation_mode, generation_meta_json';
+    const selectLegacy = 'id, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, generation_mode, generation_meta_json';
     let res = await baseQuery(selectFull);
+    if (res.error && isSupabaseMissingColumnError(res.error, 'source_image_url')) {
+        res = await baseQuery('id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json');
+    }
     if (res.error && isSupabaseMissingColumnError(res.error, 'generation_meta_json')) {
         res = await baseQuery(selectNoMeta);
     }
@@ -18910,7 +19104,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 user_id: currentUser.id,
                 source_type: sourceType,
                 source_id: sourceId || null,
-                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                source_image_url: primaryUrl || null,
                 aspect_ratio: aspectRatio,
                 width: w,
                 height: h,
@@ -18928,7 +19122,8 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                     reference_count: refBases.length,
                     aspect_ratio: aspectRatio,
                     theme_key: themeKey || null,
-                    scene_key: sceneKey || null
+                    scene_key: sceneKey || null,
+                    reference_images: promoReferenceImagesFromUrls(refUrls)
                 },
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage
@@ -19442,7 +19637,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                 user_id: currentUser.id,
                 source_type: sourceType,
                 source_id: sourceId || null,
-                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                source_image_url: primaryUrl || null,
                 aspect_ratio: aspectRatio,
                 width: w,
                 height: h,
@@ -19465,7 +19660,8 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
                     theme_key: themeKey || null,
                     scene_key: sceneKey || null,
                     generation_mode: 'camera_advanced',
-                    client_channel: clientChannel
+                    client_channel: clientChannel,
+                    reference_images: promoReferenceImagesFromUrls(refUrls)
                 },
                 completed_at: new Date().toISOString(),
                 show_on_homepage: promoShowOnHomepage,
@@ -20111,6 +20307,7 @@ app.get('/api/promo-image/generations', async (req, res) => {
         const rawList = data || [];
         const hasMore = rawList.length > limitN;
         const pageRows = hasMore ? rawList.slice(0, limitN) : rawList;
+        await enrichPromoRowsMissingSourceImages(pageRows);
         let appealMap = {};
         try {
             appealMap = await fetchPromoSpaceAppealSummaryMap(pageRows.map(function (r) { return r.id; }));
@@ -28926,6 +29123,7 @@ async function listAdminGenerationRecords(opts) {
             }, fetchN);
         }
         if (!promoRes.error) {
+            await enrichPromoRowsMissingSourceImages(promoRes.data || []);
             const shootFilter = ADMIN_PROMO_CAMERA_SHOOT_FILTER[source];
             (promoRes.data || []).forEach(function (row) {
                 const itemSource = adminPromoGenerationRecordSource(row);
@@ -28975,7 +29173,15 @@ async function listAdminGenerationRecords(opts) {
                     status: row.status || 'success',
                     camera_params: row.camera_params || null,
                     camera_params_summary: cameraSummary || null,
-                    reference_sources: row.source_image_url ? [{ type: row.source_type || 'upload', url: row.source_image_url, id: row.source_id || null }] : []
+                    reference_sources: (function () {
+                        const list = collectPromoListRefsFromRow(row);
+                        if (list.length) {
+                            return list.map(function (r) {
+                                return { type: r.type || row.source_type || 'upload', url: r.image_url, image_url: r.image_url, id: r.id || row.source_id || null, title: r.title || null };
+                            });
+                        }
+                        return row.source_image_url ? [{ type: row.source_type || 'upload', url: row.source_image_url, image_url: row.source_image_url, id: row.source_id || null }] : [];
+                    })()
                 });
             });
         } else if (promoRes.error && promoRes.error.code !== '42P01') {

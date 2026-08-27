@@ -575,7 +575,7 @@
     <script src="/js/site-header.js"></script>
     <script src="/js/matchdo-promo-image.js?v=20260812nomodel"></script>
     <script src="/js/image-lightbox.js?v=20260731v"></script>
-    <script src="/js/provenance-resume-ui.js?v=20260823opts1"></script>
+    <script src="/js/provenance-resume-ui.js?v=20260828refs1"></script>
 
     <script>
 
@@ -1484,6 +1484,36 @@
             return '';
         }
 
+        function buildPromoRefsHtml(item) {
+            var list = Array.isArray(item && item.references) ? item.references.filter(Boolean) : [];
+            if (!list.length) {
+                var fallback = String((item && item.source_image_url) || '').trim();
+                if (fallback && fallback.indexOf('data:') !== 0) {
+                    list = [{ image_url: fallback, title: '參考圖' }];
+                }
+            }
+            if (!list.length) return '';
+            var thumbs = '';
+            var count = 0;
+            list.forEach(function (s) {
+                var imgUrl = String((s && (s.image_url || s.url)) || '').trim();
+                if (!imgUrl || imgUrl.indexOf('data:') === 0) return;
+                count += 1;
+                var title = String((s && s.title) || '參考圖').trim();
+                thumbs +=
+                    '<a class="design-ref-thumb" href="' + escapeHtml(imgUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title) + '">' +
+                    '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(title) + '" loading="lazy" decoding="async" onerror="this.style.opacity=.3">' +
+                    '<span>' + escapeHtml(title) + '</span></a>';
+            });
+            if (!thumbs || !count) return '';
+            return (
+                '<div class="design-refs-section design-refs-inline">' +
+                '<span class="design-refs-label">參考 ' + count + '</span>' +
+                '<div class="design-ref-thumbs">' + thumbs + '</div>' +
+                '</div>'
+            );
+        }
+
         function createPromoCard(item) {
             const col = document.createElement('div');
             col.className = 'col-6 col-md-3 col-xl-2';
@@ -1527,9 +1557,12 @@
             const showHint = canControl
                 ? '可勾選是否展示在首頁媒體牆「情境圖」'
                 : '免費用戶預設展示在首頁，無法取消';
-            const sourceLink = (item.source_type === 'custom_product' && item.source_id)
+            const sourceLink = ((item.source_type === 'custom_product' || item.source_type === 'digital_asset') && item.source_id)
                 ? ('/inspiration/user_design/' + encodeURIComponent(item.source_id))
-                : '';
+                : (item.source_type === 'vendor_asset' && item.source_id
+                    ? ('/inspiration/prototype/' + encodeURIComponent(item.source_id))
+                    : '');
+            const refsHtml = buildPromoRefsHtml(item);
             col.innerHTML = `
                 <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
@@ -1543,6 +1576,7 @@
                         ${sizeLine ? ('<p class="text-muted small mb-1">' + escapeHtml(sizeLine) + '</p>') : ''}
                         <div data-role="promo-desc-wrap"></div>
                         ${tagsHtml}
+                        ${refsHtml}
                         <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>

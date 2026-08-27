@@ -42,8 +42,9 @@
   function renderReferences(refs) {
     if (!refs || !refs.length) return '<p class="text-muted mb-0">尚無參考來源記錄</p>';
     return '<div class="row g-2">' + refs.map(function (r) {
-      var img = r.image_url
-        ? '<img src="' + esc(r.image_url) + '" class="rounded border" style="width:100%;height:72px;object-fit:cover" alt="">'
+      var imgUrl = r.image_url || r.url;
+      var img = imgUrl
+        ? '<img src="' + esc(imgUrl) + '" class="rounded border" style="width:100%;height:72px;object-fit:cover" alt="">'
         : '<div class="rounded border bg-light text-muted d-flex align-items-center justify-content-center" style="height:72px;font-size:0.7rem">無圖</div>';
       var link = r.inspiration_url
         ? ('<a href="' + esc(r.inspiration_url) + '" target="_blank" rel="noopener" class="small">公開連結</a>')

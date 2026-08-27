@@ -178,7 +178,7 @@
   <script src="/js/auth-middleware.js"></script>
   <script src="/admin/js/admin-common.js"></script>
   <script src="/js/bootstrap.bundle.min.js"></script>
-  <script src="/js/provenance-resume-ui.js?v=20260823opts1"></script>
+  <script src="/js/provenance-resume-ui.js?v=20260828refs1"></script>
   <script>
   (function () {
     var token = null;
@@ -413,7 +413,23 @@
         }
         html += formatCameraParamsHtml(row);
       }
-      html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
+      html += '</dl><div class="fw-semibold mb-1">參考圖</div>';
+      var refList = row.reference_sources || [];
+      if (row.source_image_url && !refList.length) {
+        refList = [{ url: row.source_image_url, image_url: row.source_image_url, type: row.source_type || 'upload' }];
+      }
+      if (!refList.length) {
+        html += '<p class="text-muted">無參考圖</p>';
+      } else {
+        html += '<div class="d-flex flex-wrap gap-2 mb-2">';
+        refList.forEach(function (s) {
+          var u = s && (s.image_url || s.url);
+          if (!u || String(u).indexOf('data:') === 0) return;
+          html += '<div class="text-center"><img src="' + esc(u) + '" alt="" class="rounded border" style="width:96px;height:96px;object-fit:cover"><div class="small text-muted">' + esc(s.title || s.type || '參考') + '</div></div>';
+        });
+        html += '</div>';
+      }
+      html += '<div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
         esc(JSON.stringify(row.reference_sources || [], null, 2)) + '</pre>';
       var kind = window.ProvenanceResumeUI && ProvenanceResumeUI.mapRecordSourceToKind(row.source);
       document.getElementById('detailBody').innerHTML = html;
