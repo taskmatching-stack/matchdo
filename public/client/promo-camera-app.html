@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="商攝導演" />
-  <meta name="description" content="掌控你的影像風格" data-i18n-content="promoCamera.tagline" />
+  <meta name="description" content="產品、空間、人像攝影模擬" data-i18n-content="promoCamera.tagline" />
   <link rel="canonical" href="/promo-camera-app" />
   <link rel="manifest" href="/promo-camera-app.webmanifest" />
   <link rel="apple-touch-icon" href="/img/matchdo-logo.png" />
@@ -39,7 +39,7 @@
         <img src="/img/matchdo-logo.png" alt="" class="pc-app-logo" width="32" height="32" decoding="async" />
         <div>
           <h1 class="pc-app-title mb-0" data-i18n="promoCamera.pageHeading">商攝導演</h1>
-          <p class="pc-app-subtitle mb-0" data-i18n="promoCamera.tagline">掌控你的影像風格</p>
+          <p class="pc-app-subtitle mb-0" data-i18n="promoCamera.tagline">產品、空間、人像攝影模擬</p>
         </div>
       </div>
       <div class="pc-app-topbar-actions">
@@ -62,7 +62,7 @@
   </header>
 
   <div id="promo-camera-app" class="container pc-app-container">
-    <p class="pc-tagline pc-tagline--embed mb-2" data-i18n="promoCamera.tagline">掌控你的影像風格</p>
+    <p class="pc-tagline pc-tagline--embed mb-2" data-i18n="promoCamera.tagline">產品、空間、人像攝影模擬</p>
     <p class="text-muted small pc-app-pricing" id="pcPricingIntro" data-i18n="promoCamera.pricingLoading">載入點數規則中…</p>
 
     <div class="pc-layout">
@@ -133,9 +133,9 @@
               <label class="form-label small mb-1" data-i18n="promoCamera.outputType">輸出類型</label>
               <div class="pc-spec-choice-row" role="group" data-i18n-aria-label="promoCamera.outputType" aria-label="輸出類型">
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutLayout" value="layout_plan" checked />
-                <label class="pc-spec-choice-btn" for="pcSpaceOutLayout" data-i18n="promoCamera.spaceOutLayout">ISO 空間地圖</label>
+                <label class="pc-spec-choice-btn" for="pcSpaceOutLayout" data-i18n="promoCamera.spaceOutLayout">空間地圖</label>
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutEye" value="eye_level" />
-                <label class="pc-spec-choice-btn" for="pcSpaceOutEye" data-i18n="promoCamera.spaceOutEye">平視攝影（對照 ISO）</label>
+                <label class="pc-spec-choice-btn" for="pcSpaceOutEye" data-i18n="promoCamera.spaceOutEye">平視攝影</label>
               </div>
             </div>
           </details>
@@ -169,7 +169,7 @@
               <label class="form-label small mb-1" data-i18n="promoCamera.spaceMapView">空間地圖視角</label>
               <div class="pc-spec-choice-row mb-2" role="group" data-i18n-aria-label="promoCamera.spaceMapView" aria-label="空間地圖視角">
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
-                <label class="pc-spec-choice-btn" for="pcSpaceLayoutIso" data-i18n="promoCamera.spaceLayoutIso">45° ISO（預設）</label>
+                <label class="pc-spec-choice-btn" for="pcSpaceLayoutIso" data-i18n="promoCamera.spaceLayoutIso">45° 俯視（預設）</label>
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
                 <label class="pc-spec-choice-btn" for="pcSpaceLayoutTop" data-i18n="promoCamera.spaceLayoutTop">正上方俯視</label>
               </div>
@@ -191,17 +191,17 @@
 
           <details class="pc-spec-block pc-space-eye-only d-none">
             <summary class="pc-spec-summary">
-              <span class="pc-spec-kicker" data-i18n="promoCamera.spaceMap">ISO 地圖</span>
+              <span class="pc-spec-kicker" data-i18n="promoCamera.spaceMap">空間地圖</span>
               <span class="pc-spec-value" data-pc-spec="spaceMap">未選</span>
             </summary>
             <div class="pc-spec-body">
               <div id="pcLayoutThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
               <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
                 <label class="btn btn-sm btn-outline-secondary mb-0">
-                  <i class="bi bi-upload"></i> <span data-i18n="promoCamera.uploadIsoMap">上傳 ISO 地圖</span>
+                  <i class="bi bi-upload"></i> <span data-i18n="promoCamera.uploadIsoMap">上傳空間地圖</span>
                   <input type="file" id="pcLayoutRefInput" accept="image/*" hidden />
                 </label>
-                <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="pcPickLayoutBtn"><i class="bi bi-images"></i> <span data-i18n="promoCamera.pickIsoMap">選 ISO 地圖</span></button>
+                <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="pcPickLayoutBtn"><i class="bi bi-images"></i> <span data-i18n="promoCamera.pickIsoMap">選擇空間地圖</span></button>
               </div>
               <div id="pcSpaceMapMarkPanel" class="pc-space-eye-only">
                 <p class="small text-muted mb-2" data-i18n-html="promoCamera.mapMarkAppBrief">選字母點圖 → 選站點／望向 → 按<strong>確定標註</strong>才可生成（字母＝區域；標註圖不存資產庫）</p>
@@ -222,7 +222,7 @@
                   <button type="button" class="btn btn-sm btn-outline-secondary" id="pcSpaceMarkDownload" disabled data-i18n="promoCamera.mapMarkDownload">下載有字母的圖</button>
                   <button type="button" class="btn btn-sm btn-outline-danger" id="pcSpaceMarkClear" data-i18n="promoCamera.mapMarkClear">清除標註</button>
                 </div>
-                <p class="small text-muted mb-1 d-none" id="pcSpaceMapMarkEmpty" data-i18n="promoCamera.mapMarkEmpty">請先選／上傳 ISO 地圖</p>
+                <p class="small text-muted mb-1 d-none" id="pcSpaceMapMarkEmpty" data-i18n="promoCamera.mapMarkEmpty">請先選／上傳空間地圖</p>
                 <div id="pcSpaceMapMarkPaintWrap" class="pc-space-map-mark-paint d-none">
                   <div class="pc-space-map-mark-frame">
                     <canvas id="pcSpaceMapMarkCanvas" class="pc-space-map-mark-canvas" width="1" height="1"></canvas>
@@ -239,7 +239,7 @@
               <span class="pc-spec-value" data-pc-spec="planningSim">—</span>
             </summary>
             <div class="pc-spec-body">
-              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.planningSimHint">將家具／陳設套進目前空間圖（優先用剛生成的結果，否則用平面配置或 ISO 地圖）。</p>
+              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.planningSimHint">將家具／陳設套進目前空間圖（優先用剛生成的結果，否則用平面配置或 空間地圖）。</p>
               <div id="pcPlanningSimThumb" class="d-flex flex-wrap gap-2 mb-2"></div>
               <div class="pc-app-split-actions mb-2">
                 <button type="button" class="pc-app-action pc-app-action--pick" id="pcPickPlanningSimBtn">

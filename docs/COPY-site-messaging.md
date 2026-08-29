@@ -1,6 +1,6 @@
 # MatchDO 官網文案規劃
 
-**更新**：2026-08-29  
+**更新**：2026-08-29（P1 商攝：攝影參數、空間地圖用詞）
 **語氣**：官方說明（陳述功能、短句、不推銷、不提 AI、不跟別家比）  
 **實作**：P0 已寫入 `public/locales/*.json`、首頁 meta、help；其餘見下方分期。
 
@@ -42,7 +42,7 @@
 | `help.subtitle` | 各功能入口、操作步驟與常見問題。 | Feature entry points, steps, and FAQ. |
 | `customProduct.pageSub` | 依描述、分類與參考圖產出設計稿。 | Produce design drafts from description, category, and references. |
 | `promoCamera.tagline` / `appSubtitle` | 產品、空間、人像攝影模擬 | Product, space, and portrait photography simulation |
-| `promoCamera.introPrefix` | 上傳或自數位資產選擇產品參考圖；右側可調鏡頭、光圈、EV 等參數。 | Upload or pick a product reference from digital assets; adjust lens, aperture, EV, and related parameters on the right. |
+| `promoCamera.introPrefix` | 上傳或自數位資產選擇產品參考圖；右側可調攝影參數。 | Upload or pick a product reference from digital assets; adjust camera parameters on the right. |
 | `myCustomProducts.subtitle` | 設計稿、情境圖與相關產出；含參考來源與生成履歷。 | Design drafts, scene images, and related outputs; includes reference sources and generation history. |
 | `gallery.heroLead` | 瀏覽廠商作品；可帶入設計稿。 | Browse vendor work; load references into design drafts. |
 | `remake.heroLead` | 依參考圖與描述分析設計意圖與風格方向。 | Analyze design intent and style from references and description. |
@@ -51,7 +51,31 @@
 
 ---
 
-## 4. P1（待做）
+## 4. 商攝導演（P1 · 已實作）
+
+### 用詞
+
+| 對外 | 不用 |
+|------|------|
+| **攝影參數**（統稱） | 鏡頭、光圈、EV 等零碎列舉（官網／intro） |
+| **空間地圖** | ISO 地圖、ISO 空間地圖（前台） |
+| **45° 俯視** | 45° ISO |
+| **地圖標記** | — |
+
+空間流程一句：**平面配置 → 空間地圖 → 地圖標記 → 平視攝影**
+
+Help 對照（情境圖 vs 商攝）：
+
+| | 情境圖 | 商攝導演 |
+|---|---|---|
+| 控制 | 主題、場景、長寬比 | 攝影參數 |
+| 空間 | — | 平面配置 → 空間地圖 → 地圖標記 → 平視 |
+
+內部文件／code key（`layout_plan`、`genIsoMap` 等）可保留 ISO，**不出現在前台 UI**。
+
+---
+
+## 5. P1（其他待做）
 
 | 頁面 / Key | 建議 subtitle |
 |------------|----------------|
@@ -65,7 +89,7 @@
 
 ---
 
-## 5. Help 結構（P1 文案重排）
+## 6. Help 結構（P1 文案重排）
 
 1. **產出設計稿** — 分類、參考圖、描述 → 數位資產  
 2. **產出情境影像** — 數位資產或上傳 → 情境圖／商攝導演  
@@ -75,8 +99,8 @@
 
 ---
 
-## 6. 維護
+## 7. 維護
 
-- 前台字串以 `public/locales/zh-TW.json`、`en.json` 為準；`site-header.js` fallback 與 tagline 同步。  
+- 前台字串以 `public/locales/zh-TW.json`、`en.json` 為準；**官網 `/promo-camera` 與 PWA `/promo-camera-app` 共用同一套 locales**；HTML fallback 與 tagline 同步。  
 - 改 locales 後更新 `public/js/i18n.js` 的 `LOCALE_CACHE_V`。  
 - 首頁 meta 在 `public/iStudio-1.0.0/index.html`（根路徑 `/`）。

@@ -74,10 +74,10 @@
     var outLabel = '';
     if (outEye && outEye.checked) {
       var eyeLab = document.querySelector('label[for="pcSpaceOutEye"]');
-      outLabel = eyeLab ? eyeLab.textContent.trim() : t('promoCamera.spaceOutEye', '平視攝影（對照 ISO）');
+      outLabel = eyeLab ? eyeLab.textContent.trim() : t('promoCamera.spaceOutEye', '平視攝影');
     } else if (outLayout && outLayout.checked) {
       var layLab = document.querySelector('label[for="pcSpaceOutLayout"]');
-      outLabel = layLab ? layLab.textContent.trim() : t('promoCamera.spaceOutLayout', 'ISO 空間地圖');
+      outLabel = layLab ? layLab.textContent.trim() : t('promoCamera.spaceOutLayout', '空間地圖');
     }
     setVal('spaceSetup', joinParts([useType, outLabel]));
 

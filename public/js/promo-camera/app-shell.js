@@ -76,7 +76,7 @@
     var st = St.get ? St.get() : {};
     if (title) {
       if (mode === 'space') {
-        title.textContent = (st.spaceOutputType === 'eye_level') ? 'ISO 空間地圖' : '平面配置圖';
+        title.textContent = (st.spaceOutputType === 'eye_level') ? '空間地圖' : '平面配置圖';
       } else if (mode === 'portrait') title.textContent = '人像參考圖';
       else title.textContent = t('promoCamera.appSectionSource', '產品圖');
     }
@@ -101,7 +101,7 @@
         var useLabel = (useSel.options[useSel.selectedIndex].textContent || '').trim();
         if (useLabel) parts.push(useLabel);
       }
-      parts.push(st.spaceOutputType === 'eye_level' ? '平視' : (st.spaceLayoutView === 'top_down' ? '俯視' : 'ISO'));
+      parts.push(st.spaceOutputType === 'eye_level' ? '平視' : (st.spaceLayoutView === 'top_down' ? '俯視' : '地圖'));
       if (st.spaceOutputType === 'eye_level' && st.spaceMapMarkConfirmed) {
         parts.push((st.spaceLookFrom || '?') + '→' + (st.spaceLookTo || '?'));
       }

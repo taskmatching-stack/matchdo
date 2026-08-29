@@ -490,12 +490,12 @@
       compare_ref_url: compareRef,
       compare_ref_label: (data && data.compare_ref_label) || (data && (data.draft_image_url || data.draft_imageData)
         ? moodLabs.ref
-        : (payload.space_output_type === 'eye_level' ? 'ISO 空間地圖' : '平面配置圖')),
+        : (payload.space_output_type === 'eye_level' ? '空間地圖' : '平面配置圖')),
       compare_result_label: (data && data.compare_result_label) || (data && (data.draft_image_url || data.draft_imageData)
         ? moodLabs.result
         : (payload.space_output_type === 'eye_level'
           ? '平視攝影'
-          : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : 'ISO 空間地圖')))
+          : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : '空間地圖')))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
     appendPromptSentUnderResult(el, data);
@@ -698,7 +698,7 @@
   function chatWelcomeHtml() {
     if (isSpaceMode()) {
       if (isSpaceEyeLevel()) {
-        return t('promoCamera.chatWelcomeSpaceEye', '請選 <strong>ISO 空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。');
+        return t('promoCamera.chatWelcomeSpaceEye', '請選 <strong>空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。');
       }
       return t('promoCamera.chatWelcomeSpaceLayout', '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。');
     }
@@ -856,7 +856,7 @@
         if (spanLay) {
           spanLay.textContent = (St.get().spaceLayoutView === 'top_down')
             ? t('promoCamera.genTopDownMap', '生成俯視空間地圖')
-            : t('promoCamera.genIsoMap', '生成 ISO 空間地圖');
+            : t('promoCamera.genIsoMap', '生成空間地圖');
         }
       }
       var styleImgRow = document.getElementById('pcSpaceStyleImageRow');
@@ -1367,7 +1367,7 @@
     wrap.innerHTML = '<div class="position-relative d-inline-block">' +
       '<img class="pc-thumb" src="' + esc(url) + '" alt="">' +
       '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1 pc-remove-layout" style="line-height:1;font-size:10px;">×</button>' +
-      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">ISO</span></div>';
+      '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1">地圖</span></div>';
     var rm = wrap.querySelector('.pc-remove-layout');
     if (rm) {
       rm.addEventListener('click', function () {
@@ -1498,7 +1498,7 @@
     }
     return new Promise(function (resolve, reject) {
       var src = String(url || '').trim();
-      if (!src) return reject(new Error('缺少 ISO 地圖'));
+      if (!src) return reject(new Error('缺少空間地圖'));
       if (/^data:/i.test(src)) return resolve(src);
       if (src.indexOf(window.location.origin) === 0 || src.charAt(0) === '/') {
         fetchToDataUrl(src, true).then(resolve).catch(function () {
@@ -1510,7 +1510,7 @@
       fetchToDataUrl(src, false).then(resolve).catch(function () {
         var proxy = '/api/proxy-image?url=' + encodeURIComponent(src);
         fetchToDataUrl(proxy, true).then(resolve).catch(function () {
-          reject(new Error('地圖跨域無法標註，請改用「上傳 ISO 地圖」'));
+          reject(new Error('地圖跨域無法標註，請改用「上傳空間地圖」'));
         });
       });
     });
@@ -1532,7 +1532,7 @@
       wrap.classList.add('d-none');
       if (empty) {
         empty.classList.remove('d-none');
-        empty.textContent = '請先選／上傳 ISO 地圖，再於圖上打字母';
+        empty.textContent = '請先選／上傳空間地圖，再於圖上打字母';
       }
       return;
     }
@@ -1689,7 +1689,7 @@
         }).catch(function (err) {
           if (St.setSpaceMapMarkConfirmed) St.setSpaceMapMarkConfirmed(false);
           syncSpaceMarkConfirmUi();
-          showResultError((err && err.message) ? err.message : '標註合成失敗，請改上傳 ISO 檔再標');
+          showResultError((err && err.message) ? err.message : '標註合成失敗，請改上傳空間地圖再標');
         });
       });
     }
@@ -2820,7 +2820,7 @@
       }).catch(function (err) {
         st.generating = false;
         updateGenerateBtn();
-        showResultError((err && err.message) ? err.message : '地圖標註合成失敗，請改上傳 ISO 檔再標');
+        showResultError((err && err.message) ? err.message : '地圖標註合成失敗，請改上傳空間地圖再標');
       });
     });
 
