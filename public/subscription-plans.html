@@ -397,7 +397,13 @@
     fetch('/api/subscription-plans').then(function(r){ return r.json(); }).then(function(data){
       var row = document.getElementById('pricingCardsRow');
       if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
-      renderPlans(data.plans || []);
+      var plans = (data.plans || []).filter(function (p) {
+        var sort = p.sort_order != null ? parseInt(p.sort_order, 10) : 99;
+        var key = (p.plan_key || '').toLowerCase();
+        if (key.indexOf('seed_') === 0 || key.indexOf('waibeizi_') === 0) return false;
+        return sort <= 3;
+      });
+      renderPlans(plans);
       applyPayPalPricingUi();
       updateFreePlanButton();
     }).catch(function(){

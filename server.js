@@ -10139,6 +10139,27 @@ const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categ
 /** subscription_plans 後台只查／寫這些欄位（多數環境表結構一致，不依賴直連 DB） */
 const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, duration_months, credits_monthly, sort_order, is_active, plan_key';
 
+/** 前台方案頁只顯示一般 tier；種子／合作優惠僅後台開通 */
+const INTERNAL_SUBSCRIPTION_PLAN_KEYS = new Set([
+    'seed_loyalty_monthly',
+    'seed_loyalty_yearly',
+    'waibeizi_launch_monthly'
+]);
+
+function isPublicListedSubscriptionPlan(plan) {
+    if (!plan || plan.is_active === false) return false;
+    const key = String(plan.plan_key || '').trim().toLowerCase();
+    if (key && INTERNAL_SUBSCRIPTION_PLAN_KEYS.has(key)) return false;
+    if (key && (key.startsWith('seed_') || key.startsWith('waibeizi_'))) return false;
+    const sort = parseInt(plan.sort_order, 10);
+    if (Number.isFinite(sort) && sort >= 10) return false;
+    return true;
+}
+
+function filterPublicSubscriptionPlans(rows) {
+    return (rows || []).filter(isPublicListedSubscriptionPlan);
+}
+
 async function ensureAiCategoriesTableAndSeed() {
     if (!DB_URL) return; // 無 DB 直連就跳過
     const pool = new Pool({ connectionString: DB_URL });
@@ -13342,7 +13363,7 @@ app.get('/api/subscription-plans', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗', plans: [] });
         }
         res.set('Cache-Control', 'public, max-age=60');
-        res.json({ plans: rows || [] });
+        res.json({ plans: filterPublicSubscriptionPlans(rows) });
     } catch (e) {
         console.error('GET /api/subscription-plans 異常:', e);
         res.status(500).json({ error: '系統錯誤', plans: [] });
@@ -15616,12 +15637,17 @@ async function cancelUserPayPalSubscriptionsBeforeNewPlan(userId, paypalCfg, opt
         }
         const status = String(sub.status || '').toUpperCase();
         if (paypalRest.isPayPalSubscriptionTerminalStatus(status)) continue;
+        if (status === 'APPROVAL_PENDING') {
+            await supabase.from('payment_orders').update({ status: 'cancelled' }).eq('id', row.id);
+            continue;
+        }
         if (!paypalRest.isPayPalSubscriptionMustCancelStatus(status)) continue;
         try {
             await paypalRest.cancelPayPalSubscription(paypalCfg, subId, reason);
             cancelled.push(subId);
             const prevMeta = parsePaymentOrderMetadata(row.metadata);
             await supabase.from('payment_orders').update({
+                status: 'cancelled',
                 metadata: Object.assign({}, prevMeta, {
                     paypal_subscription_cancelled_at: new Date().toISOString(),
                     paypal_cancel_reason: reason
@@ -15629,12 +15655,18 @@ async function cancelUserPayPalSubscriptionsBeforeNewPlan(userId, paypalCfg, opt
             }).eq('external_id', subId).eq('user_id', userId);
         } catch (e) {
             const errMsg = (e && e.message) || String(e);
-            const alreadyDone = /cancelled|canceled|invalid.*status/i.test(errMsg);
-            if (paypalRest.isPayPalSubscriptionMustCancelStatus(status) && !alreadyDone) {
+            const alreadyDone = /cancelled|canceled|invalid.*status|not.*active|resource not found|404/i.test(errMsg);
+            if (alreadyDone) {
+                await supabase.from('payment_orders').update({ status: 'cancelled' }).eq('id', row.id);
+                console.warn('PayPal cancel treated as done:', subId, status, errMsg);
+                continue;
+            }
+            if (status === 'ACTIVE' || status === 'APPROVED') {
                 console.error('PayPal cancel failed:', subId, status, errMsg);
                 throw new Error('無法取消既有 PayPal 訂閱，請至 PayPal 帳戶取消後再試，或聯絡客服。');
             }
             console.warn('PayPal cancel skipped:', subId, status, errMsg);
+            await supabase.from('payment_orders').update({ status: 'cancelled' }).eq('id', row.id);
         }
     }
     if (cancelled.length > 0) {
