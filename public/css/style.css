@@ -800,9 +800,4 @@ body {
     }
 }
 
-/* 1350 以下不顯示「方案與定價」 */
-@media (max-width: 1350px) and (min-width: 992px) {
-    #site-header .nav-link-subscription {
-        display: none !important;
-    }
-}
+/* 頂部「方案與定價」常駐顯示（勿再依寬度隱藏，避免使用者找不到訂閱頁） */

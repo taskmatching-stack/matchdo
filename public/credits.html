@@ -26,9 +26,12 @@
   <div id="site-header"></div>
 
   <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
       <h1 class="h4 mb-0" data-i18n="credits.title">我的點數</h1>
-      <a href="/index.html" class="btn btn-outline-secondary btn-sm" id="creditsBackLink" data-i18n="credits.backHome">返回首頁</a>
+      <div class="d-flex gap-2">
+        <a href="/subscription-plans.html" class="btn btn-outline-primary btn-sm" id="creditsPlansLink" data-i18n="nav.subscriptionPlans">方案與定價</a>
+        <a href="/index.html" class="btn btn-outline-secondary btn-sm" id="creditsBackLink" data-i18n="credits.backHome">返回首頁</a>
+      </div>
     </div>
 
     <div id="loginRequired" class="alert alert-warning" style="display:none;">
@@ -452,11 +455,18 @@
     }
   }
 
+  function syncPlansLinkLang() {
+    var plansLink = document.getElementById('creditsPlansLink');
+    if (!plansLink) return;
+    plansLink.href = (lang === 'en') ? '/subscription-plans.html?lang=en' : '/subscription-plans.html';
+  }
+
   function init() {
     if (typeof AuthService !== 'undefined' && AuthService.getSession) {
       AuthService.getSession().then(function (s) {
         session = s;
         applyUrlParams();
+        syncPlansLinkLang();
         applyPaymentLocale();
         loadCredits();
       });
@@ -469,6 +479,7 @@
     window.i18n.ready.then(function () {
       if (window.i18n.applyPage) window.i18n.applyPage();
       if (window.i18n.getLang) lang = window.i18n.getLang();
+      syncPlansLinkLang();
       init();
     });
   } else {
