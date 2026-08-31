@@ -1736,6 +1736,18 @@
   "credits.errProvider": "Choose a payment method",
   "credits.errCreate": "Failed to create order",
 
+  "subscriptionCheckout.title": "Subscribe",
+  "subscriptionCheckout.backToPlans": "Back to plans",
+  "subscriptionCheckout.topUpInstead": "One-time top-up instead",
+  "subscriptionCheckout.summary": "This is a monthly or yearly subscription—not a one-time top-up. PayPal will bill per your plan.",
+  "subscriptionCheckout.missingParams": "Missing plan details. Please choose a plan again.",
+  "subscriptionCheckout.amountLabel": "Subscription amount (USD)",
+  "subscriptionCheckout.creditsLabel": "Credits per cycle",
+  "subscriptionCheckout.creditsYearly": "Yearly credits",
+  "subscriptionCheckout.billingMonthly": "Monthly",
+  "subscriptionCheckout.billingYearly": "Yearly",
+  "subscriptionCheckout.btnSubscribe": "Confirm subscription & pay",
+
   "payment.returnTitle": "Payment result",
   "payment.processing": "Processing payment…",
   "payment.successTitle": "Payment successful",

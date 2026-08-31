@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n-title="subscriptionCheckout.title">訂閱付款 - MATCHDO 合做</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/style.css" rel="stylesheet" />
+  <link href="/css/theme-colors.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .checkout-card { background: #fff; border: 1px solid #dee2e6; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .checkout-card .step-label { font-size: 0.75rem; text-transform: uppercase; color: #6c757d; margin-bottom: 0.5rem; font-weight: 600; }
+    .plan-badge { display: inline-block; background: #e8ecf0; color: #3a5169; border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.875rem; font-weight: 600; }
+    .btn-pay { min-width: 180px; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="site-header"></div>
+
+  <div class="container py-4" style="max-width: 720px;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h1 class="h4 mb-0" data-i18n="subscriptionCheckout.title">訂閱付款</h1>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/subscription-plans.html" class="btn btn-outline-primary btn-sm" id="backPlansLink" data-i18n="subscriptionCheckout.backToPlans">返回方案與定價</a>
+        <a href="/credits.html" class="btn btn-outline-secondary btn-sm" id="topUpLink" data-i18n="subscriptionCheckout.topUpInstead">改為單次儲值</a>
+      </div>
+    </div>
+
+    <div id="loginRequired" class="alert alert-warning" style="display:none;">
+      <span data-i18n="credits.loginRequired">請先</span>
+      <a href="/login.html" id="loginLink" data-i18n="credits.loginRequiredLink">登入</a>
+      <span data-i18n="credits.loginRequiredSuffix">後完成訂閱。</span>
+    </div>
+
+    <div id="missingParams" class="alert alert-danger" style="display:none;">
+      <span data-i18n="subscriptionCheckout.missingParams">缺少方案資訊，請從方案與定價頁重新選擇。</span>
+      <a href="/subscription-plans.html" class="alert-link ms-2" data-i18n="subscriptionCheckout.backToPlans">返回方案與定價</a>
+    </div>
+
+    <div id="checkoutPanel" style="display:none;" class="checkout-card">
+      <div class="mb-3">
+        <span class="plan-badge" id="planBadge">—</span>
+      </div>
+      <p class="text-muted mb-4" id="checkoutSummary" data-i18n="subscriptionCheckout.summary">此為方案月費／年費訂閱，非單次儲值。PayPal 將依方案自動扣款或一次付清。</p>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label" data-i18n="subscriptionCheckout.amountLabel">訂閱金額（USD）</label>
+          <input type="text" class="form-control bg-light" id="amount" readonly />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" id="creditsLabel" data-i18n="subscriptionCheckout.creditsLabel">每期點數</label>
+          <input type="text" class="form-control bg-light" id="credits" readonly />
+        </div>
+      </div>
+      <p class="text-muted small mb-4" id="paymentHint" data-i18n="credits.paymentHint">PayPal 結帳（美金）。</p>
+
+      <div class="step-label" data-i18n="credits.step3">確認並前往付款</div>
+      <button type="button" class="btn btn-primary btn-pay" id="btnPay"><i class="bi bi-lock-fill me-2"></i><span data-i18n="subscriptionCheckout.btnSubscribe">確認訂閱並付款</span></button>
+      <div id="payError" class="text-danger mt-2 small" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/payment-locale.js"></script>
+  <script src="/js/site-header.js"></script>
+  <script>
+(function () {
+  var session = null;
+  var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+  var urlBilling = '';
+  var urlPlan = '';
+  var urlReturnTo = '';
+
+  function t(key, fb) {
+    if (window.i18n && window.i18n.t) {
+      var v = window.i18n.t(key);
+      if (v && v !== key) return v;
+    }
+    return fb || key;
+  }
+
+  function show(el, on) { if (el) el.style.display = on ? '' : 'none'; }
+  function setText(el, text) { if (el) el.textContent = text; }
+
+  function sanitizeReturnPath(path) {
+    if (!path || typeof path !== 'string') return '';
+    path = path.trim();
+    if (!path.startsWith('/') || path.startsWith('//') || path.indexOf('://') !== -1) return '';
+    if (path.indexOf('/login.html') === 0 || path.indexOf('/payment/') === 0) return '';
+    return path.slice(0, 500);
+  }
+
+  function appendLangToPath(path, pageLang) {
+    if (!path || !pageLang || pageLang === 'zh-TW') return path;
+    try {
+      var u = new URL(path, window.location.origin);
+      if (!u.searchParams.get('lang')) u.searchParams.set('lang', pageLang === 'en' ? 'en' : pageLang);
+      return u.pathname + u.search;
+    } catch (e) {
+      return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'lang=' + encodeURIComponent(pageLang);
+    }
+  }
+
+  function resolvePaymentReturnTo() {
+    var path = sanitizeReturnPath(urlReturnTo) || '/subscription-plans.html';
+    if (lang && lang !== 'zh-TW') path = appendLangToPath(path, lang);
+    try { sessionStorage.setItem('payment_return_to', path); } catch (e) {}
+    return path;
+  }
+
+  function syncLangLinks() {
+    var suffix = (lang === 'en') ? '?lang=en' : '';
+    var back = document.getElementById('backPlansLink');
+    var topUp = document.getElementById('topUpLink');
+    if (back) back.href = '/subscription-plans.html' + suffix;
+    if (topUp) topUp.href = '/credits.html' + suffix;
+  }
+
+  function getAuthHeaders() {
+    if (!session || !session.access_token) return {};
+    return { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
+  }
+
+  function readParams() {
+    var params = new URLSearchParams(window.location.search);
+    urlBilling = (params.get('billing') || '').toLowerCase();
+    urlPlan = params.get('plan') || '';
+    urlReturnTo = sanitizeReturnPath(params.get('returnUrl') || params.get('return_to') || '');
+    var amount = params.get('amount') || '';
+    var credits = params.get('credits') || '';
+    if (amount && window.PaymentLocale) amount = String(PaymentLocale.twdToUsd(amount));
+    return { amount: amount, credits: credits };
+  }
+
+  function applyCheckoutUi(values) {
+    var billingText = urlBilling === 'yearly'
+      ? t('subscriptionCheckout.billingYearly', '年繳')
+      : t('subscriptionCheckout.billingMonthly', '月繳');
+    var badge = document.getElementById('planBadge');
+    if (badge) badge.textContent = (urlPlan ? urlPlan.toUpperCase() + ' · ' : '') + billingText;
+    document.getElementById('amount').value = values.amount ? ('$' + values.amount) : '';
+    document.getElementById('credits').value = values.credits || '';
+    var credLabel = document.getElementById('creditsLabel');
+    if (credLabel) {
+      credLabel.textContent = urlBilling === 'yearly'
+        ? t('subscriptionCheckout.creditsYearly', '年訂閱獲得點數')
+        : t('subscriptionCheckout.creditsLabel', '每期點數');
+    }
+    var hint = document.getElementById('paymentHint');
+    if (hint) {
+      hint.textContent = urlBilling === 'monthly'
+        ? t('credits.subscriptionMonthlyHint', '月訂閱：PayPal 自動扣款（美金），每月續扣並入點。')
+        : t('credits.subscriptionYearlyHint', '年繳：PayPal 一次付清（美金）。');
+    }
+  }
+
+  document.getElementById('btnPay').addEventListener('click', function () {
+    var errEl = document.getElementById('payError');
+    show(errEl, false);
+    var amount = parseFloat(String(document.getElementById('amount').value).replace(/[^0-9.]/g, '')) || 0;
+    var credits = parseInt(document.getElementById('credits').value, 10) || 0;
+    if (!amount || !credits || !urlPlan) {
+      setText(errEl, t('subscriptionCheckout.missingParams', '缺少方案資訊'));
+      show(errEl, true);
+      return;
+    }
+    this.disabled = true;
+    var isMonthly = urlBilling === 'monthly';
+    var apiUrl = isMonthly ? '/api/payment/paypal/create-subscription' : '/api/payment/paypal/create';
+    var payload = { amount: amount, credits: credits, plan: urlPlan, return_to: resolvePaymentReturnTo() };
+    if (!isMonthly && urlBilling === 'yearly') payload.billing = 'yearly';
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) {
+        if (r.status === 503 || r.status === 500) {
+          return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+        }
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.approval_url) {
+          window.location.href = data.approval_url;
+        } else {
+          document.getElementById('btnPay').disabled = false;
+          setText(errEl, data.error || t('credits.errCreate', '建立訂單失敗'));
+          show(errEl, true);
+        }
+      })
+      .catch(function (e) {
+        document.getElementById('btnPay').disabled = false;
+        var msg = (e && e.message) || t('credits.errCreate', '建立訂單失敗');
+        if (e && e.hint) msg += ' ' + e.hint;
+        setText(errEl, msg);
+        show(errEl, true);
+      });
+  });
+
+  function init() {
+    syncLangLinks();
+    var values = readParams();
+    var valid = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan && values.amount && values.credits;
+    if (!valid) {
+      show(document.getElementById('missingParams'), true);
+      return;
+    }
+    if (typeof AuthService === 'undefined' || !AuthService.getSession) {
+      show(document.getElementById('loginRequired'), true);
+      var loginLink = document.getElementById('loginLink');
+      if (loginLink) loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+    AuthService.getSession().then(function (s) {
+      session = s;
+      if (!s || !s.user) {
+        show(document.getElementById('loginRequired'), true);
+        var loginLink = document.getElementById('loginLink');
+        if (loginLink) loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search);
+        return;
+      }
+      applyCheckoutUi(values);
+      show(document.getElementById('checkoutPanel'), true);
+    });
+  }
+
+  if (window.i18n && window.i18n.ready) {
+    window.i18n.ready.then(function () {
+      if (window.i18n.applyPage) window.i18n.applyPage();
+      if (window.i18n.getLang) lang = window.i18n.getLang();
+      syncLangLinks();
+      init();
+    });
+  } else {
+    init();
+  }
+})();
+  </script>
+</body>
+</html>

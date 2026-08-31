@@ -329,16 +329,16 @@
         var plan = btn.getAttribute('data-plan');
         var billing = isYearly ? 'yearly' : 'monthly';
         if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
-        var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
+        var checkoutUrl = '/subscription-checkout.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
         var pageReturn = (typeof window !== 'undefined' && window.location) ? (window.location.pathname + (window.location.search || '')) : '/subscription-plans.html';
-        creditsUrl += '&returnUrl=' + encodeURIComponent(pageReturn);
+        checkoutUrl += '&returnUrl=' + encodeURIComponent(pageReturn);
         if (window.AuthService && AuthService.getSession) {
           AuthService.getSession().then(function(s){
-            if (s && s.user) location.href = creditsUrl;
-            else location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(creditsUrl);
-          }).catch(function(){ location.href = '/login.html?returnUrl=' + encodeURIComponent(creditsUrl); });
+            if (s && s.user) location.href = checkoutUrl;
+            else location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(checkoutUrl);
+          }).catch(function(){ location.href = '/login.html?returnUrl=' + encodeURIComponent(checkoutUrl); });
         } else {
-          location.href = '/login.html?returnUrl=' + encodeURIComponent(creditsUrl);
+          location.href = '/login.html?returnUrl=' + encodeURIComponent(checkoutUrl);
         }
       });
     });

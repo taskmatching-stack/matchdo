@@ -1765,6 +1765,18 @@
   "credits.errProvider": "請選擇付款方式",
   "credits.errCreate": "建立訂單失敗",
 
+  "subscriptionCheckout.title": "訂閱付款",
+  "subscriptionCheckout.backToPlans": "返回方案與定價",
+  "subscriptionCheckout.topUpInstead": "改為單次儲值",
+  "subscriptionCheckout.summary": "此為方案月費／年費訂閱，非單次儲值。PayPal 將依方案自動扣款或一次付清。",
+  "subscriptionCheckout.missingParams": "缺少方案資訊，請從方案與定價頁重新選擇。",
+  "subscriptionCheckout.amountLabel": "訂閱金額（USD）",
+  "subscriptionCheckout.creditsLabel": "每期點數",
+  "subscriptionCheckout.creditsYearly": "年訂閱獲得點數",
+  "subscriptionCheckout.billingMonthly": "月繳",
+  "subscriptionCheckout.billingYearly": "年繳",
+  "subscriptionCheckout.btnSubscribe": "確認訂閱並付款",
+
   "payment.returnTitle": "付款結果",
   "payment.processing": "處理付款結果中…",
   "payment.successTitle": "付款成功",

@@ -386,6 +386,13 @@
 
   function applyUrlParams() {
     var params = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
+    var billingEarly = (params && params.get('billing')) ? params.get('billing').toLowerCase() : '';
+    var planEarly = (params && params.get('plan')) || '';
+    if ((billingEarly === 'monthly' || billingEarly === 'yearly') && planEarly) {
+      window.location.replace('/subscription-checkout.html' + (window.location.search || ''));
+      return;
+    }
+
     var titleEl = document.getElementById('paymentSectionTitle');
     var step1TopUp = document.getElementById('step1TopUp');
     var step1Sub = document.getElementById('step1Subscription');
