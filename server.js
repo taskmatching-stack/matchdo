@@ -15662,7 +15662,7 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
             order_id: orderId,
             user_id: user.id,
             provider: 'paypal',
-            amount: Math.round(amount * 100) / 100,
+            amount: Math.round(amount),
             currency: 'USD',
             credits_to_grant: credits,
             status: 'pending',
@@ -15672,7 +15672,13 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
         const { error: orderErr } = await supabase.from('payment_orders').insert(insertPayload);
         if (orderErr) {
             console.error('payment_orders insert paypal subscription:', orderErr);
-            return res.status(500).json({ error: '建立訂閱訂單失敗' });
+            const missingCols = /order_type|metadata|payment_orders/.test(String(orderErr.message || ''));
+            return res.status(500).json({
+                error: '建立訂閱訂單失敗',
+                hint: missingCols
+                    ? '資料庫可能尚未執行 docs/payment-subscription-migration.sql，請至後台「資料庫 Migration」執行。'
+                    : (orderErr.message || undefined)
+            });
         }
         const billingPlanId = await paypalRest.ensurePayPalBillingPlan(
             paypalCfg,

@@ -117,6 +117,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/js/i18n.js"></script>
   <script src="/js/payment-locale.js"></script>
@@ -290,7 +291,9 @@
         body: JSON.stringify(bodyPayload)
       })
         .then(function (r) {
-          if (r.status === 503) return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          if (r.status === 503 || r.status === 500) {
+            return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          }
           return r.text();
         })
         .then(function (html) {
@@ -321,7 +324,9 @@
         body: JSON.stringify(paypalPayload)
       })
         .then(function (r) {
-          if (r.status === 503) return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          if (r.status === 503 || r.status === 500) {
+            return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          }
           return r.json();
         })
         .then(function (data) {

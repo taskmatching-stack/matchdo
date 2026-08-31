@@ -290,7 +290,10 @@ const AuthService = {
      * 監聽認證狀態變化
      */
     onAuthStateChange(callback) {
-        return supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (!supabaseClient || !supabaseClient.auth || typeof supabaseClient.auth.onAuthStateChange !== 'function') {
+            return { data: { subscription: { unsubscribe: function () {} } } };
+        }
+        return supabaseClient.auth.onAuthStateChange(function (event, session) {
             callback(event, session);
         });
     },
