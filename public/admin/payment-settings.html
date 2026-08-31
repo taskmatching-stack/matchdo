@@ -13,6 +13,25 @@
         <h2>金流設定</h2>
         <p class="text-muted">上線後可在此更換為正式帳號，無需改 .env。未填寫的欄位會使用 .env 設定。</p>
 
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white"><strong>前台付款開關</strong></div>
+            <div class="card-body">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="payment_checkout_enabled">
+                    <label class="form-check-label" for="payment_checkout_enabled">開放訂閱／儲值付款（PayPal、綠界）</label>
+                </div>
+                <p class="small text-muted mb-0 mt-2">預設<strong>關閉</strong>。Sandbox 測試完成、價格與 PayPal 設定確認後再勾選開放。</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-light"><strong>儲值預設方案</strong>（台幣／美金／點數）</div>
+            <div class="card-body">
+                <p class="small text-muted">前台「我的點數」頁快捷按鈕；PayPal 以 USD 結帳，綠界以 TWD。</p>
+                <div id="topupPresetsWrap"></div>
+            </div>
+        </div>
+
         <div class="card mb-4">
             <div class="card-header bg-light"><strong>綠界 ECPay</strong>（台灣／台幣）</div>
             <div class="card-body">
@@ -96,6 +115,31 @@ $(async function () {
         el.text(msg).css('color', isErr ? '#A89090' : '#5A7268');
     }
 
+    function renderTopupPresets(list) {
+        var wrap = $('#topupPresetsWrap');
+        wrap.empty();
+        (list || []).forEach(function (p, i) {
+            wrap.append(
+                '<div class="row g-2 mb-2 align-items-end topup-preset-row" data-idx="' + i + '">' +
+                '<div class="col-md-3"><label class="form-label small mb-0">台幣</label><input type="number" class="form-control form-control-sm preset-twd" min="1" value="' + (p.twd || '') + '"></div>' +
+                '<div class="col-md-3"><label class="form-label small mb-0">USD</label><input type="number" class="form-control form-control-sm preset-usd" min="0.01" step="0.01" value="' + (p.usd || '') + '"></div>' +
+                '<div class="col-md-3"><label class="form-label small mb-0">點數</label><input type="number" class="form-control form-control-sm preset-credits" min="1" value="' + (p.credits || '') + '"></div>' +
+                '</div>'
+            );
+        });
+    }
+
+    function collectTopupPresets() {
+        var out = [];
+        $('.topup-preset-row').each(function () {
+            var twd = parseInt($(this).find('.preset-twd').val(), 10) || 0;
+            var usd = parseFloat($(this).find('.preset-usd').val()) || 0;
+            var credits = parseInt($(this).find('.preset-credits').val(), 10) || 0;
+            if (twd > 0 && usd > 0 && credits > 0) out.push({ twd: twd, usd: usd, credits: credits });
+        });
+        return out;
+    }
+
     $.ajax({ url: '/api/admin/payment-config', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })
         .done(function (c) {
             $('#ecpay_merchant_id').val(c.ecpay_merchant_id || '');
@@ -105,6 +149,8 @@ $(async function () {
             $('#paypal_client_id').val(c.paypal_client_id || '');
             if (c.paypal_client_secret_set) $('#paypal_client_secret').attr('placeholder', '已設定 ' + (c.paypal_client_secret || '****') + '，更新請輸入新值');
             $('#paypal_sandbox').prop('checked', c.paypal_sandbox !== false);
+            $('#payment_checkout_enabled').prop('checked', c.payment_checkout_enabled === true);
+            renderTopupPresets(c.topup_presets || []);
         })
         .fail(function () { setStatus('無法載入設定', true); });
 
@@ -113,7 +159,9 @@ $(async function () {
             ecpay_merchant_id: $('#ecpay_merchant_id').val().trim(),
             ecpay_use_production: $('#ecpay_use_production').prop('checked'),
             paypal_client_id: $('#paypal_client_id').val().trim(),
-            paypal_sandbox: $('#paypal_sandbox').prop('checked')
+            paypal_sandbox: $('#paypal_sandbox').prop('checked'),
+            payment_checkout_enabled: $('#payment_checkout_enabled').prop('checked'),
+            topup_presets: collectTopupPresets()
         };
         var hk = $('#ecpay_hash_key').val();
         var hi = $('#ecpay_hash_iv').val();

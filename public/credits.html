@@ -54,14 +54,15 @@
       <div class="payment-section">
         <h5 class="mb-4" id="paymentSectionTitle" data-i18n="credits.topUpTitle">儲值點數</h5>
 
+        <div id="checkoutDisabledBanner" class="alert alert-info mb-3" style="display:none;" role="status">
+          <i class="bi bi-info-circle me-2"></i><span data-i18n="payment.checkoutDisabled">付款功能尚未開放，您仍可查看餘額與紀錄。開放後即可儲值。</span>
+        </div>
+
         <!-- 儲值點數模式：選擇金額／自訂 -->
         <div id="step1TopUp">
           <div class="step-label" data-i18n="credits.step1">步驟 1：選擇方案或自訂金額</div>
           <div class="mb-3" id="presetBtnWrap">
-            <button type="button" class="preset-btn" data-amount-twd="300" data-amount-usd="11" data-credits="330">300 <span data-i18n="credits.points">點</span> ＝ 330</button>
-            <button type="button" class="preset-btn" data-amount-twd="900" data-amount-usd="33" data-credits="1100">900 ＝ 1100</button>
-            <button type="button" class="preset-btn" data-amount-twd="1800" data-amount-usd="66" data-credits="2400">1800 ＝ 2400</button>
-            <button type="button" class="preset-btn" id="presetCustom"><span data-i18n="credits.customAmount">自訂金額</span></button>
+            <!-- 由 /api/payment-topup-presets 動態注入 -->
           </div>
           <p id="pointsInfoNote" class="text-muted small mb-2" style="display:none;"></p>
         </div>
@@ -129,6 +130,7 @@
 (function () {
   var session = null;
   var selectedProvider = null;
+  var checkoutEnabled = true;
   var lang = (typeof window !== 'undefined' && window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
 
   function t(key) {
@@ -145,11 +147,58 @@
   }
 
   function refreshPresetButtons() {
-    document.querySelectorAll('.preset-btn[data-amount-twd]').forEach(function (btn) {
+    document.querySelectorAll('.preset-btn[data-preset]').forEach(function (btn) {
       var usd = btn.getAttribute('data-amount-usd');
       var credits = btn.getAttribute('data-credits');
       btn.setAttribute('data-amount', usd);
       btn.innerHTML = '$' + usd + ' = ' + credits + ' <span data-i18n="credits.points">' + t('credits.points') + '</span>';
+    });
+  }
+
+  function renderTopupPresets(presets) {
+    var wrap = document.getElementById('presetBtnWrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    (presets || []).forEach(function (p, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'preset-btn';
+      btn.setAttribute('data-preset', String(idx));
+      btn.setAttribute('data-amount-twd', String(p.twd));
+      btn.setAttribute('data-amount-usd', String(p.usd));
+      btn.setAttribute('data-credits', String(p.credits));
+      btn.setAttribute('data-amount', String(p.usd));
+      btn.textContent = (isPayPalCheckout() ? ('$' + p.usd) : p.twd) + ' = ' + p.credits;
+      wrap.appendChild(btn);
+    });
+    var customBtn = document.createElement('button');
+    customBtn.type = 'button';
+    customBtn.className = 'preset-btn';
+    customBtn.id = 'presetCustom';
+    customBtn.innerHTML = '<span data-i18n="credits.customAmount">' + (t('credits.customAmount') || '自訂金額') + '</span>';
+    wrap.appendChild(customBtn);
+    customBtn.addEventListener('click', function () {
+      document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.getElementById('amount').focus();
+    });
+    document.querySelectorAll('.preset-btn[data-preset]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('amount').value = isPayPalCheckout() ? btn.getAttribute('data-amount-usd') : btn.getAttribute('data-amount-twd');
+        document.getElementById('credits').value = btn.getAttribute('data-credits');
+      });
+    });
+    refreshPresetButtons();
+  }
+
+  function loadTopupPresets() {
+    return fetch('/api/payment-topup-presets').then(function (r) { return r.json(); }).then(function (data) {
+      renderTopupPresets((data && data.presets) || []);
+    }).catch(function () {
+      renderTopupPresets(window.PaymentLocale && PaymentLocale.PRESETS ? PaymentLocale.PRESETS.map(function (p) {
+        return { twd: p.twd, usd: p.usd, credits: p.credits };
+      }) : []);
     });
   }
 
@@ -172,6 +221,25 @@
     if (hintEl) hintEl.textContent = t('credits.paymentHint');
     var btnPay = document.getElementById('btnPay');
     if (btnPay) btnPay.disabled = false;
+  }
+
+  function applyCheckoutDisabled(enabled) {
+    checkoutEnabled = enabled !== false;
+    var banner = document.getElementById('checkoutDisabledBanner');
+    if (banner) show(banner, !checkoutEnabled);
+    document.querySelectorAll('.pay-card').forEach(function (card) {
+      card.style.pointerEvents = checkoutEnabled ? '' : 'none';
+      card.style.opacity = checkoutEnabled ? '' : '0.55';
+    });
+    document.querySelectorAll('.preset-btn').forEach(function (btn) {
+      btn.disabled = !checkoutEnabled;
+    });
+    var amountInput = document.getElementById('amount');
+    var creditsInput = document.getElementById('credits');
+    if (amountInput) amountInput.readOnly = !checkoutEnabled || amountInput.classList.contains('bg-light');
+    if (creditsInput) creditsInput.readOnly = !checkoutEnabled || creditsInput.classList.contains('bg-light');
+    var btnPay = document.getElementById('btnPay');
+    if (btnPay) btnPay.disabled = !checkoutEnabled || (!selectedProvider && checkoutEnabled);
   }
 
   function show(el, show) { if (el) el.style.display = show ? '' : 'none'; }
@@ -270,19 +338,6 @@
       });
   }
 
-  document.querySelectorAll('.preset-btn[data-amount-twd]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      document.getElementById('amount').value = btn.getAttribute('data-amount');
-      document.getElementById('credits').value = btn.getAttribute('data-credits');
-    });
-  });
-  document.getElementById('presetCustom').addEventListener('click', function () {
-    document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
-    document.getElementById('amount').focus();
-  });
-
   document.querySelectorAll('.pay-card').forEach(function (card) {
     card.addEventListener('click', function () {
       document.querySelectorAll('.pay-card').forEach(function (c) { c.classList.remove('selected'); });
@@ -293,6 +348,7 @@
   });
 
   document.getElementById('btnPay').addEventListener('click', function () {
+    if (!checkoutEnabled) return;
     var amountRaw = document.getElementById('amount').value;
     var amount = isPayPalCheckout() ? parseFloat(amountRaw) : parseInt(amountRaw, 10);
     var credits = parseInt(document.getElementById('credits').value, 10);
@@ -469,17 +525,27 @@
   }
 
   function init() {
-    if (typeof AuthService !== 'undefined' && AuthService.getSession) {
-      AuthService.getSession().then(function (s) {
+    loadTopupPresets();
+    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
+      .then(function (st) {
+        applyCheckoutDisabled(st.checkout_enabled === true);
+        if (typeof AuthService !== 'undefined' && AuthService.getSession) {
+          return AuthService.getSession();
+        }
+        return null;
+      })
+      .then(function (s) {
         session = s;
         applyUrlParams();
         syncPlansLinkLang();
         applyPaymentLocale();
-        loadCredits();
+        applyCheckoutDisabled(checkoutEnabled);
+        if (s && s.user) {
+          loadCredits();
+        } else {
+          show(document.getElementById('loginRequired'), true);
+        }
       });
-    } else {
-      show(document.getElementById('loginRequired'), true);
-    }
   }
 
   if (window.i18n && window.i18n.ready) {

@@ -39,6 +39,20 @@
     return isPayPalLocale(lang) ? twdToUsd(twdAmount) : parseInt(twdAmount, 10);
   }
 
+  function resolvePlanUsdMonthly(plan) {
+    if (plan && plan.price_usd_monthly != null && plan.price_usd_monthly !== '') {
+      var n = parseFloat(plan.price_usd_monthly);
+      if (!isNaN(n) && n >= 0) return n;
+    }
+    var sort = plan && plan.sort_order != null ? parseInt(plan.sort_order, 10) : 0;
+    return planUsdMonthly(sort);
+  }
+
+  function planUsdYearlyFromPlan(plan) {
+    var m = resolvePlanUsdMonthly(plan);
+    return m > 0 ? m * 10 : 0;
+  }
+
   global.PaymentLocale = {
     TWD_TO_USD: TWD_TO_USD,
     PRESETS: PRESETS,
@@ -46,6 +60,8 @@
     twdToUsd: twdToUsd,
     planUsdMonthly: planUsdMonthly,
     planUsdYearly: planUsdYearly,
+    resolvePlanUsdMonthly: resolvePlanUsdMonthly,
+    planUsdYearlyFromPlan: planUsdYearlyFromPlan,
     checkoutAmount: checkoutAmount
   };
 })(typeof window !== 'undefined' ? window : this);

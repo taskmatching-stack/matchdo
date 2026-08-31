@@ -10092,6 +10092,49 @@ async function getPaymentConfig() {
     return out;
 }
 
+function parsePaymentCheckoutEnabled(raw) {
+    if (raw == null || String(raw).trim() === '') return false;
+    const v = String(raw).trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+const DEFAULT_TOPUP_PRESETS = [
+    { twd: 300, usd: 11, credits: 330 },
+    { twd: 900, usd: 33, credits: 1100 },
+    { twd: 1800, usd: 66, credits: 2400 }
+];
+
+function parseTopupPresets(raw) {
+    if (raw == null || String(raw).trim() === '') return DEFAULT_TOPUP_PRESETS.slice();
+    try {
+        const arr = JSON.parse(String(raw));
+        if (!Array.isArray(arr) || arr.length === 0) return DEFAULT_TOPUP_PRESETS.slice();
+        return arr.map((p) => ({
+            twd: Math.abs(parseInt(p.twd, 10) || 0),
+            usd: Math.abs(parseFloat(p.usd) || 0),
+            credits: Math.abs(parseInt(p.credits, 10) || 0)
+        })).filter((p) => p.twd > 0 && p.usd > 0 && p.credits > 0);
+    } catch (_) {
+        return DEFAULT_TOPUP_PRESETS.slice();
+    }
+}
+
+function resolvePlanUsdMonthly(plan) {
+    if (!plan) return 0;
+    if (plan.price_usd_monthly != null && plan.price_usd_monthly !== '') {
+        const n = parseFloat(plan.price_usd_monthly);
+        if (!isNaN(n) && n >= 0) return n;
+    }
+    const sort = parseInt(plan.sort_order, 10);
+    const fallback = { 0: 0, 1: 11, 2: 33, 3: 66 };
+    return Object.prototype.hasOwnProperty.call(fallback, sort) ? fallback[sort] : 0;
+}
+
+async function isPaymentCheckoutEnabled() {
+    const raw = await getPaymentConfigValue('payment_checkout_enabled');
+    return parsePaymentCheckoutEnabled(raw);
+}
+
 async function getPaymentConfigValue(key) {
     const k = String(key || '').trim();
     if (!k) return '';
@@ -10137,7 +10180,7 @@ const DB_URL = process.env.SUPABASE_DB_URL;
 const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categories.local.json');
 
 /** subscription_plans 後台只查／寫這些欄位（多數環境表結構一致，不依賴直連 DB） */
-const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, duration_months, credits_monthly, sort_order, is_active, plan_key';
+const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, price_usd_monthly, duration_months, credits_monthly, sort_order, is_active, plan_key';
 
 /** 前台方案頁只顯示一般 tier；種子／合作優惠僅後台開通 */
 const INTERNAL_SUBSCRIPTION_PLAN_KEYS = new Set([
@@ -12981,7 +13024,9 @@ app.get('/api/admin/payment-config', async (req, res) => {
             paypal_client_id: obj.paypal_client_id || '',
             paypal_client_secret: obj.paypal_client_secret ? mask(obj.paypal_client_secret) : '',
             paypal_client_secret_set: !!(obj.paypal_client_secret && obj.paypal_client_secret.length > 0),
-            paypal_sandbox: obj.paypal_sandbox !== '0' && obj.paypal_sandbox !== 'false'
+            paypal_sandbox: obj.paypal_sandbox !== '0' && obj.paypal_sandbox !== 'false',
+            payment_checkout_enabled: parsePaymentCheckoutEnabled(obj.payment_checkout_enabled),
+            topup_presets: parseTopupPresets(obj.topup_presets)
         });
     } catch (e) {
         console.error('GET /api/admin/payment-config:', e);
@@ -13006,6 +13051,11 @@ app.patch('/api/admin/payment-config', express.json(), async (req, res) => {
         if (body.paypal_client_id !== undefined) await upsert('paypal_client_id', body.paypal_client_id);
         if (body.paypal_client_secret !== undefined) await upsert('paypal_client_secret', body.paypal_client_secret);
         if (body.paypal_sandbox !== undefined) await upsert('paypal_sandbox', body.paypal_sandbox ? '1' : '0');
+        if (body.payment_checkout_enabled !== undefined) await upsert('payment_checkout_enabled', body.payment_checkout_enabled ? '1' : '0');
+        if (body.topup_presets !== undefined) {
+            const presets = parseTopupPresets(typeof body.topup_presets === 'string' ? body.topup_presets : JSON.stringify(body.topup_presets));
+            await upsert('topup_presets', JSON.stringify(presets));
+        }
         res.json({ success: true });
     } catch (e) {
         console.error('PATCH /api/admin/payment-config:', e);
@@ -13380,6 +13430,10 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
         const updates = {};
         if (body.name !== undefined) updates.name = String(body.name).trim();
         if (body.price !== undefined) updates.price = parseInt(body.price, 10);
+        if (body.price_usd_monthly !== undefined) {
+            const usd = parseFloat(body.price_usd_monthly);
+            updates.price_usd_monthly = isNaN(usd) || usd < 0 ? 0 : Math.round(usd * 100) / 100;
+        }
         if (body.duration_months !== undefined) updates.duration_months = parseInt(body.duration_months, 10);
         if (body.credits_monthly !== undefined) updates.credits_monthly = parseInt(body.credits_monthly, 10);
         if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10);
@@ -13394,6 +13448,33 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
     } catch (e) {
         console.error('PATCH /api/admin/subscription-plans 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/payment-checkout-status — 前台是否開放付款（訂閱／儲值）
+app.get('/api/payment-checkout-status', async (req, res) => {
+    try {
+        const enabled = await isPaymentCheckoutEnabled();
+        const sandboxRaw = await getPaymentConfigValue('paypal_sandbox');
+        const paypalSandbox = sandboxRaw !== '0' && sandboxRaw !== 'false';
+        res.set('Cache-Control', 'public, max-age=60');
+        res.json({ checkout_enabled: enabled, paypal_sandbox: paypalSandbox });
+    } catch (e) {
+        console.error('GET /api/payment-checkout-status:', e);
+        res.json({ checkout_enabled: false, paypal_sandbox: true });
+    }
+});
+
+// GET /api/payment-topup-presets — 前台儲值預設方案（台幣／美金／點數）
+app.get('/api/payment-topup-presets', async (req, res) => {
+    try {
+        const raw = await getPaymentConfigValue('topup_presets');
+        const presets = parseTopupPresets(raw);
+        res.set('Cache-Control', 'public, max-age=120');
+        res.json({ presets });
+    } catch (e) {
+        console.error('GET /api/payment-topup-presets:', e);
+        res.json({ presets: DEFAULT_TOPUP_PRESETS.slice() });
     }
 });
 
@@ -15097,6 +15178,12 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (!(await isPaymentCheckoutEnabled())) {
+            return res.status(503).json({
+                error: '付款功能尚未開放',
+                hint: '管理員正在設定金流，請稍後再試。'
+            });
+        }
         const config = await getPaymentConfig();
         const ecpay = config.ecpay;
         if (!ecpay.hashKey || !ecpay.hashIV) {
@@ -15174,6 +15261,12 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (!(await isPaymentCheckoutEnabled())) {
+            return res.status(503).json({
+                error: '付款功能尚未開放',
+                hint: '管理員正在設定金流，請稍後再試。'
+            });
+        }
         const config = await getPaymentConfig();
         const ecpay = config.ecpay;
         if (!ecpay.hashKey || !ecpay.hashIV) {
@@ -15445,6 +15538,12 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (!(await isPaymentCheckoutEnabled())) {
+            return res.status(503).json({
+                error: '付款功能尚未開放',
+                hint: '管理員正在設定金流，請稍後再試。'
+            });
+        }
         const config = await getPaymentConfig();
         const paypalClient = getPayPalClient(config.paypal);
         if (!paypalClient) {
@@ -15684,6 +15783,12 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (!(await isPaymentCheckoutEnabled())) {
+            return res.status(503).json({
+                error: '付款功能尚未開放',
+                hint: '管理員正在設定金流，請稍後再試。'
+            });
+        }
         const config = await getPaymentConfig();
         const paypalCfg = config.paypal;
         if (!paypalCfg.clientId || !paypalCfg.clientSecret) {

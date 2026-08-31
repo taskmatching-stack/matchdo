@@ -33,6 +33,11 @@
       <span data-i18n="credits.loginRequiredSuffix">後完成訂閱。</span>
     </div>
 
+    <div id="checkoutDisabled" class="alert alert-warning" style="display:none;">
+      <i class="bi bi-lock-fill me-2"></i><span data-i18n="payment.checkoutDisabled">付款功能尚未開放，請稍後再試或聯絡客服。</span>
+      <a href="/subscription-plans.html" class="alert-link ms-2" id="disabledBackPlans" data-i18n="subscriptionCheckout.backToPlans">返回方案與定價</a>
+    </div>
+
     <div id="missingParams" class="alert alert-danger" style="display:none;">
       <span data-i18n="subscriptionCheckout.missingParams">缺少方案資訊，請從方案與定價頁重新選擇。</span>
       <a href="/subscription-plans.html" class="alert-link ms-2" data-i18n="subscriptionCheckout.backToPlans">返回方案與定價</a>
@@ -71,6 +76,7 @@
   <script>
 (function () {
   var session = null;
+  var checkoutEnabled = true;
   var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
   var urlBilling = '';
   var urlPlan = '';
@@ -204,6 +210,20 @@
   });
 
   function init() {
+    syncLangLinks();
+    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: true }; })
+      .then(function (st) {
+        if (st.checkout_enabled === false) {
+          show(document.getElementById('checkoutDisabled'), true);
+          var back = document.getElementById('disabledBackPlans');
+          if (back) back.href = '/subscription-plans.html' + (lang === 'en' ? '?lang=en' : '');
+          return;
+        }
+        initCheckout();
+      });
+  }
+
+  function initCheckout() {
     syncLangLinks();
     var values = readParams();
     var valid = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan && values.amount && values.credits;

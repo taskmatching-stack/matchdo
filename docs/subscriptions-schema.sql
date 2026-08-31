@@ -46,7 +46,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_plans_plan_key ON public.subs
 -- 添加註解
 COMMENT ON TABLE public.subscription_plans IS '訂閱方案設定';
 COMMENT ON COLUMN public.subscription_plans.name IS '方案名稱';
-COMMENT ON COLUMN public.subscription_plans.price IS '方案價格（台幣）';
+COMMENT ON COLUMN public.subscription_plans.price IS '方案價格（台幣月費，前台顯示用）';
 COMMENT ON COLUMN public.subscription_plans.duration_months IS '訂閱期限（月數）';
 COMMENT ON COLUMN public.subscription_plans.credits_monthly IS '每月贈送點數';
 COMMENT ON COLUMN public.subscription_plans.max_projects IS '發案數量上限（-1=無限制）';

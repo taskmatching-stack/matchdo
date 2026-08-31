@@ -74,6 +74,25 @@
     .points-rule-card ul { margin: 0; padding-left: 1.25rem; font-size: 0.95rem; color: #495057; }
     .points-rule-card li { margin-bottom: 0.35rem; }
     .footer-note { font-size: 0.85rem; color: #6c757d; margin-top: 2rem; }
+    .credits-promo-btn {
+      font-weight: 600;
+      padding: 0.65rem 1.35rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(122, 143, 163, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+    .credits-promo-btn .credits-promo-sub {
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-left: 0.25rem;
+    }
+    @media (max-width: 575.98px) {
+      .credits-promo-btn { width: 100%; justify-content: center; }
+    }
   </style>
 
   <!-- JSON-LD Structured Data -->
@@ -156,15 +175,23 @@
 
   <div class="container-fluid page-title-bar">
     <div class="container">
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="section-title mb-0" style="font-size:1.25rem;" data-i18n="pricing.title">方案與定價</h1>
-        <a href="/credits.html" class="btn btn-outline-primary btn-sm"><i class="bi bi-currency-exchange me-1"></i><span data-i18n="nav.myCredits">我的點數</span></a>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><a href="/index.html" data-i18n="nav.home">首頁</a></li>
-            <li class="breadcrumb-item active" data-i18n="pricing.title">方案與定價</li>
-          </ol>
-        </nav>
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 w-100">
+        <div>
+          <h1 class="section-title mb-1" style="font-size:1.25rem;" data-i18n="pricing.title">方案與定價</h1>
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+              <li class="breadcrumb-item"><a href="/index.html" data-i18n="nav.home">首頁</a></li>
+              <li class="breadcrumb-item active" data-i18n="pricing.title">方案與定價</li>
+            </ol>
+          </nav>
+        </div>
+        <a href="/credits.html" class="btn btn-primary btn-lg credits-promo-btn" id="creditsEntryLink">
+          <i class="bi bi-wallet2"></i>
+          <span>
+            <span data-i18n="nav.myCredits">我的點數</span>
+            <span class="credits-promo-sub d-none d-md-inline" data-i18n="pricing.myCreditsHint">查看餘額・單次儲值</span>
+          </span>
+        </a>
       </div>
     </div>
   </div>
@@ -172,7 +199,12 @@
   <section class="pricing-section">
     <div class="container">
       <h1 class="section-title d-none" data-i18n="pricing.title">方案與定價</h1>
-      <p class="section-subtitle" data-i18n="pricing.subtitle">訂製品平台會員方案與點數規則，適用於訂製者與製作方。</p>
+      <p class="section-subtitle" data-i18n="pricing.subtitle">選擇適合您的方案。點數可用於設計稿、找廠商、製作方接案與 AI 工具。</p>
+      <p class="text-muted small mb-3" data-i18n="pricing.priceNote">價格以新台幣顯示；PayPal 結帳以美金計價。</p>
+
+      <div id="checkoutDisabledBanner" class="alert alert-info d-none" role="status">
+        <i class="bi bi-info-circle me-2"></i><span data-i18n="pricing.checkoutDisabled">訂閱付款功能尚未開放，您仍可查看方案與點數餘額。開放後即可在此訂閱。</span>
+      </div>
 
       <!-- 月付 / 年付切換（參考 Leonardo，目前僅 UI） -->
       <div class="pricing-toggle-wrap">
@@ -189,14 +221,12 @@
       <div class="points-rule-card card mt-5">
         <div class="card-body">
           <h5><i class="bi bi-coin me-2"></i><span data-i18n="pricing.pointsRulesTitle">點數消耗規則</span></h5>
-          <p class="text-muted small mb-2">以下為通用規則；<strong>6 折僅適用「我的 AI 編輯區」</strong>，設計稿、翻譯等依原價。</p>
+          <p class="text-muted small mb-2" data-i18n="pricing.pointsRulesIntro">6 折僅適用「我的 AI 編輯區」；設計稿、翻譯等依各方案點數規則。</p>
           <ul>
-            <li data-i18n="pricing.pointsRule1">設計稿：依後台設定（例如每次 N 點）</li>
-            <li data-i18n="pricing.pointsRule2">描述詞（產生描述）：依後台設定</li>
-            <li><strong>我的 AI 編輯區</strong>（放大、去背、置換背景、內部補繪等）：依後台設定；<strong>訂閱會員享 6 折</strong></li>
-            <li data-i18n="pricing.pointsRule3">找廠商：免費方案可用點數抵扣，單次消耗依後台設定</li>
-            <li data-i18n="pricing.pointsRule4">製作方接案分類（免費方案）：200 點/月/分類</li>
-            <li data-i18n="pricing.pointsRule5">對話介面跨國溝通翻譯：1 點/段（方案三、四）</li>
+            <li data-i18n="pricing.pointsRule1">設計稿、找廠商：依後台設定扣點</li>
+            <li data-i18n="pricing.pointsRule2">製作方接案分類：免費方案 200 點/月/分類；付費方案依方案含括分類數</li>
+            <li data-i18n="pricing.pointsRule3">我的 AI 編輯區（放大、去背等）：訂閱會員 6 折</li>
+            <li data-i18n="pricing.pointsRule4">對話跨國翻譯：1 點/段（方案三、四）</li>
           </ul>
         </div>
       </div>
@@ -213,48 +243,69 @@
   <script>
 (function(){
   var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
-  function isPayPalCheckout() {
-    return !!(window.PaymentLocale && PaymentLocale.isPayPalLocale());
+  function isEnglishLocale() {
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    return lang === 'en' || (lang && String(lang).indexOf('en') === 0);
   }
-  function applyPayPalPricingUi() {
-    /* PayPal 為主：保留月/年切換，renderPlans 已用 USD 金額 */
+  function formatDisplayPrice(plan, sortOrder, isYearly) {
+    var twdMonthly = plan && plan.price != null ? parseInt(plan.price, 10) : 0;
+    if (isNaN(twdMonthly)) twdMonthly = 0;
+    var usdMonthly = (window.PaymentLocale && PaymentLocale.resolvePlanUsdMonthly)
+      ? PaymentLocale.resolvePlanUsdMonthly(plan)
+      : (PaymentLocale ? PaymentLocale.planUsdMonthly(sortOrder) : 0);
+    if (isEnglishLocale()) {
+      var usd = isYearly ? (usdMonthly > 0 ? usdMonthly * 10 : 0) : usdMonthly;
+      return isYearly ? ('$' + usd + t('pricing.perYear')) : ('$' + usd + t('pricing.perMonth'));
+    }
+    var twd = isYearly ? twdMonthly * 10 : twdMonthly;
+    var twdText = twd.toLocaleString('zh-TW');
+    return isYearly ? (twdText + t('pricing.perYear')) : (twdText + t('pricing.perMonth'));
+  }
+  function applyPricingLocaleUi() {
+    var note = document.querySelector('[data-i18n="pricing.priceNote"]');
+    if (note && isEnglishLocale()) note.style.display = 'none';
   }
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
+  var checkoutEnabled = true;
   // 方案名稱對應的 i18n key
   var planNameKeys = ['pricing.planFree', 'pricing.planTier2', 'pricing.planTier3', 'pricing.planTier4'];
   var planSubKeys  = ['pricing.planFreeSub', 'pricing.planTier2Sub', 'pricing.planTier3Sub', 'pricing.planTier4Sub'];
-  // 月付/年付價格顯示 key（已含幣別單位，由 locale 控制）
-  var priceMonthlyKeys = ['pricing.priceDisplayFree', 'pricing.priceDisplay2', 'pricing.priceDisplay3', 'pricing.priceDisplay4'];
-  var priceYearlyKeys  = ['pricing.priceDisplayFreeYear', 'pricing.priceDisplay2Year', 'pricing.priceDisplay3Year', 'pricing.priceDisplay4Year'];
+  // 月付/年付價格顯示由 API 方案 price / price_usd_monthly 動態產生
+  var priceMonthlyKeys = [];
+  var priceYearlyKeys  = [];
 
   function getPlanFeatures(sortOrder) {
     var featureSets = [
-      // 免費方案
-      [{ key: 'pricing.featureMediaWall',        type: 'yes'  },
-       { key: 'pricing.featureCategoriesFree',   type: 'yes'  },
-       { key: 'pricing.featureHomeCompareDash',  type: 'dash' },
-       { key: 'pricing.featureAiEditFree',       type: 'dash' },
-       { key: 'pricing.featureMultilangDash',    type: 'dash' }],
-      // 方案二
-      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
-       { key: 'pricing.featureCategories3',       type: 'yes' },
-       { key: 'pricing.featureHomeCompare',       type: 'yes' },
-       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
-       { key: 'pricing.featureMultilangNo',       type: 'no'  }],
-      // 方案三
-      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
-       { key: 'pricing.featureCategories10',      type: 'yes' },
-       { key: 'pricing.featureHomeCompare',       type: 'yes' },
-       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
-       { key: 'pricing.featureMultilang',         type: 'yes' },
-       { key: 'pricing.featureTranslation',       type: 'yes' }],
-      // 方案四
-      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
-       { key: 'pricing.featureCategories30',      type: 'yes' },
-       { key: 'pricing.featureHomeCompare',       type: 'yes' },
-       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
-       { key: 'pricing.featureMultilang',         type: 'yes' },
-       { key: 'pricing.featureTranslation',       type: 'yes' }]
+      [
+        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featureMakerFree', type: 'yes' },
+        { key: 'pricing.featureWallRequired', type: 'yes' }
+      ],
+      [
+        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featureMaker3', type: 'yes' },
+        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
+        { key: 'pricing.featureHomeCompare', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' }
+      ],
+      [
+        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featureMaker10', type: 'yes' },
+        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
+        { key: 'pricing.featureHomeCompare', type: 'yes' },
+        { key: 'pricing.featureCrossBorder', type: 'yes' },
+        { key: 'pricing.featureChatTranslate', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' }
+      ],
+      [
+        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featureMaker30', type: 'yes' },
+        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
+        { key: 'pricing.featureHomeCompare', type: 'yes' },
+        { key: 'pricing.featureCrossBorder', type: 'yes' },
+        { key: 'pricing.featureChatTranslate', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' }
+      ]
     ];
     var list = featureSets[sortOrder];
     if (!list) return '';
@@ -279,24 +330,22 @@
       var planKey = planKeys[sortOrder] || '';
       var yearlyPrice = price * 10;
       var yearlyCredits = Math.floor(credits * 12);
-      var checkoutMonthly = isPayPalCheckout() ? PaymentLocale.planUsdMonthly(sortOrder) : price;
-      var checkoutYearly = isPayPalCheckout() ? PaymentLocale.planUsdYearly(sortOrder) : yearlyPrice;
+      var checkoutMonthly = PaymentLocale.resolvePlanUsdMonthly
+        ? PaymentLocale.resolvePlanUsdMonthly(plan)
+        : PaymentLocale.planUsdMonthly(sortOrder);
+      var checkoutYearly = PaymentLocale.planUsdYearlyFromPlan
+        ? PaymentLocale.planUsdYearlyFromPlan(plan)
+        : PaymentLocale.planUsdYearly(sortOrder);
       var isFree = price === 0;
       var featureListHtml = getPlanFeatures(sortOrder);
       var col = document.createElement('div');
       col.className = 'col-sm-6 col-lg-3';
       var badge = sortOrder === 2 ? '<span class="plan-badge">' + t('pricing.bestOffer') + '</span>' : '';
       var freeBtnAttrs = isFree ? ' data-free-plan="true"' : '';
-      // 方案名稱與副標題：優先用 i18n，找不到才 fallback 到 API 回傳的 name
       var planName = t(planNameKeys[sortOrder] || '') || plan.name || '';
       var planSub  = t(planSubKeys[sortOrder] || '') || '';
-      // 價格顯示：由 locale 決定幣別（en.json 是 $X/mo，zh-TW.json 是 X 元/月）
-      var priceMonthlyText = isPayPalCheckout()
-        ? ('$' + checkoutMonthly + t('pricing.perMonth'))
-        : (t(priceMonthlyKeys[sortOrder] || '') || (price + ' ' + t('pricing.perMonth')));
-      var priceYearlyText = isPayPalCheckout()
-        ? ('$' + checkoutYearly + t('pricing.perYear'))
-        : (t(priceYearlyKeys[sortOrder] || '') || (yearlyPrice + ' /yr'));
+      var priceMonthlyText = formatDisplayPrice(plan, sortOrder, false);
+      var priceYearlyText = formatDisplayPrice(plan, sortOrder, true);
       col.innerHTML =
         '<div class="pricing-card card h-100">' + badge +
         '<div class="card-body">' +
@@ -321,6 +370,14 @@
   function bindSubscribeButtons() {
     document.querySelectorAll('.btn-subscribe-plan').forEach(function(btn){
       if (btn.getAttribute('data-free-plan') === 'true') return;
+      if (!checkoutEnabled) {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary', 'disabled');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.textContent = t('pricing.checkoutComingSoon') || '即將開放';
+        btn.style.pointerEvents = 'none';
+        return;
+      }
       btn.addEventListener('click', function(e){
         e.preventDefault();
         var isYearly = document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active');
@@ -376,12 +433,58 @@
     if (el) el.textContent = titleText;
   }
 
+  function applyCreditsLinkLang() {
+    var link = document.getElementById('creditsEntryLink');
+    if (!link) return;
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    link.href = '/credits.html' + (lang === 'en' ? '?lang=en' : (lang && lang !== 'zh-TW' ? '?lang=' + encodeURIComponent(lang) : ''));
+  }
+
+  function applyCheckoutStatus(enabled) {
+    checkoutEnabled = enabled !== false;
+    var banner = document.getElementById('checkoutDisabledBanner');
+    if (banner) banner.classList.toggle('d-none', checkoutEnabled);
+    if (!checkoutEnabled) {
+      document.querySelectorAll('.btn-subscribe-plan').forEach(function (btn) {
+        if (btn.getAttribute('data-free-plan') === 'true') return;
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary', 'disabled');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.textContent = t('pricing.checkoutComingSoon') || '即將開放';
+        btn.style.pointerEvents = 'none';
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     var whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
     whenReady.then(function(){
       if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
       applyTitle();
-      applyPayPalPricingUi();
+      applyPricingLocaleUi();
+      applyCreditsLinkLang();
+    });
+
+    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: true }; })
+      .then(function (st) {
+        applyCheckoutStatus(st.checkout_enabled !== false);
+        return fetch('/api/subscription-plans');
+      })
+      .then(function(r){ return r.json(); }).then(function(data){
+      var row = document.getElementById('pricingCardsRow');
+      if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
+      var plans = (data.plans || []).filter(function (p) {
+        var sort = p.sort_order != null ? parseInt(p.sort_order, 10) : 99;
+        var key = (p.plan_key || '').toLowerCase();
+        if (key.indexOf('seed_') === 0 || key.indexOf('waibeizi_') === 0) return false;
+        return sort <= 3;
+      });
+      renderPlans(plans);
+      applyPricingLocaleUi();
+      updateFreePlanButton();
+    }).catch(function(){
+      var row = document.getElementById('pricingCardsRow');
+      if (row) row.innerHTML = '<div class="col-12 text-muted text-center py-4">' + t('pricing.loadFail') + '</div>';
     });
 
     function setPricingCycle(isYearly) {
@@ -393,23 +496,6 @@
     }
     document.getElementById('pricingMonthly')?.addEventListener('click', function(){ setPricingCycle(false); });
     document.getElementById('pricingYearly')?.addEventListener('click', function(){ setPricingCycle(true); });
-
-    fetch('/api/subscription-plans').then(function(r){ return r.json(); }).then(function(data){
-      var row = document.getElementById('pricingCardsRow');
-      if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
-      var plans = (data.plans || []).filter(function (p) {
-        var sort = p.sort_order != null ? parseInt(p.sort_order, 10) : 99;
-        var key = (p.plan_key || '').toLowerCase();
-        if (key.indexOf('seed_') === 0 || key.indexOf('waibeizi_') === 0) return false;
-        return sort <= 3;
-      });
-      renderPlans(plans);
-      applyPayPalPricingUi();
-      updateFreePlanButton();
-    }).catch(function(){
-      var row = document.getElementById('pricingCardsRow');
-      if (row) row.innerHTML = '<div class="col-12 text-muted text-center py-4">' + t('pricing.loadFail') + '</div>';
-    });
   });
 })();
   </script>
