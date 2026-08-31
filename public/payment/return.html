@@ -3,36 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>付款結果 - MATCHDO 合做</title>
+  <title data-i18n-title="payment.returnTitle">付款結果 - MATCHDO 合做</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
 </head>
 <body class="bg-light d-flex align-items-center min-vh-100">
   <div class="container text-center py-5">
     <div id="loading" class="mb-3">
       <div class="spinner-border text-primary" role="status"></div>
-      <p class="mt-2 text-muted">處理付款結果中…</p>
+      <p class="mt-2 text-muted" id="loadingText" data-i18n="payment.processing">處理付款結果中…</p>
     </div>
     <div id="result" style="display:none;">
       <div id="resultSuccess" style="display:none;">
         <div class="text-success display-4 mb-2"><i class="bi bi-check-circle-fill"></i></div>
-        <h4>付款成功</h4>
-        <p class="text-muted">點數已入帳，目前餘額：<strong id="balanceAfter">0</strong> 點</p>
+        <h4 data-i18n="payment.successTitle">付款成功</h4>
+        <p class="text-muted"><span data-i18n="payment.successBalance">點數已入帳，目前餘額：</span><strong id="balanceAfter">0</strong> <span data-i18n="credits.points">點</span></p>
+        <p class="text-muted small d-none" id="autoReturnHint" data-i18n="payment.autoReturnHint">即將返回原頁面…</p>
       </div>
       <div id="resultFail" style="display:none;">
         <div class="text-danger display-4 mb-2"><i class="bi bi-x-circle-fill"></i></div>
-        <h4>付款失敗或已取消</h4>
-        <p class="text-muted" id="failMessage">請重新嘗試或聯絡客服。</p>
+        <h4 data-i18n="payment.failTitle">付款失敗或已取消</h4>
+        <p class="text-muted" id="failMessage" data-i18n="payment.failDefault">請重新嘗試或聯絡客服。</p>
       </div>
       <div id="resultEcpay" style="display:none;">
-        <p class="text-muted">綠界付款結果將由系統通知，請稍候確認點數是否入帳。</p>
+        <p class="text-muted" data-i18n="payment.ecpayPending">綠界付款結果將由系統通知，請稍候確認點數是否入帳。</p>
       </div>
-      <a href="/credits.html" class="btn btn-primary mt-3">查看我的點數</a>
-      <a href="/index.html" class="btn btn-outline-secondary mt-3 ms-2">返回首頁</a>
+      <a href="/credits.html" class="btn btn-primary mt-3" id="btnReturnPrimary" data-i18n="credits.title">我的點數</a>
+      <a href="/index.html" class="btn btn-outline-secondary mt-3 ms-2" id="btnReturnSecondary" data-i18n="credits.backHome">返回首頁</a>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
+  <script src="/js/i18n.js"></script>
   <script>
 (function () {
   var params = new URLSearchParams(window.location.search);
@@ -42,8 +44,72 @@
   var orderId = params.get('order_id');
   var isSubscription = params.get('subscription') === '1';
   var subscriptionId = params.get('subscription_id') || params.get('ba_token') || '';
+  var returnTo = sanitizeReturnPath(params.get('return_to') || '');
+
+  function sanitizeReturnPath(path) {
+    if (!path || typeof path !== 'string') return '';
+    path = path.trim();
+    if (!path.startsWith('/') || path.startsWith('//') || path.indexOf('://') !== -1) return '';
+    if (path.indexOf('/login.html') === 0 || path.indexOf('/payment/') === 0) return '';
+    return path.slice(0, 500);
+  }
+
+  function readStoredReturnTo() {
+    if (returnTo) return returnTo;
+    try { return sanitizeReturnPath(sessionStorage.getItem('payment_return_to') || ''); } catch (e) { return ''; }
+  }
+
+  function t(key, fallback) {
+    if (typeof window !== 'undefined' && window.i18n && window.i18n.t) {
+      var v = window.i18n.t(key);
+      if (v && v !== key) return v;
+    }
+    return fallback || key;
+  }
 
   function show(el, on) { if (el) el.style.display = on ? '' : 'none'; }
+
+  function applyReturnLinks() {
+    returnTo = readStoredReturnTo();
+    var primary = document.getElementById('btnReturnPrimary');
+    var secondary = document.getElementById('btnReturnSecondary');
+    var creditsHref = '/credits.html';
+    var homeHref = '/index.html';
+    if (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') {
+      creditsHref += '?lang=en';
+      homeHref += '?lang=en';
+    }
+    if (returnTo) {
+      if (primary) {
+        primary.href = returnTo;
+        primary.textContent = t('payment.backToApp', '返回原頁面');
+      }
+      if (secondary) {
+        secondary.href = creditsHref;
+        secondary.textContent = t('payment.viewCredits', '查看我的點數');
+      }
+    } else {
+      if (primary) {
+        primary.href = creditsHref;
+        primary.textContent = t('payment.viewCredits', '查看我的點數');
+      }
+      if (secondary) {
+        secondary.href = homeHref;
+        secondary.textContent = t('credits.backHome', '返回首頁');
+      }
+    }
+  }
+
+  function scheduleAutoReturn() {
+    returnTo = readStoredReturnTo();
+    if (!returnTo) return;
+    var hint = document.getElementById('autoReturnHint');
+    if (hint) hint.classList.remove('d-none');
+    setTimeout(function () {
+      try { sessionStorage.removeItem('payment_return_to'); } catch (e) {}
+      window.location.href = returnTo;
+    }, 2000);
+  }
 
   function getApiSession() {
     if (typeof AuthService === 'undefined') return Promise.resolve(null);
@@ -77,14 +143,16 @@
       show(document.getElementById('loading'), false);
       show(document.getElementById('result'), true);
       show(document.getElementById('resultFail'), true);
-      document.getElementById('failMessage').textContent = '請重新登入後再查看點數。';
+      document.getElementById('failMessage').textContent = t('payment.loginAgain', '請重新登入後再查看點數。');
+      applyReturnLinks();
       return;
     }
     if (!subscriptionId) {
       show(document.getElementById('loading'), false);
       show(document.getElementById('result'), true);
       show(document.getElementById('resultFail'), true);
-      document.getElementById('failMessage').textContent = '缺少訂閱編號，請至「我的點數」確認是否已入帳。';
+      document.getElementById('failMessage').textContent = t('payment.missingSubscriptionId', '缺少訂閱編號，請至「我的點數」確認是否已入帳。');
+      applyReturnLinks();
       return;
     }
     postPaymentApi('/api/payment/paypal/subscription-complete', { subscription_id: subscriptionId }, session)
@@ -92,42 +160,49 @@
       .then(function (data) {
         show(document.getElementById('loading'), false);
         show(document.getElementById('result'), true);
+        applyReturnLinks();
         if (data.success && data.balance_after !== undefined) {
           show(document.getElementById('resultSuccess'), true);
           document.getElementById('balanceAfter').textContent = data.balance_after;
+          scheduleAutoReturn();
         } else {
           show(document.getElementById('resultFail'), true);
-          document.getElementById('failMessage').textContent = data.error || '訂閱啟用失敗，請聯絡客服。';
+          document.getElementById('failMessage').textContent = data.error || t('payment.subscriptionFailed', '訂閱啟用失敗，請聯絡客服。');
         }
       })
       .catch(function () {
         show(document.getElementById('loading'), false);
         show(document.getElementById('result'), true);
         show(document.getElementById('resultFail'), true);
-        document.getElementById('failMessage').textContent = '訂閱確認時發生錯誤，請至「我的點數」確認是否已入帳。';
+        document.getElementById('failMessage').textContent = t('payment.subscriptionConfirmError', '訂閱確認時發生錯誤，請至「我的點數」確認是否已入帳。');
+        applyReturnLinks();
       });
   }
 
-  if (cancel === '1') {
-    show(document.getElementById('loading'), false);
-    show(document.getElementById('result'), true);
-    show(document.getElementById('resultFail'), true);
-    document.getElementById('failMessage').textContent = '您已取消付款。';
-    return;
-  }
+  function boot() {
+    applyReturnLinks();
 
-  if (provider === 'paypal' && isSubscription) {
-    getApiSession().then(finishPayPalSubscription);
-    return;
-  }
+    if (cancel === '1') {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultFail'), true);
+      document.getElementById('failMessage').textContent = t('payment.cancelled', '您已取消付款。');
+      return;
+    }
 
-  if (provider === 'paypal' && token) {
-    getApiSession().then(function (session) {
+    if (provider === 'paypal' && isSubscription) {
+      getApiSession().then(finishPayPalSubscription);
+      return;
+    }
+
+    if (provider === 'paypal' && token) {
+      getApiSession().then(function (session) {
         if (!session || !session.access_token) {
           show(document.getElementById('loading'), false);
           show(document.getElementById('result'), true);
           show(document.getElementById('resultFail'), true);
-          document.getElementById('failMessage').textContent = '請重新登入後再查看點數。';
+          document.getElementById('failMessage').textContent = t('payment.loginAgain', '請重新登入後再查看點數。');
+          applyReturnLinks();
           return;
         }
         postPaymentApi('/api/payment/paypal/capture', { token: token }, session)
@@ -135,34 +210,47 @@
           .then(function (data) {
             show(document.getElementById('loading'), false);
             show(document.getElementById('result'), true);
+            applyReturnLinks();
             if (data.success && data.balance_after !== undefined) {
               show(document.getElementById('resultSuccess'), true);
               document.getElementById('balanceAfter').textContent = data.balance_after;
+              scheduleAutoReturn();
             } else {
               show(document.getElementById('resultFail'), true);
-              document.getElementById('failMessage').textContent = data.error || '請款失敗，請聯絡客服。';
+              document.getElementById('failMessage').textContent = data.error || t('payment.captureFailed', '請款失敗，請聯絡客服。');
             }
           })
           .catch(function () {
             show(document.getElementById('loading'), false);
             show(document.getElementById('result'), true);
             show(document.getElementById('resultFail'), true);
-            document.getElementById('failMessage').textContent = '請款時發生錯誤，請至「我的點數」確認是否已入帳。';
+            document.getElementById('failMessage').textContent = t('payment.captureError', '請款時發生錯誤，請至「我的點數」確認是否已入帳。');
+            applyReturnLinks();
           });
-    });
-    return;
-  }
+      });
+      return;
+    }
 
-  if (orderId && !provider) {
+    if (orderId && !provider) {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultEcpay'), true);
+      return;
+    }
+
     show(document.getElementById('loading'), false);
     show(document.getElementById('result'), true);
-    show(document.getElementById('resultEcpay'), true);
-    return;
+    show(document.getElementById('resultFail'), true);
   }
 
-  show(document.getElementById('loading'), false);
-  show(document.getElementById('result'), true);
-  show(document.getElementById('resultFail'), true);
+  if (window.i18n && window.i18n.ready) {
+    window.i18n.ready.then(function () {
+      if (window.i18n.applyPage) window.i18n.applyPage();
+      boot();
+    }).catch(boot);
+  } else {
+    boot();
+  }
 })();
   </script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />

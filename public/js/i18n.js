@@ -69,7 +69,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260829-promo-copy';
+    var LOCALE_CACHE_V = '20260901-payment-return';
 
     function loadLocale(lang) {
         lang = lang || getLang();

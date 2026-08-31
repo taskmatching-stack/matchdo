@@ -15407,6 +15407,18 @@ function getPayPalClient(paypalConfig) {
     }
 }
 
+function sanitizePaymentReturnTo(raw) {
+    const path = String(raw || '').trim();
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('://')) return '';
+    if (path.startsWith('/login.html') || path.startsWith('/payment/')) return '';
+    return path.slice(0, 500);
+}
+
+function paymentReturnToQuery(returnTo) {
+    const safe = sanitizePaymentReturnTo(returnTo);
+    return safe ? '&return_to=' + encodeURIComponent(safe) : '';
+}
+
 // POST /api/payment/paypal/create — 建立 PayPal 訂單，回傳 approval_url
 app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
     try {
@@ -15453,6 +15465,7 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
         }
         const paypal = require('@paypal/checkout-server-sdk');
         const baseUrl = (process.env.BASE_URL || BASE_URL || '').replace(/\/$/, '') || ('http://localhost:' + (process.env.PORT || 3000));
+        const returnToQs = paymentReturnToQuery(body.return_to);
         const request = new paypal.orders.OrdersCreateRequest();
         request.prefer('return=representation');
         request.requestBody({
@@ -15463,8 +15476,8 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
                 description: credits + ' credits'
             }],
             application_context: {
-                return_url: baseUrl + '/payment/return.html?provider=paypal&order_id=' + encodeURIComponent(orderId),
-                cancel_url: baseUrl + '/payment/return.html?provider=paypal&cancel=1'
+                return_url: baseUrl + '/payment/return.html?provider=paypal&order_id=' + encodeURIComponent(orderId) + returnToQs,
+                cancel_url: baseUrl + '/payment/return.html?provider=paypal&cancel=1' + returnToQs
             }
         });
         const response = await paypalClient.execute(request);
@@ -15687,11 +15700,12 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
             setPaymentConfigValue
         );
         const baseUrl = (process.env.BASE_URL || BASE_URL || '').replace(/\/$/, '') || ('http://localhost:' + (process.env.PORT || 3000));
+        const returnToQs = paymentReturnToQuery(body.return_to);
         const subscription = await paypalRest.createPayPalSubscription(paypalCfg, {
             planId: billingPlanId,
             customId: orderId,
-            returnUrl: baseUrl + '/payment/return.html?provider=paypal&subscription=1',
-            cancelUrl: baseUrl + '/payment/return.html?provider=paypal&cancel=1'
+            returnUrl: baseUrl + '/payment/return.html?provider=paypal&subscription=1' + returnToQs,
+            cancelUrl: baseUrl + '/payment/return.html?provider=paypal&cancel=1' + returnToQs
         });
         const approvalUrl = paypalRest.extractPayPalApprovalUrl(subscription);
         if (!approvalUrl || !subscription.id) {

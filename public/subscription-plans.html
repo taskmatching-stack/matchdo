@@ -330,6 +330,8 @@
         var billing = isYearly ? 'yearly' : 'monthly';
         if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
         var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
+        var pageReturn = (typeof window !== 'undefined' && window.location) ? (window.location.pathname + (window.location.search || '')) : '/subscription-plans.html';
+        creditsUrl += '&returnUrl=' + encodeURIComponent(pageReturn);
         if (window.AuthService && AuthService.getSession) {
           AuthService.getSession().then(function(s){
             if (s && s.user) location.href = creditsUrl;
