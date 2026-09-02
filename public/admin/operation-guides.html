@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow">
+  <title>操作介紹 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .og-tree-item { cursor: pointer; }
+    .og-tree-item.active { background: #e8eef4; }
+    .og-block { border: 1px solid #dee2e6; border-radius: .35rem; padding: .75rem; margin-bottom: .75rem; background: #fff; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">操作介紹</h4>
+        <p class="text-muted small mb-3">
+          資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
+          未發佈前台 404。文字可用 <code>## 標題</code>、<code>**粗體**</code>、清單。
+          名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
+          請先到「資料庫維護」執行 <code>help-guides</code>。
+        </p>
+        <div id="ogMsg" class="alert mb-3 py-2 d-none"></div>
+        <div class="row">
+          <div class="col-lg-4 mb-3">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>資料夾／文章</span>
+                <button type="button" class="btn btn-sm btn-primary" id="btnNewFolder">新增資料夾</button>
+              </div>
+              <div class="card-body p-2" id="ogTree"><span class="text-muted small">載入中…</span></div>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            <div class="card">
+              <div class="card-body" id="ogEditor">
+                <p class="text-muted mb-0">請從左側選擇資料夾或文章。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var tree = [];
+  var sel = { kind: '', folderId: '', pageId: '' };
+  var token = '';
+
+  function showMsg(text, isErr) {
+    var el = document.getElementById('ogMsg');
+    el.className = 'alert mb-3 py-2 ' + (isErr ? 'alert-danger' : 'alert-success');
+    el.textContent = text;
+    el.classList.remove('d-none');
+  }
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  async function headersJson() {
+    var session = await AuthService.getSession();
+    token = session && session.access_token;
+    if (!token) return {};
+    return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+  async function api(method, url, body) {
+    var h = await headersJson();
+    var opt = { method: method, headers: h };
+    if (body !== undefined) opt.body = JSON.stringify(body);
+    var r = await fetch(url, opt);
+    var data = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(data.error || '請求失敗');
+    return data;
+  }
+
+  function findFolder(id) {
+    return tree.find(function (f) { return f.id === id; });
+  }
+  function findPage(id) {
+    for (var i = 0; i < tree.length; i++) {
+      var p = (tree[i].pages || []).find(function (x) { return x.id === id; });
+      if (p) return { folder: tree[i], page: p };
+    }
+    return null;
+  }
+
+  function renderTree() {
+    var el = document.getElementById('ogTree');
+    if (!tree.length) {
+      el.innerHTML = '<p class="small text-muted mb-0 px-2">尚無資料夾。請先新增。</p>';
+      return;
+    }
+    el.innerHTML = tree.map(function (f) {
+      var open = sel.folderId === f.id;
+      var pages = (f.pages || []).map(function (p) {
+        var active = sel.kind === 'page' && sel.pageId === p.id ? ' active' : '';
+        return '<div class="og-tree-item rounded px-2 py-1 ms-3 small' + active + '" data-kind="page" data-id="' + esc(p.id) + '">' +
+          esc(p.title) + (p.is_published ? '' : ' <span class="text-muted">草稿</span>') + '</div>';
+      }).join('');
+      var fActive = sel.kind === 'folder' && sel.folderId === f.id ? ' active' : '';
+      return '<div class="mb-2">' +
+        '<div class="og-tree-item rounded px-2 py-1' + fActive + '" data-kind="folder" data-id="' + esc(f.id) + '">' +
+        '<strong>' + esc(f.title) + '</strong> <span class="text-muted small">/' + esc(f.slug) + '</span>' +
+        (f.is_published ? '' : ' <span class="badge bg-secondary">草稿</span>') +
+        '</div>' + pages +
+        '<button type="button" class="btn btn-link btn-sm py-0 ms-3 btn-new-page" data-folder="' + esc(f.id) + '">＋新增文章</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  function blockEditorHtml(blocks) {
+    return (blocks || []).map(function (b, i) {
+      var type = b.type || 'text';
+      return '<div class="og-block" data-i="' + i + '">' +
+        '<div class="d-flex gap-2 mb-2 align-items-center">' +
+        '<select class="form-select form-select-sm blk-type" style="width:8rem;">' +
+        '<option value="text"' + (type === 'text' ? ' selected' : '') + '>文字</option>' +
+        '<option value="image"' + (type === 'image' ? ' selected' : '') + '>圖片／GIF</option>' +
+        '<option value="youtube"' + (type === 'youtube' ? ' selected' : '') + '>YouTube</option>' +
+        '</select>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary blk-up">上移</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary blk-down">下移</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger ms-auto blk-del">刪</button>' +
+        '</div>' +
+        (type === 'text'
+          ? '<label class="form-label small mb-0">中文（Markdown）</label><textarea class="form-control form-control-sm mb-2 blk-text" rows="6">' + esc(b.text || '') + '</textarea>' +
+            '<label class="form-label small mb-0">英文</label><textarea class="form-control form-control-sm blk-text-en" rows="4">' + esc(b.text_en || '') + '</textarea>'
+          : type === 'image'
+            ? '<div class="mb-2"><input type="text" class="form-control form-control-sm blk-url" placeholder="圖片網址" value="' + esc(b.url || '') + '">' +
+              '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm mt-1 blk-file"></div>' +
+              '<input type="text" class="form-control form-control-sm mb-1 blk-caption" placeholder="圖說（中文）" value="' + esc(b.caption || '') + '">' +
+              '<input type="text" class="form-control form-control-sm blk-caption-en" placeholder="圖說（英文）" value="' + esc(b.caption_en || '') + '">' +
+              (b.url ? '<img src="' + esc(b.url) + '" class="img-fluid mt-2" style="max-height:160px;">' : '')
+            : '<input type="text" class="form-control form-control-sm blk-yt" placeholder="YouTube 網址或影片 id" value="' + esc(b.video_id || '') + '">') +
+        '</div>';
+    }).join('');
+  }
+
+  function collectBlocks() {
+    var out = [];
+    document.querySelectorAll('#ogEditor .og-block').forEach(function (el) {
+      var type = el.querySelector('.blk-type').value;
+      var val = function (sel) { var n = el.querySelector(sel); return n ? n.value : ''; };
+      if (type === 'text') {
+        out.push({ type: 'text', text: val('.blk-text'), text_en: val('.blk-text-en') });
+      } else if (type === 'image') {
+        out.push({ type: 'image', url: val('.blk-url').trim(), caption: val('.blk-caption'), caption_en: val('.blk-caption-en') });
+      } else {
+        out.push({ type: 'youtube', video_id: val('.blk-yt').trim() });
+      }
+    });
+    return out;
+  }
+
+  function bindBlockUi() {
+    document.querySelectorAll('#ogEditor .blk-type').forEach(function (selEl) {
+      selEl.onchange = function () {
+        var blocks = collectBlocks();
+        document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocks);
+        bindBlockUi();
+      };
+    });
+    document.querySelectorAll('#ogEditor .blk-del').forEach(function (btn) {
+      btn.onclick = function () {
+        var blocks = collectBlocks();
+        var i = parseInt(btn.closest('.og-block').getAttribute('data-i'), 10);
+        blocks.splice(i, 1);
+        document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocks);
+        bindBlockUi();
+      };
+    });
+    document.querySelectorAll('#ogEditor .blk-up').forEach(function (btn) {
+      btn.onclick = function () {
+        var blocks = collectBlocks();
+        var i = parseInt(btn.closest('.og-block').getAttribute('data-i'), 10);
+        if (i <= 0) return;
+        var t = blocks[i - 1]; blocks[i - 1] = blocks[i]; blocks[i] = t;
+        document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocks);
+        bindBlockUi();
+      };
+    });
+    document.querySelectorAll('#ogEditor .blk-down').forEach(function (btn) {
+      btn.onclick = function () {
+        var blocks = collectBlocks();
+        var i = parseInt(btn.closest('.og-block').getAttribute('data-i'), 10);
+        if (i >= blocks.length - 1) return;
+        var t = blocks[i + 1]; blocks[i + 1] = blocks[i]; blocks[i] = t;
+        document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocks);
+        bindBlockUi();
+      };
+    });
+    document.querySelectorAll('#ogEditor .blk-file').forEach(function (inp) {
+      inp.onchange = async function () {
+        if (!inp.files || !inp.files[0]) return;
+        var fd = new FormData();
+        fd.append('file', inp.files[0]);
+        var session = await AuthService.getSession();
+        var r = await fetch('/api/admin/help-guides/upload', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + (session && session.access_token) },
+          body: fd
+        });
+        var data = await r.json().catch(function () { return {}; });
+        if (!r.ok) { showMsg(data.error || '上傳失敗', true); return; }
+        var wrap = inp.closest('.og-block');
+        wrap.querySelector('.blk-url').value = data.url;
+        showMsg('已上傳');
+      };
+    });
+  }
+
+  function renderFolderEditor(f) {
+    var editor = document.getElementById('ogEditor');
+    editor.innerHTML =
+      '<h5 class="mb-3">資料夾</h5>' +
+      '<div class="row g-2 mb-2"><div class="col-md-6"><label class="form-label small">名稱</label>' +
+      '<input id="fTitle" class="form-control form-control-sm" value="' + esc(f.title) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label small">名稱（英文）</label>' +
+      '<input id="fTitleEn" class="form-control form-control-sm" value="' + esc(f.title_en || '') + '"></div></div>' +
+      '<div class="row g-2 mb-2"><div class="col-md-6"><label class="form-label small">slug（網址）</label>' +
+      '<input id="fSlug" class="form-control form-control-sm" value="' + esc(f.slug) + '">' +
+      '<div class="form-text">/help/' + esc(f.slug) + '/</div></div>' +
+      '<div class="col-md-3"><label class="form-label small">排序</label>' +
+      '<input id="fSort" type="number" class="form-control form-control-sm" value="' + esc(f.sort_order) + '"></div>' +
+      '<div class="col-md-3 d-flex align-items-end"><div class="form-check">' +
+      '<input class="form-check-input" type="checkbox" id="fPub"' + (f.is_published ? ' checked' : '') + '>' +
+      '<label class="form-check-label" for="fPub">發佈</label></div></div></div>' +
+      '<div class="d-flex gap-2">' +
+      '<button type="button" class="btn btn-primary btn-sm" id="btnSaveFolder">儲存</button>' +
+      '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="/help/' + esc(f.slug) + '/">開啟前台</a>' +
+      '<button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="btnDelFolder">刪除資料夾</button></div>';
+    document.getElementById('btnSaveFolder').onclick = async function () {
+      try {
+        await api('PATCH', '/api/admin/help-guides/folders/' + f.id, {
+          title: document.getElementById('fTitle').value,
+          title_en: document.getElementById('fTitleEn').value,
+          slug: document.getElementById('fSlug').value,
+          sort_order: document.getElementById('fSort').value,
+          is_published: document.getElementById('fPub').checked
+        });
+        showMsg('已儲存');
+        await loadTree(true);
+      } catch (e) { showMsg(e.message, true); }
+    };
+    document.getElementById('btnDelFolder').onclick = async function () {
+      if (!confirm('刪除此資料夾及底下所有文章？')) return;
+      try {
+        await api('DELETE', '/api/admin/help-guides/folders/' + f.id);
+        sel = { kind: '', folderId: '', pageId: '' };
+        document.getElementById('ogEditor').innerHTML = '<p class="text-muted mb-0">已刪除。</p>';
+        await loadTree(true);
+      } catch (e) { showMsg(e.message, true); }
+    };
+  }
+
+  function renderPageEditor(folder, p) {
+    var editor = document.getElementById('ogEditor');
+    var blocks = Array.isArray(p.blocks_json) ? p.blocks_json : [];
+    var preview = '/help/' + folder.slug + '/' + p.slug;
+    editor.innerHTML =
+      '<h5 class="mb-3">文章 · ' + esc(folder.title) + '</h5>' +
+      '<div class="row g-2 mb-2"><div class="col-md-6"><label class="form-label small">標題</label>' +
+      '<input id="pTitle" class="form-control form-control-sm" value="' + esc(p.title) + '"></div>' +
+      '<div class="col-md-6"><label class="form-label small">標題（英文）</label>' +
+      '<input id="pTitleEn" class="form-control form-control-sm" value="' + esc(p.title_en || '') + '"></div></div>' +
+      '<div class="row g-2 mb-2"><div class="col-md-5"><label class="form-label small">slug</label>' +
+      '<input id="pSlug" class="form-control form-control-sm" value="' + esc(p.slug) + '">' +
+      '<div class="form-text">' + esc(preview) + '</div></div>' +
+      '<div class="col-md-3"><label class="form-label small">排序</label>' +
+      '<input id="pSort" type="number" class="form-control form-control-sm" value="' + esc(p.sort_order) + '"></div>' +
+      '<div class="col-md-4 d-flex align-items-end"><div class="form-check">' +
+      '<input class="form-check-input" type="checkbox" id="pPub"' + (p.is_published ? ' checked' : '') + '>' +
+      '<label class="form-check-label" for="pPub">發佈</label></div></div></div>' +
+      '<label class="form-label small">摘要</label><textarea id="pSummary" class="form-control form-control-sm mb-2" rows="2">' + esc(p.summary || '') + '</textarea>' +
+      '<label class="form-label small">摘要（英文）</label><textarea id="pSummaryEn" class="form-control form-control-sm mb-3" rows="2">' + esc(p.summary_en || '') + '</textarea>' +
+      '<div class="d-flex justify-content-between align-items-center mb-2">' +
+      '<strong>區塊</strong><button type="button" class="btn btn-sm btn-outline-primary" id="btnAddBlock">＋區塊</button></div>' +
+      '<div id="blocksWrap">' + blockEditorHtml(blocks) + '</div>' +
+      '<div class="d-flex gap-2 mt-3">' +
+      '<button type="button" class="btn btn-primary btn-sm" id="btnSavePage">儲存</button>' +
+      '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="' + esc(preview) + '">開啟前台</a>' +
+      '<button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="btnDelPage">刪除文章</button></div>';
+    bindBlockUi();
+    document.getElementById('btnAddBlock').onclick = function () {
+      var blocksNow = collectBlocks();
+      blocksNow.push({ type: 'text', text: '', text_en: '' });
+      document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocksNow);
+      bindBlockUi();
+    };
+    document.getElementById('btnSavePage').onclick = async function () {
+      try {
+        await api('PATCH', '/api/admin/help-guides/pages/' + p.id, {
+          title: document.getElementById('pTitle').value,
+          title_en: document.getElementById('pTitleEn').value,
+          slug: document.getElementById('pSlug').value,
+          sort_order: document.getElementById('pSort').value,
+          is_published: document.getElementById('pPub').checked,
+          summary: document.getElementById('pSummary').value,
+          summary_en: document.getElementById('pSummaryEn').value,
+          blocks_json: collectBlocks()
+        });
+        showMsg('已儲存');
+        await loadTree(true);
+      } catch (e) { showMsg(e.message, true); }
+    };
+    document.getElementById('btnDelPage').onclick = async function () {
+      if (!confirm('刪除此文章？')) return;
+      try {
+        await api('DELETE', '/api/admin/help-guides/pages/' + p.id);
+        sel = { kind: 'folder', folderId: folder.id, pageId: '' };
+        await loadTree(true);
+      } catch (e) { showMsg(e.message, true); }
+    };
+  }
+
+  async function loadTree(keepSel) {
+    var data = await api('GET', '/api/admin/help-guides');
+    tree = data.folders || [];
+    renderTree();
+    if (keepSel && sel.kind === 'page' && sel.pageId) {
+      var found = findPage(sel.pageId);
+      if (found) renderPageEditor(found.folder, found.page);
+      else if (sel.folderId && findFolder(sel.folderId)) renderFolderEditor(findFolder(sel.folderId));
+    } else if (keepSel && sel.kind === 'folder' && sel.folderId && findFolder(sel.folderId)) {
+      renderFolderEditor(findFolder(sel.folderId));
+    }
+  }
+
+  document.getElementById('ogTree').addEventListener('click', function (e) {
+    var pageBtn = e.target.closest('.btn-new-page');
+    if (pageBtn) {
+      e.preventDefault();
+      var folderId = pageBtn.getAttribute('data-folder');
+      (async function () {
+        try {
+          var created = await api('POST', '/api/admin/help-guides/pages', {
+            folder_id: folderId,
+            slug: 'page-' + Date.now().toString(16).slice(-6),
+            title: '新文章',
+            title_en: '',
+            is_published: false
+          });
+          sel = { kind: 'page', folderId: folderId, pageId: created.page.id };
+          await loadTree(true);
+        } catch (err) { showMsg(err.message, true); }
+      })();
+      return;
+    }
+    var item = e.target.closest('.og-tree-item');
+    if (!item) return;
+    var kind = item.getAttribute('data-kind');
+    var id = item.getAttribute('data-id');
+    if (kind === 'folder') {
+      sel = { kind: 'folder', folderId: id, pageId: '' };
+      renderTree();
+      renderFolderEditor(findFolder(id));
+    } else {
+      var found = findPage(id);
+      if (!found) return;
+      sel = { kind: 'page', folderId: found.folder.id, pageId: found.page.id };
+      renderTree();
+      renderPageEditor(found.folder, found.page);
+    }
+  });
+
+  document.getElementById('btnNewFolder').onclick = async function () {
+    try {
+      var created = await api('POST', '/api/admin/help-guides/folders', {
+        slug: 'topic-' + Date.now().toString(16).slice(-6),
+        title: '新資料夾',
+        title_en: '',
+        sort_order: tree.length * 10,
+        is_published: false
+      });
+      sel = { kind: 'folder', folderId: created.folder.id, pageId: '' };
+      await loadTree(true);
+    } catch (e) { showMsg(e.message, true); }
+  };
+
+  loadTree(false).catch(function (e) { showMsg(e.message, true); });
+})();
+  </script>
+</body>
+</html>

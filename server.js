@@ -11133,6 +11133,7 @@ app.get('/custom/gallery.html', async (req, res) => {
 });
 
 registerSitemapRoutes(app, { supabase, BASE_URL });
+const { registerHelpGuideRoutes } = require('./routes/help-guides');
 
 // 圖庫找廠商專用 API（與首頁同源資料），避免圖庫頁永遠空白
 app.get('/api/gallery-items', async (req, res) => {
@@ -11213,6 +11214,8 @@ async function requireAdmin(req, res) {
     }
     return user;
 }
+
+registerHelpGuideRoutes(app, { supabase, requireAdmin, upload, uploadToSupabaseStorage, BASE_URL });
 
 const ADMIN_FOLLOWUP_ENTITY_TYPES = ['user', 'manufacturer', 'supplier'];
 let adminFollowupTablesReadyCache = null;

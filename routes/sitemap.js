@@ -86,15 +86,25 @@ function registerSitemapRoutes(app, deps) {
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
     });
-    // 靜態／半靜態公開頁（固定清單）
-    app.get('/sitemap-pages.xml', (req, res) => {
+    // 靜態／半靜態公開頁（固定清單）＋已發佈操作介紹
+    app.get('/sitemap-pages.xml', async (req, res) => {
         const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
-        const urls = SITEMAP_PAGES.map(p => {
+        const urlLines = SITEMAP_PAGES.map(p => {
             const loc = p.path === '/' ? base + '/' : base + p.path;
             return '  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>' + (p.changefreq || 'monthly') + '</changefreq><priority>' + (p.priority || '0.5') + '</priority></url>';
-        }).join('\n');
-        const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '\n</urlset>';
+        });
+        try {
+            const helpGuides = require('../lib/help-guides');
+            const extra = await helpGuides.listPublishedUrls(supabase);
+            const seen = new Set(SITEMAP_PAGES.map(p => p.path));
+            extra.forEach(function (p) {
+                if (!p || seen.has(p)) return;
+                seen.add(p);
+                urlLines.push('  <url><loc>' + escapeXml(base + p) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.55</priority></url>');
+            });
+        } catch (_) { /* 表尚未建立時略過 */ }
+        const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urlLines.join('\n') + '\n</urlset>';
         res.set('Content-Type', 'application/xml; charset=utf-8');
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
