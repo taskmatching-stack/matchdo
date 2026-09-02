@@ -608,6 +608,8 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-cloud-upload me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
                                 <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-people me-2"></i>` + t('nav.supplierManufacturerRefs') + `</a>
                                 <a href="#" id="nav-my-supplier-home" class="dropdown-item"><i class="bi bi-house-door me-2"></i>` + t('nav.mySupplierPublicPage') + `</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="/help/" class="dropdown-item"><i class="bi bi-question-circle me-2"></i>` + (t('nav.operationGuides') || '操作介紹') + `</a>
                             </div>
                         </div>
                     ` : ''}
@@ -630,6 +632,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <li><a class="dropdown-item" href="/profile/account.html"><i class="bi bi-person-circle me-2"></i>` + (t('nav.accountInfo') || '帳號資訊') + `</a></li>
                                 <li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>` + (t('nav.myCredits') || '我的點數') + `</a></li>
                                 <li><a class="dropdown-item" href="/subscription-plans.html"><i class="bi bi-calendar-check me-2"></i>` + (t('nav.subscriptionPlans') || '方案與定價') + `</a></li>
+                                <li><a class="dropdown-item" href="/help/"><i class="bi bi-question-circle me-2"></i>` + (t('nav.operationGuides') || '操作介紹') + `</a></li>
                                 <li><a class="dropdown-item" href="/promo-camera"><i class="bi bi-camera me-2"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a></li>
                                 <li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>` + t('nav.contactSettings') + `</a></li>
                                 ${isTesterOrAdmin ? `
@@ -667,6 +670,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <li><a class="dropdown-item" href="/profile/account.html"><i class="bi bi-person-circle me-2"></i>` + (t('nav.accountInfo') || '帳號資訊') + `</a></li>
                                 <li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>` + (t('nav.myCredits') || '我的點數') + `</a></li>
                                 <li><a class="dropdown-item" href="/subscription-plans.html"><i class="bi bi-calendar-check me-2"></i>` + (t('nav.subscriptionPlans') || '方案與定價') + `</a></li>
+                                <li><a class="dropdown-item" href="/help/"><i class="bi bi-question-circle me-2"></i>` + (t('nav.operationGuides') || '操作介紹') + `</a></li>
                                 <li><a class="dropdown-item" href="/promo-camera"><i class="bi bi-camera me-2"></i>` + (t('nav.promoCamera') || '商攝導演') + `</a></li>
                                 <li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>` + t('nav.contactSettings') + `</a></li>
                                 ${isTesterOrAdmin ? '<li><a class="dropdown-item" href="/admin/playground.html"><i class="bi bi-brush me-2"></i>Playground</a></li><li><a class="dropdown-item" href="/admin/ai-tools.html"><i class="bi bi-magic me-2"></i>' + t('nav.aiTools') + '</a></li>' + (isAdmin ? '<li><a class="dropdown-item" href="/admin/user-management.html"><i class="bi bi-people me-2"></i>' + t('nav.userManagement') + '</a></li><li><a class="dropdown-item" href="/admin/payment-settings.html"><i class="bi bi-currency-exchange me-2"></i>' + t('nav.paymentSettings') + '</a></li><li><a class="dropdown-item" href="/admin/categories.html"><i class="bi bi-tag me-2"></i>' + t('nav.categoryManagement') + '</a></li><li><a class="dropdown-item" href="/admin/category-images.html"><i class="bi bi-images me-2"></i>' + t('nav.categoryImages') + '</a></li><li><a class="dropdown-item" href="/client/manufacturer-materials.html?official_platform=1&manage=1"><i class="bi bi-collection me-2"></i>' + t('nav.officialTemplateLibrary') + '</a></li>' : '') : ''}

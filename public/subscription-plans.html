@@ -202,9 +202,7 @@
       <p class="section-subtitle" data-i18n="pricing.subtitle">選擇適合您的方案。點數可用於設計稿、找廠商、製作方接案與 AI 工具。</p>
       <p class="text-muted small mb-3" data-i18n="pricing.priceNote">價格預設以美金顯示；繁中介面顯示台幣。PayPal 以美金結帳。</p>
 
-      <div id="checkoutDisabledBanner" class="alert alert-info d-none" role="status">
-        <i class="bi bi-info-circle me-2"></i><span data-i18n="pricing.checkoutDisabled">訂閱付款功能尚未開放，您仍可查看方案與點數餘額。開放後即可在此訂閱。</span>
-      </div>
+      <div id="checkoutDisabledBanner" class="alert alert-info d-none" role="status"></div>
 
       <!-- 月付 / 年付切換（參考 Leonardo，目前僅 UI） -->
       <div class="pricing-toggle-wrap">
@@ -270,6 +268,7 @@
   }
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
   var checkoutEnabled = true;
+  var lastCheckoutStatus = null;
   // 方案名稱對應的 i18n key
   var planNameKeys = ['pricing.planFree', 'pricing.planTier2', 'pricing.planTier3', 'pricing.planTier4'];
   var planSubKeys  = ['pricing.planFreeSub', 'pricing.planTier2Sub', 'pricing.planTier3Sub', 'pricing.planTier4Sub'];
@@ -448,10 +447,19 @@
     link.href = '/credits.html' + (lang === 'en' ? '?lang=en' : (lang && lang !== 'zh-TW' ? '?lang=' + encodeURIComponent(lang) : ''));
   }
 
-  function applyCheckoutStatus(enabled) {
-    checkoutEnabled = enabled !== false;
-    var banner = document.getElementById('checkoutDisabledBanner');
-    if (banner) banner.classList.toggle('d-none', checkoutEnabled);
+  function applyCheckoutStatus(st) {
+    if (st) lastCheckoutStatus = st;
+    var enabled = lastCheckoutStatus && lastCheckoutStatus.checkout_enabled === true;
+    checkoutEnabled = enabled;
+    if (window.PaymentLocale && PaymentLocale.applyClosedCheckoutBanner) {
+      PaymentLocale.applyClosedCheckoutBanner(document.getElementById('checkoutDisabledBanner'), lastCheckoutStatus || { checkout_enabled: enabled }, t, {
+        hideClass: 'd-none',
+        defaultKey: 'pricing.checkoutDisabled'
+      });
+    } else {
+      var banner = document.getElementById('checkoutDisabledBanner');
+      if (banner) banner.classList.toggle('d-none', checkoutEnabled);
+    }
     if (!checkoutEnabled) {
       document.querySelectorAll('.btn-subscribe-plan').forEach(function (btn) {
         if (btn.getAttribute('data-free-plan') === 'true') return;
@@ -471,11 +479,12 @@
       applyTitle();
       applyPricingLocaleUi();
       applyCreditsLinkLang();
+      if (lastCheckoutStatus) applyCheckoutStatus(lastCheckoutStatus);
     });
 
     fetch((window.PaymentLocale && PaymentLocale.checkoutStatusUrl) ? PaymentLocale.checkoutStatusUrl() : '/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
       .then(function (st) {
-        applyCheckoutStatus(st.checkout_enabled === true);
+        applyCheckoutStatus(st);
         return fetch('/api/subscription-plans');
       })
       .then(function(r){ return r.json(); }).then(function(data){
@@ -489,6 +498,7 @@
       });
       renderPlans(plans);
       applyPricingLocaleUi();
+      applyCheckoutStatus(lastCheckoutStatus);
       updateFreePlanButton();
     }).catch(function(){
       var row = document.getElementById('pricingCardsRow');

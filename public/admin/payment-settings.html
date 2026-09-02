@@ -20,11 +20,19 @@
                     <input class="form-check-input" type="checkbox" id="payment_checkout_enabled_usd">
                     <label class="form-check-label" for="payment_checkout_enabled_usd">開放美金頁訂閱／儲值（英文與其他語系，PayPal）</label>
                 </div>
-                <div class="form-check form-switch">
+                <div class="mb-3 ms-1">
+                    <label class="form-label small mb-1" for="payment_checkout_closed_reason_usd">美金頁關閉原因（顯示在英文前台，選填）</label>
+                    <textarea class="form-control form-control-sm" id="payment_checkout_closed_reason_usd" rows="2" maxlength="200" placeholder="Example: USD checkout is temporarily closed. Please switch to Traditional Chinese to pay in TWD."></textarea>
+                </div>
+                <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="payment_checkout_enabled_twd">
                     <label class="form-check-label" for="payment_checkout_enabled_twd">開放台幣頁訂閱／儲值（繁中介面）</label>
                 </div>
-                <p class="small text-muted mb-0 mt-2">台幣頁目前請保持<strong>關閉</strong>。美金頁可獨立開放 Sandbox／正式結帳。兩邊互不影響。</p>
+                <div class="mb-2 ms-1">
+                    <label class="form-label small mb-1" for="payment_checkout_closed_reason_twd">台幣頁關閉原因（顯示在繁中前台，選填）</label>
+                    <textarea class="form-control form-control-sm" id="payment_checkout_closed_reason_twd" rows="2" maxlength="200" placeholder="例：台幣金流測試中，請改以美金購買。"></textarea>
+                </div>
+                <p class="small text-muted mb-0">只開放一邊時，關閉側會顯示上方原因，並提示可切換到另一幣別購買。兩邊都關則只顯示尚未開放。</p>
             </div>
         </div>
 
@@ -155,6 +163,8 @@ $(async function () {
             $('#paypal_sandbox').prop('checked', c.paypal_sandbox !== false);
             $('#payment_checkout_enabled_usd').prop('checked', c.payment_checkout_enabled_usd === true);
             $('#payment_checkout_enabled_twd').prop('checked', c.payment_checkout_enabled_twd === true);
+            $('#payment_checkout_closed_reason_usd').val(c.payment_checkout_closed_reason_usd || '');
+            $('#payment_checkout_closed_reason_twd').val(c.payment_checkout_closed_reason_twd || '');
             renderTopupPresets(c.topup_presets || []);
         })
         .fail(function () { setStatus('無法載入設定', true); });
@@ -167,6 +177,8 @@ $(async function () {
             paypal_sandbox: $('#paypal_sandbox').prop('checked'),
             payment_checkout_enabled_usd: $('#payment_checkout_enabled_usd').prop('checked'),
             payment_checkout_enabled_twd: $('#payment_checkout_enabled_twd').prop('checked'),
+            payment_checkout_closed_reason_usd: $('#payment_checkout_closed_reason_usd').val(),
+            payment_checkout_closed_reason_twd: $('#payment_checkout_closed_reason_twd').val(),
             topup_presets: collectTopupPresets()
         };
         var hk = $('#ecpay_hash_key').val();

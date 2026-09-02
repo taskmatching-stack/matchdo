@@ -21,9 +21,15 @@
   <script>
     (function () {
       var hash = window.location.hash || '';
+      var search = window.location.search || '';
       var hasTokens = hash.indexOf('access_token') !== -1 || hash.indexOf('refresh_token') !== -1;
+      var isRecovery = hash.indexOf('type=recovery') !== -1 || search.indexOf('type=recovery') !== -1;
 
       function go() {
+        if (isRecovery) {
+          window.location.replace('/reset-password.html' + hash + search);
+          return;
+        }
         var url = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_return_url')) || '/index.html';
         try { if (sessionStorage) sessionStorage.removeItem('auth_return_url'); } catch (e) {}
         if (!url || url === '/login.html' || url.indexOf('login') !== -1) url = '/index.html';

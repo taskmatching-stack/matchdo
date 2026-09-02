@@ -172,12 +172,30 @@
             <p class="subtitle">登入或註冊後即可使用發案、接案等所有功能，無需選擇身份。</p>
 
             <!-- 未登入時：登入/註冊 -->
-            <div id="pleaseLogin" class="alert alert-info text-center" style="display: none;">
-                <p class="mb-3">請登入或使用 Google 註冊。</p>
-                <a href="login.html" class="btn btn-primary me-2"><i class="bi bi-box-arrow-in-right me-1"></i>前往登入</a>
+            <div id="pleaseLogin">
+                <p class="text-center text-muted mb-3">Google 與 Email＋密碼都可註冊／登入，同一個 Email 是同一個帳號。</p>
+                <div class="text-center mb-4">
                 <button type="button" class="btn btn-outline-primary" onclick="signUpWithGoogle()">
-                    <i class="bi bi-google me-1"></i>使用 Google 註冊
+                    <i class="bi bi-google me-1"></i>使用 Google 註冊／登入
                 </button>
+                </div>
+                <div class="text-center text-muted small mb-3">或用 Email 註冊</div>
+                <form id="emailRegisterForm">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="regEmail" required placeholder="your@email.com" autocomplete="email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密碼（至少 6 字）</label>
+                        <input type="password" class="form-control" id="regPassword" required minlength="6" autocomplete="new-password">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">再輸入一次密碼</label>
+                        <input type="password" class="form-control" id="regPassword2" required minlength="6" autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="regBtn">Email 註冊</button>
+                    <div id="regAlert" class="mt-3"></div>
+                </form>
             </div>
 
             <!-- 已登入：顯示歡迎並導向首頁 -->
@@ -211,7 +229,6 @@
         window.addEventListener('load', async () => {
             const currentUser = await AuthService.getCurrentUser();
             if (!currentUser) {
-                document.getElementById('pleaseLogin').style.display = 'block';
                 return;
             }
 
@@ -229,6 +246,39 @@
                 console.warn('建立用戶資料:', e?.message || e);
             }
             window.location.href = '/index.html';
+        });
+
+        document.getElementById('emailRegisterForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var email = (document.getElementById('regEmail').value || '').trim();
+            var pw = document.getElementById('regPassword').value;
+            var pw2 = document.getElementById('regPassword2').value;
+            var box = document.getElementById('regAlert');
+            function msg(html, kind) {
+                box.innerHTML = '<div class="alert alert-' + (kind || 'info') + ' py-2 mb-0">' + html + '</div>';
+            }
+            if (pw.length < 6) { msg('密碼至少 6 個字元', 'warning'); return; }
+            if (pw !== pw2) { msg('兩次密碼不一致', 'warning'); return; }
+            var btn = document.getElementById('regBtn');
+            btn.disabled = true;
+            try {
+                var result = await AuthService.signUpWithEmail(email, pw);
+                if (result && result.session) {
+                    msg('註冊成功，正在進入…', 'success');
+                    setTimeout(function () { location.href = '/index.html'; }, 400);
+                    return;
+                }
+                msg('已送出。若此站有開 Email 驗證，請到信箱點確認信後再登入。之後仍可再綁 Google。', 'success');
+            } catch (err) {
+                var m = (err && err.message) || '';
+                if (/already registered/i.test(m) || /User already registered/i.test(m)) {
+                    msg('此 Email 已有帳號。若當初用 Google 註冊，請到<a href="/login.html">登入頁</a>用 Google 登入，再到帳號資訊設定密碼；之後兩種方式都能用。', 'warning');
+                } else {
+                    msg('註冊失敗：' + m, 'danger');
+                }
+            } finally {
+                btn.disabled = false;
+            }
         });
     </script>
 

@@ -169,7 +169,7 @@ const AuthService = {
             email,
             password,
             options: {
-                emailRedirectTo: `${window.location.origin}/index.html`
+                emailRedirectTo: window.location.origin + '/auth-callback.html'
             }
         });
 
@@ -185,7 +185,7 @@ const AuthService = {
      * 若連線逾時會拋錯，避免按鈕一直轉圈。
      */
     async resetPasswordForEmail(email) {
-        var redirectTo = window.location.origin + '/login.html';
+        var redirectTo = window.location.origin + '/reset-password.html';
         try {
             var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('連線逾時，請檢查網路或稍後再試')); }, 15000); });
             var result = await Promise.race([
@@ -198,6 +198,29 @@ const AuthService = {
             console.error('重設密碼發送失敗:', e);
             throw e;
         }
+    },
+
+    hasGoogleIdentity: function (user) {
+        var ids = (user && user.identities) || [];
+        for (var i = 0; i < ids.length; i++) {
+            if (ids[i] && ids[i].provider === 'google') return true;
+        }
+        return false;
+    },
+
+    hasEmailIdentity: function (user) {
+        var ids = (user && user.identities) || [];
+        for (var i = 0; i < ids.length; i++) {
+            if (ids[i] && ids[i].provider === 'email') return true;
+        }
+        return false;
+    },
+
+    async updatePassword(newPassword) {
+        if (!supabaseClient || !supabaseClient.auth) throw new Error('尚未載入登入服務');
+        const { data, error } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        return data;
     },
 
     /**

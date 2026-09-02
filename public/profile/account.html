@@ -72,6 +72,22 @@
                                 </div>
                                 <a href="/profile/contact-info.html" class="btn btn-outline-primary"><i class="bi bi-telephone me-2"></i><span data-i18n="nav.contactSettings">聯絡資訊設定</span></a>
                                 <a href="/credits.html" class="btn btn-outline-secondary ms-2"><i class="bi bi-currency-exchange me-2"></i><span data-i18n="nav.myCredits">我的點數</span></a>
+                                <hr>
+                                <h6 class="text-muted mb-2"><i class="bi bi-key me-2"></i><span data-i18n="profile.loginMethodsTitle">登入方式</span></h6>
+                                <p class="small text-muted mb-2" id="loginMethodsHint" data-i18n="profile.loginMethodsHint">Google 與 Email＋密碼可同時使用，不會互相取代。</p>
+                                <p class="small mb-2" id="loginMethodsStatus">—</p>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-sm-6">
+                                        <label class="form-label small" data-i18n="profile.newPassword">設定／變更密碼</label>
+                                        <input type="password" class="form-control form-control-sm" id="newPassword" minlength="6" autocomplete="new-password">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small" data-i18n="profile.newPasswordAgain">再輸入一次</label>
+                                        <input type="password" class="form-control form-control-sm" id="newPassword2" minlength="6" autocomplete="new-password">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" id="btnSavePassword" data-i18n="profile.savePassword">儲存密碼</button>
+                                <span id="passwordSaveMsg" class="small ms-2"></span>
                             </div>
                         </div>
                     </div>
@@ -178,6 +194,51 @@
                     document.getElementById('profile-credits').textContent = (cred.balance != null ? cred.balance : 0) + ' ' + t('nav.pointsUnit', '點');
                 } else {
                     document.getElementById('profile-credits').textContent = '0 ' + t('nav.pointsUnit', '點');
+                }
+
+                try {
+                    var au = await AuthService.getCurrentUser();
+                    var hasG = AuthService.hasGoogleIdentity(au);
+                    var hasE = AuthService.hasEmailIdentity(au);
+                    var statusEl = document.getElementById('loginMethodsStatus');
+                    if (statusEl) {
+                        var parts = [];
+                        if (hasG) parts.push(t('profile.loginGoogleOn', 'Google：已綁定'));
+                        else parts.push(t('profile.loginGoogleOff', 'Google：未綁定'));
+                        if (hasE) parts.push(t('profile.loginEmailOn', 'Email＋密碼：已設定'));
+                        else parts.push(t('profile.loginEmailOff', 'Email＋密碼：尚未設定（設定後即可在本地用密碼登入）'));
+                        statusEl.textContent = parts.join(' ／ ');
+                    }
+                } catch (idErr) {}
+
+                var pwBtn = document.getElementById('btnSavePassword');
+                if (pwBtn && !pwBtn._bound) {
+                    pwBtn._bound = true;
+                    pwBtn.addEventListener('click', async function () {
+                        var msgPw = document.getElementById('passwordSaveMsg');
+                        var p1 = (document.getElementById('newPassword') || {}).value || '';
+                        var p2 = (document.getElementById('newPassword2') || {}).value || '';
+                        if (p1.length < 6) {
+                            if (msgPw) msgPw.textContent = t('profile.passwordTooShort', '密碼至少 6 個字元');
+                            return;
+                        }
+                        if (p1 !== p2) {
+                            if (msgPw) msgPw.textContent = t('profile.passwordMismatch', '兩次密碼不一致');
+                            return;
+                        }
+                        pwBtn.disabled = true;
+                        if (msgPw) msgPw.textContent = '';
+                        try {
+                            await AuthService.updatePassword(p1);
+                            if (msgPw) msgPw.textContent = t('profile.passwordSaved', '已儲存。Google 登入仍可用，也可用 Email＋密碼登入。');
+                            document.getElementById('newPassword').value = '';
+                            document.getElementById('newPassword2').value = '';
+                        } catch (pwErr) {
+                            if (msgPw) msgPw.textContent = (pwErr && pwErr.message) || t('profile.passwordSaveFailed', '儲存失敗');
+                        } finally {
+                            pwBtn.disabled = false;
+                        }
+                    });
                 }
 
                 var contact = contactRes.ok ? await contactRes.json() : {};

@@ -16,7 +16,7 @@
 
 ### 前台 UX
 - [x] 方案頁「我的點數」改為醒目 Primary 大按鈕
-- [x] **付款開關**（台幣／美金分開）：後台 `/admin/payment-settings.html`；繁中頁看 `payment_checkout_enabled_twd`（預設關），其餘語系看 `payment_checkout_enabled_usd`
+- [x] **付款開關**（台幣／美金分開）：後台 `/admin/payment-settings.html`；繁中頁看 `payment_checkout_enabled_twd`（預設關），其餘語系看 `payment_checkout_enabled_usd`。只開一邊時可填關閉原因，前台會提示切換到另一幣別購買。
 - [x] 關閉時：方案頁訂閱鈕「即將開放」、結帳 API 503、儲值／訂閱結帳頁提示
 - [x] **幣別顯示修正**：**美金優先**。僅繁中（`zh`／`zh-TW`）顯示台幣；英文與未載入語系顯示 USD。勿混用 `$` + `元`
 - [x] 方案功能文案依主要用途重寫（locales + `getPlanFeatures`）

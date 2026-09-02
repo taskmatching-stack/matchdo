@@ -69,7 +69,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260903-usd-first';
+    var LOCALE_CACHE_V = '20260903-auth-dual';
 
     function loadLocale(lang) {
         lang = lang || getLang();

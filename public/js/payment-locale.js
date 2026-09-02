@@ -76,6 +76,59 @@
     return m > 0 ? m * 10 : 0;
   }
 
+  function withLangOnUrl(pathAndSearch, lang) {
+    try {
+      var u = new URL(pathAndSearch || (window.location.pathname + window.location.search), window.location.origin);
+      u.searchParams.set('lang', lang);
+      return u.pathname + u.search;
+    } catch (e) {
+      return (pathAndSearch || '/') + (String(pathAndSearch || '').indexOf('?') >= 0 ? '&' : '?') + 'lang=' + encodeURIComponent(lang);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function applyClosedCheckoutBanner(bannerEl, st, tFn, options) {
+    options = options || {};
+    if (!bannerEl) return false;
+    var enabled = st && st.checkout_enabled === true;
+    if (enabled) {
+      if (options.hideClass) bannerEl.classList.add(options.hideClass);
+      else bannerEl.style.display = 'none';
+      return false;
+    }
+    if (options.hideClass) bannerEl.classList.remove(options.hideClass);
+    else bannerEl.style.display = '';
+    var t = typeof tFn === 'function' ? tFn : function (k) { return k; };
+    var reason = String((st && st.closed_reason) || '').trim();
+    var other = st && st.other_currency;
+    var defaultText = t(options.defaultKey || 'payment.checkoutDisabled');
+    var hint = '';
+    var linkLabel = '';
+    var otherLang = '';
+    if (other === 'usd') {
+      hint = t('pricing.checkoutBuyOtherUsd');
+      linkLabel = t('pricing.checkoutSwitchUsd');
+      otherLang = 'en';
+    } else if (other === 'twd') {
+      hint = t('pricing.checkoutBuyOtherTwd');
+      linkLabel = t('pricing.checkoutSwitchTwd');
+      otherLang = 'zh-TW';
+    }
+    var html = '<i class="bi bi-info-circle me-2"></i>';
+    html += '<span>' + escapeHtml(reason || defaultText) + '</span>';
+    if (hint) {
+      html += ' <span>' + escapeHtml(hint) + '</span>';
+      html += ' <a class="alert-link" href="' + escapeHtml(withLangOnUrl(window.location.pathname + window.location.search, otherLang)) + '">' + escapeHtml(linkLabel) + '</a>';
+    }
+    var body = bannerEl.querySelector('[data-checkout-disabled-body]');
+    if (body) body.innerHTML = html;
+    else bannerEl.innerHTML = html;
+    return true;
+  }
+
   global.PaymentLocale = {
     TWD_TO_USD: TWD_TO_USD,
     PRESETS: PRESETS,
@@ -89,6 +142,8 @@
     planUsdYearlyFromPlan: planUsdYearlyFromPlan,
     checkoutAmount: checkoutAmount,
     currentUiLang: currentUiLang,
-    checkoutStatusUrl: checkoutStatusUrl
+    checkoutStatusUrl: checkoutStatusUrl,
+    withLangOnUrl: withLangOnUrl,
+    applyClosedCheckoutBanner: applyClosedCheckoutBanner
   };
 })(typeof window !== 'undefined' ? window : this);

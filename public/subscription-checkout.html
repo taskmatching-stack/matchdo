@@ -34,7 +34,9 @@
     </div>
 
     <div id="checkoutDisabled" class="alert alert-warning" style="display:none;">
-      <i class="bi bi-lock-fill me-2"></i><span data-i18n="payment.checkoutDisabled">付款功能尚未開放，請稍後再試或聯絡客服。</span>
+      <div data-checkout-disabled-body>
+        <i class="bi bi-lock-fill me-2"></i><span data-i18n="payment.checkoutDisabled">付款功能尚未開放，請稍後再試或聯絡客服。</span>
+      </div>
       <a href="/subscription-plans.html" class="alert-link ms-2" id="disabledBackPlans" data-i18n="subscriptionCheckout.backToPlans">返回方案與定價</a>
     </div>
 
@@ -215,8 +217,16 @@
       .then(function (st) {
         if (st.checkout_enabled !== true) {
           show(document.getElementById('checkoutDisabled'), true);
+          if (window.PaymentLocale && PaymentLocale.applyClosedCheckoutBanner) {
+            PaymentLocale.applyClosedCheckoutBanner(document.getElementById('checkoutDisabled'), st, t, {
+              defaultKey: 'payment.checkoutDisabled'
+            });
+          }
           var back = document.getElementById('disabledBackPlans');
-          if (back) back.href = '/subscription-plans.html' + (lang === 'en' ? '?lang=en' : '');
+          if (back) {
+            var plansLang = st.other_currency === 'usd' ? 'en' : (st.other_currency === 'twd' ? 'zh-TW' : (lang || 'zh-TW'));
+            back.href = '/subscription-plans.html?lang=' + encodeURIComponent(plansLang);
+          }
           return;
         }
         initCheckout();

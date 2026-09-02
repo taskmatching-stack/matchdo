@@ -54,9 +54,7 @@
       <div class="payment-section">
         <h5 class="mb-4" id="paymentSectionTitle" data-i18n="credits.topUpTitle">儲值點數</h5>
 
-        <div id="checkoutDisabledBanner" class="alert alert-info mb-3" style="display:none;" role="status">
-          <i class="bi bi-info-circle me-2"></i><span data-i18n="payment.checkoutDisabled">付款功能尚未開放，您仍可查看餘額與紀錄。開放後即可儲值。</span>
-        </div>
+        <div id="checkoutDisabledBanner" class="alert alert-info mb-3" style="display:none;" role="status"></div>
 
         <!-- 儲值點數模式：選擇金額／自訂 -->
         <div id="step1TopUp">
@@ -131,6 +129,7 @@
   var session = null;
   var selectedProvider = null;
   var checkoutEnabled = true;
+  var lastCheckoutStatus = { checkout_enabled: false };
   var lang = (typeof window !== 'undefined' && window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
 
   function t(key) {
@@ -223,10 +222,18 @@
     if (btnPay) btnPay.disabled = false;
   }
 
-  function applyCheckoutDisabled(enabled) {
-    checkoutEnabled = enabled !== false;
-    var banner = document.getElementById('checkoutDisabledBanner');
-    if (banner) show(banner, !checkoutEnabled);
+  function applyCheckoutDisabled(stOrEnabled) {
+    var st = (stOrEnabled && typeof stOrEnabled === 'object') ? stOrEnabled : lastCheckoutStatus;
+    if (stOrEnabled && typeof stOrEnabled === 'object') lastCheckoutStatus = stOrEnabled;
+    checkoutEnabled = !!(st && st.checkout_enabled === true);
+    if (window.PaymentLocale && PaymentLocale.applyClosedCheckoutBanner) {
+      PaymentLocale.applyClosedCheckoutBanner(document.getElementById('checkoutDisabledBanner'), st, t, {
+        defaultKey: 'payment.checkoutDisabled'
+      });
+    } else {
+      var banner = document.getElementById('checkoutDisabledBanner');
+      if (banner) show(banner, !checkoutEnabled);
+    }
     document.querySelectorAll('.pay-card').forEach(function (card) {
       card.style.pointerEvents = checkoutEnabled ? '' : 'none';
       card.style.opacity = checkoutEnabled ? '' : '0.55';
@@ -528,7 +535,7 @@
     loadTopupPresets();
     fetch((window.PaymentLocale && PaymentLocale.checkoutStatusUrl) ? PaymentLocale.checkoutStatusUrl() : '/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
       .then(function (st) {
-        applyCheckoutDisabled(st.checkout_enabled === true);
+        applyCheckoutDisabled(st);
         if (typeof AuthService !== 'undefined' && AuthService.getSession) {
           return AuthService.getSession();
         }
@@ -539,7 +546,7 @@
         applyUrlParams();
         syncPlansLinkLang();
         applyPaymentLocale();
-        applyCheckoutDisabled(checkoutEnabled);
+        applyCheckoutDisabled(lastCheckoutStatus);
         if (s && s.user) {
           loadCredits();
         } else {
