@@ -200,7 +200,7 @@
     <div class="container">
       <h1 class="section-title d-none" data-i18n="pricing.title">方案與定價</h1>
       <p class="section-subtitle" data-i18n="pricing.subtitle">選擇適合您的方案。點數可用於設計稿、找廠商、製作方接案與 AI 工具。</p>
-      <p class="text-muted small mb-3" data-i18n="pricing.priceNote">價格以新台幣顯示；PayPal 結帳以美金計價。</p>
+      <p class="text-muted small mb-3" data-i18n="pricing.priceNote">價格預設以美金顯示；繁中介面顯示台幣。PayPal 以美金結帳。</p>
 
       <div id="checkoutDisabledBanner" class="alert alert-info d-none" role="status">
         <i class="bi bi-info-circle me-2"></i><span data-i18n="pricing.checkoutDisabled">訂閱付款功能尚未開放，您仍可查看方案與點數餘額。開放後即可在此訂閱。</span>
@@ -210,7 +210,7 @@
       <div class="pricing-toggle-wrap">
         <div class="pricing-toggle" role="group">
           <button type="button" class="btn-toggle active" id="pricingMonthly" data-i18n="pricing.payMonthly">月付</button>
-          <button type="button" class="btn-toggle" id="pricingYearly"><span data-i18n="pricing.payYearly">年付</span> <span class="badge bg-success" data-i18n="pricing.yearlyOff">約 2 個月免費</span></button>
+          <button type="button" class="btn-toggle" id="pricingYearly"><span data-i18n="pricing.payYearly">年付</span> <span class="badge bg-success" data-i18n="pricing.yearlyOff">83 折</span></button>
         </div>
       </div>
 
@@ -221,12 +221,13 @@
       <div class="points-rule-card card mt-5">
         <div class="card-body">
           <h5><i class="bi bi-coin me-2"></i><span data-i18n="pricing.pointsRulesTitle">點數消耗規則</span></h5>
-          <p class="text-muted small mb-2" data-i18n="pricing.pointsRulesIntro">6 折僅適用「我的 AI 編輯區」；設計稿、翻譯等依各方案點數規則。</p>
+          <p class="text-muted small mb-2" data-i18n="pricing.pointsRulesIntro">6 折僅適用「我的 AI 編輯區」。商攝導演少扣 5 點僅方案三、四。</p>
           <ul>
             <li data-i18n="pricing.pointsRule1">設計稿、找廠商：依後台設定扣點</li>
             <li data-i18n="pricing.pointsRule2">製作方接案分類：免費方案 200 點/月/分類；付費方案依方案含括分類數</li>
             <li data-i18n="pricing.pointsRule3">我的 AI 編輯區（放大、去背等）：訂閱會員 6 折</li>
             <li data-i18n="pricing.pointsRule4">對話跨國翻譯：1 點/段（方案三、四）</li>
+            <li data-i18n="pricing.pointsRule5">商攝導演：免費與方案二為一般價；方案三、四每張少扣 5 點</li>
           </ul>
         </div>
       </div>
@@ -243,9 +244,11 @@
   <script>
 (function(){
   var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
-  function isEnglishLocale() {
-    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
-    return lang === 'en' || (lang && String(lang).indexOf('en') === 0);
+  function displayPricesInUsd() {
+    if (window.PaymentLocale && PaymentLocale.displayPricesInUsd) return PaymentLocale.displayPricesInUsd();
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : '';
+    var l = String(lang || '').toLowerCase().replace(/_/g, '-');
+    return !(l === 'zh' || l.indexOf('zh-') === 0);
   }
   function formatDisplayPrice(plan, sortOrder, isYearly) {
     var twdMonthly = plan && plan.price != null ? parseInt(plan.price, 10) : 0;
@@ -253,9 +256,9 @@
     var usdMonthly = (window.PaymentLocale && PaymentLocale.resolvePlanUsdMonthly)
       ? PaymentLocale.resolvePlanUsdMonthly(plan)
       : (PaymentLocale ? PaymentLocale.planUsdMonthly(sortOrder) : 0);
-    if (isEnglishLocale()) {
+    if (displayPricesInUsd()) {
       var usd = isYearly ? (usdMonthly > 0 ? usdMonthly * 10 : 0) : usdMonthly;
-      return isYearly ? ('$' + usd + t('pricing.perYear')) : ('$' + usd + t('pricing.perMonth'));
+      return isYearly ? ('$' + usd + '/yr') : ('$' + usd + '/mo');
     }
     var twd = isYearly ? twdMonthly * 10 : twdMonthly;
     var twdText = twd.toLocaleString('zh-TW');
@@ -263,7 +266,7 @@
   }
   function applyPricingLocaleUi() {
     var note = document.querySelector('[data-i18n="pricing.priceNote"]');
-    if (note && isEnglishLocale()) note.style.display = 'none';
+    if (note) note.style.display = '';
   }
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
   var checkoutEnabled = true;
@@ -278,33 +281,38 @@
     var featureSets = [
       [
         { key: 'pricing.featureCoreDesign', type: 'yes' },
-        { key: 'pricing.featureMakerFree', type: 'yes' },
-        { key: 'pricing.featureWallRequired', type: 'yes' }
+        { key: 'pricing.featureWallRequired', type: 'yes' },
+        { key: 'pricing.featureMakerFree', type: 'yes' }
       ],
       [
-        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' },
+        { key: 'pricing.featureUploadAssets', type: 'yes' },
+        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
+        { key: 'pricing.featureEmbed3', type: 'yes' },
         { key: 'pricing.featureMaker3', type: 'yes' },
-        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
         { key: 'pricing.featureHomeCompare', type: 'yes' },
-        { key: 'pricing.featureWallOptional', type: 'yes' }
+        { key: 'pricing.featureCoreDesign', type: 'yes' }
       ],
       [
-        { key: 'pricing.featureCoreDesign', type: 'yes' },
+        { key: 'pricing.featurePromoCamMinus5', type: 'yes' },
+        { key: 'pricing.featureEmbedUnlimitedLogo', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' },
+        { key: 'pricing.featureUploadAssets', type: 'yes' },
+        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
         { key: 'pricing.featureMaker10', type: 'yes' },
-        { key: 'pricing.featureAiEditDiscount', type: 'yes' },
-        { key: 'pricing.featureHomeCompare', type: 'yes' },
         { key: 'pricing.featureCrossBorder', type: 'yes' },
-        { key: 'pricing.featureChatTranslate', type: 'yes' },
-        { key: 'pricing.featureWallOptional', type: 'yes' }
+        { key: 'pricing.featureChatTranslate', type: 'yes' }
       ],
       [
-        { key: 'pricing.featureCoreDesign', type: 'yes' },
-        { key: 'pricing.featureMaker30', type: 'yes' },
+        { key: 'pricing.featureEmbedNoLogo', type: 'yes' },
+        { key: 'pricing.featureEmbedWallOptional', type: 'yes' },
+        { key: 'pricing.featurePromoCamMinus5', type: 'yes' },
+        { key: 'pricing.featureWallOptional', type: 'yes' },
+        { key: 'pricing.featureUploadAssets', type: 'yes' },
         { key: 'pricing.featureAiEditDiscount', type: 'yes' },
-        { key: 'pricing.featureHomeCompare', type: 'yes' },
+        { key: 'pricing.featureMaker30', type: 'yes' },
         { key: 'pricing.featureCrossBorder', type: 'yes' },
-        { key: 'pricing.featureChatTranslate', type: 'yes' },
-        { key: 'pricing.featureWallOptional', type: 'yes' }
+        { key: 'pricing.featureChatTranslate', type: 'yes' }
       ]
     ];
     var list = featureSets[sortOrder];

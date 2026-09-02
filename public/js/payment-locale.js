@@ -19,6 +19,19 @@
     return true;
   }
 
+  function isChineseLang(lang) {
+    if (lang == null || lang === '') {
+      if (global.i18n && typeof global.i18n.getLang === 'function') lang = global.i18n.getLang();
+    }
+    var l = String(lang || '').toLowerCase().replace(/_/g, '-');
+    return l === 'zh' || l.indexOf('zh-') === 0;
+  }
+
+  /** 美金優先：僅繁中介面顯示台幣；英文／未載入／其他語系顯示 USD。 */
+  function displayPricesInUsd(lang) {
+    return !isChineseLang(lang);
+  }
+
   function twdToUsd(twdAmount) {
     var n = parseInt(twdAmount, 10);
     if (isNaN(n)) return twdAmount;
@@ -57,6 +70,8 @@
     TWD_TO_USD: TWD_TO_USD,
     PRESETS: PRESETS,
     isPayPalLocale: isPayPalLocale,
+    isChineseLang: isChineseLang,
+    displayPricesInUsd: displayPricesInUsd,
     twdToUsd: twdToUsd,
     planUsdMonthly: planUsdMonthly,
     planUsdYearly: planUsdYearly,

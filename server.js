@@ -1032,12 +1032,12 @@ function promoCameraSubscriberFromStandard(standardPoints) {
 }
 
 /**
- * 人像點數（對外一律用 MP）：一般 20／30／50；訂閱各少 5 點 → 15／25／45
+ * 人像點數（對外一律用 MP）：一般 20／30／50；方案三／四各少 5 點 → 15／25／45
  */
 async function getPointsPromoCameraPortrait(userId, tier) {
     const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
     const cfg = await getPromoPortraitPointsConfig();
-    const isSub = !!(userId && await hasActivePaidSubscription(userId));
+    const isSub = !!(userId && await hasPromoCameraPointDiscount(userId));
     let standard = cfg.standard_4mp;
     if (t === '4k') standard = cfg.standard_16mp;
     else if (t === '1k') standard = cfg.standard_1mp;
@@ -19603,7 +19603,7 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
             const portraitCount = normalizePortraitOutputCount(req.query.output_count);
             const pointsPer = await getPointsPromoCameraPortrait(userId, spaceResTier);
             const portraitCfg = await getPromoPortraitPointsConfig();
-            const isSubscriber = !!(userId && await hasActivePaidSubscription(userId));
+            const isSubscriber = !!(userId && await hasPromoCameraPointDiscount(userId));
             const tierKey = spaceResTier === '4k' ? '16mp' : (spaceResTier === '1k' ? '1mp' : '4mp');
             const standardBase = portraitCfg['standard_' + tierKey];
             return res.json({
@@ -19676,7 +19676,7 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
             });
         }
         const points = await getPointsPromoCameraForResolution(w, h, userId);
-        const isSubscriber = !!(userId && await hasActivePaidSubscription(userId));
+        const isSubscriber = !!(userId && await hasPromoCameraPointDiscount(userId));
         res.json({
             width: w,
             height: h,
@@ -21487,6 +21487,13 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     });
 }
 
+/** 商攝導演 −5：僅方案三／四（月費 ≥900）。方案二與免費為一般價。 */
+async function hasPromoCameraPointDiscount(userId) {
+    if (!userId) return false;
+    const tier = await embedSimulator.resolveEmbedPlanTier(supabase, userId);
+    return tier === '900' || tier === '1800';
+}
+
 /** 是否視為付費會員：有效 user_subscriptions（方案價>0）或 profiles.member_level 非「一般」 */
 async function hasActivePaidSubscription(userId) {
     if (!userId) return false;
@@ -22073,7 +22080,7 @@ async function getPromoCameraPointsConfig() {
 
 async function getPointsPromoCameraForResolution(width, height, userId) {
     const cfg = await getPromoCameraPointsConfig();
-    const isSub = !!(userId && await hasActivePaidSubscription(userId));
+    const isSub = !!(userId && await hasPromoCameraPointDiscount(userId));
     const base = isSub ? promoCameraSubscriberFromStandard(cfg.standard) : cfg.standard;
     const mp = promoImageMegapixelsFromResolution(width, height);
     return base + (mp - 1) * cfg.perExtraMp;

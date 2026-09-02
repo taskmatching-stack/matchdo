@@ -69,7 +69,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260901-pricing-locale-fix';
+    var LOCALE_CACHE_V = '20260903-usd-first';
 
     function loadLocale(lang) {
         lang = lang || getLang();

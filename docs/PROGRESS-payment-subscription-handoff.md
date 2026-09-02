@@ -18,7 +18,7 @@
 - [x] 方案頁「我的點數」改為醒目 Primary 大按鈕
 - [x] **付款開關** `payment_checkout_enabled`（後台 `/admin/payment-settings.html`）
 - [x] 關閉時：方案頁訂閱鈕「即將開放」、結帳 API 503、儲值／訂閱結帳頁提示
-- [x] **幣別顯示修正**：中文頁顯示台幣、英文頁顯示 USD，不再出現 `$66元/月`
+- [x] **幣別顯示修正**：**美金優先**。僅繁中（`zh`／`zh-TW`）顯示台幣；英文與未載入語系顯示 USD。勿混用 `$` + `元`
 - [x] 方案功能文案依主要用途重寫（locales + `getPlanFeatures`）
 
 ### 後台價格分開設定（本輪）
@@ -92,7 +92,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gclou
 
 ## 架構備註
 
-- **顯示**：`?lang=zh-TW` → 台幣（DB `price`）；`?lang=en` → USD（DB `price_usd_monthly`）
+- **顯示**：**美金優先**。僅繁中介面顯示台幣（DB `price`）；英文／其他／未載入語系顯示 USD（DB `price_usd_monthly`）
 - **結帳**：PayPal 一律 USD；綠界（若啟用）台幣
 - **年付**：月費 × 10（TWD、USD 各自計算，無獨立年費欄位）
 - **付款預設關閉**：未在 DB 設定 `payment_checkout_enabled=1` 前，一般使用者無法結帳
