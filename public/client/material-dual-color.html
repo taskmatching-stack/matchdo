@@ -447,9 +447,10 @@
     <script src="/js/material-color-palette-picker.js?v=20260807-i18n1"></script>
     <script src="/js/matchdo-image-drop.js"></script>
     <script src="/js/material-preset-chips.js?v=20260807n"></script>
+    <script src="/js/backup-generate-confirm.js?v=20260903"></script>
     <script>
     (function () {
-        window.__MATCHDO_DUAL_COLOR_BUILD = 'material-combo-mix-v1-20260810';
+        window.__MATCHDO_DUAL_COLOR_BUILD = 'backup-confirm-20260903';
         function t(key, fb) {
             var v = (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
             return (v && v !== key) ? v : (fb != null ? fb : key);
@@ -1454,15 +1455,21 @@
                 if (lastSourcePalette) {
                     try { fd.append('source_palette_json', JSON.stringify(lastSourcePalette)); } catch (_) {}
                 }
-                var res = await fetch('/api/me/vendor-assets/material-dual-color-flux', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + tok },
-                    body: fd
-                });
-                var d = await res.json().catch(function () { return {}; });
-                if (!res.ok) {
+                var sendOnce = async function () {
+                    var res = await fetch('/api/me/vendor-assets/material-dual-color-flux', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + tok },
+                        body: fd
+                    });
+                    var d = await res.json().catch(function () { return {}; });
+                    return { ok: res.ok, status: res.status, data: d };
+                };
+                var C = window.MatchdoImageBackupConfirm;
+                var result = C && C.retryFormData ? await C.retryFormData(fd, sendOnce) : await sendOnce();
+                var d = result.data || {};
+                if (!result.ok) {
                     statusEl.textContent = d.error || t('materialCombo.generateFailed', '生成失敗');
-                    statusEl.className = 'small mt-2 text-danger';
+                    statusEl.className = result.declined ? 'small mt-2 text-muted' : 'small mt-2 text-danger';
                     lastFluxResponse = null;
                     if (addPendingBtn) addPendingBtn.classList.add('d-none');
                     return;

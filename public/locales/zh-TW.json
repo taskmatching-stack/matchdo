@@ -1195,6 +1195,8 @@
   "promoCamera.appLibraryHint": "點縮圖可放大檢視；要設為產品圖請用「從數位資產選擇」。",
   "promoCamera.chatWelcome": "請上傳<strong>一張</strong>產品參考圖，或從數位資產選擇。右側可調相機光學參數（純畫質模擬）。",
   "promoCamera.generateFailedShort": "生成失敗",
+  "genBackup.confirm": "目前主要產生通道較忙。確定＝改用備援方式產生；取消＝稍後再送出。",
+  "genBackup.later": "已取消，可稍後再送出。",
   "promoCamera.cat.camera_brand": "品牌色彩",
   "promoCamera.cat.film_simulation": "底片模擬",
   "promoCamera.cat.lens": "鏡頭",

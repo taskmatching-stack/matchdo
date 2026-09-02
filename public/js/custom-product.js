@@ -6819,16 +6819,31 @@ $(document).ready(function () {
             return null;
         }).then(function (session) {
             if (session && session.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
-            return fetch('/api/pattern-extract', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ image: imageUrl, prompt: prompt, seamless: seamless, width: dims.w, height: dims.h, output_format: outputFormat })
-            });
-        }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
-            .then(function (result) {
+            var payload = { image: imageUrl, prompt: prompt, seamless: seamless, width: dims.w, height: dims.h, output_format: outputFormat };
+            var sendExtract = function (p) {
+                return fetch('/api/pattern-extract', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(p)
+                });
+            };
+            var C = window.MatchdoImageBackupConfirm;
+            var run = C && C.withAcceptBackup
+                ? C.withAcceptBackup(payload, function (p) {
+                    return sendExtract(p).then(function (r) {
+                        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+                    });
+                })
+                : sendExtract(payload).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); });
+            return run;
+        }).then(function (result) {
                 $btn.prop('disabled', false);
                 var data = result.data;
                 var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
+                if (result.declined) {
+                    $wrap.html('<p class="text-muted small mb-0">' + ((data && data.error) || '已取消，可稍後再送出。') + '</p>' + noteHtml);
+                    return;
+                }
                 if (result.status === 401) {
                     $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
                     return;

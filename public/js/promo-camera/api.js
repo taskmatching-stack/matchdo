@@ -47,9 +47,30 @@
     });
   }
 
-  function generate(payload) {
+  function withBackupConfirm(payload, sendFn) {
+    var C = global.MatchdoImageBackupConfirm;
+    if (C && typeof C.withAcceptBackup === 'function') {
+      return C.withAcceptBackup(payload, sendFn);
+    }
+    return sendFn(payload).then(function (res) {
+      var code = res && res.data && res.data.code;
+      if (code !== 'backup_confirm') return res;
+      var msg = (res.data && res.data.error) || '目前主要產生通道較忙。確定＝改用備援方式產生；取消＝稍後再送出。';
+      if (!global.confirm(msg)) {
+        return {
+          ok: false,
+          status: 409,
+          declined: true,
+          data: { error: '已取消，可稍後再送出。', code: 'backup_declined' }
+        };
+      }
+      return sendFn(Object.assign({}, payload || {}, { accept_backup: true }));
+    });
+  }
+
+  function postGenerateJson(url, payload) {
     return authHeaders(true).then(function (headers) {
-      return fetch('/api/promo-camera/generate', {
+      return fetch(url, {
         method: 'POST',
         headers: headers,
         cache: 'no-store',
@@ -57,6 +78,12 @@
       }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
       });
+    });
+  }
+
+  function generate(payload) {
+    return withBackupConfirm(payload, function (p) {
+      return postGenerateJson('/api/promo-camera/generate', p);
     });
   }
 
@@ -144,14 +171,8 @@
   }
 
   function planningSim(payload) {
-    return authHeaders(true).then(function (headers) {
-      return fetch('/api/promo-camera/planning-sim', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(payload || {})
-      }).then(function (r) {
-        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
-      });
+    return withBackupConfirm(payload, function (p) {
+      return postGenerateJson('/api/promo-camera/planning-sim', p);
     });
   }
 

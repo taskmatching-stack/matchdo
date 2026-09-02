@@ -183,14 +183,33 @@ function runInGeminiQueue(fn) {
     return p;
 }
 /**
- * Gemini「生圖」專用佇列（材料組合／印花／廠商材料・版型重繪）。
+ * Gemini「生圖」專用佇列（材料組合／印花／廠商材料・版型重繪／商攝空間與人像）。
  * 與 runInGeminiQueue 隔離，避免生圖卡住標籤／翻譯。
+ * 有上限並行：同一分鐘多人點生成時不該串成一條長隊。
+ * env: GEMINI_IMAGE_MAX_CONCURRENT（預設 8；上限 16）
  */
-let _geminiImageQueueTail = Promise.resolve();
+const GEMINI_IMAGE_MAX_CONCURRENT = Math.max(1, Math.min(16, parseInt(process.env.GEMINI_IMAGE_MAX_CONCURRENT, 10) || 8));
+let _geminiImageActiveCount = 0;
+const _geminiImageWaitQueue = [];
 function runInGeminiImageQueue(fn) {
-    const p = _geminiImageQueueTail.then(() => fn());
-    _geminiImageQueueTail = p.catch(() => {});
-    return p;
+    return new Promise((resolve, reject) => {
+        const start = () => {
+            if (_geminiImageActiveCount >= GEMINI_IMAGE_MAX_CONCURRENT) {
+                _geminiImageWaitQueue.push(start);
+                return;
+            }
+            _geminiImageActiveCount += 1;
+            Promise.resolve()
+                .then(() => fn())
+                .then(resolve, reject)
+                .finally(() => {
+                    _geminiImageActiveCount = Math.max(0, _geminiImageActiveCount - 1);
+                    const next = _geminiImageWaitQueue.shift();
+                    if (next) next();
+                });
+        };
+        start();
+    });
 }
 /** @deprecated 別名：材料組合／印花既有呼叫點 */
 function runInDualColorGeminiImageQueue(fn) {
@@ -1226,24 +1245,13 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const hasGemini = !!process.env.GEMINI_API_KEY;
     const hasFlux = !!process.env.BFL_API_KEY;
 
-    if (!forceFlux && hasGemini) {
-        const quota = checkDualColorGeminiQuota();
-        if (quota.ok) {
-            try {
-                recordDualColorGeminiAttempt();
-                return await generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts);
-            } catch (err) {
-                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
-                console.warn('[promo-portrait] Gemini rate-limited → FLUX:', err.message || err);
-            }
-        } else if (forceGemini) {
-            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
-            e.status = 429;
-            e.retry_after_sec = quota.retry_after_sec;
-            e.quota_reason = quota.reason;
-            throw e;
-        }
-    }
+    const gated = await runGeminiImageWithBackupGate(
+        forceFlux,
+        forceGemini,
+        parseAcceptBackup(fo),
+        () => generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts)
+    );
+    if (gated.used) return gated.result;
 
     if (!hasFlux) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -1811,31 +1819,22 @@ async function generatePromoSpaceEyeLevelImage(layoutImage, promptText, stagingP
     const hasGemini = !!process.env.GEMINI_API_KEY;
     const hasFlux = !!process.env.BFL_API_KEY;
 
-    if (!forceFlux && hasGemini) {
-        const quota = checkDualColorGeminiQuota();
-        if (quota.ok) {
-            try {
-                recordDualColorGeminiAttempt();
-                const gen = await generatePromoSpaceEyeLevelImageWithGemini(
-                    layoutImage, promptText, stagingProduct, geminiOpts
-                );
-                const geminiModel = await getPromoSpaceEyeLevelModelName();
-                return Object.assign({}, gen, {
-                    image_provider: 'gemini',
-                    gemini_model: geminiModel
-                });
-            } catch (err) {
-                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
-                console.warn('[promo-space eye_level] Gemini rate-limited → FLUX.2:', err.message || err);
-            }
-        } else if (forceGemini) {
-            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
-            e.status = 429;
-            e.retry_after_sec = quota.retry_after_sec;
-            e.quota_reason = quota.reason;
-            throw e;
+    const gated = await runGeminiImageWithBackupGate(
+        forceFlux,
+        forceGemini,
+        parseAcceptBackup(geminiOpts),
+        async () => {
+            const gen = await generatePromoSpaceEyeLevelImageWithGemini(
+                layoutImage, promptText, stagingProduct, geminiOpts
+            );
+            const geminiModel = await getPromoSpaceEyeLevelModelName();
+            return Object.assign({}, gen, {
+                image_provider: 'gemini',
+                gemini_model: geminiModel
+            });
         }
-    }
+    );
+    if (gated.used) return gated.result;
 
     if (!hasFlux) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -1961,6 +1960,7 @@ async function generatePromoSpaceLayoutImageWithGemini(floorPlan, styleImage, pr
     }
     const prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('空間配置提示詞為空');
+    assertGeminiImageCapacity();
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const model = await getPromoSpaceLayoutModelName();
     const imageRefs = [{ base64: floorPlan.base64, mime: floorPlan.mime || 'image/jpeg' }];
@@ -1977,6 +1977,9 @@ async function generatePromoSpaceLayoutImageWithGemini(floorPlan, styleImage, pr
         extracted = await generatePromoSpaceImageViaInteractions(model, prompt, imageRefs, opts);
         responseFormat = extracted.response_format || responseFormat;
     } catch (interErr) {
+        if (isGeminiImageRateLimitError(interErr)) {
+            throw quotaBusyError({ retry_after_sec: 30, reason: 'api_429' });
+        }
         console.warn('[promo-space layout] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const parts = [
@@ -2029,6 +2032,7 @@ async function generatePromoPlanningSimImageWithGemini(envImage, furnitureImage,
     if (!envImage || !envImage.base64 || !furnitureImage || !furnitureImage.base64) {
         throw new Error('請提供空間圖與家具／陳設圖');
     }
+    assertGeminiImageCapacity();
     const userLine = String(promptText || '').trim();
     const prompt = userLine
         ? (DEFAULT_PROMO_PLANNING_SIM_PROMPT + '\n\nUser instruction: ' + userLine)
@@ -2046,6 +2050,9 @@ async function generatePromoPlanningSimImageWithGemini(envImage, furnitureImage,
         extracted = await generatePromoSpaceImageViaInteractions(model, prompt, imageRefs, opts);
         responseFormat = extracted.response_format || responseFormat;
     } catch (interErr) {
+        if (isGeminiImageRateLimitError(interErr)) {
+            throw quotaBusyError({ retry_after_sec: 30, reason: 'api_429' });
+        }
         console.warn('[promo-planning-sim] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const parts = [
@@ -2640,7 +2647,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         targetHeight: h,
                         aspect_ratio: aspectRatio
                     },
-                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine }
+                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
                 );
                 buffer = gen && gen.buffer;
                 imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -2649,11 +2656,16 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 if (imageProvider === 'flux' && fluxPrompt) finalPrompt = fluxPrompt;
             }
         } catch (genErr) {
+            if (isBackupConfirmError(genErr) && !results.some((r) => r && r.success)) {
+                if (sendJsonImageGenError(res, genErr, { success: false })) return;
+            }
             console.error('promo-camera portrait batch:', genErr);
             results.push({
                 shot_index: i + 1,
                 success: false,
-                error: '生成失敗，請稍後再試',
+                error: isBackupConfirmError(genErr) || (genErr && genErr.code === 'quota_busy')
+                    ? (genErr.message || IMAGE_BUSY_RETRY_MESSAGE)
+                    : '生成失敗，請稍後再試',
                 shot_brief: shotBrief
             });
             continue;
@@ -3285,7 +3297,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 targetHeight: h,
                 aspect_ratio: aspectRatio
             },
-            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine }
+            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
         );
         buffer = gen && gen.buffer;
         imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -3294,6 +3306,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         if (imageProvider === 'flux' && fluxPrompt) finalPrompt = fluxPrompt;
     } catch (genErr) {
         console.error('promo-camera portrait:', genErr);
+        if (sendJsonImageGenError(res, genErr, { success: false })) return;
         return res.status(500).json({ success: false, error: genErr.message || '生成失敗，請稍後再試' });
     }
     if (!buffer || !buffer.length) {
@@ -3502,7 +3515,8 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
             minEdge,
             targetWidth: w,
             targetHeight: h,
-            aspect_ratio: aspectRatio
+            aspect_ratio: aspectRatio,
+            accept_backup: parseAcceptBackup(body)
         });
         buffer = gen && gen.buffer;
         geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
@@ -3514,6 +3528,7 @@ async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
         usedFluxModel = (gen && gen.flux_model) || null;
     } catch (geminiErr) {
         console.error('promo-camera space eye_level generate:', geminiErr);
+        if (sendJsonImageGenError(res, geminiErr, { success: false })) return;
         return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
     }
     if (!buffer || !buffer.length) {
@@ -3749,7 +3764,8 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
                 minEdge,
                 targetWidth: w,
                 targetHeight: h,
-                aspect_ratio: aspectRatio
+                aspect_ratio: aspectRatio,
+                accept_backup: parseAcceptBackup(body)
             });
             buffer = gen && gen.buffer;
             geminiNativeWidth = (gen && gen.gemini_native_width) || 0;
@@ -3757,8 +3773,18 @@ async function handlePromoCameraSpaceEyeLevelBatchGenerate(req, res, ctx, shotKe
             imageProvider = (gen && gen.image_provider) || 'gemini';
             usedFluxModel = (gen && gen.flux_model) || null;
         } catch (geminiErr) {
+            if (isBackupConfirmError(geminiErr) && !results.some((r) => r && r.success)) {
+                if (sendJsonImageGenError(res, geminiErr, { success: false })) return;
+            }
             console.error('promo-camera space eye_level batch generate:', geminiErr);
-            results.push({ success: false, intent_key: intentKey, zone_name: zoneRow.name, error: geminiErr.message || '生成失敗' });
+            results.push({
+                success: false,
+                intent_key: intentKey,
+                zone_name: zoneRow.name,
+                error: isBackupConfirmError(geminiErr) || (geminiErr && geminiErr.code === 'quota_busy')
+                    ? (geminiErr.message || IMAGE_BUSY_RETRY_MESSAGE)
+                    : (geminiErr.message || '生成失敗')
+            });
             continue;
         }
         if (!buffer || !buffer.length) {
@@ -4005,6 +4031,14 @@ async function handlePromoCameraSpaceGenerate(req, res, ctx) {
         apiUsed = (gen && gen.api) || null;
     } catch (geminiErr) {
         console.error('promo-camera space Gemini:', geminiErr);
+        if (sendJsonImageGenError(res, geminiErr, { success: false })) return;
+        if (isGeminiImageRateLimitError(geminiErr)) {
+            return res.status(429).json({
+                success: false,
+                error: IMAGE_BUSY_RETRY_MESSAGE,
+                code: 'quota_busy'
+            });
+        }
         return res.status(500).json({ success: false, error: geminiErr.message || '生成失敗，請稍後再試' });
     }
     if (!buffer || !buffer.length) {
@@ -4205,6 +4239,14 @@ async function handlePromoCameraPlanningSimGenerate(req, res, ctx) {
         );
     } catch (geminiErr) {
         console.error('promo-camera planning-sim:', geminiErr);
+        if (sendJsonImageGenError(res, geminiErr, { success: false })) return;
+        if (isGeminiImageRateLimitError(geminiErr)) {
+            return res.status(429).json({
+                success: false,
+                error: IMAGE_BUSY_RETRY_MESSAGE,
+                code: 'quota_busy'
+            });
+        }
         return res.status(500).json({ success: false, error: geminiErr.message || '規劃模擬失敗，請稍後再試' });
     }
     const buffer = gen && gen.buffer;
@@ -8500,8 +8542,9 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
 }
 
 /**
- * Gemini「生圖」軟上限（材料組合／印花／廠商材料・版型重繪共用；不影響標籤／翻譯）。
- * 記憶體計數，重啟歸零。env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
+ * Gemini「生圖」軟上限（全站生圖共用；不影響標籤／翻譯）。
+ * 記憶體計數，重啟歸零。10 分鐘上限對齊官方 T2 $200／10min：Pro 4K 輸出 $0.24，700 張 ≈ $168，略低於滿額。
+ * env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
  */
 const DUAL_COLOR_GEMINI_USAGE_TS = [];
 function envIntPrefer(...keysAndDefault) {
@@ -8518,10 +8561,10 @@ function envIntPrefer(...keysAndDefault) {
 }
 function getDualColorGeminiImageLimits() {
     return {
-        minIntervalMs: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS', 'GEMINI_IMAGE_MIN_INTERVAL_MS', 8000)),
-        maxPerMin: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN', 'GEMINI_IMAGE_MAX_PER_MIN', 6)),
-        maxPer10Min: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN', 'GEMINI_IMAGE_MAX_PER_10MIN', 80)),
-        maxPerDay: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY', 'GEMINI_IMAGE_MAX_PER_DAY', 200))
+        minIntervalMs: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS', 'GEMINI_IMAGE_MIN_INTERVAL_MS', 0)),
+        maxPerMin: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN', 'GEMINI_IMAGE_MAX_PER_MIN', 70)),
+        maxPer10Min: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN', 'GEMINI_IMAGE_MAX_PER_10MIN', 700)),
+        maxPerDay: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY', 'GEMINI_IMAGE_MAX_PER_DAY', 0))
     };
 }
 function pruneDualColorGeminiUsage(now) {
@@ -8554,7 +8597,7 @@ function checkDualColorGeminiQuota() {
         const oldest = DUAL_COLOR_GEMINI_USAGE_TS.filter((t) => (now - t) < 600000)[0] || now;
         return { ok: false, reason: 'per_10min', retry_after_sec: Math.max(1, Math.ceil((600000 - (now - oldest)) / 1000)) };
     }
-    if (DUAL_COLOR_GEMINI_USAGE_TS.length >= lim.maxPerDay) {
+    if (lim.maxPerDay > 0 && DUAL_COLOR_GEMINI_USAGE_TS.length >= lim.maxPerDay) {
         return { ok: false, reason: 'per_day', retry_after_sec: 3600 };
     }
     return { ok: true };
@@ -8568,6 +8611,102 @@ function isGeminiImageRateLimitError(err) {
     if (status === 429 || status === 'RESOURCE_EXHAUSTED' || String(status) === '429') return true;
     const msg = String(err.message || err || '');
     return /429|RESOURCE_EXHAUSTED|rate.?limit|quota|exceeded|resource exhausted/i.test(msg);
+}
+
+const IMAGE_BACKUP_CONFIRM_MESSAGE = '目前主要產生通道較忙。確定＝改用備援方式產生；取消＝稍後再送出。';
+const IMAGE_BUSY_RETRY_MESSAGE = '目前無法完成產生，請稍後再送出。';
+
+function parseAcceptBackup(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    const v = obj.accept_backup != null ? obj.accept_backup : obj.acceptBackup;
+    return v === true || v === 1 || v === '1' || v === 'true';
+}
+
+function backupConfirmError(quota) {
+    const e = new Error(IMAGE_BACKUP_CONFIRM_MESSAGE);
+    e.status = 409;
+    e.code = 'backup_confirm';
+    e.retry_after_sec = quota && quota.retry_after_sec;
+    e.quota_reason = quota && quota.reason;
+    return e;
+}
+
+function quotaBusyError(quota) {
+    const e = new Error(IMAGE_BUSY_RETRY_MESSAGE);
+    e.status = 429;
+    e.code = 'quota_busy';
+    e.retry_after_sec = quota && quota.retry_after_sec;
+    e.quota_reason = quota && quota.reason;
+    return e;
+}
+
+function throwUnlessAcceptBackup(acceptBackup, forcePrimaryOnly, quota) {
+    if (forcePrimaryOnly) throw quotaBusyError(quota);
+    if (!acceptBackup) throw backupConfirmError(quota);
+}
+
+function isBackupConfirmError(err) {
+    return !!(err && err.code === 'backup_confirm');
+}
+
+async function runGeminiImageWithBackupGate(forceFlux, forceGemini, acceptBackup, runGemini) {
+    const hasGemini = !!process.env.GEMINI_API_KEY;
+    if (forceFlux || !hasGemini) return { used: false };
+    const quota = checkDualColorGeminiQuota();
+    if (quota.ok) {
+        try {
+            recordDualColorGeminiAttempt();
+            const result = await runGemini();
+            return { used: true, result: result };
+        } catch (err) {
+            if (!isGeminiImageRateLimitError(err)) throw err;
+            throwUnlessAcceptBackup(acceptBackup, forceGemini, {
+                retry_after_sec: (err && err.retry_after_sec) || 30,
+                reason: 'api_429'
+            });
+            return { used: false };
+        }
+    }
+    throwUnlessAcceptBackup(acceptBackup, forceGemini, quota);
+    return { used: false };
+}
+
+function assertGeminiImageCapacity() {
+    const quota = checkDualColorGeminiQuota();
+    if (!quota.ok) throw quotaBusyError(quota);
+    recordDualColorGeminiAttempt();
+}
+
+function jsonFromImageGenError(err) {
+    if (!err) return null;
+    if (isBackupConfirmError(err)) {
+        return {
+            status: 409,
+            body: {
+                error: err.message || IMAGE_BACKUP_CONFIRM_MESSAGE,
+                code: 'backup_confirm',
+                retry_after_sec: err.retry_after_sec || null
+            }
+        };
+    }
+    if (Number(err.status) === 429 || err.code === 'quota_busy') {
+        return {
+            status: 429,
+            body: {
+                error: err.message || IMAGE_BUSY_RETRY_MESSAGE,
+                code: err.code || 'quota_busy',
+                retry_after_sec: err.retry_after_sec || null
+            }
+        };
+    }
+    return null;
+}
+
+function sendJsonImageGenError(res, err, extra) {
+    const mapped = jsonFromImageGenError(err);
+    if (!mapped) return false;
+    res.status(mapped.status).json(Object.assign({}, extra || {}, mapped.body));
+    return true;
 }
 
 async function dualColorGeminiModelForRefs(hasPrint) {
@@ -8661,52 +8800,26 @@ async function optimizeMaterialDualColor(fileBuffer, mainMaterial, accentMateria
     const pref = await getMaterialDualColorEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
-    const hasKey = !!process.env.GEMINI_API_KEY;
     const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
 
-    if (!forceFlux && hasKey) {
-        const quota = checkDualColorGeminiQuota();
-        if (quota.ok) {
-            try {
-                recordDualColorGeminiAttempt();
-                return await optimizeMaterialDualColorWithGemini(
-                    fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
-                );
-            } catch (gemErr) {
-                if (forceGemini) throw gemErr;
-                if (isGeminiImageRateLimitError(gemErr)) {
-                    console.warn('material-dual-color Gemini rate-limited → FLUX:', gemErr.message || gemErr);
-                    const fluxResult = await optimizeMaterialDualColorWithFlux(
-                        fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
-                    );
-                    return Object.assign({}, fluxResult, {
-                        fallback: true,
-                        fallback_reason: 'gemini_api_429'
-                    });
-                }
-                throw gemErr;
-            }
-        }
-        if (forceGemini) {
-            const err = new Error('生圖次數已達上限，請稍後再試');
-            err.status = 429;
-            err.retry_after_sec = quota.retry_after_sec;
-            err.quota_reason = quota.reason;
-            throw err;
-        }
-        console.warn('material-dual-color Gemini soft-quota → FLUX:', quota.reason);
-        const fluxResult = await optimizeMaterialDualColorWithFlux(
+    const gated = await runGeminiImageWithBackupGate(
+        forceFlux,
+        forceGemini,
+        parseAcceptBackup(extras),
+        () => optimizeMaterialDualColorWithGemini(
             fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
-        );
-        return Object.assign({}, fluxResult, {
-            fallback: true,
-            fallback_reason: 'gemini_soft_quota_' + (quota.reason || 'limit')
-        });
-    }
+        )
+    );
+    if (gated.used) return gated.result;
 
-    return optimizeMaterialDualColorWithFlux(
+    const fluxResult = await optimizeMaterialDualColorWithFlux(
         fileBuffer, mainMaterial, accentMaterial, stitchMaterial, patternRefs, printKind, extras
     );
+    if (forceFlux || !process.env.GEMINI_API_KEY) return fluxResult;
+    return Object.assign({}, fluxResult, {
+        fallback: true,
+        fallback_reason: 'backup_confirmed'
+    });
 }
 
 /** 印花資產 AI 重繪：對齊材料色卡優化句型，但語意為印花圖稿（勿改 buildVendorAssetMaterialFluxOptimizePrompt） */
@@ -8778,41 +8891,26 @@ async function optimizePrintAssetWithFlux(fileBuffer, printType) {
  * 印花重繪：優先 Gemini Lite → 軟上限／429 則 FLUX。
  * 引擎偏好：後台 print_asset_engine 或 PRINT_ASSET_ENGINE=auto|gemini|flux。
  */
-async function optimizePrintAsset(fileBuffer, printType) {
+async function optimizePrintAsset(fileBuffer, printType, extraOpts) {
     const pref = await getPrintAssetEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
-    const hasKey = !!process.env.GEMINI_API_KEY;
+    const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
 
-    if (!forceFlux && hasKey) {
-        const quota = checkDualColorGeminiQuota();
-        if (quota.ok) {
-            try {
-                recordDualColorGeminiAttempt();
-                return await optimizePrintAssetWithGemini(fileBuffer, printType);
-            } catch (err) {
-                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
-                const fluxResult = await optimizePrintAssetWithFlux(fileBuffer, printType);
-                return Object.assign({}, fluxResult, {
-                    fallback: true,
-                    fallback_reason: 'gemini_api_429'
-                });
-            }
-        }
-        if (forceGemini) {
-            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
-            e.status = 429;
-            e.retry_after_sec = quota.retry_after_sec;
-            e.quota_reason = quota.reason;
-            throw e;
-        }
-        const fluxResult = await optimizePrintAssetWithFlux(fileBuffer, printType);
-        return Object.assign({}, fluxResult, {
-            fallback: true,
-            fallback_reason: 'soft_quota_' + (quota.reason || 'limit')
-        });
-    }
-    return await optimizePrintAssetWithFlux(fileBuffer, printType);
+    const gated = await runGeminiImageWithBackupGate(
+        forceFlux,
+        forceGemini,
+        parseAcceptBackup(extras),
+        () => optimizePrintAssetWithGemini(fileBuffer, printType)
+    );
+    if (gated.used) return gated.result;
+
+    const fluxResult = await optimizePrintAssetWithFlux(fileBuffer, printType);
+    if (forceFlux || !process.env.GEMINI_API_KEY) return fluxResult;
+    return Object.assign({}, fluxResult, {
+        fallback: true,
+        fallback_reason: 'backup_confirmed'
+    });
 }
 
 /** 攝影參數提示詞：追加於各 FLUX prompt 最後（見 docs/add-photography-prompt-sets.sql） */
@@ -9361,7 +9459,7 @@ async function optimizeVendorAssetImage(
                 console.warn('vendor-asset optimize Gemini rate-limited → FLUX:', err.message || err);
             }
         } else if (forceGemini) {
-            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
+            const e = new Error(IMAGE_BUSY_RETRY_MESSAGE);
             e.status = 429;
             e.retry_after_sec = quota.retry_after_sec;
             e.quota_reason = quota.reason;
@@ -18203,30 +18301,19 @@ async function generatePatternExtractWithGemini(imageBase64, userPrompt, seamles
  * 圖樣提取：優先 Gemini Lite → 軟上限／429 則 FLUX。
  * 引擎偏好：後台 pattern_extract_engine 或 PATTERN_EXTRACT_ENGINE=auto|gemini|flux。
  */
-async function generatePatternExtract(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+async function generatePatternExtract(imageBase64, userPrompt, seamless, seed, width, height, outputFormat, extraOpts) {
     const pref = await getPatternExtractEngine();
     const forceFlux = pref === 'flux';
     const forceGemini = pref === 'gemini';
-    const hasKey = !!process.env.GEMINI_API_KEY;
+    const extras = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
 
-    if (!forceFlux && hasKey) {
-        const quota = checkDualColorGeminiQuota();
-        if (quota.ok) {
-            try {
-                recordDualColorGeminiAttempt();
-                return await generatePatternExtractWithGemini(imageBase64, userPrompt, seamless, width, height, outputFormat);
-            } catch (err) {
-                if (forceGemini || !isGeminiImageRateLimitError(err)) throw err;
-                console.warn('pattern-extract Gemini rate-limited → FLUX:', err.message || err);
-            }
-        } else if (forceGemini) {
-            const e = new Error('Gemini 生圖次數已達上限，請稍後再試');
-            e.status = 429;
-            e.retry_after_sec = quota.retry_after_sec;
-            e.quota_reason = quota.reason;
-            throw e;
-        }
-    }
+    const gated = await runGeminiImageWithBackupGate(
+        forceFlux,
+        forceGemini,
+        parseAcceptBackup(extras),
+        () => generatePatternExtractWithGemini(imageBase64, userPrompt, seamless, width, height, outputFormat)
+    );
+    if (gated.used) return gated.result;
     return generatePatternExtractWithFlux(imageBase64, userPrompt, seamless, seed, width, height, outputFormat);
 }
 
@@ -18362,7 +18449,9 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         }
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
         const seed = Math.floor(Math.random() * 2147483647);
-        const buffer = await generatePatternExtract(imageBase64, userPrompt || '', !!seamless, seed, w, h, outputFormat);
+        const buffer = await generatePatternExtract(
+            imageBase64, userPrompt || '', !!seamless, seed, w, h, outputFormat, { accept_backup: parseAcceptBackup(req.body) }
+        );
         if (!buffer) {
             return res.status(500).json({ success: false, error: '生圖失敗，請稍後再試' });
         }
@@ -18397,6 +18486,7 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         });
     } catch (error) {
         console.error('圖樣提取錯誤:', error);
+        if (sendJsonImageGenError(res, error, { success: false })) return;
         res.status(500).json({
             success: false,
             error: error.message || '圖樣提取失敗，請稍後再試'
@@ -34115,7 +34205,8 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             mix: swatchMode === 'mixed' ? Object.assign({ style: 'heather' }, mixInput || {}, { weights: mixWeights }) : null,
             mainHex: body.main_hex || body.mainHex || '',
             accentHex: body.accent_hex || body.accentHex || '',
-            thirdHex: body.third_hex || body.thirdHex || ''
+            thirdHex: body.third_hex || body.thirdHex || '',
+            accept_backup: parseAcceptBackup(body)
         };
         let aiPromptUsed;
         try {
@@ -34166,13 +34257,7 @@ app.post('/api/me/vendor-assets/material-dual-color-flux', upload.fields([
             dualFallbackReason = result.fallback_reason || null;
         } catch (optErr) {
             console.error('material-dual-color-flux optimize:', optErr);
-            if (optErr && optErr.status === 429) {
-                return res.status(429).json({
-                    error: optErr.message || '生圖次數已達上限，請稍後再試',
-                    retry_after_sec: optErr.retry_after_sec || null,
-                    quota_reason: optErr.quota_reason || null
-                });
-            }
+            if (sendJsonImageGenError(res, optErr)) return;
             const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
             return res.status(mapped.status).json(mapped.body);
         }
@@ -34612,7 +34697,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
         let printFallback = false;
         let printFallbackReason = null;
         try {
-            const result = await optimizePrintAsset(file.buffer, printType);
+            const result = await optimizePrintAsset(file.buffer, printType, { accept_backup: parseAcceptBackup(body) });
             optimized = result.buffer;
             aiPromptUsed = result.prompt;
             printEngine = result.engine || null;
@@ -34621,13 +34706,7 @@ app.post('/api/me/print-generations/redraw', upload.single('image'), async (req,
             printFallbackReason = result.fallback_reason || null;
         } catch (optErr) {
             console.error('print-generations/redraw optimize:', optErr);
-            if (optErr && optErr.status === 429) {
-                return res.status(429).json({
-                    error: optErr.message || '生圖次數已達上限，請稍後再試',
-                    retry_after_sec: optErr.retry_after_sec || null,
-                    quota_reason: optErr.quota_reason || null
-                });
-            }
+            if (sendJsonImageGenError(res, optErr)) return;
             const mapped = vendorAssetOptimizeErrorResponse(optErr, 'material');
             return res.status(mapped.status).json(mapped.body);
         }

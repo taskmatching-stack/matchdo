@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'portrait-modes-baseline-20260825';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'backup-confirm-20260903';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
