@@ -10196,6 +10196,33 @@ function parsePaymentCheckoutEnabled(raw) {
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
 }
 
+function isChineseCheckoutLang(lang) {
+    const l = String(lang || '').toLowerCase().replace(/_/g, '-');
+    return l === 'zh' || l.indexOf('zh-') === 0;
+}
+
+function parsePaymentCheckoutFlagsFromObj(obj) {
+    const o = obj || {};
+    const twd = parsePaymentCheckoutEnabled(o.payment_checkout_enabled_twd);
+    const usdRaw = o.payment_checkout_enabled_usd;
+    const master = parsePaymentCheckoutEnabled(o.payment_checkout_enabled);
+    const usd = (usdRaw == null || String(usdRaw).trim() === '') ? master : parsePaymentCheckoutEnabled(usdRaw);
+    return { twd, usd };
+}
+
+function paymentUiLangFromReq(req) {
+    const body = (req && req.body) || {};
+    const q = (req && req.query) || {};
+    return String(body.lang || q.lang || '').trim();
+}
+
+function checkoutDisabledPayload() {
+    return {
+        error: '付款功能尚未開放',
+        hint: '管理員正在設定金流，請稍後再試。'
+    };
+}
+
 const DEFAULT_TOPUP_PRESETS = [
     { twd: 300, usd: 11, credits: 330 },
     { twd: 900, usd: 33, credits: 1100 },
@@ -10228,9 +10255,28 @@ function resolvePlanUsdMonthly(plan) {
     return Object.prototype.hasOwnProperty.call(fallback, sort) ? fallback[sort] : 0;
 }
 
-async function isPaymentCheckoutEnabled() {
-    const raw = await getPaymentConfigValue('payment_checkout_enabled');
-    return parsePaymentCheckoutEnabled(raw);
+async function getPaymentCheckoutFlags() {
+    const twdRaw = await getPaymentConfigValue('payment_checkout_enabled_twd');
+    const usdRaw = await getPaymentConfigValue('payment_checkout_enabled_usd');
+    const masterRaw = await getPaymentConfigValue('payment_checkout_enabled');
+    return parsePaymentCheckoutFlagsFromObj({
+        payment_checkout_enabled_twd: twdRaw,
+        payment_checkout_enabled_usd: usdRaw,
+        payment_checkout_enabled: masterRaw
+    });
+}
+
+/** 繁中介面看台幣開關；其餘語系（含未帶 lang）看美金開關。 */
+async function isPaymentCheckoutEnabledForLang(lang) {
+    const flags = await getPaymentCheckoutFlags();
+    return isChineseCheckoutLang(lang) ? flags.twd : flags.usd;
+}
+
+async function isPaymentCheckoutEnabledForProvider(provider, lang) {
+    const flags = await getPaymentCheckoutFlags();
+    const p = String(provider || '').toLowerCase();
+    if (p === 'ecpay') return flags.twd;
+    return isChineseCheckoutLang(lang) ? flags.twd : flags.usd;
 }
 
 async function getPaymentConfigValue(key) {
@@ -13112,6 +13158,7 @@ app.get('/api/admin/payment-config', async (req, res) => {
         const obj = {};
         (rows || []).forEach(r => { obj[r.key] = r.value; });
         const mask = (v) => (v && v.length > 4) ? '****' + v.slice(-4) : (v ? '****' : '');
+        const checkoutFlags = parsePaymentCheckoutFlagsFromObj(obj);
         res.json({
             ecpay_merchant_id: obj.ecpay_merchant_id || '',
             ecpay_hash_key: obj.ecpay_hash_key ? mask(obj.ecpay_hash_key) : '',
@@ -13123,7 +13170,9 @@ app.get('/api/admin/payment-config', async (req, res) => {
             paypal_client_secret: obj.paypal_client_secret ? mask(obj.paypal_client_secret) : '',
             paypal_client_secret_set: !!(obj.paypal_client_secret && obj.paypal_client_secret.length > 0),
             paypal_sandbox: obj.paypal_sandbox !== '0' && obj.paypal_sandbox !== 'false',
-            payment_checkout_enabled: parsePaymentCheckoutEnabled(obj.payment_checkout_enabled),
+            payment_checkout_enabled: checkoutFlags.usd,
+            payment_checkout_enabled_twd: checkoutFlags.twd,
+            payment_checkout_enabled_usd: checkoutFlags.usd,
             topup_presets: parseTopupPresets(obj.topup_presets)
         });
     } catch (e) {
@@ -13149,7 +13198,21 @@ app.patch('/api/admin/payment-config', express.json(), async (req, res) => {
         if (body.paypal_client_id !== undefined) await upsert('paypal_client_id', body.paypal_client_id);
         if (body.paypal_client_secret !== undefined) await upsert('paypal_client_secret', body.paypal_client_secret);
         if (body.paypal_sandbox !== undefined) await upsert('paypal_sandbox', body.paypal_sandbox ? '1' : '0');
-        if (body.payment_checkout_enabled !== undefined) await upsert('payment_checkout_enabled', body.payment_checkout_enabled ? '1' : '0');
+        if (body.payment_checkout_enabled_twd !== undefined || body.payment_checkout_enabled_usd !== undefined) {
+            if (body.payment_checkout_enabled_twd !== undefined) {
+                await upsert('payment_checkout_enabled_twd', body.payment_checkout_enabled_twd ? '1' : '0');
+            }
+            if (body.payment_checkout_enabled_usd !== undefined) {
+                await upsert('payment_checkout_enabled_usd', body.payment_checkout_enabled_usd ? '1' : '0');
+            }
+            const usdOn = body.payment_checkout_enabled_usd !== undefined
+                ? !!body.payment_checkout_enabled_usd
+                : parsePaymentCheckoutEnabled(await getPaymentConfigValue('payment_checkout_enabled_usd'));
+            await upsert('payment_checkout_enabled', usdOn ? '1' : '0');
+        } else if (body.payment_checkout_enabled !== undefined) {
+            await upsert('payment_checkout_enabled_usd', body.payment_checkout_enabled ? '1' : '0');
+            await upsert('payment_checkout_enabled', body.payment_checkout_enabled ? '1' : '0');
+        }
         if (body.topup_presets !== undefined) {
             const presets = parseTopupPresets(typeof body.topup_presets === 'string' ? body.topup_presets : JSON.stringify(body.topup_presets));
             await upsert('topup_presets', JSON.stringify(presets));
@@ -13552,14 +13615,21 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
 // GET /api/payment-checkout-status — 前台是否開放付款（訂閱／儲值）
 app.get('/api/payment-checkout-status', async (req, res) => {
     try {
-        const enabled = await isPaymentCheckoutEnabled();
+        const flags = await getPaymentCheckoutFlags();
+        const lang = paymentUiLangFromReq(req);
+        const enabled = isChineseCheckoutLang(lang) ? flags.twd : flags.usd;
         const sandboxRaw = await getPaymentConfigValue('paypal_sandbox');
         const paypalSandbox = sandboxRaw !== '0' && sandboxRaw !== 'false';
-        res.set('Cache-Control', 'public, max-age=60');
-        res.json({ checkout_enabled: enabled, paypal_sandbox: paypalSandbox });
+        res.set('Cache-Control', 'no-store');
+        res.json({
+            checkout_enabled: enabled,
+            checkout_enabled_twd: flags.twd,
+            checkout_enabled_usd: flags.usd,
+            paypal_sandbox: paypalSandbox
+        });
     } catch (e) {
         console.error('GET /api/payment-checkout-status:', e);
-        res.json({ checkout_enabled: false, paypal_sandbox: true });
+        res.json({ checkout_enabled: false, checkout_enabled_twd: false, checkout_enabled_usd: false, paypal_sandbox: true });
     }
 });
 
@@ -15276,11 +15346,8 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        if (!(await isPaymentCheckoutEnabled())) {
-            return res.status(503).json({
-                error: '付款功能尚未開放',
-                hint: '管理員正在設定金流，請稍後再試。'
-            });
+        if (!(await isPaymentCheckoutEnabledForProvider('ecpay', paymentUiLangFromReq(req)))) {
+            return res.status(503).json(checkoutDisabledPayload());
         }
         const config = await getPaymentConfig();
         const ecpay = config.ecpay;
@@ -15359,11 +15426,8 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        if (!(await isPaymentCheckoutEnabled())) {
-            return res.status(503).json({
-                error: '付款功能尚未開放',
-                hint: '管理員正在設定金流，請稍後再試。'
-            });
+        if (!(await isPaymentCheckoutEnabledForProvider('ecpay', paymentUiLangFromReq(req)))) {
+            return res.status(503).json(checkoutDisabledPayload());
         }
         const config = await getPaymentConfig();
         const ecpay = config.ecpay;
@@ -15636,11 +15700,8 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        if (!(await isPaymentCheckoutEnabled())) {
-            return res.status(503).json({
-                error: '付款功能尚未開放',
-                hint: '管理員正在設定金流，請稍後再試。'
-            });
+        if (!(await isPaymentCheckoutEnabledForProvider('paypal', paymentUiLangFromReq(req)))) {
+            return res.status(503).json(checkoutDisabledPayload());
         }
         const config = await getPaymentConfig();
         const paypalClient = getPayPalClient(config.paypal);
@@ -15881,11 +15942,8 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        if (!(await isPaymentCheckoutEnabled())) {
-            return res.status(503).json({
-                error: '付款功能尚未開放',
-                hint: '管理員正在設定金流，請稍後再試。'
-            });
+        if (!(await isPaymentCheckoutEnabledForProvider('paypal', paymentUiLangFromReq(req)))) {
+            return res.status(503).json(checkoutDisabledPayload());
         }
         const config = await getPaymentConfig();
         const paypalCfg = config.paypal;

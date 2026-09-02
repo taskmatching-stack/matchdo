@@ -14,13 +14,17 @@
         <p class="text-muted">上線後可在此更換為正式帳號，無需改 .env。未填寫的欄位會使用 .env 設定。</p>
 
         <div class="card mb-4 border-primary">
-            <div class="card-header bg-primary text-white"><strong>前台付款開關</strong></div>
+            <div class="card-header bg-primary text-white"><strong>前台付款開關</strong>（台幣／美金分開）</div>
             <div class="card-body">
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="payment_checkout_enabled">
-                    <label class="form-check-label" for="payment_checkout_enabled">開放訂閱／儲值付款（PayPal、綠界）</label>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="payment_checkout_enabled_usd">
+                    <label class="form-check-label" for="payment_checkout_enabled_usd">開放美金頁訂閱／儲值（英文與其他語系，PayPal）</label>
                 </div>
-                <p class="small text-muted mb-0 mt-2">預設<strong>關閉</strong>。Sandbox 測試完成、價格與 PayPal 設定確認後再勾選開放。</p>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="payment_checkout_enabled_twd">
+                    <label class="form-check-label" for="payment_checkout_enabled_twd">開放台幣頁訂閱／儲值（繁中介面）</label>
+                </div>
+                <p class="small text-muted mb-0 mt-2">台幣頁目前請保持<strong>關閉</strong>。美金頁可獨立開放 Sandbox／正式結帳。兩邊互不影響。</p>
             </div>
         </div>
 
@@ -149,7 +153,8 @@ $(async function () {
             $('#paypal_client_id').val(c.paypal_client_id || '');
             if (c.paypal_client_secret_set) $('#paypal_client_secret').attr('placeholder', '已設定 ' + (c.paypal_client_secret || '****') + '，更新請輸入新值');
             $('#paypal_sandbox').prop('checked', c.paypal_sandbox !== false);
-            $('#payment_checkout_enabled').prop('checked', c.payment_checkout_enabled === true);
+            $('#payment_checkout_enabled_usd').prop('checked', c.payment_checkout_enabled_usd === true);
+            $('#payment_checkout_enabled_twd').prop('checked', c.payment_checkout_enabled_twd === true);
             renderTopupPresets(c.topup_presets || []);
         })
         .fail(function () { setStatus('無法載入設定', true); });
@@ -160,7 +165,8 @@ $(async function () {
             ecpay_use_production: $('#ecpay_use_production').prop('checked'),
             paypal_client_id: $('#paypal_client_id').val().trim(),
             paypal_sandbox: $('#paypal_sandbox').prop('checked'),
-            payment_checkout_enabled: $('#payment_checkout_enabled').prop('checked'),
+            payment_checkout_enabled_usd: $('#payment_checkout_enabled_usd').prop('checked'),
+            payment_checkout_enabled_twd: $('#payment_checkout_enabled_twd').prop('checked'),
             topup_presets: collectTopupPresets()
         };
         var hk = $('#ecpay_hash_key').val();

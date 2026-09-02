@@ -370,7 +370,7 @@
     var isMonthlySubscription = billing === 'monthly' && plan;
     if (selectedProvider === 'ecpay') {
       var apiUrl = isMonthlySubscription ? '/api/payment/ecpay/create-subscription' : '/api/payment/ecpay/create';
-      var bodyPayload = { amount: amount, credits: credits };
+      var bodyPayload = { amount: amount, credits: credits, lang: lang };
       if (isMonthlySubscription && plan) {
         bodyPayload.plan = plan;
       } else if (!isMonthlySubscription && (billing === 'yearly' && plan)) {
@@ -401,7 +401,7 @@
           show(errEl, true);
         });
     } else {
-      var paypalPayload = { amount: amount, credits: credits, return_to: resolvePaymentReturnTo() };
+      var paypalPayload = { amount: amount, credits: credits, return_to: resolvePaymentReturnTo(), lang: lang };
       var paypalApiUrl = '/api/payment/paypal/create';
       if (isMonthlySubscription && plan) {
         paypalApiUrl = '/api/payment/paypal/create-subscription';
@@ -526,7 +526,7 @@
 
   function init() {
     loadTopupPresets();
-    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
+    fetch((window.PaymentLocale && PaymentLocale.checkoutStatusUrl) ? PaymentLocale.checkoutStatusUrl() : '/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
       .then(function (st) {
         applyCheckoutDisabled(st.checkout_enabled === true);
         if (typeof AuthService !== 'undefined' && AuthService.getSession) {

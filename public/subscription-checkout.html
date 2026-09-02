@@ -178,7 +178,7 @@
     this.disabled = true;
     var isMonthly = urlBilling === 'monthly';
     var apiUrl = isMonthly ? '/api/payment/paypal/create-subscription' : '/api/payment/paypal/create';
-    var payload = { amount: amount, credits: credits, plan: urlPlan, return_to: resolvePaymentReturnTo() };
+    var payload = { amount: amount, credits: credits, plan: urlPlan, return_to: resolvePaymentReturnTo(), lang: lang };
     if (!isMonthly && urlBilling === 'yearly') payload.billing = 'yearly';
     fetch(apiUrl, {
       method: 'POST',
@@ -211,9 +211,9 @@
 
   function init() {
     syncLangLinks();
-    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: true }; })
+    fetch((window.PaymentLocale && PaymentLocale.checkoutStatusUrl) ? PaymentLocale.checkoutStatusUrl() : '/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
       .then(function (st) {
-        if (st.checkout_enabled === false) {
+        if (st.checkout_enabled !== true) {
           show(document.getElementById('checkoutDisabled'), true);
           var back = document.getElementById('disabledBackPlans');
           if (back) back.href = '/subscription-plans.html' + (lang === 'en' ? '?lang=en' : '');

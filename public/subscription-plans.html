@@ -473,9 +473,9 @@
       applyCreditsLinkLang();
     });
 
-    fetch('/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: true }; })
+    fetch((window.PaymentLocale && PaymentLocale.checkoutStatusUrl) ? PaymentLocale.checkoutStatusUrl() : '/api/payment-checkout-status').then(function (r) { return r.json(); }).catch(function () { return { checkout_enabled: false }; })
       .then(function (st) {
-        applyCheckoutStatus(st.checkout_enabled !== false);
+        applyCheckoutStatus(st.checkout_enabled === true);
         return fetch('/api/subscription-plans');
       })
       .then(function(r){ return r.json(); }).then(function(data){

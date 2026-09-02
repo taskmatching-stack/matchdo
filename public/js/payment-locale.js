@@ -48,6 +48,16 @@
     return m > 0 ? m * 10 : 0;
   }
 
+  function checkoutStatusUrl() {
+    var lang = currentUiLang();
+    return '/api/payment-checkout-status' + (lang ? ('?lang=' + encodeURIComponent(lang)) : '');
+  }
+
+  function currentUiLang() {
+    if (global.i18n && typeof global.i18n.getLang === 'function') return global.i18n.getLang() || '';
+    return '';
+  }
+
   function checkoutAmount(twdAmount, lang) {
     return isPayPalLocale(lang) ? twdToUsd(twdAmount) : parseInt(twdAmount, 10);
   }
@@ -77,6 +87,8 @@
     planUsdYearly: planUsdYearly,
     resolvePlanUsdMonthly: resolvePlanUsdMonthly,
     planUsdYearlyFromPlan: planUsdYearlyFromPlan,
-    checkoutAmount: checkoutAmount
+    checkoutAmount: checkoutAmount,
+    currentUiLang: currentUiLang,
+    checkoutStatusUrl: checkoutStatusUrl
   };
 })(typeof window !== 'undefined' ? window : this);

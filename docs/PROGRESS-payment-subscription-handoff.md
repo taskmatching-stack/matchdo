@@ -16,7 +16,7 @@
 
 ### 前台 UX
 - [x] 方案頁「我的點數」改為醒目 Primary 大按鈕
-- [x] **付款開關** `payment_checkout_enabled`（後台 `/admin/payment-settings.html`）
+- [x] **付款開關**（台幣／美金分開）：後台 `/admin/payment-settings.html`；繁中頁看 `payment_checkout_enabled_twd`（預設關），其餘語系看 `payment_checkout_enabled_usd`
 - [x] 關閉時：方案頁訂閱鈕「即將開放」、結帳 API 503、儲值／訂閱結帳頁提示
 - [x] **幣別顯示修正**：**美金優先**。僅繁中（`zh`／`zh-TW`）顯示台幣；英文與未載入語系顯示 USD。勿混用 `$` + `元`
 - [x] 方案功能文案依主要用途重寫（locales + `getPlanFeatures`）
@@ -52,6 +52,7 @@
 1. `payment-subscription`
 2. `subscription-plan-price-usd`
 3. `payment-checkout-default-off`
+4. `payment-checkout-currency-switches`
 
 或 Supabase SQL Editor 手動執行上述三個 `.sql` 檔。
 
@@ -60,16 +61,16 @@
 2. **`/admin/payment-settings.html`**：
    - 確認 PayPal Sandbox 憑證
    - 確認 **儲值預設方案**（三組 TWD／USD／點數）
-   - **付款開關維持關閉**，直到 Sandbox 全流程測過
+   - **台幣頁付款維持關閉**；美金頁可獨立開／關（Sandbox 測完再開美金）
 
 ### 3. Sandbox 測試清單（開關仍關閉時可測 UI；要測 PayPal 需暫時開啟）
 - [ ] 方案頁：中文顯示 `300 元/月`，英文 `$11/mo`
 - [ ] 訂閱流程：方案 → checkout → PayPal → return → 點數／訂閱狀態
 - [ ] 儲值流程：`/credits.html` 預設按鈕與自訂金額
-- [ ] 關閉付款開關時無法結帳（503 + 前台提示）
+- [ ] 關閉台幣開關時，繁中方案／儲值頁無法結帳；美金頁仍可獨立開放
 
 ### 4. 正式開放
-測試完成後，於 **金流設定** 勾選「開放訂閱／儲值付款」→ 儲存。
+測試完成後，於 **金流設定** 分別勾選「開放美金頁」或「開放台幣頁」→ 儲存。台幣頁目前請保持關閉。
 
 ---
 
@@ -95,7 +96,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gclou
 - **顯示**：**美金優先**。僅繁中介面顯示台幣（DB `price`）；英文／其他／未載入語系顯示 USD（DB `price_usd_monthly`）
 - **結帳**：PayPal 一律 USD；綠界（若啟用）台幣
 - **年付**：月費 × 10（TWD、USD 各自計算，無獨立年費欄位）
-- **付款預設關閉**：未在 DB 設定 `payment_checkout_enabled=1` 前，一般使用者無法結帳
+- **付款開關**：繁中頁 = `payment_checkout_enabled_twd`（預設關）；英文／其他 = `payment_checkout_enabled_usd`。綠界一律看台幣開關。
 
 ---
 
