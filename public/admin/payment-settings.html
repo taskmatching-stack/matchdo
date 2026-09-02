@@ -1,17 +1,24 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="utf-8">
-    <title>金流設定 - MatchDO</title>
+    <title>金流設定 - MATCHDO 後台</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
-    <script src="/config/auth-config.js"></script>
+    <meta name="robots" content="noindex, nofollow">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 </head>
-<body>
-    <div id="site-header"></div>
-    <div class="container mt-4">
-        <h2>金流設定</h2>
-        <p class="text-muted">上線後可在此更換為正式帳號，無需改 .env。未填寫的欄位會使用 .env 設定。</p>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">金流設定</h4>
+        <p class="text-muted small mb-3">
+          付款開關、綠界／PayPal、儲值快捷金額。上線後可在此更換正式帳號，無需改 .env。
+          <strong>方案每月點數、各功能扣點</strong>請到左側 <a href="/admin/membership.html">方案／點數</a>。
+        </p>
 
         <div class="card mb-4 border-primary">
             <div class="card-header bg-primary text-white"><strong>前台付款開關</strong>（台幣／美金分開）</div>
@@ -39,7 +46,8 @@
         <div class="card mb-4">
             <div class="card-header bg-light"><strong>儲值預設方案</strong>（台幣／美金／點數）</div>
             <div class="card-body">
-                <p class="small text-muted">前台「我的點數」頁快捷按鈕；PayPal 以 USD 結帳，綠界以 TWD。</p>
+                <p class="small text-muted">前台「我的點數」快捷按鈕；PayPal 以 USD 結帳，綠界以 TWD。
+                <strong>這三組台幣／USD／點數與「方案／點數」裡方案二／三／四是同一組</strong>——這裡按儲存，訂閱每月點數也會改成一樣。</p>
                 <div id="topupPresetsWrap"></div>
             </div>
         </div>
@@ -96,11 +104,15 @@
 
         <button type="button" class="btn btn-primary" id="btnSave">儲存設定</button>
         <span id="saveStatus" class="ms-2 small"></span>
+      </main>
     </div>
+  </div>
 
     <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/site-header.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/admin/js/admin-common.js"></script>
     <script>
 $(async function () {
     var token = '';

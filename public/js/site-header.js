@@ -687,7 +687,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
             </div>
             ${user ? `<div class="nav-second-row-wrap d-none d-lg-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits')}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> ` + t('nav.pointsUnit') + `</a></div></div>` : ''}
         </nav>
-        <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true">
+        <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true" style="display:none">
             <div class="nav-mobile-drawer-backdrop"></div>
             <div class="nav-mobile-drawer-panel">
                 <div class="nav-mobile-drawer-header">
@@ -861,10 +861,12 @@ function initMobileNavDrawer(headerContainer) {
     function closeDrawer() {
         drawer.classList.remove('is-open');
         drawer.setAttribute('aria-hidden', 'true');
+        drawer.style.display = 'none';
     }
     function openDrawer(menuTitle, menuHtml) {
         titleEl.textContent = menuTitle;
         body.innerHTML = menuHtml;
+        drawer.style.display = 'block';
         drawer.classList.add('is-open');
         drawer.setAttribute('aria-hidden', 'false');
     }

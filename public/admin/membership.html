@@ -14,7 +14,11 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">會員／訂閱管理</h4>
-        <p class="text-muted small mb-3">訂製品平台：方案設定、點數規則、功能權限、用戶等級與點數流水。規劃見 <code>docs/membership-tiers-and-points-plan.md</code>。</p>
+        <p class="text-muted small mb-3">
+          <strong>方案二／三／四的月費與每月點數</strong>，與「我的點數」儲值快捷是<strong>同一組數字</strong>（改這頁或金流設定，儲存後兩邊一起變）。
+          免費 150 只在這頁。「點數規則」才是生圖／商攝每次扣多少。
+          排序 10 以上（種子／合作）只給後台開通，不會出現在前台方案頁，也不跟儲值同步。
+        </p>
         <div id="membershipMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -53,7 +57,7 @@
             <div class="card">
               <div class="card-body">
                 <h6 class="card-title">會員等級／方案設定</h6>
-                <p class="text-muted small">可編輯每級名稱、月費、每月點數、排序、權限（接案分類數、靈感牆、首頁對照圖、多語系）。</p>
+                <p class="text-muted small">方案二／三／四的月費與每月點數，與金流設定的儲值快捷是同一組；免費與種子／合作列不同步。</p>
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light">

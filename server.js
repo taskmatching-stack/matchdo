@@ -10379,6 +10379,63 @@ function filterPublicSubscriptionPlans(rows) {
     return (rows || []).filter(isPublicListedSubscriptionPlan);
 }
 
+function paidPublicPlansForTopup(rows) {
+    return filterPublicSubscriptionPlans(rows).filter(function (p) {
+        return parseInt(p.price, 10) > 0;
+    }).slice(0, 3);
+}
+
+function topupPresetsFromPaidPlans(rows) {
+    return paidPublicPlansForTopup(rows).map(function (p) {
+        return {
+            twd: Math.abs(parseInt(p.price, 10) || 0),
+            usd: resolvePlanUsdMonthly(p),
+            credits: Math.abs(parseInt(p.credits_monthly, 10) || 0)
+        };
+    }).filter(function (p) { return p.twd > 0 && p.usd > 0 && p.credits > 0; });
+}
+
+async function writeTopupPresetsConfig(presets) {
+    await supabase.from('payment_config').upsert({
+        key: 'topup_presets',
+        value: JSON.stringify(presets),
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+}
+
+async function syncTopupPresetsFromPaidPlans() {
+    const { data: rows, error } = await supabase
+        .from('subscription_plans')
+        .select(SUBSCRIPTION_PLANS_SELECT_COLUMNS)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+    if (error) throw error;
+    const presets = topupPresetsFromPaidPlans(rows);
+    if (presets.length) await writeTopupPresetsConfig(presets);
+    return presets;
+}
+
+async function syncPaidPlansFromTopupPresets(presets) {
+    const list = Array.isArray(presets) ? presets : parseTopupPresets(presets);
+    if (!list.length) return;
+    const { data: rows, error } = await supabase
+        .from('subscription_plans')
+        .select(SUBSCRIPTION_PLANS_SELECT_COLUMNS)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+    if (error) throw error;
+    const paid = paidPublicPlansForTopup(rows || []);
+    for (let i = 0; i < Math.min(list.length, paid.length); i++) {
+        const p = paid[i];
+        const t = list[i];
+        await supabase.from('subscription_plans').update({
+            price: t.twd,
+            price_usd_monthly: t.usd,
+            credits_monthly: t.credits
+        }).eq('id', p.id);
+    }
+}
+
 async function ensureAiCategoriesTableAndSeed() {
     if (!DB_URL) return; // 無 DB 直連就跳過
     const pool = new Pool({ connectionString: DB_URL });
@@ -13259,6 +13316,9 @@ app.patch('/api/admin/payment-config', express.json(), async (req, res) => {
         if (body.topup_presets !== undefined) {
             const presets = parseTopupPresets(typeof body.topup_presets === 'string' ? body.topup_presets : JSON.stringify(body.topup_presets));
             await upsert('topup_presets', JSON.stringify(presets));
+            try { await syncPaidPlansFromTopupPresets(presets); } catch (eSync) {
+                console.error('sync paid plans from topup:', eSync);
+            }
         }
         res.json({ success: true });
     } catch (e) {
@@ -13581,6 +13641,13 @@ app.get('/api/admin/subscription-plans', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
+        try {
+            const rawTopup = await getPaymentConfigValue('topup_presets');
+            const presets = parseTopupPresets(rawTopup);
+            if (presets.length) await syncPaidPlansFromTopupPresets(presets);
+        } catch (eSync) {
+            console.error('GET subscription-plans align from topup:', eSync);
+        }
         const { data: rows, error } = await supabase
             .from('subscription_plans')
             .select(SUBSCRIPTION_PLANS_SELECT_COLUMNS)
@@ -13648,6 +13715,9 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
             console.error('PATCH /api/admin/subscription-plans:', updErr);
             return res.status(500).json({ error: '更新方案失敗', details: updErr.message });
         }
+        try { await syncTopupPresetsFromPaidPlans(); } catch (eSync) {
+            console.error('sync topup from paid plans:', eSync);
+        }
         res.json({ success: true });
     } catch (e) {
         console.error('PATCH /api/admin/subscription-plans 異常:', e);
@@ -13679,8 +13749,18 @@ app.get('/api/payment-checkout-status', async (req, res) => {
 // GET /api/payment-topup-presets — 前台儲值預設方案（台幣／美金／點數）
 app.get('/api/payment-topup-presets', async (req, res) => {
     try {
+        const { data: rows, error } = await supabase
+            .from('subscription_plans')
+            .select(SUBSCRIPTION_PLANS_SELECT_COLUMNS)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        if (error) {
+            console.error('GET /api/payment-topup-presets plans:', error);
+        }
         const raw = await getPaymentConfigValue('topup_presets');
-        const presets = parseTopupPresets(raw);
+        const fromJson = parseTopupPresets(raw);
+        const fromPlans = topupPresetsFromPaidPlans(rows);
+        const presets = fromJson.length ? fromJson : fromPlans;
         res.set('Cache-Control', 'public, max-age=120');
         res.json({ presets });
     } catch (e) {

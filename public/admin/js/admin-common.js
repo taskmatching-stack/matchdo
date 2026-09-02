@@ -10,7 +10,10 @@
       if(!res.ok) throw new Error('fetch failed');
       el.innerHTML = await res.text();
       highlightActive();
-      if (id === 'admin-header') updateAdminHeaderAuth();
+      if (id === 'admin-header') {
+        updateAdminHeaderAuth();
+        wireAdminHeaderBack();
+      }
     }catch(e){
       // silent fallback
     }
@@ -25,6 +28,15 @@
       var full = new URL(href, location.origin).pathname.replace(/\/$/, '');
       a.classList.toggle('active', full === path);
     });
+  }
+  function wireAdminHeaderBack() {
+    var back = document.getElementById('adminHeaderBack');
+    if (!back) return;
+    var path = (location.pathname || '').replace(/\/$/, '');
+    if (path === '/admin' || path === '/admin/index.html') {
+      back.setAttribute('href', '/');
+      back.textContent = '← 返回網站';
+    }
   }
   function updateAdminHeaderAuth() {
     var el = document.getElementById('adminHeaderAuth');
