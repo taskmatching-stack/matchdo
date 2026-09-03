@@ -45,7 +45,7 @@ function pageFields(body, includeFolder) {
 }
 
 function registerHelpGuideRoutes(app, deps) {
-    const { supabase, requireAdmin, upload, uploadToSupabaseStorage, BASE_URL } = deps;
+    const { supabase, requireAdmin, upload, uploadToSupabaseStorage, BASE_URL, translateHelpGuideToEnglish } = deps;
     const staticHelp = path.join(__dirname, '..', 'public', 'help', 'index.html');
 
     async function tryPublishedTree() {
@@ -276,6 +276,20 @@ function registerHelpGuideRoutes(app, deps) {
         } catch (e) {
             console.error('POST help-guides/upload:', e);
             res.status(500).json({ error: e.message || '上傳失敗' });
+        }
+    });
+
+    app.post('/api/admin/help-guides/translate', async (req, res) => {
+        try {
+            if (!(await requireAdmin(req, res))) return;
+            if (typeof translateHelpGuideToEnglish !== 'function') {
+                return res.status(500).json({ error: '翻譯未設定' });
+            }
+            const out = await translateHelpGuideToEnglish(req.body || {});
+            res.json(out);
+        } catch (e) {
+            console.error('POST help-guides/translate:', e);
+            res.status(400).json({ error: e.message || '翻譯失敗' });
         }
     });
 }

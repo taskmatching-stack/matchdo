@@ -7078,6 +7078,66 @@ function parseJsonObjectFromGeminiText(raw) {
     return null;
 }
 
+const HELP_GUIDES_I18N_INSTRUCTION =
+    'Translate MatchDO operation-guide copy from Traditional Chinese (zh-TW) into natural US English. '
+    + 'Preserve Markdown headings (## / ###), **bold**, lists, and line breaks. '
+    + 'Do not translate URLs, slugs, file paths, or text inside backticks. '
+    + 'Empty source fields → empty strings. Return ONLY valid JSON, no markdown fences. '
+    + 'Folder input {"title":"..."} → {"title_en":"..."}. '
+    + 'Page input {"title":"...","summary":"...","blocks":[{"i":0,"text":"...","caption":"..."}]} → '
+    + '{"title_en":"","summary_en":"","blocks":[{"i":0,"text_en":"...","caption_en":"..."}]}. '
+    + 'Keep the same block i values and order.';
+
+async function translateHelpGuideToEnglish(body) {
+    const model = await getTranslationModelName();
+    const kind = body && body.kind === 'folder' ? 'folder' : 'page';
+    async function runJson(payload) {
+        const raw = await geminiTranslateWithInstruction(
+            HELP_GUIDES_I18N_INSTRUCTION,
+            JSON.stringify(payload),
+            { model: model, throwOnError: true }
+        );
+        const parsed = parseJsonObjectFromGeminiText(raw);
+        if (!parsed || typeof parsed !== 'object') throw new Error('翻譯結果格式錯誤');
+        return parsed;
+    }
+    if (kind === 'folder') {
+        const title = String((body && body.title) || '').trim();
+        if (!title) return { title_en: '', model: model };
+        const parsed = await runJson({ title: title });
+        return { title_en: String(parsed.title_en || '').trim(), model: model };
+    }
+    const title = String((body && body.title) || '').trim();
+    const summary = String((body && body.summary) || '').trim();
+    const blocksIn = Array.isArray(body && body.blocks) ? body.blocks : [];
+    const blocks = blocksIn.slice(0, 80).map(function (b, i) {
+        return {
+            i: i,
+            text: String((b && b.text) || '').slice(0, 20000),
+            caption: String((b && b.caption) || '').slice(0, 300)
+        };
+    });
+    const hasAny = !!(title || summary || blocks.some(function (b) { return b.text || b.caption; }));
+    if (!hasAny) return { title_en: '', summary_en: '', blocks: blocks.map(function () { return { text_en: '', caption_en: '' }; }), model: model };
+    const parsed = await runJson({ title: title, summary: summary, blocks: blocks });
+    const byI = {};
+    (Array.isArray(parsed.blocks) ? parsed.blocks : []).forEach(function (row) {
+        if (row && row.i != null) byI[Number(row.i)] = row;
+    });
+    return {
+        title_en: String(parsed.title_en || '').trim(),
+        summary_en: String(parsed.summary_en || '').trim(),
+        blocks: blocks.map(function (b, i) {
+            const hit = byI[i] || (Array.isArray(parsed.blocks) ? parsed.blocks[i] : {}) || {};
+            return {
+                text_en: String(hit.text_en || '').trim(),
+                caption_en: String(hit.caption_en || '').trim()
+            };
+        }),
+        model: model
+    };
+}
+
 const VENDOR_PROFILE_I18N_GEMINI_INSTRUCTION =
     'Translate vendor profile copy for a B2B custom manufacturing marketplace. '
     + 'Source is Traditional Chinese (zh-TW). Output natural US English for international buyers. '
@@ -10023,15 +10083,19 @@ function vendorAssetDescriptionFromSemantics(semanticsJson) {
 // 回：{ candidates: [ { content: { parts: [ { text: "英文結果" } ] } } ] } 或 { error: { code, message } }
 // 我們只從回傳裡取出 candidates[0].content.parts[0].text 當翻譯結果。
 
-/** @param {string} instruction @param {string} text */
-async function geminiTranslateWithInstruction(instruction, text) {
+/** @param {string} instruction @param {string} text @param {{ model?: string, throwOnError?: boolean }|string} [modelOrOpts] */
+async function geminiTranslateWithInstruction(instruction, text, modelOrOpts) {
     const raw = String(text);
     if (!raw.trim()) return '';
+    const opts = typeof modelOrOpts === 'string' ? { model: modelOrOpts } : (modelOrOpts || {});
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return raw.trim();
+    if (!apiKey) {
+        if (opts.throwOnError) throw new Error('翻譯服務未設定');
+        return raw.trim();
+    }
     return runInGeminiQueue(async () => {
         const promptText = `${instruction}\n\n${raw}`;
-        let model = await getTranslationModelName();
+        let model = (opts.model && String(opts.model).trim()) || await getTranslationModelName();
         const modelsToTry = model === 'gemini-2.5-flash-lite' ? ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] : [model];
         for (const m of modelsToTry) {
             try {
@@ -10044,14 +10108,17 @@ async function geminiTranslateWithInstruction(instruction, text) {
                         continue;
                     }
                     console.error('Gemini 翻譯錯誤', data.error.code || res.status, data.error.message, 'model=', m);
+                    if (opts.throwOnError) throw new Error(data.error.message || '翻譯失敗');
                     return raw.trim();
                 }
                 const out = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (out != null && String(out).trim()) return String(out).trim();
                 const finishReason = data.candidates?.[0]?.finishReason;
                 if (finishReason && finishReason !== 'STOP') console.warn('geminiTranslateWithInstruction 未完成:', finishReason);
+                if (opts.throwOnError) throw new Error('翻譯無結果');
             } catch (e) {
                 console.error('geminiTranslateWithInstruction:', e.message);
+                if (opts.throwOnError) throw e;
                 return raw.trim();
             }
         }
@@ -11272,7 +11339,14 @@ async function requireAdmin(req, res) {
     return user;
 }
 
-registerHelpGuideRoutes(app, { supabase, requireAdmin, upload, uploadToSupabaseStorage, BASE_URL });
+registerHelpGuideRoutes(app, {
+    supabase,
+    requireAdmin,
+    upload,
+    uploadToSupabaseStorage,
+    BASE_URL,
+    translateHelpGuideToEnglish
+});
 
 const ADMIN_FOLLOWUP_ENTITY_TYPES = ['user', 'manufacturer', 'supplier'];
 let adminFollowupTablesReadyCache = null;

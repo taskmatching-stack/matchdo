@@ -24,6 +24,7 @@
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
           未發佈前台 404。文字可用 <code>## 標題</code>、<code>**粗體**</code>、清單。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
+          可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
           請先到「資料庫維護」執行 <code>help-guides</code>。
         </p>
         <div id="ogMsg" class="alert mb-3 py-2 d-none"></div>
@@ -237,6 +238,7 @@
       '<label class="form-check-label" for="fPub">發佈</label></div></div></div>' +
       '<div class="d-flex gap-2">' +
       '<button type="button" class="btn btn-primary btn-sm" id="btnSaveFolder">儲存</button>' +
+      '<button type="button" class="btn btn-outline-primary btn-sm" id="btnTranslateFolder">翻譯成英文</button>' +
       '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="/help/' + esc(f.slug) + '/">開啟前台</a>' +
       '<button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="btnDelFolder">刪除資料夾</button></div>';
     document.getElementById('btnSaveFolder').onclick = async function () {
@@ -251,6 +253,20 @@
         showMsg('已儲存');
         await loadTree(true);
       } catch (e) { showMsg(e.message, true); }
+    };
+    document.getElementById('btnTranslateFolder').onclick = async function () {
+      var btn = document.getElementById('btnTranslateFolder');
+      var titleZh = document.getElementById('fTitle').value;
+      var enEl = document.getElementById('fTitleEn');
+      if (!String(titleZh || '').trim()) { showMsg('請先填中文名稱', true); return; }
+      if (String(enEl.value || '').trim() && !confirm('英文名稱已有內容，要覆蓋嗎？')) return;
+      btn.disabled = true;
+      try {
+        var data = await api('POST', '/api/admin/help-guides/translate', { kind: 'folder', title: titleZh });
+        enEl.value = data.title_en || '';
+        showMsg('已填入英文（' + (data.model || '翻譯模型') + '），請核對後再儲存');
+      } catch (e) { showMsg(e.message, true); }
+      finally { btn.disabled = false; }
     };
     document.getElementById('btnDelFolder').onclick = async function () {
       if (!confirm('刪除此資料夾及底下所有文章？')) return;
@@ -288,6 +304,7 @@
       '<div id="blocksWrap">' + blockEditorHtml(blocks) + '</div>' +
       '<div class="d-flex gap-2 mt-3">' +
       '<button type="button" class="btn btn-primary btn-sm" id="btnSavePage">儲存</button>' +
+      '<button type="button" class="btn btn-outline-primary btn-sm" id="btnTranslatePage">翻譯成英文</button>' +
       '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="' + esc(preview) + '">開啟前台</a>' +
       '<button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="btnDelPage">刪除文章</button></div>';
     bindBlockUi();
@@ -312,6 +329,42 @@
         showMsg('已儲存');
         await loadTree(true);
       } catch (e) { showMsg(e.message, true); }
+    };
+    document.getElementById('btnTranslatePage').onclick = async function () {
+      var btn = document.getElementById('btnTranslatePage');
+      var titleZh = document.getElementById('pTitle').value;
+      var summaryZh = document.getElementById('pSummary').value;
+      var blocksNow = collectBlocks();
+      var hasZh = String(titleZh || '').trim() || String(summaryZh || '').trim()
+        || blocksNow.some(function (b) { return String(b.text || '').trim() || String(b.caption || '').trim(); });
+      if (!hasZh) { showMsg('請先填中文標題、摘要或內文', true); return; }
+      var hasEn = String(document.getElementById('pTitleEn').value || '').trim()
+        || String(document.getElementById('pSummaryEn').value || '').trim()
+        || blocksNow.some(function (b) { return String(b.text_en || '').trim() || String(b.caption_en || '').trim(); });
+      if (hasEn && !confirm('英文欄已有內容，要覆蓋嗎？')) return;
+      btn.disabled = true;
+      try {
+        var data = await api('POST', '/api/admin/help-guides/translate', {
+          kind: 'page',
+          title: titleZh,
+          summary: summaryZh,
+          blocks: blocksNow.map(function (b) { return { text: b.text || '', caption: b.caption || '' }; })
+        });
+        document.getElementById('pTitleEn').value = data.title_en || '';
+        document.getElementById('pSummaryEn').value = data.summary_en || '';
+        var enBlocks = Array.isArray(data.blocks) ? data.blocks : [];
+        var merged = blocksNow.map(function (b, i) {
+          var hit = enBlocks[i] || {};
+          return Object.assign({}, b, {
+            text_en: hit.text_en != null ? hit.text_en : (b.text_en || ''),
+            caption_en: hit.caption_en != null ? hit.caption_en : (b.caption_en || '')
+          });
+        });
+        document.getElementById('blocksWrap').innerHTML = blockEditorHtml(merged);
+        bindBlockUi();
+        showMsg('已填入英文（' + (data.model || '翻譯模型') + '），請核對後再儲存');
+      } catch (e) { showMsg(e.message, true); }
+      finally { btn.disabled = false; }
     };
     document.getElementById('btnDelPage').onclick = async function () {
       if (!confirm('刪除此文章？')) return;
