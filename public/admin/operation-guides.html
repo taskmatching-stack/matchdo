@@ -11,6 +11,9 @@
     .og-tree-item { cursor: pointer; }
     .og-tree-item.active { background: #e8eef4; }
     .og-block { border: 1px solid #dee2e6; border-radius: .35rem; padding: .75rem; margin-bottom: .75rem; background: #fff; }
+    .og-media-slot { border: 1px dashed #ced4da; border-radius: .3rem; padding: .5rem; background: #f8f9fa; }
+    .og-media-slot img { max-height: 140px; }
+    .og-env-dot { white-space: nowrap; cursor: pointer; }
   </style>
 </head>
 <body class="bg-light">
@@ -24,6 +27,7 @@
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
           未發佈前台 404。文字可用 <code>## 標題</code>、<code>**粗體**</code>、清單。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
+          圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
           請先到「資料庫維護」執行 <code>help-guides</code>。
         </p>
@@ -119,6 +123,80 @@
     }).join('');
   }
 
+  var MEDIA_ENVS = [
+    { lang: 'zh', vp: 'desktop', img: 'url_desktop_zh', yt: 'video_id_desktop_zh', short: '桌面·中' },
+    { lang: 'en', vp: 'desktop', img: 'url_desktop_en', yt: 'video_id_desktop_en', short: '桌面·英' },
+    { lang: 'zh', vp: 'mobile', img: 'url_mobile_zh', yt: 'video_id_mobile_zh', short: '行動·中' },
+    { lang: 'en', vp: 'mobile', img: 'url_mobile_en', yt: 'video_id_mobile_en', short: '行動·英' }
+  ];
+
+  function mediaFieldHtml(slot, url, kind) {
+    var isYt = kind === 'youtube';
+    var cls = isYt ? 'blk-yt' : 'blk-url';
+    var ph = isYt ? 'YouTube 網址或影片 id' : '圖片網址';
+    var file = isYt ? '' :
+      '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm mt-1 blk-file" data-slot="' + esc(slot) + '">';
+    var preview = (!isYt && url) ? '<img src="' + esc(url) + '" alt="" class="img-fluid mt-1 rounded">' : '';
+    return '<input type="text" class="form-control form-control-sm ' + cls + '" data-slot="' + esc(slot) + '" placeholder="' + ph + '" value="' + esc(url || '') + '">' +
+      file + preview;
+  }
+
+  function mediaEnvEditorHtml(b, i, kind) {
+    var isYt = kind === 'youtube';
+    var prefix = 'og' + i + (isYt ? 'y' : 'i');
+    var values = {};
+    MEDIA_ENVS.forEach(function (e) {
+      var key = isYt ? e.yt : e.img;
+      if (isYt) {
+        values[key] = (b && (b[key] || (key === 'video_id_desktop_zh' ? b.video_id : ''))) || '';
+      } else {
+        values[key] = (b && (b[key] || (key === 'url_desktop_zh' ? b.url : ''))) || '';
+      }
+    });
+    var status = MEDIA_ENVS.map(function (e) {
+      var key = isYt ? e.yt : e.img;
+      var filled = String(values[key] || '').trim();
+      return '<span class="og-env-dot me-2 small" data-slot="' + esc(key) + '">' + e.short +
+        ' <span class="og-env-fill ' + (filled ? 'text-success' : 'text-muted') + '">' +
+        (filled ? '已填' : '未填') + '</span></span>';
+    }).join('');
+    var slots = MEDIA_ENVS.map(function (e, idx) {
+      var key = isYt ? e.yt : e.img;
+      return '<div class="og-media-slot' + (idx === 0 ? '' : ' d-none') + '" data-slot="' + esc(key) + '">' +
+        mediaFieldHtml(key, values[key], kind) + '</div>';
+    }).join('');
+    return '<div class="og-media-env mb-2" data-kind="' + esc(kind) + '">' +
+      '<div class="d-flex flex-wrap gap-3 mb-2 align-items-center">' +
+      '<div><span class="small text-muted me-1">語系</span>' +
+      '<div class="btn-group btn-group-sm" role="group">' +
+      '<input type="radio" class="btn-check og-env-lang" name="' + prefix + '-lang" id="' + prefix + '-lang-zh" value="zh" autocomplete="off" checked>' +
+      '<label class="btn btn-outline-secondary" for="' + prefix + '-lang-zh">中文</label>' +
+      '<input type="radio" class="btn-check og-env-lang" name="' + prefix + '-lang" id="' + prefix + '-lang-en" value="en" autocomplete="off">' +
+      '<label class="btn btn-outline-secondary" for="' + prefix + '-lang-en">英文</label>' +
+      '</div></div>' +
+      '<div><span class="small text-muted me-1">畫面</span>' +
+      '<div class="btn-group btn-group-sm" role="group">' +
+      '<input type="radio" class="btn-check og-env-vp" name="' + prefix + '-vp" id="' + prefix + '-vp-desk" value="desktop" autocomplete="off" checked>' +
+      '<label class="btn btn-outline-secondary" for="' + prefix + '-vp-desk">桌面</label>' +
+      '<input type="radio" class="btn-check og-env-vp" name="' + prefix + '-vp" id="' + prefix + '-vp-mob" value="mobile" autocomplete="off">' +
+      '<label class="btn btn-outline-secondary" for="' + prefix + '-vp-mob">行動</label>' +
+      '</div></div></div>' +
+      '<div class="mb-1">' + status + '</div>' +
+      '<p class="form-text mt-0 mb-2">這是目前語系＋畫面的檔；前台會依訪客語系與手機／電腦自動切。</p>' +
+      slots +
+      '</div>';
+  }
+
+  function imageEditorHtml(b, i) {
+    return mediaEnvEditorHtml(b, i, 'image') +
+      '<input type="text" class="form-control form-control-sm mb-1 blk-caption" placeholder="圖說（中文）" value="' + esc((b && b.caption) || '') + '">' +
+      '<input type="text" class="form-control form-control-sm blk-caption-en" placeholder="圖說（英文）" value="' + esc((b && b.caption_en) || '') + '">';
+  }
+
+  function youtubeEditorHtml(b, i) {
+    return mediaEnvEditorHtml(b, i, 'youtube');
+  }
+
   function blockEditorHtml(blocks) {
     return (blocks || []).map(function (b, i) {
       var type = b.type || 'text';
@@ -136,13 +214,7 @@
         (type === 'text'
           ? '<label class="form-label small mb-0">中文（Markdown）</label><textarea class="form-control form-control-sm mb-2 blk-text" rows="6">' + esc(b.text || '') + '</textarea>' +
             '<label class="form-label small mb-0">英文</label><textarea class="form-control form-control-sm blk-text-en" rows="4">' + esc(b.text_en || '') + '</textarea>'
-          : type === 'image'
-            ? '<div class="mb-2"><input type="text" class="form-control form-control-sm blk-url" placeholder="圖片網址" value="' + esc(b.url || '') + '">' +
-              '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm mt-1 blk-file"></div>' +
-              '<input type="text" class="form-control form-control-sm mb-1 blk-caption" placeholder="圖說（中文）" value="' + esc(b.caption || '') + '">' +
-              '<input type="text" class="form-control form-control-sm blk-caption-en" placeholder="圖說（英文）" value="' + esc(b.caption_en || '') + '">' +
-              (b.url ? '<img src="' + esc(b.url) + '" class="img-fluid mt-2" style="max-height:160px;">' : '')
-            : '<input type="text" class="form-control form-control-sm blk-yt" placeholder="YouTube 網址或影片 id" value="' + esc(b.video_id || '') + '">') +
+          : type === 'image' ? imageEditorHtml(b, i) : youtubeEditorHtml(b, i)) +
         '</div>';
     }).join('');
   }
@@ -152,15 +224,87 @@
     document.querySelectorAll('#ogEditor .og-block').forEach(function (el) {
       var type = el.querySelector('.blk-type').value;
       var val = function (sel) { var n = el.querySelector(sel); return n ? n.value : ''; };
+      var slot = function (cls, key) {
+        var n = el.querySelector('.' + cls + '[data-slot="' + key + '"]');
+        return n ? String(n.value || '').trim() : '';
+      };
       if (type === 'text') {
         out.push({ type: 'text', text: val('.blk-text'), text_en: val('.blk-text-en') });
       } else if (type === 'image') {
-        out.push({ type: 'image', url: val('.blk-url').trim(), caption: val('.blk-caption'), caption_en: val('.blk-caption-en') });
+        var dz = slot('blk-url', 'url_desktop_zh');
+        out.push({
+          type: 'image',
+          url: dz,
+          url_desktop_zh: dz,
+          url_desktop_en: slot('blk-url', 'url_desktop_en'),
+          url_mobile_zh: slot('blk-url', 'url_mobile_zh'),
+          url_mobile_en: slot('blk-url', 'url_mobile_en'),
+          caption: val('.blk-caption'),
+          caption_en: val('.blk-caption-en')
+        });
       } else {
-        out.push({ type: 'youtube', video_id: val('.blk-yt').trim() });
+        var yz = slot('blk-yt', 'video_id_desktop_zh');
+        out.push({
+          type: 'youtube',
+          video_id: yz,
+          video_id_desktop_zh: yz,
+          video_id_desktop_en: slot('blk-yt', 'video_id_desktop_en'),
+          video_id_mobile_zh: slot('blk-yt', 'video_id_mobile_zh'),
+          video_id_mobile_en: slot('blk-yt', 'video_id_mobile_en')
+        });
       }
     });
     return out;
+  }
+
+  function envSlotKey(kind, lang, vp) {
+    var prefix = kind === 'youtube' ? 'video_id_' : 'url_';
+    return prefix + (vp === 'mobile' ? 'mobile_' : 'desktop_') + (lang === 'en' ? 'en' : 'zh');
+  }
+
+  function applyMediaEnv(wrap) {
+    var langEl = wrap.querySelector('.og-env-lang:checked');
+    var vpEl = wrap.querySelector('.og-env-vp:checked');
+    var lang = langEl ? langEl.value : 'zh';
+    var vp = vpEl ? vpEl.value : 'desktop';
+    var slot = envSlotKey(wrap.getAttribute('data-kind'), lang, vp);
+    wrap.querySelectorAll('.og-media-slot').forEach(function (s) {
+      if (s.getAttribute('data-slot') === slot) s.classList.remove('d-none');
+      else s.classList.add('d-none');
+    });
+  }
+
+  function refreshEnvFills(wrap) {
+    wrap.querySelectorAll('.og-env-dot').forEach(function (dot) {
+      var key = dot.getAttribute('data-slot');
+      var inp = wrap.querySelector('.blk-url[data-slot="' + key + '"], .blk-yt[data-slot="' + key + '"]');
+      var filled = !!(inp && String(inp.value || '').trim());
+      var mark = dot.querySelector('.og-env-fill');
+      if (!mark) return;
+      mark.textContent = filled ? '已填' : '未填';
+      mark.className = 'og-env-fill ' + (filled ? 'text-success' : 'text-muted');
+    });
+  }
+
+  function bindMediaEnv(wrap) {
+    wrap.querySelectorAll('.og-env-lang, .og-env-vp').forEach(function (inp) {
+      inp.onchange = function () { applyMediaEnv(wrap); };
+    });
+    wrap.querySelectorAll('.og-env-dot').forEach(function (dot) {
+      dot.onclick = function () {
+        var key = dot.getAttribute('data-slot') || '';
+        var lang = /_en$/.test(key) ? 'en' : 'zh';
+        var vp = /mobile/.test(key) ? 'mobile' : 'desktop';
+        var langInp = wrap.querySelector('.og-env-lang[value="' + lang + '"]');
+        var vpInp = wrap.querySelector('.og-env-vp[value="' + vp + '"]');
+        if (langInp) langInp.checked = true;
+        if (vpInp) vpInp.checked = true;
+        applyMediaEnv(wrap);
+      };
+    });
+    wrap.querySelectorAll('.blk-url, .blk-yt').forEach(function (inp) {
+      inp.oninput = function () { refreshEnvFills(wrap); };
+    });
   }
 
   function bindBlockUi() {
@@ -200,6 +344,7 @@
         bindBlockUi();
       };
     });
+    document.querySelectorAll('#ogEditor .og-media-env').forEach(bindMediaEnv);
     document.querySelectorAll('#ogEditor .blk-file').forEach(function (inp) {
       inp.onchange = async function () {
         if (!inp.files || !inp.files[0]) return;
@@ -213,8 +358,22 @@
         });
         var data = await r.json().catch(function () { return {}; });
         if (!r.ok) { showMsg(data.error || '上傳失敗', true); return; }
-        var wrap = inp.closest('.og-block');
-        wrap.querySelector('.blk-url').value = data.url;
+        var slot = inp.getAttribute('data-slot') || 'url_desktop_zh';
+        var wrap = inp.closest('.og-media-slot') || inp.closest('.og-block');
+        var target = wrap.querySelector('.blk-url[data-slot="' + slot + '"]') || wrap.querySelector('.blk-url');
+        if (target) target.value = data.url;
+        var img = wrap.querySelector('img');
+        if (img) {
+          img.src = data.url;
+        } else if (wrap.classList.contains('og-media-slot')) {
+          var thumb = document.createElement('img');
+          thumb.src = data.url;
+          thumb.alt = '';
+          thumb.className = 'img-fluid mt-1 rounded';
+          wrap.appendChild(thumb);
+        }
+        var envWrap = inp.closest('.og-media-env');
+        if (envWrap) refreshEnvFills(envWrap);
         showMsg('已上傳');
       };
     });
