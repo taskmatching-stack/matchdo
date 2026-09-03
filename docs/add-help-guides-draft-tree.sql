@@ -1,6 +1,7 @@
 -- 操作介紹：依功能分類建成草稿（全部未發佈）
 -- 可重複執行：已存在的 slug 不覆蓋（避免蓋掉你已改寫的內容）
 -- 前台在資料夾／文章發佈前不會出現；請到 /admin/operation-guides.html 依序改寫後公開
+-- 區塊內文（用途／操作／注意）請再執行 docs/add-help-guides-draft-content.sql
 
 INSERT INTO public.help_guide_folders (slug, title, title_en, sort_order, is_published)
 VALUES
