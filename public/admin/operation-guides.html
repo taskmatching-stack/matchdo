@@ -7,6 +7,7 @@
   <title>操作介紹 - MATCHDO 後台</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/assets/vendors/css/quill.min.css" />
   <style>
     .og-tree-item { cursor: pointer; }
     .og-tree-item.active { background: #e8eef4; }
@@ -14,22 +15,12 @@
     .og-media-slot { border: 1px dashed #ced4da; border-radius: .3rem; padding: .5rem; background: #f8f9fa; }
     .og-media-slot img { max-height: 140px; }
     .og-env-dot { white-space: nowrap; cursor: pointer; }
-    .og-text-preview { background: #fff; border: 1px solid #dee2e6; border-radius: .35rem; padding: .75rem 1rem; min-height: 10rem; max-height: 28rem; overflow: auto; }
-    .og-text-preview.help-prose h2 { font-size: 1.35rem; font-weight: 700; margin: 1.25rem 0 .5rem; line-height: 1.35; color: #1a1a1a; }
-    .og-text-preview.help-prose h3 { font-size: 1.125rem; font-weight: 600; margin: 1rem 0 .4rem; line-height: 1.4; color: #2a2a2a; }
-    .og-text-preview.help-prose h2:first-child, .og-text-preview.help-prose h3:first-child { margin-top: 0; }
-    .og-text-preview.help-prose p { margin-bottom: .75rem; line-height: 1.7; color: #333; font-weight: 400; }
-    .og-text-preview.help-prose ul, .og-text-preview.help-prose ol { margin-bottom: .75rem; padding-left: 1.25rem; }
-    .og-text-preview.help-prose li { margin-bottom: .3rem; line-height: 1.65; font-weight: 400; }
-    .og-text-preview .og-preview-empty { color: #6c757d; font-size: .875rem; }
-    .og-syntax-guide { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: .35rem; padding: .65rem .75rem; font-size: .8125rem; line-height: 1.45; }
-    .og-syntax-guide code { font-size: .78rem; color: #0d3b66; background: #e8f0f8; padding: .1rem .3rem; border-radius: .2rem; }
-    .og-syntax-guide .og-syntax-row { display: flex; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #e9ecef; align-items: flex-start; }
-    .og-syntax-guide .og-syntax-row:last-child { border-bottom: 0; }
-    .og-syntax-guide .og-syntax-label { flex: 0 0 5.5rem; color: #495057; }
-    .og-syntax-guide .og-syntax-insert { cursor: pointer; color: #0d6efd; text-decoration: underline; text-underline-offset: 2px; }
-    .og-syntax-guide .og-syntax-insert:hover { color: #0a58ca; }
-    .og-syntax-example { background: #fff; border: 1px dashed #ced4da; border-radius: .3rem; padding: .5rem; margin-top: .5rem; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .75rem; line-height: 1.5; color: #333; }
+    .og-quill-wrap { background: #fff; margin-bottom: .75rem; }
+    .og-quill-wrap .ql-toolbar { border-radius: .35rem .35rem 0 0; }
+    .og-quill-wrap .ql-container { border-radius: 0 0 .35rem .35rem; min-height: 10rem; font-size: 1rem; }
+    .og-quill-wrap .ql-editor { min-height: 9rem; }
+    .og-quill-wrap .ql-editor h2 { font-size: 1.35rem; font-weight: 700; margin: 1rem 0 .5rem; }
+    .og-quill-wrap .ql-editor h3 { font-size: 1.125rem; font-weight: 600; margin: .85rem 0 .4rem; }
   </style>
 </head>
 <body class="bg-light">
@@ -41,7 +32,7 @@
         <h4 class="mb-1">操作介紹</h4>
         <p class="text-muted small mb-3">
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
-          未發佈前台 404。每個「文字」區塊左側有<strong>語法教學</strong>、右側有前台預覽；也可按「套用教學範本」。
+          未發佈前台 404。文字區塊為<strong>所見即所得</strong>（選字體大小＝標題、粗體、清單、連結），不用記 Markdown。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
           圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
@@ -71,6 +62,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/admin/assets/vendors/js/quill.min.js"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
   <script>
@@ -88,22 +80,30 @@
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function snippetAttr(s) {
+  function attrSeed(s) {
     return esc(String(s || '')).replace(/\r?\n/g, '&#10;');
   }
 
+  var QUILL_TOOLBAR = [
+    [{ header: [2, 3, false] }],
+    ['bold'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['link'],
+    ['clean']
+  ];
+
   var TEXT_TEMPLATES = {
     purpose: {
-      text: '## 這是做什麼\n\n設計稿是訂製產品的**生圖工作區**：選分類、寫你要的成品，必要時加上參考圖或版型，再生成設計圖。列表與目錄不在這一頁。\n\n讀完這篇，你應能開啟設計頁、選分類、寫描述並完成第一次生圖。（若你寫的是別的功能，請把本段改成該功能的說明，但保留「讀完能做什麼」。）',
-      text_en: '## What this is for\n\nThe design draft workspace is where you **generate product visuals**: pick a category, describe the item, add references or a template, then generate. Browsing lists happens on separate pages, not here.\n\nAfter this guide, you should be able to open the design page, pick a category, write a prompt, and run your first generation. (If you are documenting another tool, replace this paragraph but keep the outcome sentence.)'
+      text: '<h2>這是做什麼</h2><p>設計稿是訂製產品的<strong>生圖工作區</strong>：選分類、寫你要的成品，必要時加上參考圖或版型，再生成設計圖。列表與目錄不在這一頁。</p><p>讀完這篇，你應能開啟設計頁、選分類、寫描述並完成第一次生圖。（若你寫的是別的功能，請把本段改成該功能的說明。）</p>',
+      text_en: '<h2>What this is for</h2><p>The design draft workspace is where you <strong>generate product visuals</strong>. After this guide you should be able to open the design page and run your first generation.</p>'
     },
     steps: {
-      text: '## 怎麼操作\n\n### 第一步：開啟設計稿\n\n1. 登入 MatchDO。\n2. 頂部選單點「客製產品」→「設計稿」，或開啟 `/custom-product.html`。\n3. 若從官方版型或廠商版型列表點「用此款進行設計」，會自動帶入該版型。\n\n### 第二步：選分類並描述\n\n1. 選**主分類**（必選）；有子分類時再選一項。\n2. 在描述欄寫外型、材質、顏色、結構（越具體越好）。\n3. 需要時在參考圖區按「＋」上傳本機圖，或點「從廠商素材庫選擇」。\n\n### 第三步：生成並儲存\n\n1. 看按鈕旁的點數（無參考／有參考可能不同，**以當頁顯示為準**）。\n2. 按「生成」，等預覽出來。\n3. 滿意後按「儲存」，設計圖會進「我的數位資產」。',
-      text_en: '## How to do it\n\n### Step 1: Open the design workspace\n\n1. Sign in to MatchDO.\n2. From the menu, open **Custom product → Design draft**, or go to `/custom-product.html`.\n3. If you clicked **Design with this template** on an official or vendor template list, that template is loaded for you.\n\n### Step 2: Category and description\n\n1. Pick a **main category** (required); choose a subcategory when shown.\n2. Describe shape, materials, colors, and structure as specifically as you can.\n3. Optionally upload a local reference image, or pick from the vendor asset library.\n\n### Step 3: Generate and save\n\n1. Check the points shown beside the button (with/without references may differ—**use the on-page number**).\n2. Click generate and wait for the preview.\n3. When satisfied, save to **My digital assets**.'
+      text: '<h2>怎麼操作</h2><h3>第一步：開啟設計稿</h3><ol><li>登入 MatchDO。</li><li>頂部選單點「客製產品」→「設計稿」，或開啟<a href="/custom-product.html">設計稿頁面</a>。</li><li>若從版型列表點「用此款進行設計」，會自動帶入該版型。</li></ol><h3>第二步：選分類並描述</h3><ol><li>選<strong>主分類</strong>（必選）；有子分類時再選一項。</li><li>在描述欄寫外型、材質、顏色、結構。</li><li>需要時在參考圖區上傳本機圖，或從廠商素材庫選擇。</li></ol><h3>第三步：生成並儲存</h3><ol><li>看按鈕旁的點數（<strong>以當頁顯示為準</strong>）。</li><li>按「生成」，等預覽出來。</li><li>滿意後按「儲存」，設計圖會進「我的數位資產」。</li></ol>',
+      text_en: '<h2>How to do it</h2><h3>Step 1: Open the design workspace</h3><ol><li>Sign in to MatchDO.</li><li>Open Custom product → Design draft.</li><li>Or use Design with this template from a template list.</li></ol>'
     },
     notes: {
-      text: '## 注意\n\n- 設計稿頁面只做**建立／編輯與生圖**，不是官方版型或廠商版型的總目錄。\n- 從廠商素材庫選圖前，請先選好**主分類**，否則可能顯示尚無素材。\n- 免費帳號可生圖（需點數），但**不能上傳**產品／素材給別人用。\n- 不想出現在首頁靈感牆，儲存時可選「不上媒體牆」。\n\n相關：[/help/design-draft/references](/help/design-draft/references)、[/help/membership/free-limits](/help/membership/free-limits)',
-      text_en: '## Notes\n\n- The design page is for **creating and generating**, not for browsing the full official or vendor template catalogs.\n- Pick a **main category** before opening the vendor asset library, or you may see no assets.\n- Free accounts can generate (with points) but **cannot upload** products/assets for others.\n- To keep a design off the public inspiration wall, choose hide from wall when saving.\n\nSee also: [/help/design-draft/references](/help/design-draft/references), [/help/membership/free-limits](/help/membership/free-limits)'
+      text: '<h2>注意</h2><ul><li>設計稿頁面只做<strong>建立／編輯與生圖</strong>，不是版型總目錄。</li><li>從廠商素材庫選圖前，請先選好<strong>主分類</strong>。</li><li>免費帳號可生圖（需點數），但<strong>不能上傳</strong>產品／素材給別人用。</li><li>不想出現在首頁靈感牆，儲存時可選「不上媒體牆」。</li></ul><p>相關：<a href="/help/design-draft/references">參考圖說明</a>、<a href="/help/membership/free-limits">免費限制</a></p>',
+      text_en: '<h2>Notes</h2><ul><li>The design page is for creating and generating, not browsing full template catalogs.</li><li>Pick a main category before opening the vendor asset library.</li></ul>'
     }
   };
 
@@ -117,7 +117,11 @@
     ];
   }
 
-  function renderSimpleMarkupPreview(md) {
+  function looksLikeHtml(s) {
+    return /<\s*(h2|h3|p|ul|ol|li|strong|a|br)\b/i.test(String(s || ''));
+  }
+
+  function markdownToHtml(md) {
     var src = String(md || '').replace(/\r\n/g, '\n');
     var lines = src.split('\n');
     var html = [];
@@ -142,125 +146,60 @@
     lines.forEach(function (line) {
       var t = line.trim();
       if (!t) { flushList(); return; }
-      if (/^###\s+/.test(t)) {
-        flushList();
-        var h3 = t.replace(/^###\s+/, '');
-        html.push('<h3>' + inlineFmt(h3) + '</h3>');
-        return;
-      }
-      if (/^##\s+/.test(t)) {
-        flushList();
-        var h2 = t.replace(/^##\s+/, '');
-        html.push('<h2>' + inlineFmt(h2) + '</h2>');
-        return;
-      }
-      if (/^[-*]\s+/.test(t)) {
-        if (list.length && listTag !== 'ul') flushList();
-        listTag = 'ul';
-        list.push(t.replace(/^[-*]\s+/, ''));
-        return;
-      }
-      if (/^\d+\.\s+/.test(t)) {
-        if (list.length && listTag !== 'ol') flushList();
-        listTag = 'ol';
-        list.push(t.replace(/^\d+\.\s+/, ''));
-        return;
-      }
+      if (/^###\s+/.test(t)) { flushList(); html.push('<h3>' + inlineFmt(t.replace(/^###\s+/, '')) + '</h3>'); return; }
+      if (/^##\s+/.test(t)) { flushList(); html.push('<h2>' + inlineFmt(t.replace(/^##\s+/, '')) + '</h2>'); return; }
+      if (/^[-*]\s+/.test(t)) { if (list.length && listTag !== 'ul') flushList(); listTag = 'ul'; list.push(t.replace(/^[-*]\s+/, '')); return; }
+      if (/^\d+\.\s+/.test(t)) { if (list.length && listTag !== 'ol') flushList(); listTag = 'ol'; list.push(t.replace(/^\d+\.\s+/, '')); return; }
       flushList();
       html.push('<p>' + inlineFmt(t) + '</p>');
     });
     flushList();
-    return html.join('\n');
+    return html.join('');
   }
 
-  function updateTextPreview(blockEl) {
-    var ta = blockEl.querySelector('.blk-text');
-    var enTa = blockEl.querySelector('.blk-text-en');
-    var zhBox = blockEl.querySelector('.og-preview-zh');
-    var enBox = blockEl.querySelector('.og-preview-en');
-    var zh = ta ? ta.value : '';
-    var en = enTa ? enTa.value : '';
-    if (zhBox) {
-      zhBox.innerHTML = String(zh || '').trim()
-        ? renderSimpleMarkupPreview(zh)
-        : '<p class="og-preview-empty mb-0">中文預覽：在左側輸入後會顯示成前台樣式</p>';
-    }
-    if (enBox) {
-      enBox.innerHTML = String(en || '').trim()
-        ? renderSimpleMarkupPreview(en)
-        : '<p class="og-preview-empty mb-0">英文預覽：填英文欄或按「翻譯成英文」</p>';
-    }
+  function seedEditorHtml(s) {
+    if (looksLikeHtml(s)) return String(s || '');
+    if (!String(s || '').trim()) return '';
+    return markdownToHtml(s);
   }
 
-  function insertAtCursor(textarea, snippet) {
-    if (!textarea) return;
-    var start = textarea.selectionStart;
-    var end = textarea.selectionEnd;
-    var val = textarea.value;
-    textarea.value = val.slice(0, start) + snippet + val.slice(end);
-    textarea.focus();
-    var pos = start + snippet.length;
-    textarea.setSelectionRange(pos, pos);
-    updateTextPreview(textarea.closest('.og-block'));
+  function plainTextToHtml(t) {
+    return String(t || '').split(/\n\s*\n/).filter(function (p) { return String(p || '').trim(); }).map(function (p) {
+      return '<p>' + esc(String(p).replace(/\n/g, ' ').trim()) + '</p>';
+    }).join('');
   }
 
-  function textSyntaxGuideHtml() {
-    function row(label, code, snippet) {
-      var codeHtml = snippet
-        ? '<span class="og-syntax-insert" data-snippet="' + snippetAttr(snippet) + '" title="點一下插入到中文內文">' + esc(code) + '</span>'
-        : '<code>' + esc(code) + '</code>';
-      return '<div class="og-syntax-row"><div class="og-syntax-label">' + esc(label) + '</div><div>' + codeHtml + '</div></div>';
-    }
-    return '<div class="og-syntax-guide h-100">' +
-      '<p class="fw-semibold mb-2">語法教學（點藍字可插入中文內文）</p>' +
-      row('大標題', '## 這是做什麼', '## 這是做什麼\n\n') +
-      row('小標題', '### 第一步', '### 第一步\n\n') +
-      row('粗體', '**重要**', '**重要**') +
-      row('項目符號', '- 項目一', '- 項目一\n- 項目二\n') +
-      row('編號步驟', '1. 第一步', '1. 第一步\n2. 第二步\n') +
-      row('站內連結', '[說明](/help/...)', '[相關說明](/help/)') +
-      row('分段', '（空一行）', '\n\n') +
-      '<p class="text-muted mb-1 mt-2"><strong>注意</strong></p>' +
-      '<ul class="mb-2 ps-3">' +
-      '<li>標題要在<strong>行首</strong>，<code>##</code> 後面空一格</li>' +
-      '<li>文章標題用上方「標題」欄，不要用 <code>#</code></li>' +
-      '<li>截圖、GIF、YouTube 請用「圖片／GIF」「YouTube」區塊</li>' +
-      '</ul>' +
-      '<p class="mb-1 fw-semibold">一篇建議結構</p>' +
-      '<div class="og-syntax-example">## 這是做什麼\n\n（讀完能做什麼）\n\n## 怎麼操作\n\n### 第一步\n\n1. …\n2. …\n\n## 注意\n\n- …</div>' +
-      '</div>';
+  function initQuillEditor(blockEl) {
+    if (!window.Quill) return;
+    var zhWrap = blockEl.querySelector('.og-quill-zh');
+    var enWrap = blockEl.querySelector('.og-quill-en');
+    if (!zhWrap || !enWrap) return;
+    var zhSeed = seedEditorHtml(blockEl.getAttribute('data-zh-seed') || '');
+    var enSeed = seedEditorHtml(blockEl.getAttribute('data-en-seed') || '');
+    var qZh = new Quill(zhWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
+    var qEn = new Quill(enWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
+    if (zhSeed) qZh.clipboard.dangerouslyPasteHTML(zhSeed);
+    if (enSeed) qEn.clipboard.dangerouslyPasteHTML(enSeed);
+    blockEl._quillZh = qZh;
+    blockEl._quillEn = qEn;
   }
 
-  function textToolbarHtml() {
-    return '<div class="btn-toolbar flex-wrap gap-1 mb-2" role="toolbar">' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 這是做什麼\n\n') + '" title="章節：用途說明">這是做什麼</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 怎麼操作\n\n### 第一步\n\n1. \n2. \n') + '" title="章節：操作步驟">怎麼操作</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 注意\n\n- \n') + '" title="章節：注意事項">注意</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('### 小標題\n\n') + '" title="步驟小標">小標題</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('**粗體文字**') + '" title="粗體">粗體</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('- 項目一\n- 項目二\n') + '" title="項目符號">清單</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('1. 第一步\n2. 第二步\n') + '" title="編號步驟">編號</button>' +
-      '</div>';
+  function quillHtml(q) {
+    if (!q || !q.root) return '';
+    var html = String(q.root.innerHTML || '').trim();
+    return html === '<p><br></p>' ? '' : html;
   }
 
   function textEditorHtml(b) {
-    return textToolbarHtml() +
-      '<div class="row g-2">' +
-      '<div class="col-xl-3 order-3 order-xl-1">' +
-      textSyntaxGuideHtml() +
-      '</div>' +
-      '<div class="col-xl-5 order-1 order-xl-2">' +
+    return '<p class="small text-muted mb-2">像 Word 一樣編輯：工具列選「標題」當章節、粗體、編號或項目符號、連結。畫面即前台樣式。</p>' +
       '<label class="form-label small mb-0">中文內文</label>' +
-      '<textarea class="form-control blk-text mb-2" rows="12" placeholder="左邊語法教學可點藍字插入；右邊即時預覽前台樣式">' + esc(b.text || '') + '</textarea>' +
+      '<div class="og-quill-wrap mb-2"><div class="og-quill-zh"></div></div>' +
       '<label class="form-label small mb-0">英文內文</label>' +
-      '<textarea class="form-control blk-text-en" rows="6" placeholder="可手寫或按頁面「翻譯成英文」">' + esc(b.text_en || '') + '</textarea>' +
-      '</div>' +
-      '<div class="col-xl-4 order-2 order-xl-3">' +
-      '<label class="form-label small mb-0">前台預覽（中文）</label>' +
-      '<div class="og-text-preview help-prose og-preview-zh mb-2"></div>' +
-      '<label class="form-label small mb-0">前台預覽（英文）</label>' +
-      '<div class="og-text-preview help-prose og-preview-en"></div>' +
-      '</div></div>';
+      '<div class="og-quill-wrap"><div class="og-quill-en"></div></div>';
+  }
+
+  function textBlockAttrs(b) {
+    return ' data-zh-seed="' + attrSeed(b.text || '') + '" data-en-seed="' + attrSeed(b.text_en || '') + '"';
   }
   async function headersJson() {
     var session = await AuthService.getSession();
@@ -390,7 +329,7 @@
   function blockEditorHtml(blocks) {
     return (blocks || []).map(function (b, i) {
       var type = b.type || 'text';
-      return '<div class="og-block" data-i="' + i + '">' +
+      return '<div class="og-block" data-i="' + i + '"' + (type === 'text' ? textBlockAttrs(b) : '') + '>' +
         '<div class="d-flex gap-2 mb-2 align-items-center">' +
         '<select class="form-select form-select-sm blk-type" style="width:8rem;">' +
         '<option value="text"' + (type === 'text' ? ' selected' : '') + '>文字</option>' +
@@ -408,6 +347,12 @@
     }).join('');
   }
 
+  function htmlToPlain(html) {
+    var d = document.createElement('div');
+    d.innerHTML = String(html || '');
+    return (d.textContent || d.innerText || '').trim();
+  }
+
   function collectBlocks() {
     var out = [];
     document.querySelectorAll('#ogEditor .og-block').forEach(function (el) {
@@ -418,7 +363,11 @@
         return n ? String(n.value || '').trim() : '';
       };
       if (type === 'text') {
-        out.push({ type: 'text', text: val('.blk-text'), text_en: val('.blk-text-en') });
+        out.push({
+          type: 'text',
+          text: quillHtml(el._quillZh),
+          text_en: quillHtml(el._quillEn)
+        });
       } else if (type === 'image') {
         var dz = slot('blk-url', 'url_desktop_zh');
         out.push({
@@ -498,24 +447,9 @@
 
   function bindBlockUi() {
     document.querySelectorAll('#ogEditor .og-block').forEach(function (blockEl) {
-      updateTextPreview(blockEl);
-    });
-    document.querySelectorAll('#ogEditor .blk-text, #ogEditor .blk-text-en').forEach(function (ta) {
-      ta.oninput = function () { updateTextPreview(ta.closest('.og-block')); };
-    });
-    document.querySelectorAll('#ogEditor .og-fmt').forEach(function (btn) {
-      btn.onclick = function () {
-        var blockEl = btn.closest('.og-block');
-        var ta = blockEl.querySelector('.blk-text');
-        insertAtCursor(ta, btn.getAttribute('data-snippet') || '');
-      };
-    });
-    document.querySelectorAll('#ogEditor .og-syntax-insert').forEach(function (el) {
-      el.onclick = function () {
-        var blockEl = el.closest('.og-block');
-        var ta = blockEl ? blockEl.querySelector('.blk-text') : null;
-        insertAtCursor(ta, el.getAttribute('data-snippet') || '');
-      };
+      if (blockEl.querySelector('.og-quill-zh') && !blockEl._quillZh) {
+        initQuillEditor(blockEl);
+      }
     });
     document.querySelectorAll('#ogEditor .blk-type').forEach(function (selEl) {
       selEl.onchange = function () {
@@ -733,11 +667,15 @@
       var summaryZh = document.getElementById('pSummary').value;
       var blocksNow = collectBlocks();
       var hasZh = String(titleZh || '').trim() || String(summaryZh || '').trim()
-        || blocksNow.some(function (b) { return String(b.text || '').trim() || String(b.caption || '').trim(); });
+        || blocksNow.some(function (b) {
+          return String(b.caption || '').trim() || (b.type === 'text' && htmlToPlain(b.text));
+        });
       if (!hasZh) { showMsg('請先填中文標題、摘要或內文', true); return; }
       var hasEn = String(document.getElementById('pTitleEn').value || '').trim()
         || String(document.getElementById('pSummaryEn').value || '').trim()
-        || blocksNow.some(function (b) { return String(b.text_en || '').trim() || String(b.caption_en || '').trim(); });
+        || blocksNow.some(function (b) {
+          return String(b.caption_en || '').trim() || (b.type === 'text' && htmlToPlain(b.text_en));
+        });
       if (hasEn && !confirm('英文欄已有內容，要覆蓋嗎？')) return;
       btn.disabled = true;
       try {
@@ -745,7 +683,12 @@
           kind: 'page',
           title: titleZh,
           summary: summaryZh,
-          blocks: blocksNow.map(function (b) { return { text: b.text || '', caption: b.caption || '' }; })
+          blocks: blocksNow.map(function (b) {
+            return {
+              text: b.type === 'text' ? htmlToPlain(b.text || '') : '',
+              caption: b.caption || ''
+            };
+          })
         });
         document.getElementById('pTitleEn').value = data.title_en || '';
         document.getElementById('pSummaryEn').value = data.summary_en || '';
@@ -753,7 +696,7 @@
         var merged = blocksNow.map(function (b, i) {
           var hit = enBlocks[i] || {};
           return Object.assign({}, b, {
-            text_en: hit.text_en != null ? hit.text_en : (b.text_en || ''),
+            text_en: b.type === 'text' && hit.text_en != null ? plainTextToHtml(hit.text_en) : (b.text_en || ''),
             caption_en: hit.caption_en != null ? hit.caption_en : (b.caption_en || '')
           });
         });
