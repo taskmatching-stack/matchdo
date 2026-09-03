@@ -100,6 +100,9 @@
     .dual-tables .half:last-child { border-right: 0; }
     .stats-table td.col-label { max-width: 22rem; }
     .sub-block-title { font-size: 0.75rem; font-weight: 600; color: #6c757d; margin: 0.5rem 0 0.25rem; }
+    .toolbar-row [data-range].active {
+      border-color: #7A8FA3; background: #eef2f5; color: #212529; font-weight: 600;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -361,6 +364,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
-  <script src="/admin/js/platform-stats.js?v=20260826-parts"></script>
+  <script src="/admin/js/platform-stats.js?v=20260903-range-active"></script>
 </body>
 </html>

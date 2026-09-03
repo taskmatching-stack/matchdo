@@ -42,6 +42,14 @@
     };
   }
 
+  function setRangeButtonsActive(kind) {
+    document.querySelectorAll('[data-range]').forEach(function (btn) {
+      var on = kind != null && String(btn.getAttribute('data-range')) === String(kind);
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
   function setQuickRange(kind) {
     var fromEl = $('fromDate');
     var toEl = $('toDate');
@@ -51,12 +59,14 @@
     if (kind === 'all') {
       fromEl.value = '';
       toEl.value = '';
+      setRangeButtonsActive('all');
       return;
     }
     var days = parseInt(kind, 10) || 7;
     var from = new Date(today);
     from.setDate(from.getDate() - (days - 1));
     fromEl.value = fmtDate(from);
+    setRangeButtonsActive(String(days));
   }
 
   function showRangeMeta(from, to) {
@@ -667,6 +677,10 @@
         loadedKey = '';
         loadCurrentSection(true);
       });
+    });
+    ['fromDate', 'toDate'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.addEventListener('change', function () { setRangeButtonsActive(null); });
     });
     ['chkPublicOnly', 'chkIncludeInactive'].forEach(function (id) {
       var el = $(id);
