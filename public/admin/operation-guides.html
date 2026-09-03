@@ -15,10 +15,21 @@
     .og-media-slot img { max-height: 140px; }
     .og-env-dot { white-space: nowrap; cursor: pointer; }
     .og-text-preview { background: #fff; border: 1px solid #dee2e6; border-radius: .35rem; padding: .75rem 1rem; min-height: 10rem; max-height: 28rem; overflow: auto; }
-    .og-text-preview.help-prose h2 { font-size: 1.15rem; margin-top: 1.25rem; }
-    .og-text-preview.help-prose h3 { font-size: 1.05rem; margin-top: 1rem; }
-    .og-text-preview.help-prose p:last-child { margin-bottom: 0; }
+    .og-text-preview.help-prose h2 { font-size: 1.35rem; font-weight: 700; margin: 1.25rem 0 .5rem; line-height: 1.35; color: #1a1a1a; }
+    .og-text-preview.help-prose h3 { font-size: 1.125rem; font-weight: 600; margin: 1rem 0 .4rem; line-height: 1.4; color: #2a2a2a; }
+    .og-text-preview.help-prose h2:first-child, .og-text-preview.help-prose h3:first-child { margin-top: 0; }
+    .og-text-preview.help-prose p { margin-bottom: .75rem; line-height: 1.7; color: #333; font-weight: 400; }
+    .og-text-preview.help-prose ul, .og-text-preview.help-prose ol { margin-bottom: .75rem; padding-left: 1.25rem; }
+    .og-text-preview.help-prose li { margin-bottom: .3rem; line-height: 1.65; font-weight: 400; }
     .og-text-preview .og-preview-empty { color: #6c757d; font-size: .875rem; }
+    .og-syntax-guide { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: .35rem; padding: .65rem .75rem; font-size: .8125rem; line-height: 1.45; }
+    .og-syntax-guide code { font-size: .78rem; color: #0d3b66; background: #e8f0f8; padding: .1rem .3rem; border-radius: .2rem; }
+    .og-syntax-guide .og-syntax-row { display: flex; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #e9ecef; align-items: flex-start; }
+    .og-syntax-guide .og-syntax-row:last-child { border-bottom: 0; }
+    .og-syntax-guide .og-syntax-label { flex: 0 0 5.5rem; color: #495057; }
+    .og-syntax-guide .og-syntax-insert { cursor: pointer; color: #0d6efd; text-decoration: underline; text-underline-offset: 2px; }
+    .og-syntax-guide .og-syntax-insert:hover { color: #0a58ca; }
+    .og-syntax-example { background: #fff; border: 1px dashed #ced4da; border-radius: .3rem; padding: .5rem; margin-top: .5rem; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .75rem; line-height: 1.5; color: #333; }
   </style>
 </head>
 <body class="bg-light">
@@ -30,7 +41,7 @@
         <h4 class="mb-1">操作介紹</h4>
         <p class="text-muted small mb-3">
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
-          未發佈前台 404。文字區塊右側即時預覽前台樣式；可用工具列插入標題／粗體／清單，或「套用教學範本」。
+          未發佈前台 404。每個「文字」區塊左側有<strong>語法教學</strong>、右側有前台預覽；也可按「套用教學範本」。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
           圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
@@ -76,6 +87,9 @@
   }
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function snippetAttr(s) {
+    return esc(String(s || '')).replace(/\r?\n/g, '&#10;');
   }
 
   var TEXT_TEMPLATES = {
@@ -190,28 +204,58 @@
     updateTextPreview(textarea.closest('.og-block'));
   }
 
+  function textSyntaxGuideHtml() {
+    function row(label, code, snippet) {
+      var codeHtml = snippet
+        ? '<span class="og-syntax-insert" data-snippet="' + snippetAttr(snippet) + '" title="點一下插入到中文內文">' + esc(code) + '</span>'
+        : '<code>' + esc(code) + '</code>';
+      return '<div class="og-syntax-row"><div class="og-syntax-label">' + esc(label) + '</div><div>' + codeHtml + '</div></div>';
+    }
+    return '<div class="og-syntax-guide h-100">' +
+      '<p class="fw-semibold mb-2">語法教學（點藍字可插入中文內文）</p>' +
+      row('大標題', '## 這是做什麼', '## 這是做什麼\n\n') +
+      row('小標題', '### 第一步', '### 第一步\n\n') +
+      row('粗體', '**重要**', '**重要**') +
+      row('項目符號', '- 項目一', '- 項目一\n- 項目二\n') +
+      row('編號步驟', '1. 第一步', '1. 第一步\n2. 第二步\n') +
+      row('站內連結', '[說明](/help/...)', '[相關說明](/help/)') +
+      row('分段', '（空一行）', '\n\n') +
+      '<p class="text-muted mb-1 mt-2"><strong>注意</strong></p>' +
+      '<ul class="mb-2 ps-3">' +
+      '<li>標題要在<strong>行首</strong>，<code>##</code> 後面空一格</li>' +
+      '<li>文章標題用上方「標題」欄，不要用 <code>#</code></li>' +
+      '<li>截圖、GIF、YouTube 請用「圖片／GIF」「YouTube」區塊</li>' +
+      '</ul>' +
+      '<p class="mb-1 fw-semibold">一篇建議結構</p>' +
+      '<div class="og-syntax-example">## 這是做什麼\n\n（讀完能做什麼）\n\n## 怎麼操作\n\n### 第一步\n\n1. …\n2. …\n\n## 注意\n\n- …</div>' +
+      '</div>';
+  }
+
   function textToolbarHtml() {
     return '<div class="btn-toolbar flex-wrap gap-1 mb-2" role="toolbar">' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 這是做什麼\n\n" title="章節：用途說明">這是做什麼</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 怎麼操作\n\n### 第一步\n\n1. \n2. \n" title="章節：操作步驟">怎麼操作</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 注意\n\n- \n" title="章節：注意事項">注意</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="### 小標題\n\n" title="步驟小標">小標題</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="**粗體文字**" title="粗體">粗體</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="- 項目一\n- 項目二\n" title="項目符號">清單</button>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="1. 第一步\n2. 第二步\n" title="編號步驟">編號</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 這是做什麼\n\n') + '" title="章節：用途說明">這是做什麼</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 怎麼操作\n\n### 第一步\n\n1. \n2. \n') + '" title="章節：操作步驟">怎麼操作</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('## 注意\n\n- \n') + '" title="章節：注意事項">注意</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('### 小標題\n\n') + '" title="步驟小標">小標題</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('**粗體文字**') + '" title="粗體">粗體</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('- 項目一\n- 項目二\n') + '" title="項目符號">清單</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="' + snippetAttr('1. 第一步\n2. 第二步\n') + '" title="編號步驟">編號</button>' +
       '</div>';
   }
 
   function textEditorHtml(b) {
     return textToolbarHtml() +
       '<div class="row g-2">' +
-      '<div class="col-lg-6">' +
-      '<label class="form-label small mb-0">中文內文</label>' +
-      '<textarea class="form-control blk-text mb-2" rows="12" placeholder="例：## 用途&#10;&#10;這篇說明如何…">' + esc(b.text || '') + '</textarea>' +
-      '<label class="form-label small mb-0">英文內文</label>' +
-      '<textarea class="form-control blk-text-en" rows="6" placeholder="English body (optional)">' + esc(b.text_en || '') + '</textarea>' +
+      '<div class="col-xl-3 order-3 order-xl-1">' +
+      textSyntaxGuideHtml() +
       '</div>' +
-      '<div class="col-lg-6">' +
+      '<div class="col-xl-5 order-1 order-xl-2">' +
+      '<label class="form-label small mb-0">中文內文</label>' +
+      '<textarea class="form-control blk-text mb-2" rows="12" placeholder="左邊語法教學可點藍字插入；右邊即時預覽前台樣式">' + esc(b.text || '') + '</textarea>' +
+      '<label class="form-label small mb-0">英文內文</label>' +
+      '<textarea class="form-control blk-text-en" rows="6" placeholder="可手寫或按頁面「翻譯成英文」">' + esc(b.text_en || '') + '</textarea>' +
+      '</div>' +
+      '<div class="col-xl-4 order-2 order-xl-3">' +
       '<label class="form-label small mb-0">前台預覽（中文）</label>' +
       '<div class="og-text-preview help-prose og-preview-zh mb-2"></div>' +
       '<label class="form-label small mb-0">前台預覽（英文）</label>' +
@@ -464,6 +508,13 @@
         var blockEl = btn.closest('.og-block');
         var ta = blockEl.querySelector('.blk-text');
         insertAtCursor(ta, btn.getAttribute('data-snippet') || '');
+      };
+    });
+    document.querySelectorAll('#ogEditor .og-syntax-insert').forEach(function (el) {
+      el.onclick = function () {
+        var blockEl = el.closest('.og-block');
+        var ta = blockEl ? blockEl.querySelector('.blk-text') : null;
+        insertAtCursor(ta, el.getAttribute('data-snippet') || '');
       };
     });
     document.querySelectorAll('#ogEditor .blk-type').forEach(function (selEl) {
