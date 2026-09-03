@@ -2,32 +2,33 @@
 -- 可重複執行：已存在的 slug 不覆蓋（避免蓋掉你已改寫的內容）
 -- 前台在資料夾／文章發佈前不會出現；請到 /admin/operation-guides.html 依序改寫後公開
 -- 區塊內文（用途／操作／注意）請再執行 docs/add-help-guides-draft-content.sql
+-- 英文欄位留空，中文修正後再翻譯
 
 INSERT INTO public.help_guide_folders (slug, title, title_en, sort_order, is_published)
 VALUES
-    ('getting-started', '開始使用', 'Getting started', 10, false),
-    ('design-draft', '設計稿', 'Design drafts', 20, false),
-    ('materials', '材料組合', 'Material combinations', 30, false),
-    ('print-asset', '印花', 'Print assets', 40, false),
-    ('promo-image', '情境圖', 'Scene images', 50, false),
-    ('promo-camera', '商攝導演', 'Promo camera', 60, false),
-    ('pattern-extract', '圖樣提取', 'Pattern extract', 70, false),
-    ('design-to-physical', '寫實化', 'Design to physical', 80, false),
-    ('scene-sim', '實境模擬', 'Scene simulation', 90, false),
-    ('my-assets', '我的數位資產', 'My digital assets', 100, false),
-    ('gallery', '圖庫找廠商', 'Find makers in gallery', 110, false),
-    ('design-direction', '設計風向', 'Design direction', 120, false),
-    ('vendor-start', '製造商入門', 'Manufacturer start', 200, false),
-    ('vendor-portfolio', '展示案例', 'Portfolio', 210, false),
-    ('vendor-materials', '素材管理', 'Vendor materials', 220, false),
-    ('vendor-embed', 'Embed 說明', 'Embed', 230, false),
-    ('vendor-inquiries', '詢價', 'Inquiries', 240, false),
-    ('vendor-profile', '廠商公開首頁', 'Vendor public page', 250, false),
-    ('vendor-sourcing', '上游採購', 'Upstream sourcing', 260, false),
-    ('supplier-catalog', '供應商上架', 'Supplier catalog', 300, false),
-    ('supplier-profile', '供應商公開頁', 'Supplier public page', 310, false),
-    ('membership', '方案與點數', 'Plans and credits', 400, false),
-    ('faq', '常見問題', 'FAQ', 500, false)
+    ('getting-started', '開始使用', '', 10, false),
+    ('design-draft', '設計稿', '', 20, false),
+    ('materials', '材料組合', '', 30, false),
+    ('print-asset', '印花', '', 40, false),
+    ('promo-image', '情境圖', '', 50, false),
+    ('promo-camera', '商攝導演', '', 60, false),
+    ('pattern-extract', '圖樣提取', '', 70, false),
+    ('design-to-physical', '寫實化', '', 80, false),
+    ('scene-sim', '實境模擬', '', 90, false),
+    ('my-assets', '我的數位資產', '', 100, false),
+    ('gallery', '圖庫找廠商', '', 110, false),
+    ('design-direction', '設計風向', '', 120, false),
+    ('vendor-start', '製造商入門', '', 200, false),
+    ('vendor-portfolio', '展示案例', '', 210, false),
+    ('vendor-materials', '素材管理', '', 220, false),
+    ('vendor-embed', 'Embed 說明', '', 230, false),
+    ('vendor-inquiries', '詢價', '', 240, false),
+    ('vendor-profile', '廠商公開首頁', '', 250, false),
+    ('vendor-sourcing', '上游採購', '', 260, false),
+    ('supplier-catalog', '供應商上架', '', 300, false),
+    ('supplier-profile', '供應商公開頁', '', 310, false),
+    ('membership', '方案與點數', '', 400, false),
+    ('faq', '常見問題', '', 500, false)
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.help_guide_pages (
@@ -37,14 +38,14 @@ SELECT
     f.id,
     v.slug,
     v.title,
-    v.title_en,
+    '',
     v.summary,
-    v.summary_en,
+    '',
     jsonb_build_array(jsonb_build_object(
         'type', 'text',
         'sort', 0,
         'text', '這篇仍是草稿，尚未發佈。請在後台改寫後再公開。' || E'\n\n' || v.body,
-        'text_en', 'This page is still a draft and is not published. Edit it in admin, then publish.' || E'\n\n' || v.body_en
+        'text_en', ''
     )),
     v.sort_order,
     false

@@ -3,6 +3,7 @@
 /**
  * 產生 docs/add-help-guides-draft-content.sql
  * 每篇拆成獨立文字區塊（用途／操作／注意），只更新未發佈草稿。
+ * 英文欄位刻意留空：中文修正後再翻譯。
  */
 const fs = require('fs');
 const path = require('path');
@@ -11,9 +12,8 @@ function blocks() {
     const out = [];
     for (var i = 0; i < arguments.length; i += 2) {
         var zh = arguments[i];
-        var en = arguments[i + 1];
-        if (!zh && !en) continue;
-        out.push({ type: 'text', sort: out.length, text: String(zh || ''), text_en: String(en || '') });
+        if (!zh) continue;
+        out.push({ type: 'text', sort: out.length, text: String(zh || ''), text_en: '' });
     }
     return out;
 }
@@ -505,14 +505,18 @@ function sqlQuote(s) {
 
 const lines = [];
 lines.push('-- 操作介紹草稿內文：每篇拆成「用途／操作／注意」等文字區塊');
+lines.push('-- 英文欄位（title_en／summary_en／text_en）刻意留空，中文修正後再翻譯');
 lines.push('-- 只更新尚未發佈的文章（不覆蓋你已公開或已改寫後發佈的內容）');
 lines.push('-- 可重複執行。資料夾／篇 slug 須已存在（見 add-help-guides-draft-tree.sql）');
 lines.push('-- 前台在發佈前仍不會出現；請到 /admin/operation-guides.html 檢視區塊後再公開');
 lines.push('');
+lines.push("UPDATE public.help_guide_folders SET title_en = '', updated_at = now() WHERE is_published = false;");
+lines.push('');
 lines.push('UPDATE public.help_guide_pages p');
 lines.push('SET');
+lines.push("    title_en = '',");
 lines.push('    summary = v.summary,');
-lines.push('    summary_en = v.summary_en,');
+lines.push("    summary_en = '',");
 lines.push('    blocks_json = v.blocks,');
 lines.push('    updated_at = now()');
 lines.push('FROM (');
@@ -522,7 +526,6 @@ pages.forEach(function (row, i) {
     var folder = row[0];
     var slug = row[1];
     var summary = row[2];
-    var summaryEn = row[3];
     var bl = row[4];
     var comma = i === pages.length - 1 ? '' : ',';
     lines.push(
@@ -530,12 +533,11 @@ pages.forEach(function (row, i) {
         sqlQuote(folder) + ', ' +
         sqlQuote(slug) + ', ' +
         sqlQuote(summary) + ', ' +
-        sqlQuote(summaryEn) + ', ' +
         sqlQuote(JSON.stringify(bl)) + '::jsonb)' + comma
     );
 });
 
-lines.push(') AS v(folder_slug, slug, summary, summary_en, blocks)');
+lines.push(') AS v(folder_slug, slug, summary, blocks)');
 lines.push('JOIN public.help_guide_folders f ON f.slug = v.folder_slug');
 lines.push('WHERE p.folder_id = f.id');
 lines.push('  AND p.slug = v.slug');
