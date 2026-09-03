@@ -14,6 +14,11 @@
     .og-media-slot { border: 1px dashed #ced4da; border-radius: .3rem; padding: .5rem; background: #f8f9fa; }
     .og-media-slot img { max-height: 140px; }
     .og-env-dot { white-space: nowrap; cursor: pointer; }
+    .og-text-preview { background: #fff; border: 1px solid #dee2e6; border-radius: .35rem; padding: .75rem 1rem; min-height: 10rem; max-height: 28rem; overflow: auto; }
+    .og-text-preview.help-prose h2 { font-size: 1.15rem; margin-top: 1.25rem; }
+    .og-text-preview.help-prose h3 { font-size: 1.05rem; margin-top: 1rem; }
+    .og-text-preview.help-prose p:last-child { margin-bottom: 0; }
+    .og-text-preview .og-preview-empty { color: #6c757d; font-size: .875rem; }
   </style>
 </head>
 <body class="bg-light">
@@ -25,7 +30,7 @@
         <h4 class="mb-1">操作介紹</h4>
         <p class="text-muted small mb-3">
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
-          未發佈前台 404。文字可用 <code>## 標題</code>、<code>**粗體**</code>、清單。
+          未發佈前台 404。文字區塊右側即時預覽前台樣式；可用工具列插入標題／粗體／清單，或「套用教學範本」。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
           圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
@@ -71,6 +76,147 @@
   }
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  var TEXT_TEMPLATES = {
+    purpose: {
+      text: '## 這是做什麼\n\n設計稿是訂製產品的**生圖工作區**：選分類、寫你要的成品，必要時加上參考圖或版型，再生成設計圖。列表與目錄不在這一頁。\n\n讀完這篇，你應能開啟設計頁、選分類、寫描述並完成第一次生圖。（若你寫的是別的功能，請把本段改成該功能的說明，但保留「讀完能做什麼」。）',
+      text_en: '## What this is for\n\nThe design draft workspace is where you **generate product visuals**: pick a category, describe the item, add references or a template, then generate. Browsing lists happens on separate pages, not here.\n\nAfter this guide, you should be able to open the design page, pick a category, write a prompt, and run your first generation. (If you are documenting another tool, replace this paragraph but keep the outcome sentence.)'
+    },
+    steps: {
+      text: '## 怎麼操作\n\n### 第一步：開啟設計稿\n\n1. 登入 MatchDO。\n2. 頂部選單點「客製產品」→「設計稿」，或開啟 `/custom-product.html`。\n3. 若從官方版型或廠商版型列表點「用此款進行設計」，會自動帶入該版型。\n\n### 第二步：選分類並描述\n\n1. 選**主分類**（必選）；有子分類時再選一項。\n2. 在描述欄寫外型、材質、顏色、結構（越具體越好）。\n3. 需要時在參考圖區按「＋」上傳本機圖，或點「從廠商素材庫選擇」。\n\n### 第三步：生成並儲存\n\n1. 看按鈕旁的點數（無參考／有參考可能不同，**以當頁顯示為準**）。\n2. 按「生成」，等預覽出來。\n3. 滿意後按「儲存」，設計圖會進「我的數位資產」。',
+      text_en: '## How to do it\n\n### Step 1: Open the design workspace\n\n1. Sign in to MatchDO.\n2. From the menu, open **Custom product → Design draft**, or go to `/custom-product.html`.\n3. If you clicked **Design with this template** on an official or vendor template list, that template is loaded for you.\n\n### Step 2: Category and description\n\n1. Pick a **main category** (required); choose a subcategory when shown.\n2. Describe shape, materials, colors, and structure as specifically as you can.\n3. Optionally upload a local reference image, or pick from the vendor asset library.\n\n### Step 3: Generate and save\n\n1. Check the points shown beside the button (with/without references may differ—**use the on-page number**).\n2. Click generate and wait for the preview.\n3. When satisfied, save to **My digital assets**.'
+    },
+    notes: {
+      text: '## 注意\n\n- 設計稿頁面只做**建立／編輯與生圖**，不是官方版型或廠商版型的總目錄。\n- 從廠商素材庫選圖前，請先選好**主分類**，否則可能顯示尚無素材。\n- 免費帳號可生圖（需點數），但**不能上傳**產品／素材給別人用。\n- 不想出現在首頁靈感牆，儲存時可選「不上媒體牆」。\n\n相關：[/help/design-draft/references](/help/design-draft/references)、[/help/membership/free-limits](/help/membership/free-limits)',
+      text_en: '## Notes\n\n- The design page is for **creating and generating**, not for browsing the full official or vendor template catalogs.\n- Pick a **main category** before opening the vendor asset library, or you may see no assets.\n- Free accounts can generate (with points) but **cannot upload** products/assets for others.\n- To keep a design off the public inspiration wall, choose hide from wall when saving.\n\nSee also: [/help/design-draft/references](/help/design-draft/references), [/help/membership/free-limits](/help/membership/free-limits)'
+    }
+  };
+
+  function defaultArticleBlocks() {
+    return [
+      Object.assign({ type: 'text' }, TEXT_TEMPLATES.purpose),
+      { type: 'image', url: '', caption: '圖 1：設計稿主畫面（左側分類與描述、右側生成結果）', caption_en: 'Fig. 1: Design workspace main screen' },
+      Object.assign({ type: 'text' }, TEXT_TEMPLATES.steps),
+      { type: 'image', url: '', caption: '圖 2：參考圖區—按「＋」上傳，或「從廠商素材庫選擇」', caption_en: 'Fig. 2: Reference image area' },
+      Object.assign({ type: 'text' }, TEXT_TEMPLATES.notes)
+    ];
+  }
+
+  function renderSimpleMarkupPreview(md) {
+    var src = String(md || '').replace(/\r\n/g, '\n');
+    var lines = src.split('\n');
+    var html = [];
+    var list = [];
+    var listTag = 'ul';
+    function inlineFmt(s) {
+      var e = esc(s);
+      e = e.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      e = e.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, label, href) {
+        var h = String(href || '').trim();
+        if (!/^https?:\/\//i.test(h) && !/^\//.test(h)) return _;
+        return '<a href="' + esc(h) + '">' + esc(label) + '</a>';
+      });
+      return e;
+    }
+    function flushList() {
+      if (!list.length) return;
+      html.push('<' + listTag + '>' + list.map(function (item) { return '<li>' + inlineFmt(item) + '</li>'; }).join('') + '</' + listTag + '>');
+      list = [];
+      listTag = 'ul';
+    }
+    lines.forEach(function (line) {
+      var t = line.trim();
+      if (!t) { flushList(); return; }
+      if (/^###\s+/.test(t)) {
+        flushList();
+        var h3 = t.replace(/^###\s+/, '');
+        html.push('<h3>' + inlineFmt(h3) + '</h3>');
+        return;
+      }
+      if (/^##\s+/.test(t)) {
+        flushList();
+        var h2 = t.replace(/^##\s+/, '');
+        html.push('<h2>' + inlineFmt(h2) + '</h2>');
+        return;
+      }
+      if (/^[-*]\s+/.test(t)) {
+        if (list.length && listTag !== 'ul') flushList();
+        listTag = 'ul';
+        list.push(t.replace(/^[-*]\s+/, ''));
+        return;
+      }
+      if (/^\d+\.\s+/.test(t)) {
+        if (list.length && listTag !== 'ol') flushList();
+        listTag = 'ol';
+        list.push(t.replace(/^\d+\.\s+/, ''));
+        return;
+      }
+      flushList();
+      html.push('<p>' + inlineFmt(t) + '</p>');
+    });
+    flushList();
+    return html.join('\n');
+  }
+
+  function updateTextPreview(blockEl) {
+    var ta = blockEl.querySelector('.blk-text');
+    var enTa = blockEl.querySelector('.blk-text-en');
+    var zhBox = blockEl.querySelector('.og-preview-zh');
+    var enBox = blockEl.querySelector('.og-preview-en');
+    var zh = ta ? ta.value : '';
+    var en = enTa ? enTa.value : '';
+    if (zhBox) {
+      zhBox.innerHTML = String(zh || '').trim()
+        ? renderSimpleMarkupPreview(zh)
+        : '<p class="og-preview-empty mb-0">中文預覽：在左側輸入後會顯示成前台樣式</p>';
+    }
+    if (enBox) {
+      enBox.innerHTML = String(en || '').trim()
+        ? renderSimpleMarkupPreview(en)
+        : '<p class="og-preview-empty mb-0">英文預覽：填英文欄或按「翻譯成英文」</p>';
+    }
+  }
+
+  function insertAtCursor(textarea, snippet) {
+    if (!textarea) return;
+    var start = textarea.selectionStart;
+    var end = textarea.selectionEnd;
+    var val = textarea.value;
+    textarea.value = val.slice(0, start) + snippet + val.slice(end);
+    textarea.focus();
+    var pos = start + snippet.length;
+    textarea.setSelectionRange(pos, pos);
+    updateTextPreview(textarea.closest('.og-block'));
+  }
+
+  function textToolbarHtml() {
+    return '<div class="btn-toolbar flex-wrap gap-1 mb-2" role="toolbar">' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 這是做什麼\n\n" title="章節：用途說明">這是做什麼</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 怎麼操作\n\n### 第一步\n\n1. \n2. \n" title="章節：操作步驟">怎麼操作</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="## 注意\n\n- \n" title="章節：注意事項">注意</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="### 小標題\n\n" title="步驟小標">小標題</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="**粗體文字**" title="粗體">粗體</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="- 項目一\n- 項目二\n" title="項目符號">清單</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-fmt" data-snippet="1. 第一步\n2. 第二步\n" title="編號步驟">編號</button>' +
+      '</div>';
+  }
+
+  function textEditorHtml(b) {
+    return textToolbarHtml() +
+      '<div class="row g-2">' +
+      '<div class="col-lg-6">' +
+      '<label class="form-label small mb-0">中文內文</label>' +
+      '<textarea class="form-control blk-text mb-2" rows="12" placeholder="例：## 用途&#10;&#10;這篇說明如何…">' + esc(b.text || '') + '</textarea>' +
+      '<label class="form-label small mb-0">英文內文</label>' +
+      '<textarea class="form-control blk-text-en" rows="6" placeholder="English body (optional)">' + esc(b.text_en || '') + '</textarea>' +
+      '</div>' +
+      '<div class="col-lg-6">' +
+      '<label class="form-label small mb-0">前台預覽（中文）</label>' +
+      '<div class="og-text-preview help-prose og-preview-zh mb-2"></div>' +
+      '<label class="form-label small mb-0">前台預覽（英文）</label>' +
+      '<div class="og-text-preview help-prose og-preview-en"></div>' +
+      '</div></div>';
   }
   async function headersJson() {
     var session = await AuthService.getSession();
@@ -212,8 +358,7 @@
         '<button type="button" class="btn btn-sm btn-outline-danger ms-auto blk-del">刪</button>' +
         '</div>' +
         (type === 'text'
-          ? '<label class="form-label small mb-0">中文（Markdown）</label><textarea class="form-control form-control-sm mb-2 blk-text" rows="6">' + esc(b.text || '') + '</textarea>' +
-            '<label class="form-label small mb-0">英文</label><textarea class="form-control form-control-sm blk-text-en" rows="4">' + esc(b.text_en || '') + '</textarea>'
+          ? textEditorHtml(b)
           : type === 'image' ? imageEditorHtml(b, i) : youtubeEditorHtml(b, i)) +
         '</div>';
     }).join('');
@@ -308,6 +453,19 @@
   }
 
   function bindBlockUi() {
+    document.querySelectorAll('#ogEditor .og-block').forEach(function (blockEl) {
+      updateTextPreview(blockEl);
+    });
+    document.querySelectorAll('#ogEditor .blk-text, #ogEditor .blk-text-en').forEach(function (ta) {
+      ta.oninput = function () { updateTextPreview(ta.closest('.og-block')); };
+    });
+    document.querySelectorAll('#ogEditor .og-fmt').forEach(function (btn) {
+      btn.onclick = function () {
+        var blockEl = btn.closest('.og-block');
+        var ta = blockEl.querySelector('.blk-text');
+        insertAtCursor(ta, btn.getAttribute('data-snippet') || '');
+      };
+    });
     document.querySelectorAll('#ogEditor .blk-type').forEach(function (selEl) {
       selEl.onchange = function () {
         var blocks = collectBlocks();
@@ -458,8 +616,16 @@
       '<label class="form-check-label" for="pPub">發佈</label></div></div></div>' +
       '<label class="form-label small">摘要</label><textarea id="pSummary" class="form-control form-control-sm mb-2" rows="2">' + esc(p.summary || '') + '</textarea>' +
       '<label class="form-label small">摘要（英文）</label><textarea id="pSummaryEn" class="form-control form-control-sm mb-3" rows="2">' + esc(p.summary_en || '') + '</textarea>' +
-      '<div class="d-flex justify-content-between align-items-center mb-2">' +
-      '<strong>區塊</strong><button type="button" class="btn btn-sm btn-outline-primary" id="btnAddBlock">＋區塊</button></div>' +
+      '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">' +
+      '<strong>區塊</strong>' +
+      '<div class="d-flex flex-wrap gap-1">' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnTplFull">套用教學範本</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAddTextPurpose">＋用途</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAddTextSteps">＋操作</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAddTextNotes">＋注意</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAddImage">＋圖片</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-primary" id="btnAddBlock">＋文字</button>' +
+      '</div></div>' +
       '<div id="blocksWrap">' + blockEditorHtml(blocks) + '</div>' +
       '<div class="d-flex gap-2 mt-3">' +
       '<button type="button" class="btn btn-primary btn-sm" id="btnSavePage">儲存</button>' +
@@ -467,11 +633,32 @@
       '<a class="btn btn-outline-secondary btn-sm" target="_blank" href="' + esc(preview) + '">開啟前台</a>' +
       '<button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="btnDelPage">刪除文章</button></div>';
     bindBlockUi();
-    document.getElementById('btnAddBlock').onclick = function () {
+    function addBlocks(items) {
       var blocksNow = collectBlocks();
-      blocksNow.push({ type: 'text', text: '', text_en: '' });
+      items.forEach(function (item) { blocksNow.push(item); });
       document.getElementById('blocksWrap').innerHTML = blockEditorHtml(blocksNow);
       bindBlockUi();
+    }
+    document.getElementById('btnAddBlock').onclick = function () {
+      addBlocks([{ type: 'text', text: '', text_en: '' }]);
+    };
+    document.getElementById('btnAddTextPurpose').onclick = function () {
+      addBlocks([Object.assign({ type: 'text' }, TEXT_TEMPLATES.purpose)]);
+    };
+    document.getElementById('btnAddTextSteps').onclick = function () {
+      addBlocks([Object.assign({ type: 'text' }, TEXT_TEMPLATES.steps)]);
+    };
+    document.getElementById('btnAddTextNotes').onclick = function () {
+      addBlocks([Object.assign({ type: 'text' }, TEXT_TEMPLATES.notes)]);
+    };
+    document.getElementById('btnAddImage').onclick = function () {
+      addBlocks([{ type: 'image', url: '', caption: '', caption_en: '' }]);
+    };
+    document.getElementById('btnTplFull').onclick = function () {
+      if (collectBlocks().length && !confirm('要取代目前所有區塊為教學範本嗎？')) return;
+      document.getElementById('blocksWrap').innerHTML = blockEditorHtml(defaultArticleBlocks());
+      bindBlockUi();
+      showMsg('已套用完整範本（設計稿範例）：請改文字、上傳截圖，再儲存');
     };
     document.getElementById('btnSavePage').onclick = async function () {
       try {
@@ -560,7 +747,8 @@
             slug: 'page-' + Date.now().toString(16).slice(-6),
             title: '新文章',
             title_en: '',
-            is_published: false
+            is_published: false,
+            blocks_json: defaultArticleBlocks()
           });
           sel = { kind: 'page', folderId: folderId, pageId: created.page.id };
           await loadTree(true);
