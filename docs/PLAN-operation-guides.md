@@ -63,16 +63,24 @@
 
 ### 2.2 網址形狀（範例，實作前可改 slug）
 
+草稿樹已建成（全部 `is_published=false`，見 `docs/add-help-guides-draft-tree.sql`）。發佈前前台仍走靜態 `/help/`。
+
 ```
-/help/                              總目錄（現有使用說明升級成目錄）
-/help/getting-started/              大功能：開始使用
-/help/getting-started/login         小功能：註冊與登入
-/help/design-draft/                 大功能：設計稿
-/help/design-draft/references       小功能：參考圖（本機／廠商庫）
-/help/promo-camera/                 大功能：商攝導演
-/help/promo-camera/space            小功能：空間攝影
-/help/membership/                   大功能：方案與點數
-/help/membership/hide-from-wall     小功能：作品不上媒體牆
+/help/                              總目錄（有已發佈資料夾才改 SSR）
+/help/getting-started/               開始使用（總覽／login／first-visit）
+/help/design-draft/                  設計稿（總覽含無樣版／有樣版）
+/help/design-draft/references        參考圖
+/help/design-draft/vendor-styles    廠商版型
+/help/design-draft/official-templates 官方版型
+/help/promo-camera/                商攝（product／space／portrait／pwa-app）
+/help/promo-image/  /help/materials/  /help/print-asset/
+/help/pattern-extract/  /help/design-to-physical/  /help/scene-sim/
+/help/my-assets/  /help/gallery/  /help/design-direction/
+/help/vendor-start/  /help/vendor-portfolio/  /help/vendor-materials/
+/help/vendor-embed/  /help/vendor-inquiries/  /help/vendor-profile/  /help/vendor-sourcing/
+/help/supplier-catalog/  /help/supplier-profile/
+/help/membership/                   方案與點數（top-up／hide-from-wall／free-limits）
+/help/faq                          常見問題
 ```
 
 - slug **英文短橫線**（利 SEO、好複製）。
