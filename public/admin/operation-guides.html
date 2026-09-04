@@ -169,6 +169,14 @@
     }).join('');
   }
 
+  function applyTranslatedTextEn(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    if (looksLikeHtml(s)) return s;
+    if (/^##\s/m.test(s) || /^###\s/m.test(s) || /^[-*]\s/m.test(s) || /^\d+\.\s/m.test(s)) return markdownToHtml(s);
+    return plainTextToHtml(s);
+  }
+
   function initQuillEditor(blockEl) {
     if (!window.Quill) return;
     var zhWrap = blockEl.querySelector('.og-quill-zh');
@@ -685,7 +693,7 @@
           summary: summaryZh,
           blocks: blocksNow.map(function (b) {
             return {
-              text: b.type === 'text' ? htmlToPlain(b.text || '') : '',
+              text: b.type === 'text' ? (b.text || '') : '',
               caption: b.caption || ''
             };
           })
@@ -696,7 +704,7 @@
         var merged = blocksNow.map(function (b, i) {
           var hit = enBlocks[i] || {};
           return Object.assign({}, b, {
-            text_en: b.type === 'text' && hit.text_en != null ? plainTextToHtml(hit.text_en) : (b.text_en || ''),
+            text_en: b.type === 'text' && hit.text_en != null ? applyTranslatedTextEn(hit.text_en) : (b.text_en || ''),
             caption_en: hit.caption_en != null ? hit.caption_en : (b.caption_en || '')
           });
         });

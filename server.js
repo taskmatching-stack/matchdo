@@ -7080,8 +7080,9 @@ function parseJsonObjectFromGeminiText(raw) {
 
 const HELP_GUIDES_I18N_INSTRUCTION =
     'Translate MatchDO operation-guide copy from Traditional Chinese (zh-TW) into natural US English. '
-    + 'Preserve Markdown headings (## / ###), **bold**, lists, and line breaks. '
-    + 'Do not translate URLs, slugs, file paths, or text inside backticks. '
+    + 'Block text may be HTML (h2, h3, p, ul, ol, li, strong, a) from a rich editor, or legacy Markdown (## / ###, **bold**, lists). '
+    + 'Preserve the same structure: HTML in → HTML out with the same tags and nesting; Markdown in → Markdown out with the same heading/list syntax. '
+    + 'Only translate human-readable words inside tags or lines; do not translate URLs in href, slugs, or paths. '
     + 'Empty source fields → empty strings. Return ONLY valid JSON, no markdown fences. '
     + 'Folder input {"title":"..."} → {"title_en":"..."}. '
     + 'Page input {"title":"...","summary":"...","blocks":[{"i":0,"text":"...","caption":"..."}]} → '
