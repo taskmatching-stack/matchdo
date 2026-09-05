@@ -401,6 +401,24 @@
             </div>
           </details>
 
+          <details class="pc-spec-block pc-portrait-only d-none">
+            <summary class="pc-spec-summary">
+              <span class="pc-spec-kicker" data-i18n="promoCamera.portraitStylingLabel">衣著</span>
+              <span class="pc-spec-value" data-pc-spec="portraitStyling">原圖衣著</span>
+            </summary>
+            <div class="pc-spec-body">
+              <div class="pc-spec-choice-row pc-spec-choice-row--triple" role="group" data-i18n-aria-label="promoCamera.portraitStylingLabel" aria-label="衣著">
+                <input class="pc-spec-choice-input" type="radio" name="pcPortraitStylingMode" id="pcPortraitStylingReference" value="reference" checked />
+                <label class="pc-spec-choice-btn" for="pcPortraitStylingReference" data-i18n="promoCamera.portraitStylingReference">原圖衣著</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcPortraitStylingMode" id="pcPortraitStylingScene" value="scene" />
+                <label class="pc-spec-choice-btn" for="pcPortraitStylingScene" data-i18n="promoCamera.portraitStylingScene">依場景</label>
+                <input class="pc-spec-choice-input" type="radio" name="pcPortraitStylingMode" id="pcPortraitStylingPrompt" value="prompt" />
+                <label class="pc-spec-choice-btn" for="pcPortraitStylingPrompt" data-i18n="promoCamera.portraitStylingPrompt">依描述</label>
+              </div>
+              <p class="form-text small text-muted mb-0 mt-2" id="pcPortraitStylingHint" data-i18n="promoCamera.portraitStylingHintReference">服裝維持參考圖；描述可調髮型、表情與小道具。</p>
+            </div>
+          </details>
+
           <details class="pc-spec-block">
             <summary class="pc-spec-summary">
               <span class="pc-spec-kicker" data-i18n="promoCamera.description">描述</span>

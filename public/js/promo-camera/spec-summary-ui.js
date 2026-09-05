@@ -135,6 +135,17 @@
       setVal('portraitRender', renderLabel);
     }
 
+    var stylingRef = document.getElementById('pcPortraitStylingReference');
+    var stylingScene = document.getElementById('pcPortraitStylingScene');
+    var stylingPrompt = document.getElementById('pcPortraitStylingPrompt');
+    var stylingLabel = t('promoCamera.portraitStylingShortReference', '原圖衣著');
+    if (stylingScene && stylingScene.checked) stylingLabel = t('promoCamera.portraitStylingShortScene', '依場景');
+    else if (stylingPrompt && stylingPrompt.checked) stylingLabel = t('promoCamera.portraitStylingShortPrompt', '依描述');
+    var stylingWrap = document.querySelector('details.pc-portrait-only');
+    if (stylingRef && stylingWrap && !stylingWrap.classList.contains('d-none')) {
+      setVal('portraitStyling', stylingLabel);
+    }
+
     var preserve = textOfSelect('pcPreserveSubjects');
     var angle = activeAngleLabel();
     setVal('shootSettings', joinParts([preserve, angle]));

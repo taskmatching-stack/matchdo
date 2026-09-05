@@ -53,6 +53,7 @@
     themeKey: '',
     sceneKey: '',
     portraitRenderMode: 'clear',
+    portraitStylingMode: 'reference',
     portraitPeopleCount: 1,
     portraitSubjectGender: 'female',
     aspectRatio: '1:1',
@@ -207,6 +208,13 @@
     if (state.shootMode !== 'portrait') return;
     if (state.portraitRenderMode !== 'mood' && state.portraitRenderMode !== 'hybrid') return;
     setLookMode('film');
+  }
+
+  function setPortraitStylingMode(mode) {
+    var m = String(mode || '').toLowerCase();
+    if (m === 'scene') state.portraitStylingMode = 'scene';
+    else if (m === 'prompt') state.portraitStylingMode = 'prompt';
+    else state.portraitStylingMode = 'reference';
   }
 
   function setPortraitPeopleCount(n) {
@@ -664,7 +672,9 @@
     if (state.shootMode === 'portrait') {
       if (!state.images.length) return false;
       /* 氛圍也要主題：只給 Nano Banana lite，不進 FLUX */
-      return !!String(state.themeKey || '').trim();
+      if (!String(state.themeKey || '').trim()) return false;
+      if (state.portraitStylingMode === 'prompt' && !String(state.userPrompt || '').trim()) return false;
+      return true;
     }
     return state.images.length > 0;
   }
@@ -793,6 +803,9 @@
           : 1;
         fluxPayload.portrait_subject_gender = state.portraitSubjectGender === 'male' ? 'male' : 'female';
       }
+      fluxPayload.portrait_styling_mode = state.portraitStylingMode === 'scene'
+        ? 'scene'
+        : (state.portraitStylingMode === 'prompt' ? 'prompt' : 'reference');
     }
     if (state.shootMode === 'portrait' && state.stagingProductImage) {
       fluxPayload.product_image = state.stagingProductImage;
@@ -846,6 +859,7 @@
     getThemesForMode: getThemesForMode,
     setShootMode: setShootMode,
     setPortraitRenderMode: setPortraitRenderMode,
+    setPortraitStylingMode: setPortraitStylingMode,
     setPortraitPeopleCount: setPortraitPeopleCount,
     setPortraitSubjectGender: setPortraitSubjectGender,
     setSpaceStyleSource: setSpaceStyleSource,

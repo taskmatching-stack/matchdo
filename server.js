@@ -146,6 +146,7 @@ const designDirectionSeed = require('./lib/design-direction-seed');
 const promoSceneSeed = require('./lib/promo-scene-seed');
 const promoSceneI18n = require('./lib/promo-scene-i18n');
 const promoSpaceGemini = require('./lib/promo-space-gemini');
+const promoPortraitStyling = require('./lib/promo-portrait-styling');
 const promoSpaceAppeal = require('./lib/promo-space-appeal');
 const mediaWallQueries = require('./lib/media-wall-queries');
 const manufacturerAudience = require('./lib/manufacturer-audience');
@@ -668,24 +669,18 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         parts.push('第二張底圖的成像條件，人物受光與色調要對齊：');
         parts.push(cam);
     }
-    if (user) {
-        parts.push('衣服依描述，不要用上傳圖的衣服：' + user);
-    } else {
-        parts.push('沒有描述：衣服用第一張上傳圖那套，不要另外發明服裝。');
-    }
+    const stylingLines = promoPortraitStyling.buildPortraitStylingMoodFaceLines(
+        o.stylingMode || o.portrait_styling_mode,
+        user
+    );
+    stylingLines.forEach(function (line) { parts.push(line); });
     return parts.join('');
 }
 
-function promoPortraitMoodSwapClothesCaptions(hasDesc) {
-    if (hasDesc) {
-        return {
-            sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-            closing: '成品：人與體型＝第一張；衣服依描述；場景＝第二張。光影與邊緣自然過渡。'
-        };
-    }
+function promoPortraitMoodSwapClothesCaptions(stylingMode) {
     return {
         sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
-        closing: '成品：人與體型＝第一張；衣服＝第一張；場景＝第二張。光影與邊緣自然過渡。'
+        closing: promoPortraitStyling.buildPortraitStylingMoodSwapClosing(stylingMode)
     };
 }
 
@@ -697,8 +692,8 @@ function promoPortraitMoodSwapImagePart(img) {
     };
 }
 
-function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, hasDesc) {
-    const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
+function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, stylingMode) {
+    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     /* 圖在前：避免第二次請求時模型只吃文字、略過參考圖 */
     return [
         { type: 'text', text: '第一張・上傳人像（人物與體型）' },
@@ -710,7 +705,7 @@ function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, pr
     ];
 }
 
-function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, promptText, hasDesc) {
+function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, promptText, stylingMode) {
     function inline(img) {
         return {
             inlineData: {
@@ -719,7 +714,7 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
             }
         };
     }
-    const cap = promoPortraitMoodSwapClothesCaptions(hasDesc);
+    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     return [
         { text: '第一張・上傳人像（人物與體型）' },
         inline(personRef),
@@ -745,7 +740,8 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     }
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const generationId = sanitizePromoPortraitGenerationId(opts.generationId);
-    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt();
+    const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(opts.stylingMode || opts.portrait_styling_mode);
+    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({ stylingMode });
     const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     const geminiClient = createStatelessGeminiClient();
@@ -758,7 +754,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     let extracted;
     let apiUsed = 'interactions';
     try {
-        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim()));
+        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, stylingMode);
         const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
             model,
             input,
@@ -777,7 +773,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         apiUsed = 'generateContent';
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
-            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, !!(opts.userPrompt && String(opts.userPrompt).trim())) }],
+            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode) }],
             config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
         }));
         const hit = await extractLargestGeminiResponseImageBuffer(result);
@@ -870,12 +866,15 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         throw err;
     }
     const userPrompt = extra && extra.userPrompt != null ? String(extra.userPrompt).trim() : '';
-    const hasDesc = !!userPrompt;
+    const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(
+        (extra && (extra.stylingMode || extra.portrait_styling_mode)) || 'reference'
+    );
     const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
         userPrompt: userPrompt,
         peopleCount: extra && extra.peopleCount,
         gender: extra && extra.gender,
-        cameraBlock: extra && extra.cameraBlock
+        cameraBlock: extra && extra.cameraBlock,
+        stylingMode
     });
     const face = await generatePromoPortraitMoodLiteSwap(
         portraitRefs[0],
@@ -890,7 +889,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             targetWidth: lookDims.width,
             targetHeight: lookDims.height,
             userPrompt: userPrompt,
-            hasDesc: hasDesc,
+            stylingMode,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
@@ -924,7 +923,8 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
                 userPrompt: extra && extra.userPrompt,
                 peopleCount: extra && extra.peopleCount,
                 gender: extra && extra.gender,
-                cameraBlock: extra && extra.cameraBlock
+                cameraBlock: extra && extra.cameraBlock,
+                stylingMode: extra && (extra.stylingMode || extra.portrait_styling_mode)
             }),
             geminiOpts,
             extra
@@ -1320,7 +1320,8 @@ async function buildPromoPortraitFinalPrompt(opts) {
         width: o.width,
         height: o.height,
         tier: o.tier,
-        minLongEdge: o.minLongEdge || portraitMinLongEdgeForTier(o.tier)
+        minLongEdge: o.minLongEdge || portraitMinLongEdgeForTier(o.tier),
+        stylingMode: o.stylingMode || o.portrait_styling_mode
     });
 }
 
@@ -1430,6 +1431,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     let sceneKey = String(b.scene_key || '').trim();
     if (hasSceneImage) sceneKey = '';
     const userPrompt = String(b.user_prompt || b.prompt || '').trim();
+    const portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(b);
+    promoPortraitStyling.assertPortraitStylingPromptRequired(portraitStylingMode, userPrompt);
     const cameraKeys = b.camera && typeof b.camera === 'object' ? b.camera : {};
     const hasStagingProduct = !!(b.product_image || b.productImage || b.staging_product_image);
     const themeParts = themeKey
@@ -1451,7 +1454,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             userPrompt,
             peopleCount: cast.peopleCount,
             gender: cast.gender,
-            cameraBlock
+            cameraBlock,
+            stylingMode: portraitStylingMode
         })
         : '';
     let geminiPrompt = reverseMood
@@ -1468,7 +1472,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             width: moodDraftDims.width,
             height: moodDraftDims.height,
             tier: isMood ? '1k' : outDims.tier,
-            minLongEdge: isMood ? 1024 : portraitMinLongEdgeForTier(outDims.tier)
+            minLongEdge: isMood ? 1024 : portraitMinLongEdgeForTier(outDims.tier),
+            stylingMode: portraitStylingMode
         });
     if (isMood && !reverseMood) {
         geminiPrompt = (String(geminiPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(cast)).trim();
@@ -1524,6 +1529,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     }
     return {
         render_mode: renderCtx.mode || null,
+        portrait_styling_mode: portraitStylingMode,
         engine: isMood ? 'mood_two_step' : engine,
         mood_pipeline_kind: isMood ? moodPipeline : null,
         prompt_sent: promptSent,
@@ -2429,6 +2435,15 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
         });
     }
+    const portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
+    try {
+        promoPortraitStyling.assertPortraitStylingPromptRequired(portraitStylingMode, userPrompt);
+    } catch (stylingErr) {
+        return res.status(stylingErr.status || 400).json({
+            success: false,
+            error: (stylingErr && stylingErr.message) || '衣著模式設定不正確'
+        });
+    }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
     const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
         ? body.source_type
@@ -2501,7 +2516,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             userPrompt,
             peopleCount: portraitCast.peopleCount,
             gender: portraitCast.gender,
-            cameraBlock
+            cameraBlock,
+            stylingMode: portraitStylingMode
         })
         : '';
     const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
@@ -2533,7 +2549,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     width: moodDraftDims ? moodDraftDims.width : w,
                     height: moodDraftDims ? moodDraftDims.height : h,
                     tier: moodDraftDims ? '1k' : spaceResTier,
-                    minLongEdge: moodDraftDims ? 1024 : portraitMinLongEdgeForTier(spaceResTier)
+                    minLongEdge: moodDraftDims ? 1024 : portraitMinLongEdgeForTier(spaceResTier),
+                    stylingMode: portraitStylingMode
                 });
             if (renderCtx.mode === 'mood' && !reverseMood) {
                 finalPrompt = (String(finalPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
@@ -2614,6 +2631,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender,
                         cameraBlock: cameraBlock,
+                        stylingMode: portraitStylingMode,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     }
                 );
@@ -2767,6 +2785,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     gemini_model: usedGeminiModel || null,
                     flux_model: usedFluxModel || null,
                     portrait_render_mode: renderCtx.mode || null,
+                    portrait_styling_mode: portraitStylingMode,
                     mood_pipeline: renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid',
                     mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
                     portrait_people_count: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? portraitCast.peopleCount : null,
@@ -2958,6 +2977,15 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
         });
     }
+    const portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
+    try {
+        promoPortraitStyling.assertPortraitStylingPromptRequired(portraitStylingMode, userPrompt);
+    } catch (stylingErr) {
+        return res.status(stylingErr.status || 400).json({
+            success: false,
+            error: (stylingErr && stylingErr.message) || '衣著模式設定不正確'
+        });
+    }
     const cameraKeys = body.camera && typeof body.camera === 'object' ? body.camera : {};
     const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
         ? body.source_type
@@ -3009,7 +3037,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 userPrompt,
                 peopleCount: portraitCast.peopleCount,
                 gender: portraitCast.gender,
-                cameraBlock
+                cameraBlock,
+                stylingMode: portraitStylingMode
             })
             : '';
         const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
@@ -3049,7 +3078,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     width: moodDraftDims.width,
                     height: moodDraftDims.height,
                     tier: '1k',
-                    minLongEdge: 1024
+                    minLongEdge: 1024,
+                    stylingMode: portraitStylingMode
                 });
                 draftPrompt = (String(draftPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
                 lookPrompt = buildPromoPortraitMoodFluxLookPrompt(cameraBlock);
@@ -3074,6 +3104,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender,
                     cameraBlock: cameraBlock,
+                    stylingMode: portraitStylingMode,
                     generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                 }
             );
@@ -3152,6 +3183,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 generation_meta_json: {
                     shoot_mode: 'portrait',
                     portrait_render_mode: 'mood',
+                    portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'draft',
                     mood_pipeline: true,
                     mood_pipeline_kind: moodPipeline,
@@ -3182,6 +3214,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 generation_meta_json: {
                     shoot_mode: 'portrait',
                     portrait_render_mode: 'mood',
+                    portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'look',
                     mood_pipeline: true,
                     mood_pipeline_kind: moodPipeline,
@@ -3254,7 +3287,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             hasStagingProduct: !!resolvedRefs.hasStagingProduct,
             width: w,
             height: h,
-            tier: spaceResTier
+            tier: spaceResTier,
+            stylingMode: portraitStylingMode
         });
         fluxPrompt = await buildPromoPortraitFluxPrompt({
             themeKey,
@@ -3361,7 +3395,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         image_provider: imageProvider,
         gemini_model: imageProvider === 'gemini' ? (geminiModel || await getPromoPortraitModelName()) : null,
         flux_model: imageProvider === 'flux' ? fluxModel : null,
-        space_resolution_tier: spaceResTier
+        space_resolution_tier: spaceResTier,
+        portrait_styling_mode: portraitStylingMode
     };
 
     if (!resultImageUrl) {

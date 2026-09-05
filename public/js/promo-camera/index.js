@@ -874,6 +874,62 @@
     return 'clear';
   }
 
+  function portraitStylingMode() {
+    var m = String(St.get().portraitStylingMode || 'reference').toLowerCase();
+    if (m === 'scene' || m === 'prompt') return m;
+    return 'reference';
+  }
+
+  function syncPortraitStylingUi() {
+    if (!isPortraitMode()) return;
+    var mode = portraitStylingMode();
+    var refEl = document.getElementById('pcPortraitStylingReference');
+    var sceneEl = document.getElementById('pcPortraitStylingScene');
+    var promptEl = document.getElementById('pcPortraitStylingPrompt');
+    if (refEl) refEl.checked = mode === 'reference';
+    if (sceneEl) sceneEl.checked = mode === 'scene';
+    if (promptEl) promptEl.checked = mode === 'prompt';
+    var stylingHint = document.getElementById('pcPortraitStylingHint');
+    if (stylingHint) {
+      if (mode === 'scene') {
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；描述可寫姿勢、表情等。');
+      } else if (mode === 'prompt') {
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）。');
+      } else {
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；描述可調髮型、表情與小道具。');
+      }
+    }
+    var promptLabel = document.querySelector('label[for="pcPromptInput"]');
+    var promptInput = document.getElementById('pcPromptInput');
+    if (promptLabel) {
+      if (mode === 'scene') {
+        promptLabel.textContent = t('promoCamera.portraitDescScene', '描述（姿勢、表情等）');
+      } else if (mode === 'prompt') {
+        promptLabel.textContent = t('promoCamera.portraitDescPrompt', '描述（服裝、髮型等，必填）');
+      } else {
+        promptLabel.textContent = t('promoCamera.portraitDescReference', '描述（髮型、表情、道具；衣著維持參考圖）');
+      }
+    }
+    if (promptInput) {
+      if (mode === 'scene') {
+        promptInput.placeholder = t('promoCamera.portraitPlaceholderScene', '例：側身回眸、自然微笑');
+      } else if (mode === 'prompt') {
+        promptInput.placeholder = t('promoCamera.portraitPlaceholder', '例：白色西裝、俐落短髮、自然妝感');
+      } else {
+        promptInput.placeholder = t('promoCamera.portraitPlaceholderReference', '例：俐落短髮、自然妝感（不改衣服）');
+      }
+    }
+    var promptHint = document.getElementById('pcPromptHint');
+    if (promptHint) {
+      var mood = portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid';
+      if (mood) {
+        promptHint.textContent = t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。人與體型依上傳圖。');
+      } else {
+        promptHint.textContent = '';
+      }
+    }
+  }
+
   function syncPortraitRenderModeUi() {
     var mode = portraitRenderMode();
     var clearEl = document.getElementById('pcPortraitRenderClear');
@@ -904,12 +960,7 @@
       }
       genderEl.value = st.portraitSubjectGender;
     }
-    var hintEl = document.getElementById('pcPromptHint');
-    if (hintEl && isPortraitMode()) {
-      hintEl.textContent = mood
-        ? t('promoCamera.portraitMoodCastHint', '人數與性別用下拉。人與體型依上傳圖。沒寫衣服就留上傳圖的衣服；要改再寫描述。')
-        : '';
-    }
+    syncPortraitStylingUi();
   }
 
   /** 清晰／氛圍都顯示主題（氛圍只把主題送給 Lite） */
@@ -947,6 +998,28 @@
     updateGenerateBtn();
   }
 
+  function bindPortraitStylingMode() {
+    var refEl = document.getElementById('pcPortraitStylingReference');
+    var sceneEl = document.getElementById('pcPortraitStylingScene');
+    var promptEl = document.getElementById('pcPortraitStylingPrompt');
+    if (!refEl || refEl.getAttribute('data-pc-bound') === '1') return;
+    function onChange() {
+      var v = 'reference';
+      if (promptEl && promptEl.checked) v = 'prompt';
+      else if (sceneEl && sceneEl.checked) v = 'scene';
+      if (St.setPortraitStylingMode) St.setPortraitStylingMode(v);
+      syncPortraitStylingUi();
+      updateGenerateBtn();
+      if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+        window.PromoCameraSpecSummary.refresh();
+      }
+    }
+    refEl.setAttribute('data-pc-bound', '1');
+    refEl.addEventListener('change', onChange);
+    if (sceneEl) sceneEl.addEventListener('change', onChange);
+    if (promptEl) promptEl.addEventListener('change', onChange);
+  }
+
   function bindPortraitRenderMode() {
     var clearEl = document.getElementById('pcPortraitRenderClear');
     var moodEl = document.getElementById('pcPortraitRenderMood');
@@ -963,7 +1036,6 @@
       }
       fillCameraSelects();
       updateLcd();
-      syncPortraitThemeVisibility();
       syncPortraitMoodCastUi();
       refreshHomepageControl();
       refreshSpaceMpSelectLabels();
@@ -1264,8 +1336,7 @@
     if (space) {
       /* applySpaceOutputUi 已在函式開頭執行 */
     } else if (portrait) {
-      if (promptLabel) promptLabel.textContent = t('promoCamera.portraitDesc', '描述（服裝／髮型等）');
-      if (promptEl) promptEl.placeholder = t('promoCamera.portraitPlaceholder', '例：白色西裝、俐落短髮、自然妝感');
+      syncPortraitStylingUi();
       var genBtnP = document.getElementById('pcGenerateBtn');
       if (genBtnP) {
         var spanP = genBtnP.querySelector('span');
@@ -2429,6 +2500,7 @@
     updateBackLink();
     bindPreserveSubjectsSelect();
     bindPortraitRenderMode();
+    bindPortraitStylingMode();
     bindSpaceMapMarkUi();
 
     var modeProduct = document.getElementById('pcModeProduct');
