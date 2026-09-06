@@ -32,8 +32,20 @@
       .replace(/<\/?div[^>]*>/gi, '');
   }
 
+  function unescapeHtmlEntities(s) {
+    var t = String(s || '');
+    if (!/&lt;\s*(table|h2|h3|p|ul|ol)\b/i.test(t)) return t;
+    return t
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+  }
+
   function sanitizeHelpHtml(raw) {
-    var s = normalizeWordPasteHtml(String(raw || ''));
+    var s = unescapeHtmlEntities(String(raw || ''));
+    s = normalizeWordPasteHtml(s);
     s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
     s = s.replace(/<style[\s\S]*?<\/style>/gi, '');
     s = s.replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
@@ -90,6 +102,12 @@
     });
   }
 
+  function ingestHtmlForQuillEditor(raw) {
+    var s = sanitizeHelpHtml(raw);
+    if (!String(s || '').trim()) return '';
+    return wrapTablesForQuillEditor(s);
+  }
+
   function normalizeEditorHtml(html) {
     var s = String(html || '');
     s = s.replace(/<div class="og-table-embed"[^>]*>([\s\S]*?)<\/div>/gi, function (_, inner) {
@@ -103,6 +121,7 @@
     sanitizeHelpHtml: sanitizeHelpHtml,
     extractTablesHtml: extractTablesHtml,
     wrapTablesForQuillEditor: wrapTablesForQuillEditor,
+    ingestHtmlForQuillEditor: ingestHtmlForQuillEditor,
     normalizeEditorHtml: normalizeEditorHtml
   };
 })(typeof window !== 'undefined' ? window : this);
