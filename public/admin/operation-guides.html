@@ -15,7 +15,8 @@
     .og-media-slot img { max-height: 140px; }
     .og-env-dot { white-space: nowrap; cursor: pointer; }
     .og-html-ta { font-size: .85rem; line-height: 1.45; }
-    .og-html-preview { min-height: 4rem; max-height: 24rem; overflow: auto; font-size: 1rem; }
+    .og-html-preview { min-height: 10rem; max-height: 28rem; overflow: auto; font-size: 1rem; background: #fff; }
+    .og-text-block .nav-tabs .nav-link { cursor: pointer; padding: .35rem .75rem; font-size: .875rem; }
     .og-html-preview h2 { font-size: 1.35rem; font-weight: 700; margin: 1rem 0 .5rem; }
     .og-html-preview h3 { font-size: 1.125rem; font-weight: 600; margin: .85rem 0 .4rem; }
     .og-html-preview .help-table-wrap { overflow-x: auto; margin: .75rem 0; }
@@ -34,7 +35,7 @@
         <h4 class="mb-1">操作介紹</h4>
         <p class="text-muted small mb-3">
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
-          未發佈前台 404。文字區塊請直接貼上 <strong>Word</strong> 或 <strong>HTML 原文</strong>（含表格），下方即前台預覽；儲存時自動清理標籤。
+          未發佈前台 404。文字區塊可切換<strong>中文／英文</strong>與<strong>預覽／HTML 原文</strong>；Word 或 HTML 貼上後在預覽確認表格，再儲存。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
           圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
@@ -64,7 +65,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/help-html-sanitize.js?v=20260906html1"></script>
+  <script src="/js/help-html-sanitize.js?v=20260906html2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
   <script>
@@ -82,8 +83,12 @@
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function attrSeed(s) {
-    return esc(String(s || '')).replace(/\r?\n/g, '&#10;');
+
+  function escTextarea(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   function sanitizeEditorHtml(raw) {
@@ -104,11 +109,13 @@
     ta.focus();
   }
 
-  function refreshHtmlPreview(ta) {
+  function refreshHtmlPreview(boxOrTa) {
+    var box = boxOrTa && boxOrTa.closest ? boxOrTa.closest('.og-text-block') : null;
+    var ta = box ? box.querySelector('.og-html-ta') : boxOrTa;
     if (!ta) return;
-    var wrap = ta.closest('.og-html-field');
-    if (!wrap) return;
-    var prev = wrap.querySelector('.og-html-preview');
+    if (!box) box = ta.closest('.og-text-block');
+    if (!box) return;
+    var prev = box.querySelector('.og-html-preview');
     if (!prev) return;
     var html = sanitizeEditorHtml(ta.value);
     if (window.HelpHtmlSanitize && typeof window.HelpHtmlSanitize.wrapTablesForScroll === 'function') {
@@ -117,24 +124,30 @@
     prev.innerHTML = html || '<p class="text-muted small mb-0">（尚無內容）</p>';
   }
 
-  function bindHtmlTextarea(ta) {
+  function bindHtmlTextarea(ta, box) {
     if (!ta || ta.getAttribute('data-paste-bound') === '1') return;
     ta.setAttribute('data-paste-bound', '1');
-    ta.addEventListener('input', function () { refreshHtmlPreview(ta); });
+    ta.addEventListener('input', function () { refreshHtmlPreview(box); });
+    ta.addEventListener('blur', function () { refreshHtmlPreview(box); });
     ta.addEventListener('paste', function (e) {
       var clip = e.clipboardData;
-      if (!clip) return;
+      if (!clip) {
+        setTimeout(function () { refreshHtmlPreview(box); }, 0);
+        return;
+      }
       var html = clip.getData('text/html') || '';
       var plain = clip.getData('text/plain') || '';
-      if (!html && plain && /<[a-z]/i.test(plain)) html = plain;
-      if (!html || !/<[a-z]/i.test(html)) return;
-      e.preventDefault();
-      insertAtCursor(ta, sanitizeEditorHtml(html));
-      refreshHtmlPreview(ta);
+      if (/<table\b/i.test(plain) && !/<table\b/i.test(html)) html = plain;
+      else if (!html && /<[a-z!/]/i.test(plain)) html = plain;
+      if (html && /<[a-z!/]/i.test(html)) {
+        e.preventDefault();
+        insertAtCursor(ta, sanitizeEditorHtml(html));
+      }
+      setTimeout(function () { refreshHtmlPreview(box); }, 0);
     });
   }
 
-  function formatHtmlTextarea(ta) {
+  function formatHtmlTextarea(ta, box) {
     if (!ta) return false;
     var raw = String(ta.value || '');
     if (!/<[a-z]/i.test(raw)) {
@@ -142,56 +155,116 @@
       return false;
     }
     ta.value = sanitizeEditorHtml(raw);
-    refreshHtmlPreview(ta);
+    refreshHtmlPreview(box);
     showMsg('已整理 HTML');
     return true;
   }
 
-  function bindFormatHtmlButtons(blockEl) {
-    blockEl.querySelectorAll('.og-format-html-btn').forEach(function (btn) {
-      if (btn.getAttribute('data-pc-bound') === '1') return;
-      btn.setAttribute('data-pc-bound', '1');
-      btn.addEventListener('click', function () {
-        var target = btn.getAttribute('data-target') || 'zh';
-        var ta = blockEl.querySelector(target === 'en' ? '.og-html-en' : '.og-html-zh');
-        formatHtmlTextarea(ta);
-      });
+  function setTextBlockMode(box, mode) {
+    if (!box) return;
+    var prev = box.querySelector('.og-html-preview');
+    var ta = box.querySelector('.og-html-ta');
+    var fmtBtn = box.querySelector('.og-format-html-btn');
+    box.setAttribute('data-mode', mode);
+    if (mode === 'preview') {
+      if (prev) prev.classList.remove('d-none');
+      if (ta) ta.classList.add('d-none');
+      if (fmtBtn) fmtBtn.classList.add('d-none');
+      refreshHtmlPreview(box);
+    } else {
+      if (prev) prev.classList.add('d-none');
+      if (ta) ta.classList.remove('d-none');
+      if (fmtBtn) fmtBtn.classList.remove('d-none');
+    }
+    box.querySelectorAll('.og-mode-tabs [data-mode]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
     });
   }
 
+  function flushTextBlockTa(box) {
+    if (!box) return;
+    var ta = box.querySelector('.og-html-ta');
+    var lang = box.getAttribute('data-lang') || 'zh';
+    var store = box.querySelector(lang === 'en' ? '.og-html-store-en' : '.og-html-store-zh');
+    if (ta && store) store.value = ta.value;
+  }
+
+  function loadTextBlockLang(box, lang) {
+    if (!box) return;
+    flushTextBlockTa(box);
+    box.setAttribute('data-lang', lang);
+    var store = box.querySelector(lang === 'en' ? '.og-html-store-en' : '.og-html-store-zh');
+    var ta = box.querySelector('.og-html-ta');
+    if (ta) ta.value = sanitizeEditorHtml(store ? store.value : '');
+    box.querySelectorAll('.og-lang-tabs [data-lang]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+    setTextBlockMode(box, box.getAttribute('data-mode') || 'preview');
+  }
+
   function initTextEditor(blockEl) {
-    var zhTa = blockEl.querySelector('.og-html-zh');
-    var enTa = blockEl.querySelector('.og-html-en');
-    if (!zhTa || !enTa) return;
-    zhTa.value = sanitizeEditorHtml(seedEditorHtml(blockEl.getAttribute('data-zh-seed') || ''));
-    enTa.value = sanitizeEditorHtml(seedEditorHtml(blockEl.getAttribute('data-en-seed') || ''));
-    bindHtmlTextarea(zhTa);
-    bindHtmlTextarea(enTa);
-    refreshHtmlPreview(zhTa);
-    refreshHtmlPreview(enTa);
-    bindFormatHtmlButtons(blockEl);
+    var box = blockEl.querySelector('.og-text-block');
+    if (!box || box.getAttribute('data-editor-init') === '1') return;
+    box.setAttribute('data-editor-init', '1');
+    box.setAttribute('data-lang', 'zh');
+    box.setAttribute('data-mode', 'preview');
+    var storeZh = box.querySelector('.og-html-store-zh');
+    var storeEn = box.querySelector('.og-html-store-en');
+    var ta = box.querySelector('.og-html-ta');
+    if (!ta || !storeZh || !storeEn) return;
+    storeZh.value = sanitizeEditorHtml(storeZh.value);
+    storeEn.value = sanitizeEditorHtml(storeEn.value);
+    ta.value = storeZh.value;
+    bindHtmlTextarea(ta, box);
+    loadTextBlockLang(box, 'zh');
+    box.querySelectorAll('.og-lang-tabs [data-lang]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        loadTextBlockLang(box, btn.getAttribute('data-lang') || 'zh');
+      });
+    });
+    box.querySelectorAll('.og-mode-tabs [data-mode]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setTextBlockMode(box, btn.getAttribute('data-mode') || 'preview');
+      });
+    });
+    var fmtBtn = box.querySelector('.og-format-html-btn');
+    if (fmtBtn) {
+      fmtBtn.addEventListener('click', function () {
+        formatHtmlTextarea(ta, box);
+        flushTextBlockTa(box);
+      });
+    }
   }
 
-  function readTextHtml(ta) {
-    if (!ta) return '';
-    var v = String(ta.value || '').trim();
-    return v ? sanitizeEditorHtml(v) : '';
-  }
-
-  function textFieldHtml(label, cls, target) {
-    return '<div class="og-html-field mb-3">' +
-      '<label class="form-label small mb-0">' + label + '</label>' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary og-format-html-btn mb-1" data-target="' + target + '">整理 HTML</button>' +
-      '<textarea class="form-control og-html-ta ' + cls + '" rows="12" spellcheck="false"></textarea>' +
-      '<div class="small text-muted mt-2 mb-1">前台預覽</div>' +
-      '<div class="og-html-preview border rounded p-2 bg-white"></div>' +
-      '</div>';
+  function readTextBlockHtml(box) {
+    if (!box) return { text: '', text_en: '' };
+    flushTextBlockTa(box);
+    var storeZh = box.querySelector('.og-html-store-zh');
+    var storeEn = box.querySelector('.og-html-store-en');
+    return {
+      text: storeZh && String(storeZh.value || '').trim() ? sanitizeEditorHtml(storeZh.value) : '',
+      text_en: storeEn && String(storeEn.value || '').trim() ? sanitizeEditorHtml(storeEn.value) : ''
+    };
   }
 
   function textEditorHtml(b) {
-    return '<p class="small text-muted mb-2">從 Word 或網頁複製後直接貼上；也可貼 HTML 原文。按「整理 HTML」可重新清理標籤。</p>' +
-      textFieldHtml('中文內文', 'og-html-zh', 'zh') +
-      textFieldHtml('英文內文', 'og-html-en', 'en');
+    var bb = b || {};
+    return '<p class="small text-muted mb-2">切換<strong>中文／英文</strong>與<strong>預覽／HTML 原文</strong>編輯；貼上 Word 或 HTML 後請在預覽確認表格。</p>' +
+      '<div class="og-text-block">' +
+      '<ul class="nav nav-tabs og-lang-tabs mb-2">' +
+      '<li class="nav-item"><button type="button" class="nav-link active" data-lang="zh">中文</button></li>' +
+      '<li class="nav-item"><button type="button" class="nav-link" data-lang="en">英文</button></li>' +
+      '</ul>' +
+      '<div class="btn-group btn-group-sm og-mode-tabs mb-2" role="group">' +
+      '<button type="button" class="btn btn-outline-secondary active" data-mode="preview">預覽</button>' +
+      '<button type="button" class="btn btn-outline-secondary" data-mode="html">HTML 原文</button>' +
+      '</div>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary og-format-html-btn mb-2 d-none">整理 HTML</button>' +
+      '<div class="og-html-preview border rounded p-2"></div>' +
+      '<textarea class="form-control og-html-ta d-none" rows="12" spellcheck="false"></textarea>' +
+      '<textarea class="d-none og-html-store-zh" readonly>' + escTextarea(seedEditorHtml(bb.text)) + '</textarea>' +
+      '<textarea class="d-none og-html-store-en" readonly>' + escTextarea(seedEditorHtml(bb.text_en)) + '</textarea>' +
+      '</div>';
   }
 
   var TEXT_TEMPLATES = {
@@ -283,7 +356,7 @@
   }
 
   function textBlockAttrs(b) {
-    return ' data-zh-seed="' + attrSeed(b.text || '') + '" data-en-seed="' + attrSeed(b.text_en || '') + '"';
+    return '';
   }
   async function headersJson() {
     var session = await AuthService.getSession();
@@ -447,10 +520,11 @@
         return n ? String(n.value || '').trim() : '';
       };
       if (type === 'text') {
+        var htmls = readTextBlockHtml(el.querySelector('.og-text-block'));
         out.push({
           type: 'text',
-          text: readTextHtml(el.querySelector('.og-html-zh')),
-          text_en: readTextHtml(el.querySelector('.og-html-en'))
+          text: htmls.text,
+          text_en: htmls.text_en
         });
       } else if (type === 'image') {
         var dz = slot('blk-url', 'url_desktop_zh');
@@ -531,8 +605,8 @@
 
   function bindBlockUi() {
     document.querySelectorAll('#ogEditor .og-block').forEach(function (blockEl) {
-      if (blockEl.querySelector('.og-html-zh') && blockEl.getAttribute('data-html-init') !== '1') {
-        blockEl.setAttribute('data-html-init', '1');
+      if (blockEl.querySelector('.og-text-block') && blockEl.getAttribute('data-editor-init') !== '1') {
+        blockEl.setAttribute('data-editor-init', '1');
         initTextEditor(blockEl);
       }
     });
