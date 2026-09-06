@@ -21,6 +21,10 @@
     .og-quill-wrap .ql-editor { min-height: 9rem; }
     .og-quill-wrap .ql-editor h2 { font-size: 1.35rem; font-weight: 700; margin: 1rem 0 .5rem; }
     .og-quill-wrap .ql-editor h3 { font-size: 1.125rem; font-weight: 600; margin: .85rem 0 .4rem; }
+    .og-quill-wrap .og-table-embed { margin: .75rem 0; overflow-x: auto; max-width: 100%; }
+    .og-quill-wrap .help-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .og-quill-wrap .help-table th, .og-quill-wrap .help-table td { border: 1px solid #dee2e6; padding: .35rem .5rem; vertical-align: top; }
+    .og-quill-wrap .help-table th { background: #f8f9fa; font-weight: 600; }
   </style>
 </head>
 <body class="bg-light">
@@ -32,7 +36,7 @@
         <h4 class="mb-1">操作介紹</h4>
         <p class="text-muted small mb-3">
           資料夾＝大功能，文章＝可分享的獨立網址 <code>/help/{資料夾}/{篇}</code>。
-          未發佈前台 404。文字區塊為<strong>所見即所得</strong>（選字體大小＝標題、粗體、清單、連結），不用記 Markdown。
+          未發佈前台 404。文字區塊為<strong>所見即所得</strong>（標題、粗體、清單、連結、<strong>表格</strong>）；可從 Word 或 HTML 直接貼上表格。
           名稱與內文請填<strong>英文欄</strong>，前台 <code>?lang=en</code> 才會顯示英文。
           圖片／GIF／YouTube 請依語系與桌面／行動各傳一檔，前台會依訪客語系與手機／電腦自動切（缺的會往下退）。圖說與文字仍只中英兩套。
           可按「翻譯成英文」，沿用 <a href="/admin/ai-settings.html">AI 設定</a> 的「Gemini 翻譯模型」。
@@ -63,6 +67,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/admin/assets/vendors/js/quill.min.js"></script>
+  <script src="/js/help-html-sanitize.js"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
   <script>
@@ -118,7 +123,91 @@
   }
 
   function looksLikeHtml(s) {
-    return /<\s*(h2|h3|p|ul|ol|li|strong|a|br)\b/i.test(String(s || ''));
+    if (window.HelpHtmlSanitize && typeof window.HelpHtmlSanitize.looksLikeHtml === 'function') {
+      return window.HelpHtmlSanitize.looksLikeHtml(s);
+    }
+    return /<\s*(h2|h3|p|ul|ol|li|strong|a|br|table|thead|tbody|tr|th|td)\b/i.test(String(s || ''));
+  }
+
+  var helpTableBlotReady = false;
+  function registerHelpTableBlot() {
+    if (helpTableBlotReady || !window.Quill) return;
+    var BlockEmbed = Quill.import('blots/block/embed');
+    function HelpTableEmbed() {
+      BlockEmbed.apply(this, arguments);
+    }
+    HelpTableEmbed.prototype = Object.create(BlockEmbed.prototype);
+    HelpTableEmbed.create = function (value) {
+      var node = BlockEmbed.create.call(this);
+      node.setAttribute('contenteditable', 'false');
+      if (value) node.innerHTML = value;
+      return node;
+    };
+    HelpTableEmbed.value = function (node) {
+      return node.innerHTML;
+    };
+    HelpTableEmbed.blotName = 'helpTable';
+    HelpTableEmbed.tagName = 'DIV';
+    HelpTableEmbed.className = 'og-table-embed';
+    Quill.register(HelpTableEmbed);
+    helpTableBlotReady = true;
+  }
+
+  function prepareQuillSeedHtml(html) {
+    var s = String(html || '');
+    if (!s.trim()) return '';
+    if (window.HelpHtmlSanitize && typeof window.HelpHtmlSanitize.wrapTablesForQuillEditor === 'function') {
+      return window.HelpHtmlSanitize.wrapTablesForQuillEditor(s);
+    }
+    return s;
+  }
+
+  function bindTablePaste(quill) {
+    if (!quill || !quill.root) return;
+    quill.root.addEventListener('paste', function (e) {
+      var clip = e.clipboardData;
+      if (!clip) return;
+      var html = clip.getData('text/html') || '';
+      if (!/<table\b/i.test(html)) return;
+      if (!window.HelpHtmlSanitize || typeof window.HelpHtmlSanitize.extractTablesHtml !== 'function') return;
+      var tableHtml = window.HelpHtmlSanitize.extractTablesHtml(html);
+      if (!tableHtml) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      var range = quill.getSelection(true);
+      var index = range ? range.index : quill.getLength();
+      quill.insertEmbed(index, 'helpTable', tableHtml, 'user');
+      quill.insertText(index + 1, '\n', 'user');
+      quill.setSelection(index + 2, 0, 'silent');
+    }, true);
+  }
+
+  function initQuillEditor(blockEl) {
+    if (!window.Quill) return;
+    registerHelpTableBlot();
+    var zhWrap = blockEl.querySelector('.og-quill-zh');
+    var enWrap = blockEl.querySelector('.og-quill-en');
+    if (!zhWrap || !enWrap) return;
+    var zhSeed = prepareQuillSeedHtml(seedEditorHtml(blockEl.getAttribute('data-zh-seed') || ''));
+    var enSeed = prepareQuillSeedHtml(seedEditorHtml(blockEl.getAttribute('data-en-seed') || ''));
+    var qZh = new Quill(zhWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
+    var qEn = new Quill(enWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
+    bindTablePaste(qZh);
+    bindTablePaste(qEn);
+    if (zhSeed) qZh.clipboard.dangerouslyPasteHTML(zhSeed);
+    if (enSeed) qEn.clipboard.dangerouslyPasteHTML(enSeed);
+    blockEl._quillZh = qZh;
+    blockEl._quillEn = qEn;
+  }
+
+  function quillHtml(q) {
+    if (!q || !q.root) return '';
+    var html = String(q.root.innerHTML || '').trim();
+    if (html === '<p><br></p>') return '';
+    if (window.HelpHtmlSanitize && typeof window.HelpHtmlSanitize.normalizeEditorHtml === 'function') {
+      return window.HelpHtmlSanitize.normalizeEditorHtml(html);
+    }
+    return html;
   }
 
   function markdownToHtml(md) {
@@ -177,29 +266,8 @@
     return plainTextToHtml(s);
   }
 
-  function initQuillEditor(blockEl) {
-    if (!window.Quill) return;
-    var zhWrap = blockEl.querySelector('.og-quill-zh');
-    var enWrap = blockEl.querySelector('.og-quill-en');
-    if (!zhWrap || !enWrap) return;
-    var zhSeed = seedEditorHtml(blockEl.getAttribute('data-zh-seed') || '');
-    var enSeed = seedEditorHtml(blockEl.getAttribute('data-en-seed') || '');
-    var qZh = new Quill(zhWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
-    var qEn = new Quill(enWrap, { theme: 'snow', modules: { toolbar: QUILL_TOOLBAR } });
-    if (zhSeed) qZh.clipboard.dangerouslyPasteHTML(zhSeed);
-    if (enSeed) qEn.clipboard.dangerouslyPasteHTML(enSeed);
-    blockEl._quillZh = qZh;
-    blockEl._quillEn = qEn;
-  }
-
-  function quillHtml(q) {
-    if (!q || !q.root) return '';
-    var html = String(q.root.innerHTML || '').trim();
-    return html === '<p><br></p>' ? '' : html;
-  }
-
   function textEditorHtml(b) {
-    return '<p class="small text-muted mb-2">像 Word 一樣編輯：工具列選「標題」當章節、粗體、編號或項目符號、連結。畫面即前台樣式。</p>' +
+    return '<p class="small text-muted mb-2">像 Word 一樣編輯：工具列選「標題」當章節、粗體、編號或項目符號、連結。<strong>表格</strong>請從 Word 或網頁直接貼上（貼上後為一整塊，可刪除重貼）。</p>' +
       '<label class="form-label small mb-0">中文內文</label>' +
       '<div class="og-quill-wrap mb-2"><div class="og-quill-zh"></div></div>' +
       '<label class="form-label small mb-0">英文內文</label>' +
