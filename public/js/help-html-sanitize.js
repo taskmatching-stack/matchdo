@@ -94,51 +94,16 @@
     return tables.join('');
   }
 
-  function wrapTablesForQuillEditor(html) {
-    var s = sanitizeHelpHtml(html);
-    if (!/<table\b/i.test(s)) return s;
-    return s.replace(/<table class="help-table">[\s\S]*?<\/table>/gi, function (table) {
-      return '<div class="og-table-embed" contenteditable="false">' + table + '</div>';
+  function wrapTablesForScroll(html) {
+    return String(html || '').replace(/<table class="help-table">[\s\S]*?<\/table>/gi, function (table) {
+      return '<div class="help-table-wrap">' + table + '</div>';
     });
-  }
-
-  function ingestHtmlForQuillEditor(raw) {
-    var s = sanitizeHelpHtml(raw);
-    if (!String(s || '').trim()) return '';
-    return wrapTablesForQuillEditor(s);
-  }
-
-  function splitHelpHtmlByTables(html) {
-    var s = String(html || '');
-    var parts = [];
-    var re = /<table class="help-table">[\s\S]*?<\/table>/gi;
-    var last = 0;
-    var m;
-    while ((m = re.exec(s)) !== null) {
-      if (m.index > last) parts.push({ type: 'html', content: s.slice(last, m.index) });
-      parts.push({ type: 'table', content: m[0] });
-      last = m.index + m[0].length;
-    }
-    if (last < s.length) parts.push({ type: 'html', content: s.slice(last) });
-    if (!parts.length && s.trim()) parts.push({ type: 'html', content: s });
-    return parts;
-  }
-
-  function normalizeEditorHtml(html) {
-    var s = String(html || '');
-    s = s.replace(/<div class="og-table-embed"[^>]*>([\s\S]*?)<\/div>/gi, function (_, inner) {
-      return sanitizeHelpHtml(inner);
-    });
-    return sanitizeHelpHtml(s);
   }
 
   global.HelpHtmlSanitize = {
     looksLikeHtml: looksLikeHtml,
     sanitizeHelpHtml: sanitizeHelpHtml,
     extractTablesHtml: extractTablesHtml,
-    wrapTablesForQuillEditor: wrapTablesForQuillEditor,
-    ingestHtmlForQuillEditor: ingestHtmlForQuillEditor,
-    splitHelpHtmlByTables: splitHelpHtmlByTables,
-    normalizeEditorHtml: normalizeEditorHtml
+    wrapTablesForScroll: wrapTablesForScroll
   };
 })(typeof window !== 'undefined' ? window : this);
