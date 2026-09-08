@@ -74,9 +74,12 @@ node scripts/migrate-supabase-storage-to-gcs.js
 
 ## Phase 3 — DB URL 改寫（腳本已備，Phase 2 後執行）
 
-**腳本：** `scripts/rewrite-db-storage-urls-to-gcs.js`
+**腳本：** `scripts/rewrite-db-storage-urls-to-gcs.js`（本機需 Session pooler 的 `SUPABASE_DB_URL`）
+
+**或 Supabase SQL Editor（推薦，免本機連線）：** `docs/storage-gcs-phase3-rewrite-urls.sql`
 
 ```bash
+# 本機（.env 須為 pooler URI，port 6543；直連 db.xxx.supabase.co 常 ENOTFOUND）
 node scripts/rewrite-db-storage-urls-to-gcs.js --dry-run
 node scripts/rewrite-db-storage-urls-to-gcs.js
 ```
