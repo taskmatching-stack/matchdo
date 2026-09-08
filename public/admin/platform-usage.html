@@ -49,7 +49,10 @@
             <div class="card border-0 shadow-sm">
               <div class="card-body">
                 <h6 class="card-title">Supabase 自動偵測</h6>
-                <ul class="small mb-2" id="autoList"></ul>
+                <table class="table table-sm table-borderless mb-0 small">
+                  <tbody id="autoMetricsBody"></tbody>
+                </table>
+                <div class="small text-muted border-top pt-2 mt-2 d-none" id="autoNotes"></div>
                 <div class="d-flex flex-wrap gap-2">
                   <a class="btn btn-sm btn-outline-primary" href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Supabase Usage</a>
                   <a class="btn btn-sm btn-outline-secondary" href="https://supabase.com/dashboard/org/_/billing" target="_blank" rel="noopener">Billing</a>
@@ -286,6 +289,62 @@
         }).join('');
       }
     }
+    function sourceLabel(src) {
+      if (src === 'management_api') return 'Management API';
+      if (src === 'supabase_db_url') return 'Postgres';
+      if (src === 'supabase_rest') return 'REST';
+      if (src === 'manual_snapshot') return '手動快照';
+      return src || '—';
+    }
+    function renderAutoMetrics(sb, fp) {
+      var auto = (sb && sb.auto) || {};
+      var rows = [];
+      if (auto.database_bytes != null) {
+        rows.push({ label: 'Database', value: (auto.database_bytes / (1024 * 1024)).toFixed(1) + ' MB', source: sourceLabel(auto.data_sources && auto.data_sources.database) });
+      } else if (fp.database && fp.database.used_bytes != null) {
+        rows.push({ label: 'Database', value: (fp.database.used_bytes / (1024 * 1024)).toFixed(1) + ' MB', source: '手動快照' });
+      } else {
+        rows.push({ label: 'Database', value: '—', source: '請設定 SUPABASE_ACCESS_TOKEN', muted: true });
+      }
+      if (auto.storage_objects_bytes != null) {
+        rows.push({ label: 'Storage 物件', value: (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB', source: sourceLabel(auto.data_sources && auto.data_sources.storage_objects) });
+      } else if (fp.storage && fp.storage.used_bytes != null) {
+        rows.push({ label: 'Storage 物件', value: (fp.storage.used_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB', source: '手動快照' });
+      } else {
+        rows.push({ label: 'Storage 物件', value: '—', source: '請設定 SUPABASE_ACCESS_TOKEN', muted: true });
+      }
+      rows.push({
+        label: 'Legacy Storage URL',
+        value: auto.legacy_supabase_url_rows != null ? auto.legacy_supabase_url_rows + ' 筆' : '—',
+        source: sourceLabel(auto.legacy_url_source)
+      });
+      if (auto.api_counts_7d) {
+        rows.push({
+          label: '近 7 日 API 請求',
+          value: 'REST ' + auto.api_counts_7d.total_rest_requests +
+            ' · Storage ' + auto.api_counts_7d.total_storage_requests +
+            ' · Auth ' + auto.api_counts_7d.total_auth_requests,
+          source: 'Management API'
+        });
+      } else if (auto.api_counts_error) {
+        rows.push({ label: '近 7 日 API 請求', value: '—', source: esc(auto.api_counts_error), muted: true });
+      }
+      document.getElementById('autoMetricsBody').innerHTML = rows.map(function (r) {
+        return '<tr><td class="text-muted pe-2" style="width:38%">' + esc(r.label) + '</td>' +
+          '<td class="fw-semibold">' + esc(r.value) + '</td>' +
+          '<td class="text-end text-muted" style="font-size:0.75rem">' + (r.muted ? '<span class="text-warning">' + r.source + '</span>' : esc(r.source)) + '</td></tr>';
+      }).join('');
+      var notes = (sb.setup_hints || []).filter(Boolean);
+      var notesEl = document.getElementById('autoNotes');
+      if (!notes.length) {
+        notesEl.classList.add('d-none');
+        notesEl.innerHTML = '';
+      } else {
+        notesEl.classList.remove('d-none');
+        notesEl.innerHTML = '<div class="mb-1 fw-semibold">備註</div><ul class="mb-0 ps-3">' +
+          notes.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>';
+      }
+    }
     function renderReport(report) {
       var sb = report.supabase || {};
       var st = sb.status || {};
@@ -301,26 +360,7 @@
         '<strong>建議：</strong> ' + esc(st.recommendation || '—') +
         (sb.project_ref ? ' <span class="text-muted">（project: ' + esc(sb.project_ref) + '）</span>' : '') +
         warnHtml;
-      var auto = sb.auto || {};
-      var autoLines = [];
-      if (auto.database_bytes != null) autoLines.push('Database：' + (auto.database_bytes / (1024 * 1024)).toFixed(1) + ' MB（' + esc(auto.data_sources && auto.data_sources.database) + '）');
-      else if (fp.database && fp.database.used_bytes != null) autoLines.push('Database：' + (fp.database.used_bytes / (1024 * 1024)).toFixed(1) + ' MB（manual_snapshot）');
-      else autoLines.push('Database：無法自動讀取 — 請設定 SUPABASE_ACCESS_TOKEN');
-      if (auto.storage_objects_bytes != null) autoLines.push('Storage 物件：' + (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB（' + esc(auto.data_sources && auto.data_sources.storage_objects) + '）');
-      else if (fp.storage && fp.storage.used_bytes != null) autoLines.push('Storage：' + (fp.storage.used_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB（manual_snapshot）');
-      else autoLines.push('Storage 物件：無法自動讀取 — 請設定 SUPABASE_ACCESS_TOKEN');
-      autoLines.push('DB 內 legacy Supabase URL：' + (auto.legacy_supabase_url_rows != null ? auto.legacy_supabase_url_rows + ' 筆' : '—'));
-      if (auto.api_counts_7d) {
-        autoLines.push('近 7 日 API 請求：REST ' + auto.api_counts_7d.total_rest_requests +
-          ' · Storage ' + auto.api_counts_7d.total_storage_requests +
-          ' · Auth ' + auto.api_counts_7d.total_auth_requests);
-      } else if (auto.api_counts_error) {
-        autoLines.push('Management API：' + esc(auto.api_counts_error));
-      }
-      (sb.setup_hints || []).forEach(function (h) { autoLines.push(h); });
-      document.getElementById('autoList').innerHTML = autoLines.map(function (l) {
-        return '<li>' + esc(l) + '</li>';
-      }).join('');
+      renderAutoMetrics(sb, fp);
       renderExternalApis(report.external_apis || {});
       var snaps = sb.manual_snapshots || [];
       if (!snaps.length) {
