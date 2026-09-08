@@ -112,7 +112,23 @@ Phase 5  訂閱金流             ░░░░░░░░░░░░░░░�
 - [x] 前端圖片 URL 處理（toAbsoluteUrl、uploaded_files 顯示）
 - [ ] （可選）遷移腳本：既有 `uploads/` → Storage
 
-**細項**：`docs/PHASE-1.6-STORAGE-MIGRATION.md`
+**細項**：`docs/PHASE-1.6-STORAGE-MIGRATION.md`  
+**後續（2026-09）**：已由 **GCS + `media.matchdo.cc`** 取代，見下方 Phase 1.6b。
+
+---
+
+## ✅ Phase 1.6b: 圖片儲存 → GCS（Phase 0～3 完成，2026-09-09）
+
+**目標**：公開讀圖脫離 Supabase Storage，避免 quota 連帶鎖站；與 Cloud Run 同 GCP。
+
+- [x] Phase 0：`media.matchdo.cc`、bucket `matchdo-media`、CDN healthcheck
+- [x] Phase 1：新上傳走 GCS（`lib/object-storage.js`）
+- [x] Phase 2：批量複製 ~6970 物件至 GCS
+- [x] Phase 3：DB URL 改寫（殘留 Supabase URL = 0）
+- [ ] Phase 4：雙存 2 週（至 ~2026-09-23）
+- [ ] Phase 5：清空 Supabase Storage 兩桶
+
+**細項**：`docs/PLAN-storage-gcs-migration.md`、`docs/PROGRESS-storage-gcs-migration.md`
 
 ---
 
@@ -318,7 +334,7 @@ Response: {
 
 ### A. 準備工作
 
-- [ ] 檔案上傳改為 Supabase Storage
+- [x] 檔案上傳改為 **GCS**（`media.matchdo.cc`；2026-09 Phase 1.6b）
 - [ ] 建立 .gitignore
 - [ ] 建立 vercel.json 配置
 - [ ] 整理環境變數
@@ -347,8 +363,9 @@ Response: {
 ## 📝 技術決策紀錄
 
 ### 檔案儲存方案
-- **決策**: Supabase Storage
-- **理由**: 與 Supabase Auth 無縫整合、簡單易用、初期成本低
+- **決策（2026-09）**: **GCS** `matchdo-media` + CDN **`https://media.matchdo.cc`**
+- **歷史（2026-02）**: Phase 1.6 曾用 Supabase Storage；已遷移，Supabase 僅 Auth + DB
+- **細項**: `docs/PLAN-storage-gcs-migration.md`
 
 ### 部署平台
 - **決策**: Vercel

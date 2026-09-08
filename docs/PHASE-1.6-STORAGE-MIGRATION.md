@@ -1,5 +1,7 @@
 # Phase 1.6：Supabase Storage 遷移 — 執行細項
 
+> **2026-09 後續**：公開圖片已再遷移至 **GCS + `media.matchdo.cc`**。本檔描述 2026-02 Phase 1.6 歷史；現行架構見 [PLAN-storage-gcs-migration.md](./PLAN-storage-gcs-migration.md)、[PROGRESS-storage-gcs-migration.md](./PROGRESS-storage-gcs-migration.md)。
+
 **目標**：將目前本地 `uploads/` 的檔案上傳改為 Supabase Storage，以支援無狀態部署（如 Vercel）與 CDN。
 
 **最後更新**：2026-02-06  

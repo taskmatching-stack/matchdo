@@ -1,7 +1,6 @@
 # Supabase Storage → GCS 遷移規劃
 
-**狀態**：Phase 0 進行中（腳本已進 repo）  
-**最後更新**：2026-09-08  
+**狀態**：Phase 0～3 ✅ 完成（2026-09-09）；Phase 4 雙存至 ~2026-09-23；Phase 5 待清空 Supabase Storage  
 **進度 handoff：** [PROGRESS-storage-gcs-migration.md](./PROGRESS-storage-gcs-migration.md)  
 **目標**：圖片改存 GCP；Supabase 只留 Auth + PostgreSQL，避免 Storage quota 連帶鎖整站。
 
@@ -132,56 +131,35 @@ https://media.matchdo.cc/project-images/{owner}/...
 
 ## 四、遷移分期
 
-### Phase 0 — 盤點與 GCP 準備（0.5～1 天）
+### Phase 0 — 盤點與 GCP 準備
 
-**操作說明：** [PROGRESS-storage-gcs-migration.md](./PROGRESS-storage-gcs-migration.md)
+**狀態：** ✅ 完成（見 PROGRESS）
 
-- [ ] Supabase Dashboard：兩桶物件數、總 GB（或 `node scripts/inventory-supabase-storage-buckets.js`）  
-- [ ] Cloud Shell：`bash scripts/gcs-media-phase0-setup.sh`（§3.3 bucket、CDN、IAM）  
-- [ ] DNS：`media` → LB IP；SSL ACTIVE  
-- [ ] `bash scripts/gcs-media-phase0-healthcheck.sh` → `/_healthcheck/phase0.txt` 200  
-- [ ] SQL／腳本盤點：`docs/storage-gcs-phase0-inventory.sql` 或 `inventory-supabase-storage-urls.js`  
+### Phase 1 — 新上傳走 GCS
 
-### Phase 1 — 新上傳走 GCS（2～3 天）
+**狀態：** ✅ 完成（`lib/object-storage.js`；`uploadToSupabaseStorage` 內部走 GCS）
 
-- [ ] 新增 `lib/object-storage.js`（`@google-cloud/storage`）  
-- [ ] `uploadToObjectStorage` 回傳 `https://media.matchdo.cc/...`  
-- [ ] 替換所有 `uploadToSupabaseStorage` 呼叫點  
-- [ ] Cloud Run 部署 + 抽樣：素材上傳、生圖、商攝存檔、help-guides 上傳  
+### Phase 2 — 批量複製物件
 
-**效果：** 新圖不再進 Supabase；舊圖仍在 Supabase。
+**狀態：** ✅ 完成（6968/6970；`scripts/migrate-supabase-storage-to-gcs.js`）
 
-### Phase 2 — 批量複製物件（1 天 + 跑批）
+### Phase 3 — DB／JSONB URL 改寫
 
-- [ ] 腳本 `scripts/migrate-supabase-storage-to-gcs.js`（規劃，尚未寫）  
-- [ ] `list` Supabase `custom-products`、`project-images` → `download` → `upload` GCS **同 path**  
-- [ ] 產出 manifest：`supabase_public_url → media.matchdo.cc_url`  
-- [ ] Idempotent；抽樣 MD5／大小比對  
+**狀態：** ✅ 完成（`docs/storage-gcs-phase3-rewrite-urls.sql`；殘留 URL = 0）
 
-### Phase 3 — DB／JSONB URL 改寫（1～2 天）
-
-- [ ] **先確認 Phase 2 完成**  
-- [ ] 各表 TEXT 欄位 `regexp_replace`（host 改為 `https://media.matchdo.cc/`）  
-- [ ] Node 腳本深度掃 JSONB（`gallery_images`、`blocks_json` 等）  
-- [ ] 全庫驗證：`LIKE '%supabase.co/storage%'` 應為 0（或僅快照表）  
-- [ ] 手動 QA：首頁媒體牆、作品、素材庫、商攝、操作介紹  
-
-### Phase 4 — 雙存過渡 **2 週**（定案）
+### Phase 4 — 雙存過渡 **2 週**（定案，進行中）
 
 | 時間 | 行為 |
 |------|------|
-| Phase 3 完成日起 | DB 與新上傳皆指向 `media.matchdo.cc`；**Supabase 舊物件不刪** |
-| 第 1～14 天 | 監控 404／使用者回報；舊 Supabase URL 仍可直接讀（書籤、外鏈） |
-| 第 15 天起 | Phase 5 清空 Supabase Storage |
+| 2026-09-09 起 | DB 與新上傳皆指向 `media.matchdo.cc`；Supabase 舊物件不刪 |
+| ～2026-09-23 | 監控 404；舊 Supabase URL 仍可读 |
+| 2026-09-23 後 | Phase 5 清空 Supabase Storage |
 
-**雙存期間：** GCS 為正式來源；Supabase 僅作舊 URL 備援，不再寫入。
+### Phase 5 — 收尾（待雙存期滿）
 
-### Phase 5 — 收尾（0.5 天）
-
-- [ ] 刪除 Supabase Storage 兩桶內所有物件（或整桶清空）  
-- [ ] 確認 Supabase Dashboard Storage ≈ 0  
-- [ ] 更新 `docs/matchdo-todo.md` 技術決策（Storage → GCS）  
-- [ ] 啟用 §5.4 Lifecycle（若 Phase 0 未先開）  
+- [ ] 刪除 Supabase Storage 兩桶內所有物件
+- [x] 更新 `docs/matchdo-todo.md` 技術決策（Storage → GCS）
+- [x] Lifecycle 已於 Phase 0 套用
 
 ---
 
@@ -286,5 +264,5 @@ Phase 5  清 Supabase Storage + 確認 Lifecycle
 
 ## 十、下一步
 
-1. **現在：** 依 [PROGRESS-storage-gcs-migration.md](./PROGRESS-storage-gcs-migration.md) 在 Cloud Shell 跑 Phase 0，healthcheck 通過後回報  
-2. **Phase 1：** 新上傳改 GCS（`lib/object-storage.js` + 替換 `uploadToSupabaseStorage`）
+1. **Phase 4**：雙存至 **2026-09-23**，勿刪 Supabase Storage  
+2. **Phase 5**：期滿後清空 Supabase 兩桶；見 [PROGRESS-storage-gcs-migration.md](./PROGRESS-storage-gcs-migration.md)

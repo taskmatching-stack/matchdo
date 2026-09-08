@@ -109,7 +109,7 @@
 
 **不做（v1）**：PDF 當正文、自行上傳 MP4、註解／共同編輯、即時協作游標。那才是真 Google 文件，範圍太大。
 
-媒體存 **Supabase Storage**（與現有上傳同一套），公開讀、後台寫。YouTube 不佔我們流量。
+媒體存 **GCS**（`gs://matchdo-media`，公開 CDN **`https://media.matchdo.cc`**；與全站上傳同一套 `lib/object-storage.js`），公開讀、後台寫。YouTube 不佔我們流量。
 
 ### 3.1 內容多語系（後台欄位，不是 locales 硬翻內文）
 

@@ -1,96 +1,99 @@
 # Storage → GCS 遷移進度
 
 **主規劃：** [PLAN-storage-gcs-migration.md](./PLAN-storage-gcs-migration.md)  
-**最後更新：** 2026-09-08
+**最後更新：** 2026-09-09  
+**狀態：** Phase 0～3 ✅ 完成；Phase 4 雙存進行中；Phase 5 待雙存期滿
 
 ---
 
-## Phase 0 — 盤點與 GCP 準備（✅ 完成 2026-09-09）
+## 架構摘要（上線後）
 
-### Phase 0 完成勾選
-
-- [x] `gs://matchdo-media` 存在（`asia-northeast1`）
-- [x] Lifecycle 已套用（preview 90 天）
-- [x] `media.matchdo.cc` DNS → **34.102.231.202**（GoDaddy）
-- [x] SSL 憑證 ACTIVE
-- [x] `curl -I https://media.matchdo.cc/_healthcheck/phase0.txt` → **200**
-- [x] Cloud Run SA 有 `matchdo-media` **objectAdmin**
-- [x] Bucket `allUsers` **objectViewer**（CDN 讀取；403 修復）
-- [x] DB／Storage baseline 已記錄
-
-#### Baseline 記錄
-
-| 項目 | 值 | 日期 |
-|------|-----|------|
-| Supabase `custom-products` 物件數 / GB | **6962 / 2.44 GB** | 2026-09-08 |
-| Supabase `project-images` 物件數 / GB | **4 / 2.57 MB** | 2026-09-08 |
-| DB 含 supabase storage URL 總筆數 | **3728** | 2026-09-08 |
-| LB IP | **34.102.231.202** | 2026-09-09 |
-| SSL ACTIVE | **ACTIVE** | 2026-09-09 |
-
-#### DB URL 分布（Phase 3 優先驗證）
-
-| source | rows | 備註 |
-|--------|------|------|
-| `visual_semantics_events.image_url` | 1659 | 語意事件 log |
-| `vendor_assets.image_url` | 880 | 素材封面 |
-| `vendor_assets.gallery_images` | 592 | 圖庫 JSONB |
-| `product_promo_generations.result_image_url` | 183 | 商攝成品 |
-| `custom_products.ai_generated_image_url` | 128 | 設計稿生圖 |
-| 其餘 | 見 SQL 明細 | |
-
-前台優先 QA：`vendor_assets`、`custom_products`、`product_promo_generations`、`manufacturer_portfolio`。
+| 項目 | 現況 |
+|------|------|
+| **圖片讀寫** | GCP **GCS** `matchdo-media`（`asia-northeast1`） |
+| **公開 CDN** | **`https://media.matchdo.cc`**（Cloud CDN + LB） |
+| **DB URL** | `https://media.matchdo.cc/custom-products/...`、`.../project-images/...` |
+| **上傳程式** | `lib/object-storage.js`；`server.js` 的 `uploadToSupabaseStorage()` 內部走 GCS |
+| **Supabase** | 僅 **Auth + PostgreSQL**；Storage 雙存 2 週後清空 |
+| **環境變數（選用）** | `GCS_MEDIA_BUCKET=matchdo-media`、`GCS_PUBLIC_BASE_URL=https://media.matchdo.cc` |
 
 ---
 
-## Phase 1 — 新上傳走 GCS（✅ 完成）
+## Phase 0 — GCP + `media.matchdo.cc`（✅ 2026-09-09）
 
-- [x] `lib/object-storage.js` + `@google-cloud/storage`
-- [x] `uploadToSupabaseStorage` → GCS
-- [x] 部署 + 抽樣 URL 為 `https://media.matchdo.cc/...`
-
----
-
-## Phase 2 — 批量複製物件（腳本已備，待執行）
-
-**腳本：** `scripts/migrate-supabase-storage-to-gcs.js`
-
-本機（有 `.env` + `gcloud auth application-default login`）或 Cloud Shell（需 export Supabase 金鑰）：
-
-```bash
-# 先試 10 筆
-node scripts/migrate-supabase-storage-to-gcs.js --dry-run --limit=10
-
-# 正式（約 6966 物件 / 2.44 GB，可重複執行，已存在會 skip）
-node scripts/migrate-supabase-storage-to-gcs.js
-```
-
-產出：`tmp/gcs-migration-manifest.jsonl`
-
-- [ ] 全量 migrate 完成（failed=0）
-- [ ] 抽樣 GCS URL 可開圖
+- [x] `gs://matchdo-media`、Lifecycle（preview 90 天）
+- [x] DNS `media` → **34.102.231.202**（GoDaddy）
+- [x] SSL ACTIVE、healthcheck **200**
+- [x] Cloud Run SA **objectAdmin**；bucket **objectViewer**（CDN 讀取）
 
 ---
 
-## Phase 3 — DB URL 改寫（腳本已備，Phase 2 後執行）
+## Phase 1 — 新上傳走 GCS（✅）
 
-**腳本：** `scripts/rewrite-db-storage-urls-to-gcs.js`（本機需 Session pooler 的 `SUPABASE_DB_URL`）
-
-**或 Supabase SQL Editor（推薦，免本機連線）：** `docs/storage-gcs-phase3-rewrite-urls.sql`
-
-```bash
-# 本機（.env 須為 pooler URI，port 6543；直連 db.xxx.supabase.co 常 ENOTFOUND）
-node scripts/rewrite-db-storage-urls-to-gcs.js --dry-run
-node scripts/rewrite-db-storage-urls-to-gcs.js
-```
-
-驗證：Supabase SQL Editor 再跑 `docs/storage-gcs-phase0-inventory.sql`，TOTAL 應趨近 0。
-
-- [ ] DB rewrite 完成
-- [ ] 首頁媒體牆／素材／商攝抽樣 QA
+- [x] `lib/object-storage.js`、`@google-cloud/storage`
+- [x] 部署驗證：新圖 URL 為 `media.matchdo.cc`
 
 ---
 
-## Phase 4～5
+## Phase 2 — 批量複製物件（✅ 2026-09-09）
 
-雙存 2 週 → 清空 Supabase Storage。見 [PLAN](./PLAN-storage-gcs-migration.md)。
+- [x] `scripts/migrate-supabase-storage-to-gcs.js`
+- [x] **6968 / 6970** 成功（2 個 `vendor-assets-preview` 失敗，可忽略）
+- [x] manifest：`tmp/gcs-migration-manifest.jsonl`
+
+---
+
+## Phase 3 — DB URL 改寫（✅ 2026-09-09）
+
+- [x] `docs/storage-gcs-phase3-rewrite-urls.sql`（Supabase SQL Editor）
+- [x] 驗證：`remaining_supabase_storage_urls = 0`
+- [x] 前台抽樣 QA 通過
+
+---
+
+## Phase 4 — 雙存 2 週（進行中）
+
+| 日期 | 事項 |
+|------|------|
+| **2026-09-09** | Phase 3 完成日起算 |
+| **～2026-09-23** | 期滿前勿刪 Supabase Storage 舊物件 |
+| 期間 | 新上傳僅 GCS；舊 Supabase URL 仍可读（備援） |
+
+- [ ] 雙存期滿（2026-09-23 後執行 Phase 5）
+
+---
+
+## Phase 5 — 清空 Supabase Storage（待辦）
+
+雙存期滿後：
+
+1. Supabase Dashboard → Storage → 清空 `custom-products`、`project-images`
+2. 確認 Dashboard 用量 ≈ 0
+3. 勾選本檔 Phase 5 完成
+
+---
+
+## Baseline（遷移前）
+
+| 項目 | 值 |
+|------|-----|
+| Supabase 物件 / 大小 | 6970 / ~2.44 GB |
+| DB Supabase URL 筆數 | 3728 |
+
+---
+
+## 相關腳本與 SQL
+
+| 檔案 | 用途 |
+|------|------|
+| `scripts/gcs-media-phase0-setup.sh` | GCP bucket、CDN、DNS 說明 |
+| `scripts/migrate-supabase-storage-to-gcs.js` | Phase 2 搬檔 |
+| `docs/storage-gcs-phase3-rewrite-urls.sql` | Phase 3 改 DB |
+| `docs/storage-gcs-phase0-inventory.sql` | URL 殘留盤點 |
+
+---
+
+## 歷史
+
+- Phase 1.6（2026-02）：本地上傳 → Supabase Storage，見 [PHASE-1.6-STORAGE-MIGRATION.md](./PHASE-1.6-STORAGE-MIGRATION.md)
+- 2026-09：Storage quota 連帶鎖站 → 遷移 GCS，見本檔與 PLAN

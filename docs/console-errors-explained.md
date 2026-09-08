@@ -5,13 +5,13 @@
 **現象**：例如 `1772661886612-aa53491d21856.png`、`1772466505591-166ff128d4fe7.jpg` 等檔名出現「Image corrupt or truncated」。
 
 **可能原因**：
-- 上傳時網路中斷或逾時，檔案未完整寫入 Supabase Storage。
+- 上傳時網路中斷或逾時，檔案未完整寫入 **GCS**（`media.matchdo.cc`）。
 - 儲存時寫入不完整或檔案被覆寫。
 - CDN/網路傳輸中斷，回應被截斷（較少見）。
 
 **建議**：
 - **已發生的檔案**：在後台找到對應作品，重新上傳該張圖片並儲存。
-- **預防**：上傳 API 已使用 `multer.memoryStorage()` 完整讀取後再傳到 Supabase；若仍出現，可考慮在上傳前做簡單驗證（例如 JPEG/PNG magic bytes、最小長度），並在後端寫入後比對長度或做 HEAD 檢查（可選實作）。
+- **預防**：上傳 API 已使用 `multer.memoryStorage()` 完整讀取後再傳到 GCS（`lib/object-storage.js`）；若仍出現，可考慮在上傳前做簡單驗證（例如 JPEG/PNG magic bytes、最小長度），並在後端寫入後比對長度或做 HEAD 檢查（可選實作）。
 
 ---
 
@@ -45,8 +45,8 @@ Bootstrap 的 CSS 內含 **-webkit-**、**-moz-** 等前綴，用於舊版瀏覽
 載入圖片時（例如 `1772460530202-6fa47e0356cde.jpg`）出現「由於來自無效網域，已拒絕 Cookie「__cf_bm」」。
 
 **原因**：  
-圖片來自 **Supabase Storage**（或前方 CDN，如 Cloudflare）。該網域在回應中會設定 `__cf_bm`（Cloudflare Bot Management）等 Cookie。  
-當頁面在 **localhost** 或 **matchdo 主網域**，而圖片在 **另一網域**（例如 `xxx.supabase.co`）時，瀏覽器依同站/跨站政策拒絕寫入該 Cookie，屬於正常安全行為。
+圖片來自 **媒體 CDN**（`https://media.matchdo.cc`，GCS + Cloud CDN）或歷史 **Supabase Storage**（雙存期內）。部分回應仍可能帶 Cloudflare／CDN Cookie。  
+當頁面在 **localhost** 或 **matchdo 主網域**，而圖片在 **另一網域**（例如 `media.matchdo.cc` 或 `xxx.supabase.co`）時，瀏覽器依同站/跨站政策拒絕寫入該 Cookie，屬於正常安全行為。
 
 **影響**：  
 圖片通常仍可正常顯示；只是該跨站 Cookie 被拒絕，主控台會出現警告。

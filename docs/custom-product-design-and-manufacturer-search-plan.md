@@ -40,7 +40,7 @@
 2. **前端**
    - 客製產品建立頁：支援 0~15 張上傳、元素描述欄位、可選「僅生成」或「生成後並分析」。
 3. **儲存**
-   - 合成圖建議存至 Supabase Storage（如 `custom-products/synthesized/`），並在 `custom_products` 留欄位（如 `synthesized_image_url` 或沿用 `ai_generated_image_url`）供後續分析與列表顯示。
+   - 合成圖建議存至 **GCS**（如 `custom-products/synthesized/`，公開 URL `https://media.matchdo.cc/...`），並在 `custom_products` 留欄位（如 `synthesized_image_url` 或沿用 `ai_generated_image_url`）供後續分析與列表顯示。
 4. **設計程式／設計產品 AI**
    - 文件或 API 說明中註明：多圖 + 元素描述 → 合成一張圖，適合設計軟體或設計產品 AI 串接。
 
@@ -110,7 +110,7 @@
    - 方案 A：新增 `manufacturer_portfolio` 表（`manufacturer_id`、`image_url`、`title`、`sort_order`、`created_at`），每廠商上限由設定或後台參數決定。
    - 方案 B：在 `manufacturers` 新增 JSONB 欄位如 `portfolio_images`，存 `[{ url, title?, sort_order? }]`，應用層依設定限制陣列長度。
 2. **儲存**
-   - 圖片上傳至 Supabase Storage（如 `manufacturer-portfolio/` 或 `custom-products/manufacturer/{id}/`），DB 存 URL。
+   - 圖片上傳至 **GCS**（如 `manufacturer-portfolio/` 或 `custom-products/manufacturer/{id}/`），DB 存 `media.matchdo.cc` URL。
 3. **後台**
    - 廠商編輯頁：作品圖區塊，支援多檔上傳、排序、刪除，並顯示目前張數／**可設定的上限**（建議預設保守一點，之後可調高）。
 4. **API**

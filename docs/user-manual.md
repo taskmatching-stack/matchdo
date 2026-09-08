@@ -302,11 +302,12 @@
 - **分享按鈕**：在 lightbox 內點「分享」再選平台時，帶出的網址就是該作品的獨立 URL；分享到社群後預覽會顯示該作品的標題、描述與圖片。
 - **直接開啟**：在瀏覽器輸入或開啟 `https://matchdo.cc/inspiration/user_design/123` 等網址，會先顯示該頁（含 SEO／OG 用 meta），再自動導向首頁並開啟該作品的 lightbox。
 
-### 圖片網址與自家網域（已全面使用可分享網址）
+### 圖片網址與自家網域
 
-- **靈感牆獨立頁的 OG／Schema**：若圖片來自 Supabase Storage，獨立頁的 `og:image`、`twitter:image` 與 JSON-LD 的 `image` 使用自家網域 `https://matchdo.cc/api/proxy-image?url=...`，分享時預覽圖為 matchdo.cc 網址。
-- **靈感牆卡片與 lightbox 圖片**：首頁靈感牆每張卡片的 `<img src>` 與 lightbox 內顯示的圖片，若來源為 Supabase Storage，已改為透過 `/api/proxy-image?url=...` 載入。因此「在新分頁開啟圖片」或「複製圖片網址」時，會得到 `https://matchdo.cc/api/proxy-image?url=...`，為**可分享的自家網域網址**。
-- **分享用圖片網址**：lightbox 內「分享」使用的圖片網址（shareImg）亦為上述 proxy 網址，方便複製或分享單一圖片時顯示 matchdo.cc。
+- **站內圖片（2026-09 起）**：新上傳與 DB 改寫後的圖片，公開 URL 為 **`https://media.matchdo.cc/...`**（GCS + CDN），可直接在新分頁開啟或分享。
+- **靈感牆獨立頁的 OG／Schema**：部分情境仍使用自家網域 `https://matchdo.cc/api/proxy-image?url=...` 作分享預覽，讓 `og:image` 顯示 matchdo.cc 網址。
+- **靈感牆卡片與 lightbox**：多數圖片直接載入 `media.matchdo.cc`；若經 proxy 載入，「在新分頁開啟」可能顯示 `https://matchdo.cc/api/proxy-image?url=...`。
+- **雙存期（～2026-09-23）**：極少數書籤的舊 Supabase Storage URL 仍可能可读；期滿後 Supabase 桶將清空。
 
 ---
 

@@ -1,6 +1,6 @@
 # MatchDO 階段進度控管
 
-**最後更新**: 2026-02-06  
+**最後更新**: 2026-09-09  
 **單一來源**: 進度以本檔與 `matchdo-roadmap.md`、`matchdo-todo.md` 對齊為準。
 
 **原則**：媒合成功即直接顯示聯絡方式，**不鎖、無解鎖流程**。勿再新增「申請解鎖」「付費解鎖」等。
@@ -13,7 +13,8 @@
 |------|------|--------|------|
 | Phase 1 | 資料庫基礎 | 100% | ✅ 完成 |
 | **Phase 1.5** | **發案者功能** | **約 85%** | ⏳ **核心已完成**，收尾為可選項 + E2E |
-| **Phase 1.6** | **Supabase Storage 遷移** | **100%** | ✅ **已完成**（SQL 已執行、上傳改 Storage、圖片 URL 已更新） |
+| **Phase 1.6** | **Supabase Storage 遷移** | **100%** | ✅ **已完成**（2026-02；後由 1.6b GCS 取代公開讀圖） |
+| **Phase 1.6b** | **圖片儲存 → GCS** | **Phase 0～3 完成** | ✅ 上線；⏳ 雙存至 ~2026-09-23，見 `PROGRESS-storage-gcs-migration.md` |
 | Phase 1.8 | 廠商端媒合專案 | 規劃中 | 見 `docs/PHASE-1.8-VENDOR-MATCH-PROJECTS.md` |
 | Phase 2 | AI 核心（首頁識別／客製產品） | 100% | ✅ 已由現有後端＋Gemini 實作 |
 | Phase 2b | 專家功能優化 | 0% | 未開始 |
@@ -44,7 +45,7 @@
 ## 待辦（依優先序）
 
 1. ~~**聯繫專家**~~：已完成（專案詳情「立即聯繫」→ 線上訊息對話 Modal）。
-2. ~~**Phase 1.6 Storage 遷移**~~：已完成（SQL 已執行、上傳改 Supabase Storage、前端圖片 URL 已更新）。
+2. ~~**Phase 1.6 Storage 遷移**~~：已完成（2026-02 Supabase Storage）。**Phase 1.6b GCS**（2026-09）：公開讀圖已改 `media.matchdo.cc`，見 `PROGRESS-storage-gcs-migration.md`。
 3. **（可選）** 獨立 matched-experts 列表頁：若需跨專案一頁看所有媒合廠商再實作。
 4. **E2E 測試**：發包流程、預媒合、移除廠商、線上對話。
 5. **接下來階段**：Phase 1.8（廠商端媒合專案，見 `docs/PHASE-1.8-VENDOR-MATCH-PROJECTS.md`）、Phase 1.7（權限與保護），或 Phase 2（專家功能優化）；詳見 `matchdo-todo.md`。

@@ -1775,7 +1775,7 @@ ALTER TABLE public.custom_product_subcategories ADD COLUMN IF NOT EXISTS name_fr
 
 | 項目 | 說明 |
 |------|------|
-| **現況** | 目前產品生圖為 `POST /api/generate-product-image`，使用 **Gemini**（`gemini-3-pro-image-preview`）；上傳至 Supabase Storage `custom-products/generated/`。 |
+| **現況** | 目前產品生圖為 `POST /api/generate-product-image`，使用 **Gemini**（`gemini-3-pro-image-preview`）；上傳至 **GCS** `custom-products/generated/`（公開 CDN `https://media.matchdo.cc`）。 |
 | **調整方向** | 將「依文字／描述生成產品圖」的邏輯改為呼叫 **FLUX 2.0 pro API**（需確認：API 端點、認證方式、request/response 格式、是否支援圖＋文）；同一支 API 或新 endpoint 可保留路徑，僅後端換成 FLUX。 |
 | **Gemini 保留用途** | 首頁 AI 識別（上傳圖／描述→工項＋分類＋標籤）、客製產品分析（`analyze-custom-product`）、或其他文字／分析類功能**維持使用 Gemini**，不改成 FLUX。 |
 | **實作要點** | 後端：新增或引入 FLUX 2.0 pro 的呼叫模組；環境變數（如 `FLUX_API_KEY` 或對應設定）；錯誤處理與 fallback（可選：FLUX 失敗時是否回退 Gemini）。前端：若 API 介面不變（輸入／輸出格式一致），可無需改動；若有差異再一併調整。 |
@@ -3791,22 +3791,21 @@ git push origin main
 
 ## 技術決策紀錄
 
-### 檔案儲存方案：Supabase Storage vs Google Cloud Storage
-**決策**：採用 Supabase Storage  
-**理由**：
-1. 與 Supabase Auth 無縫整合,自動權限管理
-2. JS SDK 簡單（3 行代碼 vs GCS 20+ 行）
-3. 內建 CDN + 圖片轉換功能
-4. 免費 1GB,超出後 $0.021/GB/月（vs GCS $0.023/GB/月）
-5. 初期流量小,整合性 > 企業級功能
+### 檔案儲存方案：Supabase Storage → Google Cloud Storage（2026-09 定案）
 
-**何時考慮 GCS**：
-- 月流量 > 10TB
-- 需要跨 GCP 服務整合（BigQuery、Vertex AI）
-- 需要企業 SLA 合約
+**歷史（Phase 1.6，2026-02）**：曾採用 Supabase Storage（與 Auth 同 org、SDK 簡單）。  
+**現行決策（2026-09-08）**：**公開讀圖改 GCS + CDN `https://media.matchdo.cc`**；Supabase 僅 **Auth + PostgreSQL**。
+
+**理由（遷移）**：
+1. Supabase Storage 用量觸發 org quota 時，會連帶影響 Auth／DB，風險過高
+2. 與 Cloud Run 同 GCP：`gs://matchdo-media` + Cloud CDN，上傳由 `lib/object-storage.js`
+3. 公開 URL 統一為 `https://media.matchdo.cc/{bucket}/{path}`；DB 已改寫（Phase 3）
+4. 雙存 2 週後清空 Supabase Storage 兩桶（見 `docs/PROGRESS-storage-gcs-migration.md`）
+
+**實作**：`uploadToSupabaseStorage()` 函式名保留，內部走 GCS；規劃見 `docs/PLAN-storage-gcs-migration.md`。
 
 ## 里程碑核對與驗證
-- [ ] P1 完成標準：Google 登入可用、角色區分正常、專家能上架報價、發案者能上傳圖片至 Supabase Storage、DB 寫入成功。
+- [ ] P1 完成標準：Google 登入可用、角色區分正常、專家能上架報價、發案者能上傳圖片至 **GCS（media.matchdo.cc）**、DB 寫入成功。
 - [ ] P2 完成標準：AI 拆圖與隱藏 Tags 正常、JSON 結構落地。
 - [ ] P3 完成標準：媒合 SQL 正確、候選清單排序合理、可合做並開啟對話。
 - [ ] P4 完成標準：金流入帳、webhook 驗證成功、刊登期限管理可用。

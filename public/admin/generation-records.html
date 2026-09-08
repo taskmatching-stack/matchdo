@@ -260,12 +260,12 @@
         if (urls.indexOf(u) >= 0) return;
         urls.push(u);
       }
-      add(row && row.source_image_url);
-      add(row && row.reference_image_url);
       (row && row.reference_sources || []).forEach(function (s) {
         if (!s) return;
         add(s.image_url || s.url);
       });
+      add(row && row.source_image_url);
+      add(row && row.reference_image_url);
       return urls;
     }
 
