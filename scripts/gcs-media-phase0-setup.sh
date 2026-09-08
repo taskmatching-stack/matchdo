@@ -49,6 +49,12 @@ else
   echo "WARN: lifecycle file not found: ${LIFECYCLE_JSON}"
 fi
 
+echo "==> Public read for CDN/LB (allUsers objectViewer; URLs still use ${DOMAIN})"
+gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
+  --member=allUsers \
+  --role=roles/storage.objectViewer \
+  --quiet
+
 if ! gcloud compute backend-buckets describe "${BACKEND_BUCKET}" --global &>/dev/null; then
   echo "==> Creating backend bucket + Cloud CDN"
   gcloud compute backend-buckets create "${BACKEND_BUCKET}" \

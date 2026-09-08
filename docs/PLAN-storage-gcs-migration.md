@@ -98,7 +98,7 @@ Cloud Run ──查寫──→ Supabase PostgreSQL + Auth（不再寫 Storage�
 | 專案 | `matchdo`（與 Cloud Run 相同） |
 | Bucket 名稱 | `matchdo-media` |
 | Location | `asia-northeast1`（與 Cloud Run 同區） |
-| 存取 | Uniform bucket-level access；**不**對外直接公開 bucket；由 **LB + CDN** 提供讀取 |
+| 存取 | Uniform bucket-level access；對外經 **LB + CDN**；bucket 需 `allUsers` **objectViewer**（否則 403），公開 URL 仍只用 `media.matchdo.cc` |
 
 ### 3.2 公開 URL 格式
 

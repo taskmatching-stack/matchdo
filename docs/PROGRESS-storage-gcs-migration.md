@@ -86,7 +86,24 @@ node scripts/inventory-supabase-storage-urls.js
 |------|-----|------|
 | Supabase `custom-products` 物件數 / GB | **6962 / 2.44 GB** | 2026-09-08（本機腳本） |
 | Supabase `project-images` 物件數 / GB | **4 / 2.57 MB** | 2026-09-08 |
-| DB 含 supabase storage URL 總筆數（約） | **3728**（non-zero 欄位／JSONB 行數加總；2026-09-08 SQL Editor） | |
+| DB 含 supabase storage URL 總筆數（約） | **3728**（2026-09-08 SQL Editor） | |
+
+#### DB URL 分布（Phase 3 優先驗證）
+
+| source | rows | 備註 |
+|--------|------|------|
+| `visual_semantics_events.image_url` | 1659 | 語意事件 log，非前台主路徑 |
+| `vendor_assets.image_url` | 880 | 素材封面 |
+| `vendor_assets.gallery_images` | 592 | 圖庫 JSONB |
+| `product_promo_generations.result_image_url` | 183 | 商攝成品 |
+| `custom_products.ai_generated_image_url` | 128 | 設計稿生圖 |
+| `product_promo_generations.source_image_url` | 94 | 商攝原圖 |
+| `custom_products.reference_sources` | 56 | JSONB |
+| `manufacturer_portfolio.*` | 80 | 作品 39+24+17 |
+| `manufacturers.logo_url` | 23 | |
+| 其餘 | 34 | 供應商目錄、訊息、收藏快照等 |
+
+前台／媒體牆優先 QA：`vendor_assets`、`custom_products`、`product_promo_generations`、`manufacturer_portfolio`。
 | LB IP | 待 `gcs-media-phase0-setup.sh` 輸出 | |
 | SSL ACTIVE 時間 | 待 DNS 後 | |
 
