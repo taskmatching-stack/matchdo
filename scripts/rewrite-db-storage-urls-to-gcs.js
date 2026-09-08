@@ -40,9 +40,12 @@ const JSONB_COLUMNS = [
     ['manufacturer_portfolio', 'series_image_urls', 'id'],
     ['custom_products', 'reference_sources', 'id'],
     ['projects', 'description', 'id'],
-    ['listings', 'images', 'id'],
     ['help_guide_pages', 'blocks_json', 'id'],
     ['media_wall_favorites', 'item_data', 'id']
+];
+
+const TEXT_ARRAY_COLUMNS = [
+    ['listings', 'images', 'id']
 ];
 
 function replaceUrlString(s) {
@@ -123,6 +126,33 @@ async function rewriteJsonbColumns(client) {
     return total;
 }
 
+async function rewriteTextArrayColumns(client) {
+    let total = 0;
+    for (const [table, column, idCol] of TEXT_ARRAY_COLUMNS) {
+        if (!(await columnExists(client, table, column))) continue;
+        const { rows } = await client.query(
+            `SELECT ${idCol} AS id, ${column} AS data FROM public.${table}
+             WHERE ${column} IS NOT NULL AND array_to_string(${column}, ' ') LIKE '%supabase.co/storage%'`
+        );
+        if (!rows.length) continue;
+        console.log(`${table}.${column}: ${rows.length} rows (text[])`);
+        for (const row of rows) {
+            const arr = row.data;
+            if (!Array.isArray(arr)) continue;
+            const next = arr.map((s) => replaceUrlString(String(s)));
+            if (next.every((v, i) => v === arr[i])) continue;
+            if (!DRY_RUN) {
+                await client.query(
+                    `UPDATE public.${table} SET ${column} = $1::text[] WHERE ${idCol} = $2`,
+                    [next, row.id]
+                );
+            }
+            total += 1;
+        }
+    }
+    return total;
+}
+
 async function main() {
     const url = process.env.SUPABASE_DB_URL;
     if (!url) {
@@ -139,10 +169,12 @@ async function main() {
         if (!DRY_RUN) await client.query('BEGIN');
         const textN = await rewriteTextColumns(client);
         const jsonN = await rewriteJsonbColumns(client);
+        const arrN = await rewriteTextArrayColumns(client);
         if (!DRY_RUN) await client.query('COMMIT');
         console.log(`\n--- done ---`);
         console.log(`text columns updated: ${textN}`);
         console.log(`jsonb rows updated: ${jsonN}`);
+        console.log(`text[] rows updated: ${arrN}`);
         if (DRY_RUN) console.log('(dry-run: no writes)');
     } catch (e) {
         if (!DRY_RUN) await client.query('ROLLBACK');

@@ -63,7 +63,6 @@ DECLARE
         ARRAY['manufacturer_portfolio', 'series_image_urls'],
         ARRAY['custom_products', 'reference_sources'],
         ARRAY['projects', 'description'],
-        ARRAY['listings', 'images'],
         ARRAY['help_guide_pages', 'blocks_json'],
         ARRAY['media_wall_favorites', 'item_data']
     ];
@@ -91,6 +90,29 @@ BEGIN
             RAISE NOTICE 'JSONB %.%: % rows updated', t, c, n;
         END IF;
     END LOOP;
+END
+$rw$;
+
+-- ========== TEXT[]（listings.images 為 text[]，非 jsonb）==========
+DO $rw$
+DECLARE
+    n bigint;
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'listings' AND column_name = 'images'
+          AND udt_name = '_text'
+    ) THEN
+        UPDATE public.listings
+        SET images = ARRAY(
+            SELECT regexp_replace(elem, 'https://[^/]+\.supabase\.co/storage/v1/object/public/', 'https://media.matchdo.cc/', 'g')
+            FROM unnest(images) AS elem
+        )
+        WHERE images IS NOT NULL
+          AND array_to_string(images, ' ') LIKE '%supabase.co/storage%';
+        GET DIAGNOSTICS n = ROW_COUNT;
+        RAISE NOTICE 'TEXT[] listings.images: % rows updated', n;
+    END IF;
 END
 $rw$;
 
