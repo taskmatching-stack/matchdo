@@ -28,7 +28,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
           <div>
             <h4 class="mb-1">平台用量監控</h4>
-            <p class="text-muted small mb-0">Supabase（DB／Storage／Egress）與 BFL、Replicate、Stability AI 等外部 API 本站統計。Gemini 不監控。</p>
+            <p class="text-muted small mb-0">Supabase DB／Storage 與 BFL、Stability 餘額由<strong>官方 API 自動抓取</strong>；本站扣點統計來自 credit_transactions。僅 <strong>Egress</strong> 無公開 API，需選填快照。Gemini 不監控。</p>
           </div>
           <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRefresh"><i class="bi bi-arrow-clockwise"></i> 重新載入</button>
         </div>
@@ -60,7 +60,9 @@
           <div class="col-lg-6">
             <div class="card border-0 shadow-sm">
               <div class="card-body">
-                <h6 class="card-title">外部 API 供應商（本月扣點 proxy）</h6>
+                <h6 class="card-title">供應商帳戶餘額（官方 API）</h6>
+                <div class="row g-2 mb-2" id="vendorBalanceCards"></div>
+                <h6 class="card-title mt-2 mb-1" style="font-size:0.85rem">本站本月扣點 proxy</h6>
                 <div class="row g-2 mb-2" id="providerCards"></div>
                 <div class="d-flex flex-wrap gap-2">
                   <a class="btn btn-sm btn-outline-secondary" href="https://api.bfl.ai/" target="_blank" rel="noopener">BFL</a>
@@ -100,10 +102,13 @@
           </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4">
-          <div class="card-body">
-            <h6 class="card-title">記錄 Supabase Usage 快照</h6>
-            <p class="text-muted small">每月在 <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Usage</a> 看完後填寫（尤其 <strong>Egress</strong> 無法全自動）。</p>
+        <details class="card border-0 shadow-sm mb-4">
+          <summary class="card-body py-2" style="cursor:pointer">
+            <strong class="small">Egress 快照（選填）</strong>
+            <span class="text-muted small"> — DB／Storage 已自動；僅 Egress 官方無 PAT API</span>
+          </summary>
+          <div class="card-body border-top pt-3">
+            <p class="text-muted small">Supabase <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Usage</a> 的 Egress 無法用 Management API 自動讀取，若要對照 Free 5 GB 月上限可選填。</p>
             <div class="row g-2 align-items-end">
               <div class="col-md-2">
                 <label class="form-label small mb-1">Storage（GB）</label>
@@ -133,7 +138,7 @@
               <input type="text" class="form-control form-control-sm" id="inNote" placeholder="備註（選填）" />
             </div>
           </div>
-        </div>
+        </details>
 
         <h6 class="text-muted">歷史快照</h6>
         <div class="table-responsive">
@@ -199,11 +204,35 @@
       card.className = 'card stat-card ' + levelClass(item && item.level);
       document.getElementById(id).innerHTML = esc(item && item.label ? item.label : '—') + ' ' + badgeLevel(item && item.level);
     }
+    function renderVendorBalances(vb) {
+      vb = vb || {};
+      var cards = [];
+      var bfl = vb.bfl || {};
+      if (bfl.credits != null && !bfl.error) {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">BFL 餘額</div><div class="stat-num">' + bfl.credits + '</div><div class="text-muted" style="font-size:0.7rem">官方 API</div></div></div>');
+      } else {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">BFL</div><div class="text-muted small">' + esc(bfl.error || '—') + '</div></div></div>');
+      }
+      var stab = vb.stability || {};
+      if (stab.credits != null && !stab.error) {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Stability 餘額</div><div class="stat-num">' + stab.credits + '</div><div class="text-muted" style="font-size:0.7rem">官方 API</div></div></div>');
+      } else {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Stability</div><div class="text-muted small">' + esc(stab.error || '—') + '</div></div></div>');
+      }
+      var rep = vb.replicate || {};
+      if (rep.username && !rep.error) {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Replicate</div><div class="small">@' + esc(rep.username) + '</div><div class="text-muted" style="font-size:0.7rem">無餘額 API</div></div></div>');
+      } else {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Replicate</div><div class="text-muted small">' + esc(rep.error || '—') + '</div></div></div>');
+      }
+      document.getElementById('vendorBalanceCards').innerHTML = cards.join('');
+    }
     function renderExternalApis(ext) {
       var m = ext.month || {};
       var rollup = m.rollup || {};
       var providers = rollup.providers || [];
       document.getElementById('externalNote').textContent = ext.note || '';
+      renderVendorBalances(ext.vendor_balances);
       document.getElementById('providerCards').innerHTML = providers.map(function (p) {
         var sub = (p.items && p.items.length)
           ? p.items.slice(0, 3).map(function (it) { return esc(it.label) + ' ' + it.count; }).join(' · ')
@@ -276,15 +305,15 @@
       var autoLines = [];
       if (auto.database_bytes != null) autoLines.push('Database：' + (auto.database_bytes / (1024 * 1024)).toFixed(1) + ' MB（' + esc(auto.data_sources && auto.data_sources.database) + '）');
       else if (fp.database && fp.database.used_bytes != null) autoLines.push('Database：' + (fp.database.used_bytes / (1024 * 1024)).toFixed(1) + ' MB（manual_snapshot）');
-      else autoLines.push('Database：無法自動讀取（可填下方快照）');
-      if (auto.storage_objects_bytes != null) autoLines.push('Storage 物件：' + (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB');
+      else autoLines.push('Database：無法自動讀取 — 請設定 SUPABASE_ACCESS_TOKEN');
+      if (auto.storage_objects_bytes != null) autoLines.push('Storage 物件：' + (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB（' + esc(auto.data_sources && auto.data_sources.storage_objects) + '）');
       else if (fp.storage && fp.storage.used_bytes != null) autoLines.push('Storage：' + (fp.storage.used_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB（manual_snapshot）');
-      else autoLines.push('Storage 物件：無法自動讀取（可填下方快照）');
+      else autoLines.push('Storage 物件：無法自動讀取 — 請設定 SUPABASE_ACCESS_TOKEN');
       autoLines.push('DB 內 legacy Supabase URL：' + (auto.legacy_supabase_url_rows != null ? auto.legacy_supabase_url_rows + ' 筆' : '—'));
-      if (auto.api_counts_1d) {
-        autoLines.push('近 24h API 請求：REST ' + auto.api_counts_1d.total_rest_requests +
-          ' · Storage ' + auto.api_counts_1d.total_storage_requests +
-          ' · Auth ' + auto.api_counts_1d.total_auth_requests);
+      if (auto.api_counts_7d) {
+        autoLines.push('近 7 日 API 請求：REST ' + auto.api_counts_7d.total_rest_requests +
+          ' · Storage ' + auto.api_counts_7d.total_storage_requests +
+          ' · Auth ' + auto.api_counts_7d.total_auth_requests);
       } else if (auto.api_counts_error) {
         autoLines.push('Management API：' + esc(auto.api_counts_error));
       }
@@ -295,7 +324,7 @@
       renderExternalApis(report.external_apis || {});
       var snaps = sb.manual_snapshots || [];
       if (!snaps.length) {
-        document.getElementById('snapshotBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚無快照 — 填寫下方數字後按「儲存快照」</td></tr>';
+        document.getElementById('snapshotBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚無快照（Egress 可選填）</td></tr>';
       } else {
         document.getElementById('snapshotBody').innerHTML = snaps.map(function (s) {
           return '<tr><td>' + esc(fmtTime(s.recorded_at)) + '</td><td>' + esc(s.storage_gb) + '</td><td>' + esc(s.egress_gb) +
