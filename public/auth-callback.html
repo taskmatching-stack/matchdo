@@ -16,14 +16,17 @@
     <div class="spinner"></div>
     <p>登入成功，正在導向…</p>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
   <script src="/config/auth-config.js"></script>
   <script>
     (function () {
       var hash = window.location.hash || '';
       var search = window.location.search || '';
+      var params = new URLSearchParams(search);
+      var hasCode = params.has('code');
       var hasTokens = hash.indexOf('access_token') !== -1 || hash.indexOf('refresh_token') !== -1;
       var isRecovery = hash.indexOf('type=recovery') !== -1 || search.indexOf('type=recovery') !== -1;
+      var oauthError = params.get('error') || params.get('error_description');
 
       function go() {
         if (isRecovery) {
@@ -37,16 +40,54 @@
         window.location.replace(url);
       }
 
-      function tryGo() {
-        if (!window.AuthService) { go(); return; }
-        AuthService.getSession().then(function (session) {
-          if (session) go();
-          else window.location.replace('/index.html');
-        }).catch(function () { go(); });
+      function failLogin() {
+        window.location.replace('/login.html?oauth=failed');
       }
 
-      if (hasTokens) {
-        setTimeout(tryGo, 900);
+      function wait(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+      }
+
+      async function waitForSession(maxAttempts) {
+        var attempts = maxAttempts || 20;
+        for (var i = 0; i < attempts; i++) {
+          try {
+            if (window.AuthService) {
+              var session = await AuthService.getSession();
+              if (session && session.access_token) return session;
+            }
+          } catch (e) {}
+          await wait(250);
+        }
+        return null;
+      }
+
+      async function tryGo() {
+        if (oauthError) {
+          failLogin();
+          return;
+        }
+        if (!window.AuthService) {
+          go();
+          return;
+        }
+        try {
+          if (hasCode && window.supabaseClient && window.supabaseClient.auth) {
+            var code = params.get('code');
+            if (code && typeof window.supabaseClient.auth.exchangeCodeForSession === 'function') {
+              await window.supabaseClient.auth.exchangeCodeForSession(code);
+            }
+          }
+          var session = await waitForSession(hasCode || hasTokens ? 24 : 8);
+          if (session) go();
+          else failLogin();
+        } catch (e) {
+          failLogin();
+        }
+      }
+
+      if (hasTokens || hasCode || oauthError) {
+        setTimeout(tryGo, hasCode ? 150 : 900);
       } else {
         tryGo();
       }

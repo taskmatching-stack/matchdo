@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'backup-confirm-20260903';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'batch-download-20260908';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -566,17 +566,29 @@
       img.alt = '套圖 ' + (r.shot_index || (idx + 1));
       img.className = 'img-fluid border js-preview-enlarge matchdo-enlarge-trigger';
       item.appendChild(img);
+      var actionsRow = document.createElement('div');
+      actionsRow.className = 'd-flex flex-wrap gap-2 mt-1 promo-result-actions';
+      var dlBtn = document.createElement('button');
+      dlBtn.type = 'button';
+      dlBtn.className = 'btn btn-sm btn-outline-primary';
+      dlBtn.innerHTML = '<i class="fas fa-download me-1"></i>' + t('promoCamera.download', '下載');
+      dlBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (!Promo || typeof Promo.triggerPromoDownload !== 'function') return;
+        var shotNum = r.shot_index || (idx + 1);
+        var prefix = (payload && payload.shoot_mode === 'space') ? 'promo-space-eye' : 'promo-portrait';
+        Promo.triggerPromoDownload(r.image_url || '', r.imageData || '', prefix + '-' + shotNum + '.jpg');
+      });
+      actionsRow.appendChild(dlBtn);
       if (payload && payload.shoot_mode === 'space' && r.id) {
-        var actionsHost = document.createElement('div');
-        actionsHost.className = 'promo-result-actions mt-1';
-        item.appendChild(actionsHost);
-        mountSpaceAppealButton(actionsHost, {
+        mountSpaceAppealButton(actionsRow, {
           id: r.id,
           shoot_mode: 'space',
           space_output_type: 'eye_level',
           points_deducted: r.points_charged != null ? r.points_charged : (data.points_deducted != null ? Math.round(data.points_deducted / ok.length) : 0)
         });
       }
+      item.appendChild(actionsRow);
       grid.appendChild(item);
     });
     inner.appendChild(grid);
@@ -1378,7 +1390,9 @@
     var mood = portrait && (portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid');
     return {
       defaultChecked: !portrait,
-      forceOptional: !!mood
+      forceOptional: !!mood,
+      portraitMode: portrait,
+      likenessWarningId: 'pcPortraitLikenessWarning'
     };
   }
 

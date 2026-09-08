@@ -217,7 +217,7 @@
     </div>
 
     <!-- Supabase JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
     
     <!-- Auth Config -->
     <script src="config/auth-config.js"></script>
@@ -311,6 +311,12 @@
 
         // 進入登入頁時記住「登入後要回哪裡」（只從 query 或 referrer 讀，不覆寫已有且合理的 returnUrl）
         window.addEventListener('load', function () {
+            try {
+                var oauthFail = new URLSearchParams(window.location.search).get('oauth');
+                if (oauthFail === 'failed') {
+                    showAlert('Google 登入未完成。請清除瀏覽器對 google.com 的 Cookie 後重試，或暫用 Email 登入。', 'warning');
+                }
+            } catch (e) {}
             if (typeof sessionStorage === 'undefined') return;
             var params = new URLSearchParams(window.location.search);
             var fromQuery = params.get('returnUrl') || params.get('redirect');

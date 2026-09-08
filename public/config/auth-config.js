@@ -8,7 +8,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 var supabaseClient = window.__supabaseClient;
 if (!supabaseClient && typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            detectSessionInUrl: true,
+            flowType: 'pkce',
+            persistSession: true,
+            autoRefreshToken: true
+        }
+    });
     window.__supabaseClient = supabaseClient;
 }
 if (supabaseClient && supabaseClient.auth && typeof supabaseClient.auth.onAuthStateChange === 'function') {
@@ -134,7 +141,10 @@ const AuthService = {
         const { data, error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin + '/auth-callback.html'
+                redirectTo: window.location.origin + '/auth-callback.html',
+                queryParams: {
+                    prompt: 'select_account'
+                }
             }
         });
 

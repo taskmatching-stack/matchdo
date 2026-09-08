@@ -9,6 +9,7 @@
   var canControl = false;
   var loaded = false;
   var loadPromise = null;
+  var lastOptionsByCheckbox = {};
 
   function t(key, fb) {
     if (global.i18n && typeof global.i18n.t === 'function') {
@@ -54,11 +55,34 @@
     return loadPromise;
   }
 
+  function syncPortraitLikenessWarning(cb, opts) {
+    var warnId = opts && opts.likenessWarningId;
+    if (!warnId) return;
+    var warningEl = document.getElementById(warnId);
+    if (!warningEl) return;
+    var portrait = !!(opts && opts.portraitMode);
+    if (!portrait) {
+      warningEl.classList.add('d-none');
+      warningEl.hidden = true;
+      return;
+    }
+    var allowControl = canControl || !!(opts && opts.forceOptional);
+    var show = !allowControl || (cb && cb.checked);
+    if (show) {
+      warningEl.classList.remove('d-none');
+      warningEl.hidden = false;
+    } else {
+      warningEl.classList.add('d-none');
+      warningEl.hidden = true;
+    }
+  }
+
   function syncCheckbox(checkboxId, hintId, options) {
     var cb = document.getElementById(checkboxId);
     var hint = hintId ? document.getElementById(hintId) : null;
     if (!cb) return;
     var opts = options && typeof options === 'object' ? options : {};
+    lastOptionsByCheckbox[checkboxId] = opts;
     var defaultChecked = typeof opts.defaultChecked === 'boolean' ? opts.defaultChecked : true;
     var allowControl = canControl || !!opts.forceOptional;
     if (allowControl) {
@@ -76,16 +100,19 @@
         hint.textContent = t('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消');
       }
     }
+    syncPortraitLikenessWarning(cb, opts);
   }
 
   function init(checkboxId, hintId, options) {
     var cb = document.getElementById(checkboxId);
     if (!cb) return;
+    var opts = options && typeof options === 'object' ? options : {};
     cb.addEventListener('change', function () {
       cb.dataset.userTouched = '1';
+      syncCheckbox(checkboxId, hintId, lastOptionsByCheckbox[checkboxId] || opts);
     });
     loadCanControl().then(function () {
-      syncCheckbox(checkboxId, hintId, options);
+      syncCheckbox(checkboxId, hintId, opts);
     });
   }
 
