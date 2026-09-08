@@ -1,0 +1,1 @@
+MatchDO GCS media Phase 0 healthcheck. If you can read this via https://media.matchdo.cc/_healthcheck/phase0.txt the CDN + LB path works.

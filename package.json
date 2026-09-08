@@ -9,7 +9,9 @@
     "db:test": "node scripts/test_db.js",
     "supabase:health": "node scripts/supabase_health.js",
     "supabase:import-default": "node scripts/import_default_categories.js",
-    "test:media-wall-queries": "node scripts/test-media-wall-queries.js"
+    "test:media-wall-queries": "node scripts/test-media-wall-queries.js",
+    "storage:inventory-buckets": "node scripts/inventory-supabase-storage-buckets.js",
+    "storage:inventory-urls": "node scripts/inventory-supabase-storage-urls.js"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",
