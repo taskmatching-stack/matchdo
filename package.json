@@ -11,7 +11,9 @@
     "supabase:import-default": "node scripts/import_default_categories.js",
     "test:media-wall-queries": "node scripts/test-media-wall-queries.js",
     "storage:inventory-buckets": "node scripts/inventory-supabase-storage-buckets.js",
-    "storage:inventory-urls": "node scripts/inventory-supabase-storage-urls.js"
+    "storage:inventory-urls": "node scripts/inventory-supabase-storage-urls.js",
+    "storage:migrate-to-gcs": "node scripts/migrate-supabase-storage-to-gcs.js",
+    "storage:rewrite-db-urls": "node scripts/rewrite-db-storage-urls-to-gcs.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.22.0",

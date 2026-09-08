@@ -43,24 +43,51 @@
 
 ---
 
-## Phase 1 — 新上傳走 GCS（進行中）
+## Phase 1 — 新上傳走 GCS（✅ 完成）
 
 - [x] `lib/object-storage.js` + `@google-cloud/storage`
-- [x] `uploadToSupabaseStorage` → GCS（保留函式名，路徑與 Supabase 對齊）
-- [ ] push `main` + Cloud Run 部署
-- [ ] 抽樣：素材上傳、生圖、商攝 → URL 為 `https://media.matchdo.cc/...`
-
-**環境變數（選用，預設已對）：**
-
-| 變數 | 預設 |
-|------|------|
-| `GCS_MEDIA_BUCKET` | `matchdo-media` |
-| `GCS_PUBLIC_BASE_URL` | `https://media.matchdo.cc` |
-
-Cloud Run 服務帳號已有 bucket **objectAdmin**（Phase 0）；本機開發需 `gcloud auth application-default login` 或同等 ADC。
+- [x] `uploadToSupabaseStorage` → GCS
+- [x] 部署 + 抽樣 URL 為 `https://media.matchdo.cc/...`
 
 ---
 
-## Phase 2～5
+## Phase 2 — 批量複製物件（腳本已備，待執行）
 
-見 [PLAN-storage-gcs-migration.md](./PLAN-storage-gcs-migration.md)。
+**腳本：** `scripts/migrate-supabase-storage-to-gcs.js`
+
+本機（有 `.env` + `gcloud auth application-default login`）或 Cloud Shell（需 export Supabase 金鑰）：
+
+```bash
+# 先試 10 筆
+node scripts/migrate-supabase-storage-to-gcs.js --dry-run --limit=10
+
+# 正式（約 6966 物件 / 2.44 GB，可重複執行，已存在會 skip）
+node scripts/migrate-supabase-storage-to-gcs.js
+```
+
+產出：`tmp/gcs-migration-manifest.jsonl`
+
+- [ ] 全量 migrate 完成（failed=0）
+- [ ] 抽樣 GCS URL 可開圖
+
+---
+
+## Phase 3 — DB URL 改寫（腳本已備，Phase 2 後執行）
+
+**腳本：** `scripts/rewrite-db-storage-urls-to-gcs.js`
+
+```bash
+node scripts/rewrite-db-storage-urls-to-gcs.js --dry-run
+node scripts/rewrite-db-storage-urls-to-gcs.js
+```
+
+驗證：Supabase SQL Editor 再跑 `docs/storage-gcs-phase0-inventory.sql`，TOTAL 應趨近 0。
+
+- [ ] DB rewrite 完成
+- [ ] 首頁媒體牆／素材／商攝抽樣 QA
+
+---
+
+## Phase 4～5
+
+雙存 2 週 → 清空 Supabase Storage。見 [PLAN](./PLAN-storage-gcs-migration.md)。
