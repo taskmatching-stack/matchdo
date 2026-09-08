@@ -14,6 +14,7 @@
     "storage:inventory-urls": "node scripts/inventory-supabase-storage-urls.js"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.22.0",
     "@google/genai": "^2.16.0",
     "@google/generative-ai": "^0.24.1",
     "@paypal/checkout-server-sdk": "^1.0.3",

@@ -136,6 +136,7 @@ const {
     DEFAULT_UPSCALE_SCALE
 } = require('./lib/replicate-real-esrgan');
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
+const { uploadToGcsMedia } = require('./lib/object-storage');
 const provenanceResume = require('./lib/provenance-resume');
 const provenanceResumePdf = require('./lib/provenance-resume-pdf');
 const provenanceResumeZip = require('./lib/provenance-resume-zip');
@@ -10435,7 +10436,7 @@ async function setPaymentConfigValue(key, value) {
     }, { onConflict: 'key' });
 }
 
-/** Phase 1.6: 上傳單檔至 Supabase Storage，回傳 { path, publicUrl } */
+/** 上傳單檔至 GCS matchdo-media（公開 URL：media.matchdo.cc），回傳 { path, publicUrl } */
 async function uploadToSupabaseStorage(bucket, pathPrefix, file, options = {}) {
     /* 預設走廠商素材 1024 上限；商攝／情境圖成品須 skipNormalize，否則 2K／4K 會被壓回 1K */
     if (!options.skipNormalize && file && file.buffer && file.buffer.length) {
@@ -10446,14 +10447,8 @@ async function uploadToSupabaseStorage(bucket, pathPrefix, file, options = {}) {
     let ext = (options.ext || path.extname(file.originalname || '') || '.jpg').replace(/^\./, '') || 'jpg';
     if (contentType === 'image/jpeg' && /^(avif|heif|heic)$/i.test(ext)) ext = 'jpg';
     const filename = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
-    const objectPath = pathPrefix ? `${pathPrefix}/${filename}` : filename;
     const buffer = file.buffer || (file instanceof Buffer ? file : Buffer.from(file.data || ''));
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(objectPath, buffer, { contentType, upsert: false });
-    if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
-    return { path: data.path, publicUrl };
+    return uploadToGcsMedia(bucket, pathPrefix, buffer, contentType, filename);
 }
 const DB_URL = process.env.SUPABASE_DB_URL;
 const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categories.local.json');
