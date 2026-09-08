@@ -244,6 +244,7 @@
       if (m.stability_ai_edits != null) {
         proxyParts.push('Stability AI 編輯：' + m.stability_ai_edits + ' 次');
       }
+      if (m.error) proxyParts.push('注意：' + m.error);
       document.getElementById('externalProxies').textContent = proxyParts.join(' · ');
       var gemini = rollup.gemini_excluded || [];
       var geminiBox = document.getElementById('geminiExcludedBox');
@@ -263,15 +264,22 @@
       renderCard('cardDb', fp.database);
       renderCard('cardStorage', fp.storage);
       renderCard('cardEgress', fp.egress);
+      var warnHtml = '';
+      if (report.warnings && report.warnings.length) {
+        warnHtml = '<div class="text-warning small mt-1">' + report.warnings.map(function (w) { return esc(w); }).join('<br>') + '</div>';
+      }
       document.getElementById('recommendBox').innerHTML =
         '<strong>建議：</strong> ' + esc(st.recommendation || '—') +
-        (sb.project_ref ? ' <span class="text-muted">（project: ' + esc(sb.project_ref) + '）</span>' : '');
+        (sb.project_ref ? ' <span class="text-muted">（project: ' + esc(sb.project_ref) + '）</span>' : '') +
+        warnHtml;
       var auto = sb.auto || {};
       var autoLines = [];
       if (auto.database_bytes != null) autoLines.push('Database：' + (auto.database_bytes / (1024 * 1024)).toFixed(1) + ' MB（' + esc(auto.data_sources && auto.data_sources.database) + '）');
-      else autoLines.push('Database：無法自動讀取');
+      else if (fp.database && fp.database.used_bytes != null) autoLines.push('Database：' + (fp.database.used_bytes / (1024 * 1024)).toFixed(1) + ' MB（manual_snapshot）');
+      else autoLines.push('Database：無法自動讀取（可填下方快照）');
       if (auto.storage_objects_bytes != null) autoLines.push('Storage 物件：' + (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB');
-      else autoLines.push('Storage 物件：無法自動讀取（需 SUPABASE_DB_URL）');
+      else if (fp.storage && fp.storage.used_bytes != null) autoLines.push('Storage：' + (fp.storage.used_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB（manual_snapshot）');
+      else autoLines.push('Storage 物件：無法自動讀取（可填下方快照）');
       autoLines.push('DB 內 legacy Supabase URL：' + (auto.legacy_supabase_url_rows != null ? auto.legacy_supabase_url_rows + ' 筆' : '—'));
       if (auto.api_counts_1d) {
         autoLines.push('近 24h API 請求：REST ' + auto.api_counts_1d.total_rest_requests +
@@ -287,20 +295,21 @@
       renderExternalApis(report.external_apis || {});
       var snaps = sb.manual_snapshots || [];
       if (!snaps.length) {
-        document.getElementById('snapshotBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚無快照</td></tr>';
-        return;
-      }
-      document.getElementById('snapshotBody').innerHTML = snaps.map(function (s) {
-        return '<tr><td>' + esc(fmtTime(s.recorded_at)) + '</td><td>' + esc(s.storage_gb) + '</td><td>' + esc(s.egress_gb) +
-          '</td><td>' + esc(s.cached_egress_gb) + '</td><td>' + esc(s.db_size_mb) + '</td><td>' +
-          esc((s.billing_cycle_note || '') + (s.note ? ' · ' + s.note : '')) + '</td></tr>';
-      }).join('');
-      var latest = snaps[0];
-      if (latest) {
-        if (latest.storage_gb != null) document.getElementById('inStorageGb').value = latest.storage_gb;
-        if (latest.egress_gb != null) document.getElementById('inEgressGb').value = latest.egress_gb;
-        if (latest.cached_egress_gb != null) document.getElementById('inCachedEgressGb').value = latest.cached_egress_gb;
-        if (latest.db_size_mb != null) document.getElementById('inDbMb').value = latest.db_size_mb;
+        document.getElementById('snapshotBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚無快照 — 填寫下方數字後按「儲存快照」</td></tr>';
+      } else {
+        document.getElementById('snapshotBody').innerHTML = snaps.map(function (s) {
+          return '<tr><td>' + esc(fmtTime(s.recorded_at)) + '</td><td>' + esc(s.storage_gb) + '</td><td>' + esc(s.egress_gb) +
+            '</td><td>' + esc(s.cached_egress_gb) + '</td><td>' + esc(s.db_size_mb) + '</td><td>' +
+            esc((s.billing_cycle_note || '') + (s.note ? ' · ' + s.note : '')) + '</td></tr>';
+        }).join('');
+        var latest = snaps[0];
+        if (latest) {
+          if (latest.storage_gb != null) document.getElementById('inStorageGb').value = latest.storage_gb;
+          if (latest.egress_gb != null) document.getElementById('inEgressGb').value = latest.egress_gb;
+          if (latest.cached_egress_gb != null) document.getElementById('inCachedEgressGb').value = latest.cached_egress_gb;
+          if (latest.db_size_mb != null) document.getElementById('inDbMb').value = latest.db_size_mb;
+          if (latest.billing_cycle_note) document.getElementById('inCycleNote').value = latest.billing_cycle_note;
+        }
       }
     }
     async function loadReport() {
