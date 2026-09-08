@@ -117,6 +117,7 @@ const adminMigrations = require('./lib/admin-migrations');
 const materialComboAnalytics = require('./lib/material-combo-analytics');
 const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const categoryUsageStats = require('./lib/category-usage-stats');
+const platformUsageMonitor = require('./lib/platform-usage-monitor');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
@@ -32448,6 +32449,50 @@ app.get('/api/me/embed-designs', async (req, res) => {
     } catch (e) {
         console.error('GET /api/me/embed-designs:', e);
         return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/admin/platform-usage — Supabase 用量 + 外部 API（FLUX／Replicate）代理統計
+app.get('/api/admin/platform-usage', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const report = await platformUsageMonitor.buildPlatformUsageReport({ supabase });
+        return res.json({ success: true, report });
+    } catch (e) {
+        console.error('GET /api/admin/platform-usage:', e);
+        return res.status(500).json({ success: false, error: e.message || '查詢失敗' });
+    }
+});
+
+// POST /api/admin/platform-usage/supabase-snapshot — 手動記錄 Supabase Usage 頁數字（含 Egress）
+app.post('/api/admin/platform-usage/supabase-snapshot', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const storageGb = body.storage_gb != null && body.storage_gb !== '' ? Number(body.storage_gb) : null;
+        const egressGb = body.egress_gb != null && body.egress_gb !== '' ? Number(body.egress_gb) : null;
+        const cachedEgressGb = body.cached_egress_gb != null && body.cached_egress_gb !== '' ? Number(body.cached_egress_gb) : null;
+        const dbSizeMb = body.db_size_mb != null && body.db_size_mb !== '' ? Number(body.db_size_mb) : null;
+        if (storageGb == null && egressGb == null && cachedEgressGb == null && dbSizeMb == null) {
+            return res.status(400).json({ success: false, error: '請至少填寫一項用量數字' });
+        }
+        const entry = {
+            recorded_at: new Date().toISOString(),
+            billing_cycle_note: String(body.billing_cycle_note || '').trim() || null,
+            plan: String(body.plan || 'pro').trim() || 'pro',
+            storage_gb: storageGb,
+            egress_gb: egressGb,
+            cached_egress_gb: cachedEgressGb,
+            db_size_mb: dbSizeMb,
+            note: String(body.note || '').trim() || null
+        };
+        const snapshots = await platformUsageMonitor.saveSnapshot(supabase, entry);
+        return res.json({ success: true, snapshots });
+    } catch (e) {
+        console.error('POST /api/admin/platform-usage/supabase-snapshot:', e);
+        return res.status(500).json({ success: false, error: e.message || '儲存失敗' });
     }
 });
 

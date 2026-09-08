@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>平台用量監控 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+    .stat-card .stat-num { font-size: 1.25rem; font-weight: 600; line-height: 1.3; }
+    .level-ok { border-left: 4px solid #198754; }
+    .level-warning { border-left: 4px solid #ffc107; }
+    .level-danger { border-left: 4px solid #dc3545; }
+    .level-unknown { border-left: 4px solid #adb5bd; }
+    .badge-level-ok { background: #198754; }
+    .badge-level-warning { background: #ffc107; color: #212529; }
+    .badge-level-danger { background: #dc3545; }
+    .badge-level-unknown { background: #6c757d; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+          <div>
+            <h4 class="mb-1">平台用量監控</h4>
+            <p class="text-muted small mb-0">Supabase（DB／Storage／Egress）與 BFL、Replicate、Stability AI 等外部 API 本站統計。Gemini 不監控。</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRefresh"><i class="bi bi-arrow-clockwise"></i> 重新載入</button>
+        </div>
+
+        <div id="pageMsg" class="alert d-none small py-2"></div>
+
+        <div class="alert alert-light border small mb-3" id="recommendBox">載入中…</div>
+
+        <h5 class="h6 text-muted mb-2">Supabase（對照 Free 上限）</h5>
+        <div class="row g-2 mb-3" id="supabaseCards">
+          <div class="col-md-4"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">Database</div><div class="stat-num" id="cardDb">—</div></div></div></div>
+          <div class="col-md-4"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">Storage（物件）</div><div class="stat-num" id="cardStorage">—</div></div></div></div>
+          <div class="col-md-4"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">Egress（月）</div><div class="stat-num" id="cardEgress">—</div></div></div></div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body">
+                <h6 class="card-title">Supabase 自動偵測</h6>
+                <ul class="small mb-2" id="autoList"></ul>
+                <div class="d-flex flex-wrap gap-2">
+                  <a class="btn btn-sm btn-outline-primary" href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Supabase Usage</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="https://supabase.com/dashboard/org/_/billing" target="_blank" rel="noopener">Billing</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+              <div class="card-body">
+                <h6 class="card-title">外部 API 供應商（本月扣點 proxy）</h6>
+                <div class="row g-2 mb-2" id="providerCards"></div>
+                <div class="d-flex flex-wrap gap-2">
+                  <a class="btn btn-sm btn-outline-secondary" href="https://api.bfl.ai/" target="_blank" rel="noopener">BFL</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="https://replicate.com/account/billing" target="_blank" rel="noopener">Replicate</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="https://platform.stability.ai/account/credits" target="_blank" rel="noopener">Stability</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">GCP 帳單</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h6 class="card-title">外部 API 明細（本月）</h6>
+            <p class="text-muted small mb-2" id="externalNote"></p>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered bg-white mb-2">
+                <thead class="table-light">
+                  <tr>
+                    <th>供應商</th>
+                    <th>功能</th>
+                    <th class="text-end">次數</th>
+                    <th class="text-end">點數</th>
+                  </tr>
+                </thead>
+                <tbody id="externalDetailBody">
+                  <tr><td colspan="4" class="text-center text-muted py-3">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="small text-muted" id="externalProxies"></div>
+            <details class="small mt-2" id="geminiExcludedBox">
+              <summary class="text-muted">Gemini 相關扣點（不列入上方供應商）</summary>
+              <ul class="mb-0 mt-1" id="geminiExcludedList"></ul>
+            </details>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h6 class="card-title">記錄 Supabase Usage 快照</h6>
+            <p class="text-muted small">每月在 <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener">Usage</a> 看完後填寫（尤其 <strong>Egress</strong> 無法全自動）。</p>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small mb-1">Storage（GB）</label>
+                <input type="number" step="0.001" min="0" class="form-control form-control-sm" id="inStorageGb" placeholder="2.499" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">Egress（GB）</label>
+                <input type="number" step="0.001" min="0" class="form-control form-control-sm" id="inEgressGb" placeholder="2.756" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">Cached Egress（GB）</label>
+                <input type="number" step="0.001" min="0" class="form-control form-control-sm" id="inCachedEgressGb" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">DB（MB）</label>
+                <input type="number" step="0.1" min="0" class="form-control form-control-sm" id="inDbMb" placeholder="85" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">帳單週期備註</label>
+                <input type="text" class="form-control form-control-sm" id="inCycleNote" placeholder="9/7–10/7" />
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-primary w-100" id="btnSaveSnapshot">儲存快照</button>
+              </div>
+            </div>
+            <div class="mt-2">
+              <input type="text" class="form-control form-control-sm" id="inNote" placeholder="備註（選填）" />
+            </div>
+          </div>
+        </div>
+
+        <h6 class="text-muted">歷史快照</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered bg-white">
+            <thead class="table-light">
+              <tr>
+                <th>記錄時間</th>
+                <th>Storage GB</th>
+                <th>Egress GB</th>
+                <th>Cached GB</th>
+                <th>DB MB</th>
+                <th>週期／備註</th>
+              </tr>
+            </thead>
+            <tbody id="snapshotBody">
+              <tr><td colspan="6" class="text-center text-muted py-3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/auth-middleware.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function () {
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function levelClass(level) {
+      if (level === 'ok') return 'level-ok';
+      if (level === 'warning') return 'level-warning';
+      if (level === 'danger') return 'level-danger';
+      return 'level-unknown';
+    }
+    function badgeLevel(level) {
+      return '<span class="badge badge-level-' + esc(level || 'unknown') + '">' + esc(level || 'unknown') + '</span>';
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return iso; }
+    }
+    async function getToken() {
+      if (window.AuthService && window.AuthService.getSession) {
+        var s = await window.AuthService.getSession();
+        return s && s.access_token ? s.access_token : null;
+      }
+      return null;
+    }
+    function showMsg(text, kind) {
+      var el = document.getElementById('pageMsg');
+      el.textContent = text;
+      el.className = 'alert alert-' + (kind || 'info') + ' small py-2';
+      el.classList.remove('d-none');
+    }
+    function renderCard(id, item) {
+      var card = document.getElementById(id).closest('.stat-card');
+      if (!card) return;
+      card.className = 'card stat-card ' + levelClass(item && item.level);
+      document.getElementById(id).innerHTML = esc(item && item.label ? item.label : '—') + ' ' + badgeLevel(item && item.level);
+    }
+    function renderExternalApis(ext) {
+      var m = ext.month || {};
+      var rollup = m.rollup || {};
+      var providers = rollup.providers || [];
+      document.getElementById('externalNote').textContent = ext.note || '';
+      document.getElementById('providerCards').innerHTML = providers.map(function (p) {
+        var sub = (p.items && p.items.length)
+          ? p.items.slice(0, 3).map(function (it) { return esc(it.label) + ' ' + it.count; }).join(' · ')
+          : '本月無扣點';
+        return '<div class="col-md-6"><div class="border rounded p-2 h-100">' +
+          '<div class="fw-semibold small">' + esc(p.label) + '</div>' +
+          '<div class="stat-num">' + (p.total_count || 0) + ' 次</div>' +
+          '<div class="text-muted" style="font-size:0.75rem">' + (p.total_points || 0) + ' 點</div>' +
+          '<div class="text-muted" style="font-size:0.7rem">' + sub + '</div>' +
+          (p.note ? '<div class="text-muted" style="font-size:0.65rem">' + esc(p.note) + '</div>' : '') +
+          '</div></div>';
+      }).join('');
+      var rows = [];
+      providers.forEach(function (p) {
+        (p.items || []).forEach(function (it) {
+          rows.push({ provider: p.label, label: it.label, count: it.count, points: it.points });
+        });
+      });
+      if (!rows.length) {
+        document.getElementById('externalDetailBody').innerHTML =
+          '<tr><td colspan="4" class="text-center text-muted py-3">本月尚無外部 API 扣點紀錄</td></tr>';
+      } else {
+        document.getElementById('externalDetailBody').innerHTML = rows.map(function (r) {
+          return '<tr><td>' + esc(r.provider) + '</td><td>' + esc(r.label) + '</td>' +
+            '<td class="text-end">' + r.count + '</td><td class="text-end">' + r.points + '</td></tr>';
+        }).join('');
+      }
+      var proxyParts = [];
+      if (m.flux_design_generations != null) {
+        proxyParts.push('設計稿 FLUX 紀錄：' + m.flux_design_generations + ' 件');
+      }
+      if (m.flux_promo_generations != null && m.promo_total_generations != null) {
+        proxyParts.push('商攝 FLUX：' + m.flux_promo_generations + '／' + m.promo_total_generations + ' 件');
+      }
+      if (m.replicate_upscale != null) {
+        proxyParts.push('Replicate 放大扣點：' + m.replicate_upscale + ' 次');
+      }
+      if (m.stability_ai_edits != null) {
+        proxyParts.push('Stability AI 編輯：' + m.stability_ai_edits + ' 次');
+      }
+      document.getElementById('externalProxies').textContent = proxyParts.join(' · ');
+      var gemini = rollup.gemini_excluded || [];
+      var geminiBox = document.getElementById('geminiExcludedBox');
+      if (!gemini.length) {
+        geminiBox.classList.add('d-none');
+      } else {
+        geminiBox.classList.remove('d-none');
+        document.getElementById('geminiExcludedList').innerHTML = gemini.map(function (g) {
+          return '<li>' + esc(g.label) + '：' + g.count + ' 次／' + g.points + ' 點</li>';
+        }).join('');
+      }
+    }
+    function renderReport(report) {
+      var sb = report.supabase || {};
+      var st = sb.status || {};
+      var fp = st.free_plan || {};
+      renderCard('cardDb', fp.database);
+      renderCard('cardStorage', fp.storage);
+      renderCard('cardEgress', fp.egress);
+      document.getElementById('recommendBox').innerHTML =
+        '<strong>建議：</strong> ' + esc(st.recommendation || '—') +
+        (sb.project_ref ? ' <span class="text-muted">（project: ' + esc(sb.project_ref) + '）</span>' : '');
+      var auto = sb.auto || {};
+      var autoLines = [];
+      if (auto.database_bytes != null) autoLines.push('Database：' + (auto.database_bytes / (1024 * 1024)).toFixed(1) + ' MB（' + esc(auto.data_sources && auto.data_sources.database) + '）');
+      else autoLines.push('Database：無法自動讀取');
+      if (auto.storage_objects_bytes != null) autoLines.push('Storage 物件：' + (auto.storage_objects_bytes / (1024 * 1024 * 1024)).toFixed(3) + ' GB');
+      else autoLines.push('Storage 物件：無法自動讀取（需 SUPABASE_DB_URL）');
+      autoLines.push('DB 內 legacy Supabase URL：' + (auto.legacy_supabase_url_rows != null ? auto.legacy_supabase_url_rows + ' 筆' : '—'));
+      if (auto.api_counts_1d) {
+        autoLines.push('近 24h API 請求：REST ' + auto.api_counts_1d.total_rest_requests +
+          ' · Storage ' + auto.api_counts_1d.total_storage_requests +
+          ' · Auth ' + auto.api_counts_1d.total_auth_requests);
+      } else if (auto.api_counts_error) {
+        autoLines.push('Management API：' + esc(auto.api_counts_error));
+      }
+      (sb.setup_hints || []).forEach(function (h) { autoLines.push(h); });
+      document.getElementById('autoList').innerHTML = autoLines.map(function (l) {
+        return '<li>' + esc(l) + '</li>';
+      }).join('');
+      renderExternalApis(report.external_apis || {});
+      var snaps = sb.manual_snapshots || [];
+      if (!snaps.length) {
+        document.getElementById('snapshotBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚無快照</td></tr>';
+        return;
+      }
+      document.getElementById('snapshotBody').innerHTML = snaps.map(function (s) {
+        return '<tr><td>' + esc(fmtTime(s.recorded_at)) + '</td><td>' + esc(s.storage_gb) + '</td><td>' + esc(s.egress_gb) +
+          '</td><td>' + esc(s.cached_egress_gb) + '</td><td>' + esc(s.db_size_mb) + '</td><td>' +
+          esc((s.billing_cycle_note || '') + (s.note ? ' · ' + s.note : '')) + '</td></tr>';
+      }).join('');
+      var latest = snaps[0];
+      if (latest) {
+        if (latest.storage_gb != null) document.getElementById('inStorageGb').value = latest.storage_gb;
+        if (latest.egress_gb != null) document.getElementById('inEgressGb').value = latest.egress_gb;
+        if (latest.cached_egress_gb != null) document.getElementById('inCachedEgressGb').value = latest.cached_egress_gb;
+        if (latest.db_size_mb != null) document.getElementById('inDbMb').value = latest.db_size_mb;
+      }
+    }
+    async function loadReport() {
+      var tok = await getToken();
+      if (!tok) return;
+      document.getElementById('recommendBox').textContent = '載入中…';
+      var r = await fetch('/api/admin/platform-usage', { headers: { Authorization: 'Bearer ' + tok } });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        showMsg(data.error || '載入失敗', 'danger');
+        return;
+      }
+      document.getElementById('pageMsg').classList.add('d-none');
+      renderReport(data.report || {});
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('btnRefresh').addEventListener('click', loadReport);
+      document.getElementById('btnSaveSnapshot').addEventListener('click', async function () {
+        var tok = await getToken();
+        if (!tok) return;
+        var payload = {
+          storage_gb: document.getElementById('inStorageGb').value,
+          egress_gb: document.getElementById('inEgressGb').value,
+          cached_egress_gb: document.getElementById('inCachedEgressGb').value,
+          db_size_mb: document.getElementById('inDbMb').value,
+          billing_cycle_note: document.getElementById('inCycleNote').value,
+          note: document.getElementById('inNote').value
+        };
+        var r = await fetch('/api/admin/platform-usage/supabase-snapshot', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await r.json().catch(function () { return {}; });
+        if (!r.ok) {
+          showMsg(data.error || '儲存失敗', 'danger');
+          return;
+        }
+        showMsg('已儲存快照', 'success');
+        loadReport();
+      });
+      setTimeout(loadReport, 400);
+    });
+  })();
+  </script>
+</body>
+</html>
