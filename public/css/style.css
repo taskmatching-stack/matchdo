@@ -165,7 +165,7 @@ body {
     background: var(--bs-primary);
 }
 
-@media (max-width: 991.98px) {
+@media (max-width: 1199.98px) {
     .navbar .navbar-nav .nav-link  {
         margin-left: 0;
         padding: 10px 0;
@@ -173,6 +173,32 @@ body {
     /* 我的功能：左側不展開，只保留右方滑出選單 */
     #site-header .navbar-collapse .nav-item.dropdown .dropdown-menu {
         display: none !important;
+    }
+    /* 窄版：Logo 左上、點數與漢堡靠右，避免互相重疊 */
+    #site-header .navbar {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+    #site-header .navbar > .navbar-brand.d-xl-none {
+        flex: 0 1 auto;
+        max-width: 42vw;
+        min-width: 0;
+        overflow: hidden;
+        padding-left: 0.75rem !important;
+        padding-right: 0.5rem !important;
+        border-right: none !important;
+    }
+    #site-header .navbar > .navbar-brand.d-xl-none img {
+        max-height: 44px;
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+    }
+    #site-header #navPointsMobile {
+        flex-shrink: 0;
+    }
+    #site-header .navbar-toggler {
+        flex-shrink: 0;
     }
 }
 
@@ -267,7 +293,7 @@ body {
     margin: 0.5rem 0;
     border-top: 1px solid #dee2e6;
 }
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
     .nav-mobile-drawer {
         display: none !important;
     }
@@ -697,7 +723,7 @@ body {
 }
 
 /* ===== Navbar：authSection 緊貼頭像，減少右側空白 ===== */
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
     #site-header #authSection {
         width: auto;
         min-width: auto;
@@ -714,19 +740,41 @@ body {
 }
 
 /* ===== Navbar：桌機 Logo 置中蓋住選單（全站共用）；選單列左右保留 Logo 半寬，永遠不擋 ===== */
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
     #site-header .navbar { flex-wrap: wrap; background-color: #fff !important; }
     /* 已登入時第一排的 Logo 隱藏，只顯示第二排置中的那一個 */
-    #site-header .navbar > .navbar-brand.d-lg-none {
+    #site-header .navbar > .navbar-brand.d-xl-none {
         display: none !important;
     }
     /* 第一排（選單列）：與第二排同色，避免去背 LOGO 跨區時上下透出不同底色 */
     #site-header .navbar-collapse {
-        order: 1; width: 100%; flex-grow: 1;
+        order: 1;
+        width: 100%;
+        flex-grow: 1;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: flex-end;
         background: #fff;
         border-bottom: 1px solid #dee2e6;
-        padding-left: 110px;
+        padding-left: 0;
+        padding-right: 0.5rem;
         box-sizing: border-box;
+    }
+    /* 左側留白：把選單／頭像推到右半，中央留給置中 LOGO */
+    #site-header .navbar-collapse::before {
+        content: '';
+        flex: 0 0 calc(50% - 5.75rem);
+        width: calc(50% - 5.75rem);
+        min-width: calc(50% - 5.75rem);
+        max-width: calc(50% - 5.75rem);
+        order: 0;
+        pointer-events: none;
+    }
+    #site-header .navbar-collapse > .navbar-nav {
+        flex: 0 1 auto;
+        max-width: calc(50% - 3.5rem);
+        margin-left: 0 !important;
     }
     #site-header .navbar-brand {
         order: 2;
@@ -762,7 +810,7 @@ body {
 }
 
 /* ===== 解析度變小時縮短選單列、縮小選單間距，避免 Logo 蓋住選單 ===== */
-@media (max-width: 1509px) and (min-width: 992px) {
+@media (max-width: 1509px) and (min-width: 1200px) {
     #site-header .navbar .navbar-nav .nav-link {
         margin-left: 16px;
     }
@@ -770,7 +818,7 @@ body {
         margin-right: 0.25rem;
     }
 }
-@media (max-width: 1460px) and (min-width: 992px) {
+@media (max-width: 1460px) and (min-width: 1200px) {
     #site-header .navbar .navbar-nav .nav-link {
         margin-left: 12px;
     }
@@ -778,25 +826,34 @@ body {
         font-size: 17px;
     }
 }
-@media (max-width: 1400px) and (min-width: 992px) {
+@media (max-width: 1400px) and (min-width: 1200px) {
     #site-header .navbar .navbar-nav .nav-link {
         margin-left: 10px;
     }
 }
-@media (max-width: 1300px) and (min-width: 992px) {
+@media (max-width: 1300px) and (min-width: 1200px) {
     #site-header .navbar .navbar-nav .nav-link {
         margin-left: 8px;
     }
     #site-header .navbar {
         font-size: 16px;
     }
+    #site-header .navbar-collapse::before {
+        flex-basis: calc(50% - 6.25rem);
+        width: calc(50% - 6.25rem);
+        min-width: calc(50% - 6.25rem);
+        max-width: calc(50% - 6.25rem);
+    }
 }
-@media (max-width: 1200px) and (min-width: 992px) {
+@media (max-width: 1240px) and (min-width: 1200px) {
     #site-header .navbar .navbar-nav .nav-link {
         margin-left: 6px;
     }
     #site-header .navbar {
         font-size: 15px;
+    }
+    #site-header .nav-link .badge {
+        display: none;
     }
 }
 

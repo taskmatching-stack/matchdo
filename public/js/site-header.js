@@ -83,14 +83,14 @@ function matchdoResolvePublicLang() {
             '.nav-hover-menu:not(.nav-cp-menu){min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
             '.nav-hover-menu:not(.nav-cp-menu) .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
             '.nav-hover-menu:not(.nav-cp-menu) .dropdown-item:hover{background:var(--bs-primary,#7A8FA3)!important;color:#fff!important;}',
-            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
-            '@media(min-width:992px){',
+            '@media(max-width:1199.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
+            '@media(min-width:1200px){',
             '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
             '.nav-item.nav-has-hover:hover>.nav-hover-menu{display:block;margin-top:2px;animation:nbDropIn .15s ease;}',
             '#site-header .navbar{flex-wrap:wrap;}',
             '#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid rgba(88,100,112,0.12);}',
-            '#site-header .navbar-brand:not(.d-lg-none){order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}',
-            '#site-header .navbar-brand.d-lg-none{display:none!important;}',
+            '#site-header .navbar-brand:not(.d-xl-none){order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}',
+            '#site-header .navbar-brand.d-xl-none{display:none!important;}',
             '#site-header .nav-second-row-wrap .navbar-brand{order:0!important;margin:-39px auto 0!important;}',
             '#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}',
             '#site-header #authSection{width:auto;min-width:auto;max-width:none;justify-content:flex-end;padding-left:0.5rem;padding-right:0;}',
@@ -550,11 +550,11 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     var showLangSwitch = path.indexOf('/admin/') === -1;
     const navHTML = `
         <!-- Navbar Start -->
-        <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">
-            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5 ${user ? 'd-lg-none' : ''}">
+        <nav class="navbar navbar-expand-xl bg-white navbar-light sticky-top p-0">
+            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-xl-5 ${user ? 'd-xl-none' : ''}">
                 <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
             </a>
-            ${user ? `<div id="navPointsMobile" class="d-lg-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> ` + t('nav.pointsUnit') + `</a></div>` : ''}
+            ${user ? `<div id="navPointsMobile" class="d-xl-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> ` + t('nav.pointsUnit') + `</a></div>` : ''}
             <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -617,9 +617,9 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                     
                 </div>
                 
-                ${showLangSwitch ? '<div class="d-none d-lg-flex align-items-center px-2 border-end"><a href="#" class="lang-link small text-muted text-decoration-none me-1" data-lang="zh-TW">' + t('nav.langZh') + '</a><span class="text-muted">|</span><a href="#" class="lang-link small text-muted text-decoration-none ms-1" data-lang="en">' + t('nav.langEn') + '</a></div>' : ''}
+                ${showLangSwitch ? '<div class="d-none d-xl-flex align-items-center px-2 border-end"><a href="#" class="lang-link small text-muted text-decoration-none me-1" data-lang="zh-TW">' + t('nav.langZh') + '</a><span class="text-muted">|</span><a href="#" class="lang-link small text-muted text-decoration-none ms-1" data-lang="en">' + t('nav.langEn') + '</a></div>' : ''}
                 
-                <div class="d-none d-lg-flex align-items-center px-4" id="authSection">
+                <div class="d-none d-xl-flex align-items-center px-4" id="authSection">
                     ${user ? `
                         <div class="dropdown">
                             <a class="btn btn-primary p-0 d-flex align-items-center justify-content-center dropdown-toggle nav-avatar-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop" title="${_initDisplayName}">
@@ -658,7 +658,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                         <a href="${loginHref}" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>` + t('nav.login') + `</a>
                     `}
                 </div>
-                <div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile">
+                <div class="d-xl-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile">
                     ${showLangSwitch ? '<div class="mb-2"><a href="#" class="lang-link small text-muted me-2" data-lang="zh-TW">' + t('nav.langZh') + '</a><a href="#" class="lang-link small text-muted" data-lang="en">' + t('nav.langEn') + '</a></div>' : ''}
                     ${user ? `
                         <div class="dropdown">
@@ -685,7 +685,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                     `}
                 </div>
             </div>
-            ${user ? `<div class="nav-second-row-wrap d-none d-lg-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits')}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> ` + t('nav.pointsUnit') + `</a></div></div>` : ''}
+            ${user ? `<div class="nav-second-row-wrap d-none d-xl-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits')}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> ` + t('nav.pointsUnit') + `</a></div></div>` : ''}
         </nav>
         <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true" style="display:none">
             <div class="nav-mobile-drawer-backdrop"></div>
@@ -887,7 +887,7 @@ function initMobileNavDrawer(headerContainer) {
     for (var i = 0; i < triggerLinks.length; i++) {
         (function (link) {
             link.addEventListener('click', function (e) {
-                if (window.innerWidth > 991.98) return;
+                if (window.innerWidth > 1199.98) return;
                 var item = link.closest('.nav-item');
                 var menu = item.querySelector('.dropdown-menu, .nav-hover-menu');
                 if (!menu) return;

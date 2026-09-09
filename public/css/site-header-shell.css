@@ -11,7 +11,7 @@
 #site-header .nav-hover-menu {
   display: none !important;
 }
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
   #site-header .nav-item.nav-has-hover:hover > .nav-hover-menu {
     display: block !important;
   }
@@ -26,7 +26,7 @@
 }
 
 /* 桌機：頭像／帳號下拉須在置中 Logo（z-index:5）之上；第二排空白區不攔截點擊 */
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
   #site-header #authSection {
     position: relative;
     z-index: 12;
