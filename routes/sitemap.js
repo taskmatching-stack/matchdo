@@ -270,13 +270,24 @@ function registerSitemapRoutes(app, deps) {
         const today = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
-            const { data: userRows } = await supabase
+            let userRowsRes = await supabase
                 .from('custom_products')
                 .select('id, updated_at, created_at')
                 .not('ai_generated_image_url', 'is', null)
+                .is('soft_deleted_at', null)
                 .or('show_on_homepage.eq.true,show_on_homepage.is.null')
                 .order('created_at', { ascending: false })
                 .limit(80);
+            if (userRowsRes.error && userRowsRes.error.code === '42703') {
+                userRowsRes = await supabase
+                    .from('custom_products')
+                    .select('id, updated_at, created_at')
+                    .not('ai_generated_image_url', 'is', null)
+                    .or('show_on_homepage.eq.true,show_on_homepage.is.null')
+                    .order('created_at', { ascending: false })
+                    .limit(80);
+            }
+            const userRows = userRowsRes.data;
             for (const r of (userRows || [])) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/user_design/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
@@ -319,14 +330,25 @@ function registerSitemapRoutes(app, deps) {
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/' + kind + '/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
             }
             let promoRows = [];
-            const promoRes = await supabase
+            let promoRes = await supabase
                 .from('product_promo_generations')
                 .select('id, created_at, semantics_generated_at')
                 .eq('status', 'success')
                 .eq('show_on_homepage', true)
+                .is('soft_deleted_at', null)
                 .not('result_image_url', 'is', null)
                 .order('created_at', { ascending: false })
                 .limit(50);
+            if (promoRes.error && promoRes.error.code === '42703' && String(promoRes.error.message || '').includes('soft_deleted_at')) {
+                promoRes = await supabase
+                    .from('product_promo_generations')
+                    .select('id, created_at, semantics_generated_at')
+                    .eq('status', 'success')
+                    .eq('show_on_homepage', true)
+                    .not('result_image_url', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+            }
             if (promoRes.error && (promoRes.error.code === '42703' || String(promoRes.error.message || '').includes('show_on_homepage'))) {
                 const promoFb = await supabase
                     .from('product_promo_generations')

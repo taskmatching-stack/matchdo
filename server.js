@@ -120,6 +120,7 @@ const categoryUsageStats = require('./lib/category-usage-stats');
 const platformUsageMonitor = require('./lib/platform-usage-monitor');
 const ugcRetention = require('./lib/ugc-retention');
 const subscriptionExpiry = require('./lib/subscription-expiry');
+const membershipDowngradeNotices = require('./lib/membership-downgrade-notices');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
@@ -15563,6 +15564,51 @@ app.get('/api/me/subscription', async (req, res) => {
     }
 });
 
+// GET /api/me/membership-notices/pending — 待確認的降級通知（稽核留存）
+app.get('/api/me/membership-notices/pending', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const notices = await membershipDowngradeNotices.listPendingNotices(supabase, user.id);
+        res.json({ notices });
+    } catch (e) {
+        console.error('GET /api/me/membership-notices/pending:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/membership-notices/:id/shown — 記錄首次顯示時間
+app.post('/api/me/membership-notices/:id/shown', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const noticeId = (req.params.id || '').trim();
+        if (!noticeId) return res.status(400).json({ error: '缺少 id' });
+        await membershipDowngradeNotices.markNoticeShown(supabase, noticeId, user.id);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('POST /api/me/membership-notices/:id/shown:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/membership-notices/:id/acknowledge — 使用者確認已讀
+app.post('/api/me/membership-notices/:id/acknowledge', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const noticeId = (req.params.id || '').trim();
+        if (!noticeId) return res.status(400).json({ error: '缺少 id' });
+        const via = (req.body && req.body.via) ? String(req.body.via) : 'api';
+        const ok = await membershipDowngradeNotices.acknowledgeNotice(supabase, noticeId, user.id, via);
+        if (!ok) return res.status(404).json({ error: '找不到待確認通知' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('POST /api/me/membership-notices/:id/acknowledge:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/me/subscription/cancel — 主動調整為免費方案（無上牆 15 日緩衝）
 app.post('/api/me/subscription/cancel', express.json(), async (req, res) => {
     try {
@@ -22284,6 +22330,19 @@ async function syncMembershipCatalogVisibility(userId) {
         try {
             const kind = await ugcRetention.resolveDowngradeKind(supabase, userId);
             await ugcRetention.applyDowngradeToFree(supabase, userId, { kind });
+            try {
+                const until = kind === 'involuntary'
+                    ? await ugcRetention.readWallGraceUntil(supabase, userId)
+                    : null;
+                await membershipDowngradeNotices.createDowngradeNotice(
+                    supabase,
+                    userId,
+                    kind === 'voluntary' ? 'voluntary' : 'involuntary',
+                    { wallGraceUntil: until, graceDays: ugcRetention.wallGraceDays() }
+                );
+            } catch (noticeErr) {
+                console.warn('createDowngradeNotice:', noticeErr && noticeErr.message);
+            }
         } catch (retErr) {
             console.warn('applyDowngradeToFree:', retErr && retErr.message);
         }

@@ -447,6 +447,9 @@
           alert('已調整為免費方案');
           loadSubscriptionStatus();
           loadCredits();
+          if (window.MatchdoMembershipDowngradeNotice && window.MatchdoMembershipDowngradeNotice.pollPending) {
+            window.MatchdoMembershipDowngradeNotice.pollPending();
+          }
         })
         .catch(function () {
           btnConfirmCancel.disabled = false;

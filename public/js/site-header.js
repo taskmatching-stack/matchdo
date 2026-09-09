@@ -751,9 +751,18 @@ function resolveHeaderRoles(user, profile, renderOpts) {
     return { isAdmin: isAdmin, isTesterOrAdmin: isTesterOrAdmin };
 }
 
+function loadMembershipDowngradeNoticeScript() {
+    if (document.querySelector('script[src*="membership-downgrade-notice.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/membership-downgrade-notice.js';
+    s.defer = true;
+    document.body.appendChild(s);
+}
+
 function deferHeaderDeferredLoads(headerContainer) {
     var run = function () {
         loadRenewalReminderBanner(headerContainer);
+        loadMembershipDowngradeNoticeScript();
         loadHeaderCredits(headerContainer);
         loadHeaderManufacturerNavLinks(headerContainer);
         loadHeaderSupplierNavLinks(headerContainer);
