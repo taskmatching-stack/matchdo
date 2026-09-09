@@ -18,6 +18,10 @@
     pre.detail-json { font-size: 0.72rem; max-height: 240px; overflow: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 6px; }
     .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
     .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
+    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable-th .sort-icon { font-size: 0.72rem; margin-left: 0.15rem; }
+    .date-group-row td { border-top: 2px solid #dee2e6; }
+    .date-group-toggle { font-weight: 600; color: #495057; }
   </style>
 </head>
 <body class="bg-light">
@@ -121,6 +125,12 @@
                 <button class="btn btn-primary btn-sm flex-fill" id="btnSearch"><i class="bi bi-search me-1"></i>查詢</button>
                 <button class="btn btn-outline-secondary btn-sm" id="btnReset" title="清除"><i class="bi bi-x-lg"></i></button>
               </div>
+              <div class="col-12">
+                <div class="form-check form-check-inline mb-0">
+                  <input class="form-check-input" type="checkbox" id="chkGroupByDate" checked>
+                  <label class="form-check-label small" for="chkGroupByDate">依日期收折（點資料夾展開／收合）</label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -133,11 +143,11 @@
                   <th style="width:36px"><input type="checkbox" class="form-check-input" id="chkAllPage" title="全選本頁"></th>
                   <th style="width:76px">成圖</th>
                   <th style="width:92px">參考圖</th>
-                  <th>來源</th>
-                  <th>標題／描述</th>
-                  <th>帳號／廠商</th>
-                  <th>點閱</th>
-                  <th>時間</th>
+                  <th class="sortable-th" data-sort="source" title="點擊排序">來源 <i class="bi bi-arrow-down-up sort-icon text-muted opacity-50"></i></th>
+                  <th class="sortable-th" data-sort="title" title="點擊排序">標題／描述 <i class="bi bi-arrow-down-up sort-icon text-muted opacity-50"></i></th>
+                  <th class="sortable-th" data-sort="owner" title="點擊排序">帳號／廠商 <i class="bi bi-arrow-down-up sort-icon text-muted opacity-50"></i></th>
+                  <th class="sortable-th" data-sort="access_count" title="點擊排序">點閱 <i class="bi bi-arrow-down-up sort-icon text-muted opacity-50"></i></th>
+                  <th class="sortable-th" data-sort="created_at" title="點擊排序">時間 <i class="bi bi-arrow-down sort-icon"></i></th>
                 </tr>
               </thead>
               <tbody id="recordsBody">
@@ -190,6 +200,10 @@
     var items = [];
     var detailModal = null;
     var selectedIdx = {};
+    var sortCol = 'created_at';
+    var sortDir = 'desc';
+    var groupByDate = true;
+    var collapsedDates = {};
 
     function showDetailModal() {
       var el = document.getElementById('detailModal');
@@ -428,38 +442,71 @@
       document.getElementById('summaryFilteredHint').classList.toggle('d-none', !summary.filtered);
     }
 
-    function renderRows() {
-      var body = document.getElementById('recordsBody');
-      selectedIdx = {};
-      updateExportZipButton();
-      var chkAll = document.getElementById('chkAllPage');
-      if (chkAll) chkAll.checked = false;
-      if (!items.length) {
-        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">無符合紀錄</td></tr>';
-        return;
+    function dateKeyFromRow(row) {
+      if (!row || !row.created_at) return 'unknown';
+      try {
+        var d = new Date(row.created_at);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      } catch (_) {
+        return 'unknown';
       }
-      body.innerHTML = items.map(function (row, idx) {
-        var url = row.ai_generated_image_url || '';
-        var img = url ? '<img src="' + esc(url) + '" class="rec-thumb" alt="">' : '<span class="text-muted">—</span>';
-        var who = row.source === 'embed'
-          ? esc(row.manufacturer_name || row.manufacturer_id || '—')
-          : esc(row.owner_name || row.owner_email || row.owner_id || '—');
-        var cap = esc((row.title || row.prompt || '').slice(0, 80));
-        var canResume = !!mapRowToResumeItem(row);
-        var chk = canResume
-          ? '<input type="checkbox" class="form-check-input rec-chk" data-idx="' + idx + '">'
-          : '<span class="text-muted">—</span>';
-        var accessCell = '—';
-        if (row.ugc_item_type) {
-          var cnt = row.access_count != null ? row.access_count : '—';
-          var lastAt = row.last_access_event_at || row.last_accessed_at;
-          accessCell = '<div class="small">' + esc(String(cnt)) + ' 次</div>' +
-            (lastAt ? '<div class="text-muted" style="font-size:0.72rem">' + esc(fmtTime(lastAt)) + '</div>' : '');
+    }
+
+    function dateGroupLabel(key) {
+      if (key === 'unknown') return '未知日期';
+      try {
+        var p = key.split('-');
+        var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+        return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+      } catch (_) {
+        return key;
+      }
+    }
+
+    function isDateGroupCollapsed(key, groupIndex) {
+      if (collapsedDates[key] !== undefined) return !!collapsedDates[key];
+      return groupIndex > 0;
+    }
+
+    function updateSortHeaders() {
+      document.querySelectorAll('.sortable-th').forEach(function (th) {
+        var col = th.getAttribute('data-sort');
+        var icon = th.querySelector('.sort-icon');
+        if (!icon) return;
+        if (col === sortCol) {
+          icon.className = 'bi sort-icon ' + (sortDir === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down');
+          th.classList.add('table-active');
+        } else {
+          icon.className = 'bi sort-icon bi-arrow-down-up text-muted opacity-50';
+          th.classList.remove('table-active');
         }
-        return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + renderRefThumbs(row, 64) + '</td><td>' + sourceBadge(row) + '</td>' +
-          '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
-          '<td class="small">' + who + '</td><td class="small text-nowrap">' + accessCell + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
-      }).join('');
+      });
+    }
+
+    function renderOneRow(row, idx) {
+      var url = row.ai_generated_image_url || '';
+      var img = url ? '<img src="' + esc(url) + '" class="rec-thumb" alt="">' : '<span class="text-muted">—</span>';
+      var who = row.source === 'embed'
+        ? esc(row.manufacturer_name || row.manufacturer_id || '—')
+        : esc(row.owner_name || row.owner_email || row.owner_id || '—');
+      var cap = esc((row.title || row.prompt || '').slice(0, 80));
+      var canResume = !!mapRowToResumeItem(row);
+      var chk = canResume
+        ? '<input type="checkbox" class="form-check-input rec-chk" data-idx="' + idx + '">'
+        : '<span class="text-muted">—</span>';
+      var accessCell = '—';
+      if (row.ugc_item_type) {
+        var cnt = row.access_count != null ? row.access_count : '—';
+        var lastAt = row.last_access_event_at || row.last_accessed_at;
+        accessCell = '<div class="small">' + esc(String(cnt)) + ' 次</div>' +
+          (lastAt ? '<div class="text-muted" style="font-size:0.72rem">' + esc(fmtTime(lastAt)) + '</div>' : '');
+      }
+      return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + renderRefThumbs(row, 64) + '</td><td>' + sourceBadge(row) + '</td>' +
+        '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
+        '<td class="small">' + who + '</td><td class="small text-nowrap">' + accessCell + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
+    }
+
+    function bindRecordRowEvents(body) {
       body.querySelectorAll('.rec-chk').forEach(function (el) {
         el.addEventListener('click', function (ev) {
           ev.stopPropagation();
@@ -472,6 +519,64 @@
           openDetail(parseInt(tr.dataset.idx, 10));
         });
       });
+      body.querySelectorAll('.date-group-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          var tr = btn.closest('.date-group-row');
+          if (!tr) return;
+          var key = tr.getAttribute('data-date-key');
+          var wasCollapsed = collapsedDates[key];
+          if (wasCollapsed === undefined) {
+            wasCollapsed = !!btn.querySelector('.bi-folder');
+          }
+          collapsedDates[key] = !wasCollapsed;
+          renderRows();
+        });
+      });
+    }
+
+    function renderRows() {
+      var body = document.getElementById('recordsBody');
+      selectedIdx = {};
+      updateExportZipButton();
+      updateSortHeaders();
+      var chkAll = document.getElementById('chkAllPage');
+      if (chkAll) chkAll.checked = false;
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">無符合紀錄</td></tr>';
+        return;
+      }
+      groupByDate = !!(document.getElementById('chkGroupByDate') && document.getElementById('chkGroupByDate').checked);
+      var html = '';
+      if (!groupByDate || sortCol !== 'created_at') {
+        html = items.map(function (row, idx) { return renderOneRow(row, idx); }).join('');
+      } else {
+        var groups = {};
+        var order = [];
+        items.forEach(function (row, idx) {
+          var k = dateKeyFromRow(row);
+          if (!groups[k]) {
+            groups[k] = [];
+            order.push(k);
+          }
+          groups[k].push({ row: row, idx: idx });
+        });
+        order.forEach(function (k, gi) {
+          var collapsed = isDateGroupCollapsed(k, gi);
+          html += '<tr class="date-group-row" data-date-key="' + esc(k) + '"><td colspan="8" class="bg-light py-1 px-2">' +
+            '<button type="button" class="btn btn-link btn-sm text-decoration-none p-0 date-group-toggle">' +
+            '<i class="bi ' + (collapsed ? 'bi-folder' : 'bi-folder2-open') + ' me-1"></i>' +
+            esc(dateGroupLabel(k)) + ' <span class="text-muted">（' + groups[k].length + ' 筆）</span></button></td></tr>';
+          if (!collapsed) {
+            groups[k].forEach(function (entry) {
+              html += renderOneRow(entry.row, entry.idx);
+            });
+          }
+        });
+      }
+      body.innerHTML = html;
+      bindRecordRowEvents(body);
     }
 
     function openDetail(idx) {
@@ -613,6 +718,8 @@
       if (q) qs.set('q', q);
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
+      qs.set('sort', sortCol);
+      qs.set('order', sortDir);
       var r = await fetch('/api/admin/generation-records?' + qs.toString(), {
         headers: { Authorization: 'Bearer ' + tok }
       });
@@ -631,15 +738,38 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-      document.getElementById('btnSearch').addEventListener('click', function () { page = 0; loadPage(); });
+      document.querySelectorAll('.sortable-th').forEach(function (th) {
+        th.addEventListener('click', function () {
+          var col = th.getAttribute('data-sort');
+          if (!col) return;
+          if (sortCol === col) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortCol = col;
+            sortDir = (col === 'title' || col === 'owner' || col === 'source') ? 'asc' : 'desc';
+          }
+          page = 0;
+          collapsedDates = {};
+          loadPage();
+        });
+      });
+      var chkGroup = document.getElementById('chkGroupByDate');
+      if (chkGroup) {
+        chkGroup.addEventListener('change', function () {
+          collapsedDates = {};
+          renderRows();
+        });
+      }
+      document.getElementById('btnSearch').addEventListener('click', function () { page = 0; collapsedDates = {}; loadPage(); });
       document.getElementById('btnReset').addEventListener('click', function () {
         document.getElementById('filterSource').value = 'all';
         document.getElementById('filterQ').value = '';
         setDefaultDateRange();
         page = 0;
+        collapsedDates = {};
         loadPage();
       });
-      document.getElementById('btnPrev').addEventListener('click', function () { if (page > 0) { page--; loadPage(); } });
+      document.getElementById('btnPrev').addEventListener('click', function () { if (page > 0) { page--; collapsedDates = {}; loadPage(); } });
       document.getElementById('btnNext').addEventListener('click', function () { if (hasMore) { page++; loadPage(); } });
       document.getElementById('filterQ').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { page = 0; loadPage(); }
