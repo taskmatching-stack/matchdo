@@ -595,6 +595,8 @@
   "home.promoKindSpace": "Space lock",
   "home.promoKindPortrait": "Portrait shoot",
   "home.promoKindDesign": "Product scene images",
+  "mediaWallGen.seeExamplesArrow": "See examples → {label}",
+  "mediaWallGen.goGenerateArrow": "Generate with this tool →",
   "home.viewSourceDesign": "View source design",
   "home.viewFullPage": "View full page",
 

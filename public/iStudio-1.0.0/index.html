@@ -279,6 +279,7 @@
                 <div id="media-wall-filter-sub" class="filter-row d-none"></div>
             </div>
             <div id="media-wall-active-filters" class="d-none" aria-live="polite"></div>
+            <div id="media-wall-gen-cta" class="d-none small text-muted mb-2 text-center" aria-live="polite"></div>
             <!-- 我的最愛縮圖列已移除，改由「我的收藏」過濾按鈕控制格線顯示 -->
             <div id="media-wall-grid-wrap">
                 <div id="media-wall-layout" class="media-wall-layout">
@@ -503,6 +504,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
+    <script src="/js/media-wall-gen-links.js?v=1"></script>
     <script src="/js/media-wall-promo-scene.js?v=20260812-space-mp"></script>
     <script src="/js/media-wall-mixed-layout.js?v=20260807e"></script>
     <script src="/js/main.js"></script>
@@ -1618,15 +1620,24 @@
                     });
                     chips.push({ kind: 'sub', label: subName, clear: function () { runFilterSub(''); } });
                 }
-                if (!chips.length) { el.classList.add('d-none'); el.innerHTML = ''; return; }
-                el.classList.remove('d-none');
-                el.innerHTML = chips.map(function (c) {
-                    return '<span class="mw-active-filter-chip">' + esc(c.label) + '<button type="button" aria-label="\u79fb\u9664\u7be9\u9078">&times;</button></span>';
-                }).join('');
-                el.querySelectorAll('.mw-active-filter-chip').forEach(function (chip, i) {
-                    var btn = chip.querySelector('button');
-                    if (btn && chips[i]) btn.addEventListener('click', chips[i].clear);
-                });
+                if (!chips.length) { el.classList.add('d-none'); el.innerHTML = ''; }
+                else {
+                    el.classList.remove('d-none');
+                    el.innerHTML = chips.map(function (c) {
+                        return '<span class="mw-active-filter-chip">' + esc(c.label) + '<button type="button" aria-label="\u79fb\u9664\u7be9\u9078">&times;</button></span>';
+                    }).join('');
+                    el.querySelectorAll('.mw-active-filter-chip').forEach(function (chip, i) {
+                        var btn = chip.querySelector('button');
+                        if (btn && chips[i]) btn.addEventListener('click', chips[i].clear);
+                    });
+                }
+                if (window.MatchdoMediaWallGenLinks) {
+                    window.MatchdoMediaWallGenLinks.renderWallGenCta(
+                        document.getElementById('media-wall-gen-cta'),
+                        currentLayoutType,
+                        currentPromoKind
+                    );
+                }
             }
             applyStateFromURL();
             renderPromoKindFilters();

@@ -669,6 +669,14 @@
     return promoCameraRootPath() + seg + (window.location.search || '') + (window.location.hash || '');
   }
 
+  function syncMediaWallGenLink() {
+    if (!window.MatchdoMediaWallGenLinks) return;
+    var el = document.getElementById('pcMediaWallGenLink');
+    if (!el) return;
+    var key = window.MatchdoMediaWallGenLinks.catalogKeyFromPromoCameraMode(getShootMode());
+    window.MatchdoMediaWallGenLinks.renderGenToWallLink(el, key);
+  }
+
   function syncShootModeLinks() {
     var q = window.location.search || '';
     var root = promoCameraRootPath();
@@ -677,6 +685,7 @@
       var el = document.getElementById(id);
       if (el && el.tagName === 'A') el.setAttribute('href', root + map[id] + q);
     });
+    syncMediaWallGenLink();
     var can = document.querySelector('link[rel="canonical"]');
     if (can) {
       var m = getShootMode();

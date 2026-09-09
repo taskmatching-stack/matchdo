@@ -6300,6 +6300,13 @@ $(document).ready(function () {
     function buildUrlForTab(tabParam) {
         return buildIndependentUrlForTab(tabParam);
     }
+    function syncMediaWallGenLink() {
+        if (!window.MatchdoMediaWallGenLinks) return;
+        var el = document.getElementById('mwGenWallLinkWrap');
+        if (!el) return;
+        var key = window.MatchdoMediaWallGenLinks.catalogKeyFromDesignPath();
+        window.MatchdoMediaWallGenLinks.renderGenToWallLink(el, key);
+    }
     function syncDesignTabLinkHrefs() {
         ['product-design', 'vendor-styles', 'official-templates', 'material-combo', 'print-asset', 'pattern-extract', 'design-to-physical', 'scene-sim', 'promo-image', 'promo-camera'].forEach(function (tabParam) {
             var el = document.getElementById(getTabButtonIdFromParam(tabParam));
@@ -6342,6 +6349,7 @@ $(document).ready(function () {
         suppressTabHistoryWrite = false;
         syncDesignTabActiveUi(tabParam);
         syncDesignTabLinkHrefs();
+        syncMediaWallGenLink();
         if (tabParam === 'scene-sim') {
             setTimeout(syncSceneSimProductFromDesign, 0);
         }

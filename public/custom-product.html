@@ -1561,6 +1561,7 @@
                     <div class="design-workspace-head-main">
                         <h1 class="design-workspace-title" data-i18n="customProduct.pageTitle">設計稿</h1>
                         <p class="design-workspace-sub" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，輔助您快速打樣設計稿</p>
+                        <p class="mw-gen-wall-link small text-muted mb-0 mt-1 d-none" id="mwGenWallLinkWrap" aria-live="polite"></p>
                     </div>
                 </div>
 
@@ -2095,10 +2096,11 @@
     <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
     <script src="/js/design-workspace-tabs.js?v=7"></script>
+    <script src="/js/media-wall-gen-links.js?v=1" defer></script>
     <script src="/js/backup-generate-confirm.js?v=20260903" defer></script>
-    <script src="/js/custom-product.js?v=157" defer></script>
+    <script src="/js/custom-product.js?v=158" defer></script>
     <script src="/js/custom-product-spec-summary-ui.js?v=20260821e" defer></script>
-    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
+    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); if (window.MatchdoMediaWallGenLinks) { var _mwEl = document.getElementById('mwGenWallLinkWrap'); window.MatchdoMediaWallGenLinks.renderGenToWallLink(_mwEl, window.MatchdoMediaWallGenLinks.catalogKeyFromDesignPath()); } }); }</script>
 </body>
 
 </html>

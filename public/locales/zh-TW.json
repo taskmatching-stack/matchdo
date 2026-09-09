@@ -634,6 +634,8 @@
   "home.promoKindSpace": "空間鎖定",
   "home.promoKindPortrait": "商攝・人像",
   "home.promoKindDesign": "產品情境圖",
+  "mediaWallGen.seeExamplesArrow": "看同類範例 → {label}",
+  "mediaWallGen.goGenerateArrow": "用此工具生成 →",
   "home.viewSourceDesign": "查看原設計",
   "home.viewFullPage": "查看完整頁面",
 
