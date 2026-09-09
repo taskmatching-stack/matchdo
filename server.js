@@ -19458,6 +19458,19 @@ function isUsableStoredImageUrl(url) {
     return /^https?:\/\//i.test(s) || s.startsWith('/');
 }
 
+/** 參考圖去重 key（同檔不同 query／proxy 視為同一張） */
+function normalizePromoRefUrlKey(url) {
+    const s = String(url || '').trim();
+    if (!s) return '';
+    if (s.indexOf('data:') === 0) return s;
+    try {
+        const parsed = new URL(s);
+        return (parsed.hostname + parsed.pathname).toLowerCase();
+    } catch (_) {
+        return s.split('?')[0].split('#')[0].toLowerCase();
+    }
+}
+
 /** 上傳 data: 參考圖到 storage，避免 source_image_url 因 data: 被丟棄或截斷 */
 async function persistPromoReferenceImageUrl(userId, url) {
     const s = String(url || '').trim();
@@ -19670,7 +19683,12 @@ async function persistPromoGenerationInsertPayload(payload) {
                 ? current.generation_meta_json
                 : {};
             const refs = Array.isArray(meta.reference_images) ? meta.reference_images.slice() : [];
-            if (!refs.some(function (r) { return r && r.url === current.source_image_url; })) {
+            const primaryKey = normalizePromoRefUrlKey(current.source_image_url);
+            if (!refs.some(function (r) {
+                if (!r) return false;
+                const u = r.url || r.image_url || '';
+                return normalizePromoRefUrlKey(u) === primaryKey;
+            })) {
                 refs.unshift({
                     role: 'primary',
                     url: current.source_image_url,
@@ -19693,8 +19711,9 @@ function collectPromoListRefsFromRow(row) {
     const seen = {};
     function add(url, title, type, id) {
         const u = isUsableStoredImageUrl(url) ? String(url).trim() : '';
-        if (!u || seen[u]) return;
-        seen[u] = true;
+        const key = normalizePromoRefUrlKey(u);
+        if (!u || !key || seen[key]) return;
+        seen[key] = true;
         refs.push({
             image_url: u,
             title: title || '參考圖',
@@ -19706,16 +19725,26 @@ function collectPromoListRefsFromRow(row) {
     const sourceTitle = (sourceType === 'custom_product' || sourceType === 'digital_asset')
         ? '來源設計稿'
         : (sourceType === 'vendor_asset' ? '來源素材' : '參考圖');
-    add(row && row.source_image_url, sourceTitle, sourceType || 'upload', row && row.source_id);
     const meta = parsePromoGenerationMetaJson(row && row.generation_meta_json);
-    (Array.isArray(meta.reference_images) ? meta.reference_images : []).forEach(function (r) {
-        if (!r) return;
-        add(r.url || r.image_url, r.role === 'primary' ? sourceTitle : (r.role === 'floor_plan' ? '平面配置' : '參考圖'), sourceType || 'upload', row && row.source_id);
-    });
-    add(meta.floor_plan_source_url || meta.layout_reference_url, '平面配置', 'upload', null);
-    add(meta.scene_image_url, '場景參考', 'upload', null);
-    add(meta.style_image_url, '風格參考', 'upload', null);
-    add(meta.staging_product_url, '陳列產品', 'upload', null);
+    const metaRefs = Array.isArray(meta.reference_images) ? meta.reference_images : [];
+    if (metaRefs.length) {
+        metaRefs.forEach(function (r) {
+            if (!r) return;
+            const role = String(r.role || r.role_key || '').trim();
+            const title = role === 'primary' ? sourceTitle
+                : (role === 'floor_plan' ? '平面配置'
+                    : (role === 'scene' ? '場景參考'
+                        : (role === 'style' ? '風格參考'
+                            : (role === 'staging_product' ? '陳列產品' : '參考圖'))));
+            add(r.url || r.image_url, title, sourceType || 'upload', row && row.source_id);
+        });
+    } else {
+        add(row && row.source_image_url, sourceTitle, sourceType || 'upload', row && row.source_id);
+        add(meta.floor_plan_source_url || meta.layout_reference_url, '平面配置', 'upload', null);
+        add(meta.scene_image_url, '場景參考', 'upload', null);
+        add(meta.style_image_url, '風格參考', 'upload', null);
+        add(meta.staging_product_url, '陳列產品', 'upload', null);
+    }
     return refs;
 }
 
