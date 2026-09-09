@@ -119,6 +119,7 @@ const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const categoryUsageStats = require('./lib/category-usage-stats');
 const platformUsageMonitor = require('./lib/platform-usage-monitor');
 const ugcRetention = require('./lib/ugc-retention');
+const subscriptionExpiry = require('./lib/subscription-expiry');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
@@ -12954,6 +12955,13 @@ app.patch('/api/admin/user-subscriptions/:id', express.json(), async (req, res) 
             const st = String(body.status).trim();
             if (!['active', 'expired', 'cancelled'].includes(st)) return res.status(400).json({ error: 'status 僅可為 active、expired、cancelled' });
             updates.status = st;
+            if (st === 'cancelled' && body.cancellation_reason === undefined) {
+                updates.cancellation_reason = 'admin';
+                updates.cancelled_at = new Date().toISOString();
+            }
+        }
+        if (body.cancellation_reason !== undefined) {
+            updates.cancellation_reason = String(body.cancellation_reason).trim() || null;
         }
         if (body.plan_id !== undefined) {
             const pid = String(body.plan_id).trim();
@@ -15501,7 +15509,7 @@ app.get('/api/me/subscription', async (req, res) => {
         const now = new Date();
         const { data: rows, error } = await supabase
             .from('user_subscriptions')
-            .select('id, start_date, end_date, status, subscription_plans(name)')
+            .select('id, start_date, end_date, status, auto_renew, cancelled_at, cancellation_reason, subscription_plans(name, price)')
             .eq('user_id', user.id)
             .eq('status', 'active')
             .gt('end_date', now.toISOString())
@@ -15515,8 +15523,11 @@ app.get('/api/me/subscription', async (req, res) => {
             start_date: r.start_date,
             end_date: r.end_date,
             status: r.status,
-            plan_name: (r.subscription_plans && r.subscription_plans.name) ? r.subscription_plans.name : null
+            auto_renew: r.auto_renew === true,
+            plan_name: (r.subscription_plans && r.subscription_plans.name) ? r.subscription_plans.name : null,
+            plan_price: (r.subscription_plans && r.subscription_plans.price) ? r.subscription_plans.price : 0
         }));
+        const hasPaidActive = subscriptions.some(function (s) { return (s.plan_price || 0) > 0; });
         const twoWeeksFromNow = new Date(now);
         twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
         let renewal_reminder = null;
@@ -15532,10 +15543,46 @@ app.get('/api/me/subscription', async (req, res) => {
                 break;
             }
         }
-        res.json({ subscriptions, renewal_reminder });
+        const wallGraceUntil = await ugcRetention.readWallGraceUntil(supabase, user.id);
+        let wallGraceDaysLeft = null;
+        if (wallGraceUntil) {
+            const diff = new Date(wallGraceUntil).getTime() - now.getTime();
+            wallGraceDaysLeft = diff > 0 ? Math.ceil(diff / (24 * 60 * 60 * 1000)) : 0;
+        }
+        res.json({
+            subscriptions,
+            renewal_reminder,
+            has_paid_active: hasPaidActive,
+            can_cancel_to_free: hasPaidActive,
+            wall_grace_until: wallGraceUntil,
+            wall_grace_days_left: wallGraceDaysLeft
+        });
     } catch (e) {
         console.error('GET /api/me/subscription 異常:', e);
         if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/subscription/cancel — 主動調整為免費方案（無上牆 15 日緩衝）
+app.post('/api/me/subscription/cancel', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const result = await voluntaryCancelUserSubscription(user.id);
+        if (!result.ok) {
+            if (result.error === 'no_active_subscription') {
+                return res.status(400).json({ error: '目前沒有可取消的付費訂閱' });
+            }
+            return res.status(500).json({ error: '取消訂閱失敗' });
+        }
+        res.json({
+            success: true,
+            message: '已調整為免費方案',
+            cancelled: result.cancelled
+        });
+    } catch (e) {
+        console.error('POST /api/me/subscription/cancel 異常:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -15880,8 +15927,24 @@ app.post('/api/payment/notify-period', express.urlencoded({ extended: true }), a
             return res.status(400).send('0|CheckMacValue 錯誤');
         }
         const rtnCode = parseInt(body.RtnCode, 10);
-        // 該期失敗或模擬付款：不入點（定期定額失敗時綠界不撥款，該期不發點數）
-        if (rtnCode !== 1) return res.send('1|OK');
+        const orderIdEarly = body.MerchantTradeNo;
+        // 該期失敗：不入點；標記扣款失敗（到期後降級時給 15 日上牆緩衝）
+        if (rtnCode !== 1) {
+            if (orderIdEarly) {
+                const { data: failOrder } = await supabase
+                    .from('payment_orders')
+                    .select('user_id, order_type')
+                    .eq('order_id', orderIdEarly)
+                    .maybeSingle();
+                if (failOrder && failOrder.user_id && failOrder.order_type === 'subscription') {
+                    const periodN = parseInt(body.TotalSuccessTimes || body.total_success_times || '0', 10);
+                    if (periodN > 1) {
+                        await subscriptionExpiry.markLatestActiveSubscriptionReason(supabase, failOrder.user_id, 'payment_failed');
+                    }
+                }
+            }
+            return res.send('1|OK');
+        }
         if (body.SimulatePaid === '1') return res.send('1|OK');
         const orderId = body.MerchantTradeNo;
         const periodIndex = String(body.TotalSuccessTimes || body.total_success_times || '');
@@ -16366,6 +16429,85 @@ app.post('/api/payment/paypal/webhook', express.json(), async (req, res) => {
                         subscriptionId: subscriptionId,
                         periodIndex: '1'
                     });
+                }
+            }
+        } else if (
+            eventType === 'BILLING.SUBSCRIPTION.SUSPENDED'
+            || eventType === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED'
+            || eventType === 'PAYMENT.SALE.DENIED'
+        ) {
+            const subscriptionId = resource.id || resource.billing_agreement_id || '';
+            if (subscriptionId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('user_id')
+                    .eq('external_id', subscriptionId)
+                    .eq('provider', 'paypal')
+                    .maybeSingle();
+                if (order && order.user_id) {
+                    await subscriptionExpiry.markLatestActiveSubscriptionReason(supabase, order.user_id, 'payment_failed');
+                }
+            }
+        } else if (eventType === 'BILLING.SUBSCRIPTION.CANCELLED') {
+            const subscriptionId = resource.id || '';
+            const customId = String(resource.custom_id || '').trim();
+            let userId = null;
+            if (subscriptionId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('user_id')
+                    .eq('external_id', subscriptionId)
+                    .maybeSingle();
+                userId = order && order.user_id;
+            }
+            if (!userId && customId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('user_id')
+                    .eq('order_id', customId)
+                    .maybeSingle();
+                userId = order && order.user_id;
+            }
+            if (userId) {
+                const nowIso = new Date().toISOString();
+                await supabase
+                    .from('user_subscriptions')
+                    .update({
+                        status: 'cancelled',
+                        cancelled_at: nowIso,
+                        cancellation_reason: 'user_voluntary',
+                        auto_renew: false,
+                        end_date: nowIso
+                    })
+                    .eq('user_id', userId)
+                    .eq('status', 'active');
+                await reconcileMembershipAfterSubscriptionEnd(userId);
+            }
+        } else if (eventType === 'BILLING.SUBSCRIPTION.EXPIRED') {
+            const subscriptionId = resource.id || '';
+            if (subscriptionId) {
+                const { data: order } = await supabase
+                    .from('payment_orders')
+                    .select('user_id')
+                    .eq('external_id', subscriptionId)
+                    .maybeSingle();
+                if (order && order.user_id) {
+                    const nowIso = new Date().toISOString();
+                    const { data: subRow } = await supabase
+                        .from('user_subscriptions')
+                        .select('id, cancellation_reason')
+                        .eq('user_id', order.user_id)
+                        .eq('status', 'active')
+                        .maybeSingle();
+                    if (subRow && subRow.id) {
+                        const reason = subRow.cancellation_reason || 'expired_no_renew';
+                        await supabase.from('user_subscriptions').update({
+                            status: 'expired',
+                            cancellation_reason: reason,
+                            end_date: nowIso
+                        }).eq('id', subRow.id);
+                        await reconcileMembershipAfterSubscriptionEnd(order.user_id);
+                    }
                 }
             }
         }
@@ -22157,6 +22299,66 @@ async function syncMembershipCatalogVisibility(userId) {
     }
 }
 
+/** 訂閱結束／主動取消後：若已無有效付費訂閱，恢復 member_level 並觸發 catalog／UGC 同步 */
+async function reconcileMembershipAfterSubscriptionEnd(userId) {
+    if (!userId) return;
+    if (!(await hasActivePaidSubscription(userId))) {
+        const level = await readProfileMemberLevel(userId);
+        if (isPaidMemberLevel(level)) {
+            await supabase.from('profiles').update({ member_level: FREE_MEMBER_LEVEL_LABEL }).eq('id', userId);
+        }
+    }
+    try {
+        await syncMembershipCatalogVisibility(userId);
+    } catch (syncErr) {
+        console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+    }
+}
+
+/** 使用者主動調整為免費方案：取消 PayPal 月訂、立即結束訂閱、無上牆 15 日緩衝 */
+async function voluntaryCancelUserSubscription(userId) {
+    if (!userId) return { ok: false, error: 'missing_user' };
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const { data: subs, error } = await supabase
+        .from('user_subscriptions')
+        .select('id, subscription_plans(price)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('end_date', nowIso);
+    if (error) {
+        console.error('voluntaryCancelUserSubscription select:', error);
+        return { ok: false, error: 'query_failed' };
+    }
+    const paidSubs = (subs || []).filter(function (s) {
+        return s.subscription_plans && (s.subscription_plans.price || 0) > 0;
+    });
+    if (!paidSubs.length) return { ok: false, error: 'no_active_subscription' };
+
+    try {
+        const config = await getPaymentConfig();
+        await cancelUserPayPalSubscriptionsBeforeNewPlan(userId, config.paypal, {
+            reason: 'User adjusted to free plan'
+        });
+    } catch (paypalErr) {
+        console.warn('voluntaryCancel PayPal:', paypalErr && paypalErr.message);
+    }
+
+    for (let i = 0; i < paidSubs.length; i++) {
+        const patch = {
+            status: 'cancelled',
+            cancelled_at: nowIso,
+            cancellation_reason: 'user_voluntary',
+            auto_renew: false,
+            end_date: nowIso
+        };
+        await supabase.from('user_subscriptions').update(patch).eq('id', paidSubs[i].id);
+    }
+
+    await reconcileMembershipAfterSubscriptionEnd(userId);
+    return { ok: true, cancelled: paidSubs.length };
+}
+
 async function hideVendorAssetsOnMembershipDowngrade(userId) {
     const now = new Date().toISOString();
     const { data: mfr } = await supabase
@@ -25218,6 +25420,11 @@ app.post('/api/custom-products', async (req, res) => {
         if (lineage.reference_sources) insertPayload.reference_sources = lineage.reference_sources;
         const uiLocale = (req.body.ui_locale || req.body.lang || req.query.lang || '').trim() || null;
         mergeDesignerRegionIntoPayload(insertPayload, req, uiLocale);
+        if (genImageUrl) {
+            insertPayload = await mergeUgcRetentionForCustomProduct(insertPayload, user.id, {
+                wallCategoryKey: subCategoryVal || mainCategoryVal
+            });
+        }
 
         async function doInsert(payload) {
             return supabase.from('custom_products').insert(payload).select().single();
@@ -26785,6 +26992,11 @@ app.get('/api/custom-products/:id', async (req, res) => {
             console.error('查詢客製產品失敗:', error);
             return res.status(500).json({ error: error.message });
         }
+
+        if (ugcRetention.rowIsSoftDeleted(data)) {
+            return res.status(410).json({ error: '此作品已過期移除' });
+        }
+        ugcRetention.markTableRowAccessed(supabase, 'custom_products', req.params.id).catch(function () {});
 
         const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
         const ownerEmail = user.email || '';
@@ -32569,6 +32781,27 @@ app.post('/api/internal/ugc-retention-cron', express.json(), async (req, res) =>
         res.json({ ok: true, stats });
     } catch (e) {
         console.error('POST /api/internal/ugc-retention-cron:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// POST /api/internal/subscription-expiry-cron — 每日掃過期訂閱並同步會員／UGC 降級
+app.post('/api/internal/subscription-expiry-cron', express.json(), async (req, res) => {
+    try {
+        const secret = process.env.INTERNAL_CRON_SECRET || '';
+        const auth = String(req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '');
+        if (!secret || auth !== secret) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const result = await subscriptionExpiry.expireOverdueSubscriptions(supabase);
+        const reconciled = [];
+        for (let i = 0; i < result.userIds.length; i++) {
+            await reconcileMembershipAfterSubscriptionEnd(result.userIds[i]);
+            reconciled.push(result.userIds[i]);
+        }
+        res.json({ ok: true, expired: result.expired, reconciled });
+    } catch (e) {
+        console.error('POST /api/internal/subscription-expiry-cron:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });

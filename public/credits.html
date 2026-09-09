@@ -44,6 +44,16 @@
         <span id="renewalReminderText"></span>
         <a href="/subscription-plans.html" class="alert-link ms-2" data-i18n="credits.renewNow">立即續訂</a>
       </div>
+      <div id="wallGraceReminder" class="alert alert-info border-0 shadow-sm mb-3 d-none" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <span id="wallGraceReminderText"></span>
+        <a href="/subscription-plans.html" class="alert-link ms-2">完成續訂</a>
+      </div>
+      <div id="subscriptionManagePanel" class="payment-section mb-3 d-none">
+        <h5 class="mb-2">目前方案</h5>
+        <p id="subscriptionManageSummary" class="text-muted small mb-3"></p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAdjustToFree">調整為免費方案</button>
+      </div>
       <div class="credits-hero">
         <div class="small opacity-90" data-i18n="credits.currentBalance">目前餘額</div>
         <div class="balance" id="creditsBalance">0</div>
@@ -115,6 +125,30 @@
         </table>
       </div>
       <p id="txEmpty" class="text-muted small" data-i18n="credits.noHistory">尚無紀錄</p>
+    </div>
+  </div>
+
+  <div class="modal fade" id="cancelSubscriptionModal" tabindex="-1" aria-labelledby="cancelSubscriptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="cancelSubscriptionModalLabel">調整為免費方案</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <p>您將調整為<strong>免費方案</strong>。付費期間享有的上牆控制將結束：</p>
+          <ul class="small text-muted mb-3">
+            <li>非人像作品將依免費方案<strong>展示在靈感牆</strong>（您可事先至「我的設計」整理公開設定）</li>
+            <li>人像作品預設不上牆，仍可自行選擇公開</li>
+            <li>圖片享有<strong>至少 90 天儲存保證</strong>（常使用的作品會保留更久）</li>
+          </ul>
+          <p class="small mb-0">若只是暫時不想續訂、希望保留 15 日整理靈感牆設定，請勿按此鈕，待到期後再決定即可。</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">先不要</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmCancelSubscription">確認調整為免費方案</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -290,24 +324,58 @@
     return { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
   }
 
-  function loadRenewalReminder() {
-    var el = document.getElementById('renewalReminder');
-    var textEl = document.getElementById('renewalReminderText');
-    if (!el || !textEl) return;
+  var cancelModalInstance = null;
+
+  function loadSubscriptionStatus() {
+    var renewalEl = document.getElementById('renewalReminder');
+    var renewalText = document.getElementById('renewalReminderText');
+    var graceEl = document.getElementById('wallGraceReminder');
+    var graceText = document.getElementById('wallGraceReminderText');
+    var managePanel = document.getElementById('subscriptionManagePanel');
+    var manageSummary = document.getElementById('subscriptionManageSummary');
     fetch('/api/me/subscription', { headers: getAuthHeaders() })
       .then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (data) {
-        if (!data || !data.renewal_reminder) {
-          el.classList.add('d-none');
-          return;
+        if (renewalEl && renewalText) {
+          if (!data || !data.renewal_reminder) {
+            renewalEl.classList.add('d-none');
+          } else {
+            var r = data.renewal_reminder;
+            var endStr = r.end_date ? new Date(r.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
+            var msg = (t('credits.renewalReminder') || '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。').replace('{plan}', r.plan_name || '').replace('{date}', endStr).replace('{days}', r.days_left);
+            renewalText.textContent = msg;
+            renewalEl.classList.remove('d-none');
+          }
         }
-        var r = data.renewal_reminder;
-        var endStr = r.end_date ? new Date(r.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
-        var msg = (t('credits.renewalReminder') || '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。').replace('{plan}', r.plan_name || '').replace('{date}', endStr).replace('{days}', r.days_left);
-        textEl.textContent = msg;
-        el.classList.remove('d-none');
+        if (graceEl && graceText) {
+          var daysLeft = data && data.wall_grace_days_left;
+          if (daysLeft != null && daysLeft > 0) {
+            graceText.textContent = '付費方案已到期，您還有約 ' + daysLeft + ' 日可整理靈感牆公開設定或完成續訂；期滿後非人像作品將依免費方案展示。';
+            graceEl.classList.remove('d-none');
+          } else {
+            graceEl.classList.add('d-none');
+          }
+        }
+        if (managePanel && manageSummary) {
+          if (data && data.can_cancel_to_free && data.subscriptions && data.subscriptions.length) {
+            var sub = data.subscriptions[0];
+            var endStr2 = sub.end_date ? new Date(sub.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
+            manageSummary.textContent = '「' + (sub.plan_name || '付費方案') + '」有效至 ' + endStr2 + (sub.auto_renew ? '（自動續訂）' : '');
+            managePanel.classList.remove('d-none');
+          } else {
+            managePanel.classList.add('d-none');
+          }
+        }
       })
-      .catch(function () { el.classList.add('d-none'); });
+      .catch(function () {
+        if (renewalEl) renewalEl.classList.add('d-none');
+        if (graceEl) graceEl.classList.add('d-none');
+        if (managePanel) managePanel.classList.add('d-none');
+      });
+  }
+
+  function loadRenewalReminder() {
+    loadSubscriptionStatus();
   }
 
   function loadCredits() {
@@ -353,6 +421,39 @@
       document.getElementById('btnPay').disabled = false;
     });
   });
+
+  var btnAdjust = document.getElementById('btnAdjustToFree');
+  if (btnAdjust) {
+    btnAdjust.addEventListener('click', function () {
+      var modalEl = document.getElementById('cancelSubscriptionModal');
+      if (!modalEl || typeof bootstrap === 'undefined') return;
+      if (!cancelModalInstance) cancelModalInstance = new bootstrap.Modal(modalEl);
+      cancelModalInstance.show();
+    });
+  }
+  var btnConfirmCancel = document.getElementById('btnConfirmCancelSubscription');
+  if (btnConfirmCancel) {
+    btnConfirmCancel.addEventListener('click', function () {
+      btnConfirmCancel.disabled = true;
+      fetch('/api/me/subscription/cancel', { method: 'POST', headers: getAuthHeaders(), body: '{}' })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          btnConfirmCancel.disabled = false;
+          if (cancelModalInstance) cancelModalInstance.hide();
+          if (!res.ok) {
+            alert((res.data && res.data.error) || '調整失敗，請稍後再試');
+            return;
+          }
+          alert('已調整為免費方案');
+          loadSubscriptionStatus();
+          loadCredits();
+        })
+        .catch(function () {
+          btnConfirmCancel.disabled = false;
+          alert('調整失敗，請稍後再試');
+        });
+    });
+  }
 
   document.getElementById('btnPay').addEventListener('click', function () {
     if (!checkoutEnabled) return;
