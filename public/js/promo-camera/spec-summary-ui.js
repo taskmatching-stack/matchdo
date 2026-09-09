@@ -77,7 +77,7 @@
       outLabel = eyeLab ? eyeLab.textContent.trim() : t('promoCamera.spaceOutEye', '平視攝影');
     } else if (outLayout && outLayout.checked) {
       var layLab = document.querySelector('label[for="pcSpaceOutLayout"]');
-      outLabel = layLab ? layLab.textContent.trim() : t('promoCamera.spaceOutLayout', '空間地圖');
+      outLabel = layLab ? layLab.textContent.trim() : t('promoCamera.spaceOutLayout', '空間鎖定');
     }
     setVal('spaceSetup', joinParts([useType, outLabel]));
 

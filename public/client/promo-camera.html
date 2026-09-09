@@ -96,13 +96,14 @@
               <div class="d-flex flex-wrap gap-2">
                 <div class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutLayout" value="layout_plan" checked />
-                  <label class="form-check-label small" for="pcSpaceOutLayout" data-i18n="promoCamera.spaceOutLayout">空間地圖</label>
+                  <label class="form-check-label small" for="pcSpaceOutLayout" data-i18n="promoCamera.spaceOutLayout">空間鎖定</label>
                 </div>
                 <div class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="pcSpaceOutputType" id="pcSpaceOutEye" value="eye_level" />
                   <label class="form-check-label small" for="pcSpaceOutEye" data-i18n="promoCamera.spaceOutEye">平視攝影</label>
                 </div>
               </div>
+              <p class="form-text small text-muted mb-0" data-i18n="promoCamera.spaceOutLayoutHint">產出 ISO／俯視空間參考圖，供平視標註</p>
             </div>
           </details>
 
@@ -174,14 +175,14 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2 pc-staging-upload-alt pc-staging-product-only d-none" data-i18n="promoCamera.addDisplay">＋陳列</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary mb-0 py-0 px-2 pc-staging-pick-alt pc-staging-product-only d-none" data-i18n="promoCamera.propLibrary">道具庫</button>
               </div>
-              <label class="form-label small mb-1" data-i18n="promoCamera.spaceMapView">空間地圖視角</label>
-              <div class="pc-spec-choice-row mb-2" role="group" data-i18n-aria-label="promoCamera.spaceMapView" aria-label="空間地圖視角">
+              <label class="form-label small mb-1" data-i18n="promoCamera.spaceMapView">鎖定圖視角</label>
+              <div class="pc-spec-choice-row mb-2" role="group" data-i18n-aria-label="promoCamera.spaceMapView" aria-label="鎖定圖視角">
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutIso" value="iso_45" checked />
                 <label class="pc-spec-choice-btn" for="pcSpaceLayoutIso" data-i18n="promoCamera.spaceLayoutIso">45° 俯視（預設）</label>
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceLayoutView" id="pcSpaceLayoutTop" value="top_down" />
                 <label class="pc-spec-choice-btn" for="pcSpaceLayoutTop" data-i18n="promoCamera.spaceLayoutTop">正上方俯視</label>
               </div>
-              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.spaceMapViewHint">俯視較少死角；平視攝影仍可用任一種地圖標註。</p>
+              <p class="form-text small text-muted mb-2" data-i18n="promoCamera.spaceMapViewHint">俯視較少死角；產出供平視模式選圖標註。</p>
               <div class="pc-spec-choice-row" role="group" data-i18n-aria-label="promoCamera.styleSource" aria-label="風格來源">
                 <input class="pc-spec-choice-input" type="radio" name="pcSpaceStyleSource" id="pcSpaceStylePrompt" value="prompt" checked />
                 <label class="pc-spec-choice-btn" for="pcSpaceStylePrompt" data-i18n="promoCamera.stylePrompt">文字風格</label>

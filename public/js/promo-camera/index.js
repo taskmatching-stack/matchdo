@@ -495,7 +495,9 @@
         ? moodLabs.result
         : (payload.space_output_type === 'eye_level'
           ? '平視攝影'
-          : (payload.space_layout_view === 'top_down' ? '俯視空間地圖' : '空間地圖')))
+          : (payload.space_layout_view === 'top_down'
+            ? t('promoCamera.spaceLockResultTop', '俯視空間鎖定圖')
+            : t('promoCamera.spaceLockResultIso', '空間鎖定圖'))))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
     appendPromptSentUnderResult(el, data);
@@ -712,7 +714,7 @@
       if (isSpaceEyeLevel()) {
         return t('promoCamera.chatWelcomeSpaceEye', '請選 <strong>空間地圖</strong>，在地圖上標 <strong>A／B／C／D</strong>，預設<strong>從 B 看向 C</strong> 生成低視角平視。');
       }
-      return t('promoCamera.chatWelcomeSpaceLayout', '請上傳<strong>平面配置圖</strong>，並以文字或風格參考圖描述空間風格。');
+      return t('promoCamera.chatWelcomeSpaceLayout', '請上傳<strong>平面配置圖</strong>，產出<strong>空間鎖定</strong>參考圖（ISO／俯視）供平視標註；並以文字或風格參考圖描述空間風格。');
     }
     if (isPortraitMode()) {
       return t('promoCamera.chatWelcomePortrait', '請上傳<strong>一張</strong>人像參考圖，並選<strong>拍攝主題</strong>。可在描述中調整服裝／髮型。右側可調相機光學參數。');
@@ -867,8 +869,8 @@
         var spanLay = genBtn.querySelector('span');
         if (spanLay) {
           spanLay.textContent = (St.get().spaceLayoutView === 'top_down')
-            ? t('promoCamera.genTopDownMap', '生成俯視空間地圖')
-            : t('promoCamera.genIsoMap', '生成空間地圖');
+            ? t('promoCamera.genTopDownMap', '生成俯視空間鎖定圖')
+            : t('promoCamera.genIsoMap', '生成空間鎖定圖');
         }
       }
       var styleImgRow = document.getElementById('pcSpaceStyleImageRow');
@@ -2509,7 +2511,7 @@
       };
       pickerOpts.emptyMessageOverride = t(
         'promoCamera.assetEmptySpaceMap',
-        '此處只顯示「空間地圖（ISO）」。請先在空間攝影用「空間地圖」輸出類型生成；產品攝影／平視成品請到「我的數位資產 → 情境圖」查看。'
+        '此處只顯示空間鎖定圖（ISO）。請先在空間攝影用「空間鎖定」輸出類型生成；平視成品請到「我的數位資產 → 情境圖」查看。'
       );
     }
     window.__pcAssetPickerMount = window.MatchdoDigitalAssetPicker.mount(pickerOpts);
