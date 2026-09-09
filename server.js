@@ -9799,10 +9799,70 @@ function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     });
 }
 
-/** 情境圖成圖 → ai_tags／描述；失敗不拋出（背景執行） */
+async function loadPromoGenerationSemanticsContext(generationId, ctx) {
+    ctx = ctx || {};
+    if (!generationId) return ctx;
+    try {
+        const { data: row } = await supabase
+            .from('product_promo_generations')
+            .select('generation_mode, generation_meta_json, user_prompt, final_prompt, scene_template_key, scene_key, source_type, source_id, result_image_url')
+            .eq('id', generationId)
+            .maybeSingle();
+        if (!row) return ctx;
+        const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
+        if (!ctx.generationMode) ctx.generationMode = row.generation_mode || meta.generation_mode || null;
+        if (!ctx.shootMode) ctx.shootMode = meta.shoot_mode || null;
+        if (!ctx.spaceOutputType) ctx.spaceOutputType = meta.space_output_type || null;
+        if (!ctx.spaceLayoutView) ctx.spaceLayoutView = meta.space_layout_view || null;
+        if (!ctx.spaceUseType) ctx.spaceUseType = meta.space_use_type || null;
+        if (!ctx.userPrompt) ctx.userPrompt = row.user_prompt || null;
+        if (!ctx.finalPrompt) ctx.finalPrompt = row.final_prompt || null;
+        if (!ctx.themeKey) ctx.themeKey = row.scene_template_key || null;
+        if (!ctx.sceneKey) ctx.sceneKey = row.scene_key || null;
+        if (!ctx.sourceType) ctx.sourceType = row.source_type || null;
+        if (!ctx.sourceId) ctx.sourceId = row.source_id || null;
+        if (!ctx.imageUrl) ctx.imageUrl = row.result_image_url || null;
+    } catch (_) {}
+    return ctx;
+}
+
+function isPromoCameraAdvancedSemantics(ctx) {
+    if (!ctx) return false;
+    if (String(ctx.generationMode || '').trim() === 'camera_advanced') return true;
+    const shoot = String(ctx.shootMode || '').trim().toLowerCase();
+    return shoot === 'product' || shoot === 'space' || shoot === 'portrait';
+}
+
+function schedulePromoCameraSemanticsEnrichAfterInsert(insertPayload, generationId) {
+    if (!generationId || !process.env.GEMINI_API_KEY) return;
+    if (String(insertPayload.generation_mode || '').trim() !== 'camera_advanced') return;
+    const imageUrl = (insertPayload.result_image_url || '').trim();
+    if (!imageUrl) return;
+    const meta = parsePromoGenerationMetaJson(insertPayload.generation_meta_json);
+    const ctx = {
+        imageUrl: imageUrl,
+        userPrompt: insertPayload.user_prompt || null,
+        finalPrompt: insertPayload.final_prompt || null,
+        themeKey: insertPayload.scene_template_key || null,
+        sceneKey: insertPayload.scene_key || null,
+        sourceType: insertPayload.source_type || null,
+        sourceId: insertPayload.source_id || null,
+        generationMode: 'camera_advanced',
+        shootMode: meta.shoot_mode || 'product',
+        spaceOutputType: meta.space_output_type || null,
+        spaceLayoutView: meta.space_layout_view || null,
+        spaceUseType: meta.space_use_type || null
+    };
+    setImmediate(function () {
+        enrichPromoGenerationSemantics(generationId, insertPayload.user_id, ctx).catch(function () {});
+    });
+}
+
+/** 情境圖／商攝成圖 → ai_tags／描述；失敗不拋出（背景執行） */
 async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
     if (!generationId || !process.env.GEMINI_API_KEY) return null;
     try {
+        ctx = await loadPromoGenerationSemanticsContext(generationId, ctx);
         const deps = getVisualSemanticsDeps();
         let imagePart;
         if (ctx.imageBuffer) {
@@ -9835,14 +9895,27 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
         if (categoryKey) contextParts.push('品類 key：' + categoryKey);
         if (themeName) contextParts.push('主題模板：' + themeName);
         if (sceneName) contextParts.push('場景模板：' + sceneName);
-        const imgResult = await visualSemantics.analyzePromoSceneImageSemantics(deps, imagePart, {
-            context_text: contextParts.join('\n'),
-            user_prompt: ctx.userPrompt || null,
-            final_prompt: ctx.finalPrompt || null
-        });
+        if (ctx.shootMode) contextParts.push('拍攝模式：' + ctx.shootMode);
+        if (ctx.spaceOutputType) contextParts.push('空間輸出類型：' + ctx.spaceOutputType);
+        if (ctx.spaceLayoutView) contextParts.push('空間地圖視角：' + ctx.spaceLayoutView);
+        if (ctx.spaceUseType) contextParts.push('空間用途：' + ctx.spaceUseType);
+        const cameraAdvanced = isPromoCameraAdvancedSemantics(ctx);
+        const imgResult = cameraAdvanced
+            ? await visualSemantics.analyzePromoCameraImageSemantics(deps, imagePart, {
+                shoot_mode: ctx.shootMode || 'product',
+                space_output_type: ctx.spaceOutputType || null,
+                context_text: contextParts.join('\n'),
+                user_prompt: ctx.userPrompt || null,
+                final_prompt: ctx.finalPrompt || null
+            })
+            : await visualSemantics.analyzePromoSceneImageSemantics(deps, imagePart, {
+                context_text: contextParts.join('\n'),
+                user_prompt: ctx.userPrompt || null,
+                final_prompt: ctx.finalPrompt || null
+            });
         let mergedTags = imgResult.tags || [];
         const genPrompt = [(ctx.userPrompt || '').trim(), (ctx.finalPrompt || '').trim()].filter(Boolean).join('\n');
-        if (genPrompt) {
+        if (!cameraAdvanced && genPrompt) {
             try {
                 const pResult = await visualSemantics.analyzePromptSemantics(deps, genPrompt, {
                     title: ctx.productTitle || null,
@@ -9854,12 +9927,16 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
             }
         }
         const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
-        const description = (imgResult.semantics && imgResult.semantics.product_description_zh
-            ? String(imgResult.semantics.product_description_zh).trim()
-            : '')
-            || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics)
-            || (imgResult.semantics && imgResult.semantics.intent_summary)
-            || null;
+        const description = cameraAdvanced
+            ? (visualSemantics.buildPromoCameraDescriptionFromSemantics(imgResult.semantics)
+                || (imgResult.semantics && imgResult.semantics.intent_summary)
+                || null)
+            : ((imgResult.semantics && imgResult.semantics.product_description_zh
+                ? String(imgResult.semantics.product_description_zh).trim()
+                : '')
+                || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics)
+                || (imgResult.semantics && imgResult.semantics.intent_summary)
+                || null);
         const updates = {
             ai_tags: mergedTags,
             image_semantics_json: imgResult.semantics,
@@ -9888,7 +9965,7 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
             owner_id: ownerId || null,
             category_key: ctx.categoryKey || null
         });
-        console.log('product_promo_generations 語意標籤完成 id=%s tags=%d', generationId, mergedTags.length);
+        console.log('product_promo_generations 語意標籤完成 id=%s tags=%d camera=%s', generationId, mergedTags.length, cameraAdvanced ? '1' : '0');
         return { ai_tags: mergedTags, description };
     } catch (e) {
         console.error('enrichPromoGenerationSemantics:', e.message);
@@ -9896,7 +9973,7 @@ async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
     }
 }
 
-/** 情境圖語意／描述／標籤：僅使用者按「描述 1點」「標籤 1點」時呼叫 enrichPromoGenerationSemantics；禁止生圖後或媒體牆自動讀圖 */
+/** 商攝導演（camera_advanced）成圖後背景 enrich；情境圖 TAB 僅手動 API 觸發 */
 
 function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
     if (normalizeVendorAssetKind(assetKind) !== 'material' || !semanticsJson) {
@@ -19738,7 +19815,11 @@ async function insertProductPromoGenerationRow(payload, bodyForKind) {
                 console.warn('⚠️ product_promo_generations 寫入時移除了欄位：', strippedColumns.join(', '));
                 console.warn('⚠️ 請執行對應的 migration SQL：', strippedColumns.includes('show_on_homepage') ? 'docs/add-promo-show-on-homepage.sql' : '');
             }
-            return { id: data && data.id ? data.id : null, error: null, stripped: strippedColumns };
+            const newId = data && data.id ? data.id : null;
+            if (newId) {
+                schedulePromoCameraSemanticsEnrichAfterInsert(current, newId);
+            }
+            return { id: newId, error: null, stripped: strippedColumns };
         }
         if (String(error.code || '') === '42P01') {
             return { id: null, error: '尚未建立 product_promo_generations 表，請執行 docs/add-product-promo-image.sql' };

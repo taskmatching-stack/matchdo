@@ -1600,8 +1600,7 @@
                         </div>
                         <p class="text-muted small mb-2 promo-show-homepage-hint">${escapeHtml(showHint)}</p>
                         <div class="design-actions mb-2">
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-gen-desc" data-id="${escapeHtml(String(item.id || ''))}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-regen-tags" data-id="${escapeHtml(String(item.id || ''))}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-regen-semantics" data-id="${escapeHtml(String(item.id || ''))}" title="讀圖產生描述與標籤（1 點；非重新生圖）"><i class="bi bi-card-text me-1"></i>描述與標籤 1點</button>
                         </div>
                         <div class="asset-card-btns">
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>原設計</a>') : ''}
@@ -1620,12 +1619,6 @@
                     patchPromoShowOnHomepage(item.id, showInput.checked, hintEl, showInput);
                 });
             }
-            const descBtn = col.querySelector('.btn-promo-gen-desc');
-            if (descBtn && item.id) {
-                descBtn.addEventListener('click', function () {
-                    runPromoAiAction(item.id, col, 'description', descBtn);
-                });
-            }
             const promoDescWrap = col.querySelector('[data-role="promo-desc-wrap"]');
             paintAssetDesc(promoDescWrap, 'promo-desc', descFull);
             if (item.id) {
@@ -1638,10 +1631,10 @@
                     }
                 });
             }
-            const tagsBtn = col.querySelector('.btn-promo-regen-tags');
-            if (tagsBtn && item.id) {
-                tagsBtn.addEventListener('click', function () {
-                    runPromoAiAction(item.id, col, 'tags', tagsBtn);
+            const regenBtn = col.querySelector('.btn-promo-regen-semantics');
+            if (regenBtn && item.id) {
+                regenBtn.addEventListener('click', function () {
+                    runPromoAiAction(item.id, col, regenBtn);
                 });
             }
             const dlBtn = col.querySelector('.btn-promo-download');
@@ -1699,16 +1692,12 @@
             }
         }
 
-        async function runPromoAiAction(promoId, colEl, kind, btnEl) {
+        async function runPromoAiAction(promoId, colEl, btnEl) {
             if (!promoId || !btnEl) return;
-            const isTags = kind === 'tags';
-            const path = isTags
-                ? '/api/promo-image/generations/' + encodeURIComponent(promoId) + '/regenerate-tags'
-                : '/api/promo-image/generations/' + encodeURIComponent(promoId) + '/generate-description';
-            const busyLabel = isTags ? '標籤產生中…' : '描述產生中…';
+            const path = '/api/promo-image/generations/' + encodeURIComponent(promoId) + '/regenerate-tags';
             const prevHtml = btnEl.innerHTML;
             btnEl.disabled = true;
-            btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + busyLabel;
+            btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>產生中…';
             try {
                 const session = await AuthService.getSession();
                 const token = session && session.access_token;
@@ -1725,9 +1714,9 @@
                     ai_tags: data.ai_tags
                 });
                 const pts = data.points_deducted != null ? data.points_deducted : 0;
-                showAlert((isTags ? '情境圖標籤已更新' : '情境圖描述已更新') + (pts ? '（扣 ' + pts + ' 點）' : ''), 'success');
+                showAlert('描述與標籤已更新' + (pts ? '（扣 ' + pts + ' 點）' : ''), 'success');
             } catch (err) {
-                showAlert((isTags ? '產生標籤失敗：' : '產生描述失敗：') + (err.message || err), 'danger');
+                showAlert('描述與標籤產生失敗：' + (err.message || err), 'danger');
             } finally {
                 btnEl.disabled = false;
                 btnEl.innerHTML = prevHtml;
