@@ -19909,8 +19909,7 @@ async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd, shoot
             .order('created_at', { ascending: false }),
         shootFilter
     ).range(offsetN, rangeEnd);
-    const retentionCols = 'retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at';
-    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json, ' + retentionCols;
+    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json';
     const selectNoMeta = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode';
     const selectNoTags = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, generation_mode, generation_meta_json';
     const selectNoDesc = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, generation_mode, generation_meta_json';
@@ -25563,14 +25562,25 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 25));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const { data, error } = await supabase
+            const gallerySelect = 'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at';
+            let { data, error } = await supabase
                 .from('custom_products')
-                .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at, retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at')
+                .select(gallerySelect)
                 .eq('owner_id', user.id)
                 .not('ai_generated_image_url', 'is', null)
                 .neq('ai_generated_image_url', '')
                 .order('created_at', { ascending: false })
                 .range(offsetN, rangeEnd);
+            if (error && error.code === '42703') {
+                ({ data, error } = await supabase
+                    .from('custom_products')
+                    .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, created_at')
+                    .eq('owner_id', user.id)
+                    .not('ai_generated_image_url', 'is', null)
+                    .neq('ai_generated_image_url', '')
+                    .order('created_at', { ascending: false })
+                    .range(offsetN, rangeEnd));
+            }
             if (error) {
                 console.error('查詢客製產品 gallery 失敗:', error);
                 return res.status(500).json({ error: error.message });
@@ -25600,8 +25610,7 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const retentionListCols = 'retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at';
-            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources, ' + retentionListCols;
+            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -30094,11 +30103,75 @@ async function fetchSupabaseRowsUpTo(makeQuery, maxN) {
     return { data: out, error: null };
 }
 
+function generationRecordOwnerSortKey(row) {
+    if (!row) return '';
+    if (row.source === 'embed') {
+        return String(row.manufacturer_name || row.manufacturer_id || '').toLowerCase();
+    }
+    return String(row.owner_email || row.owner_name || row.owner_id || '').toLowerCase();
+}
+
+function generationRecordSourceSortKey(row) {
+    const order = { site: 1, embed: 2, promo: 3, promo_camera: 4, promo_camera_web: 5, promo_camera_app: 6 };
+    const s = String(row && row.source || '').trim();
+    return order[s] != null ? order[s] : 99;
+}
+
+async function attachAccessStatsToGenerationRows(rows) {
+    const ugcPairs = (rows || []).filter(function (item) { return item.ugc_item_type && item.id; }).map(function (item) {
+        return { item_type: item.ugc_item_type, item_id: item.id };
+    });
+    if (!ugcPairs.length) return;
+    try {
+        const accessStats = await ugcAccessLog.fetchAccessStatsForItems(supabase, ugcPairs);
+        rows.forEach(function (item) {
+            if (!item.ugc_item_type || !item.id) return;
+            const key = item.ugc_item_type + ':' + item.id;
+            const st = accessStats[key];
+            if (!st) return;
+            item.access_count = st.access_count;
+            item.last_access_event_at = st.last_access_event_at;
+            item.last_access_path = st.last_access_path;
+        });
+    } catch (_) {}
+}
+
+function sortGenerationRecordRows(rows, sortKey, sortOrder) {
+    const key = String(sortKey || 'created_at').trim().toLowerCase();
+    const asc = String(sortOrder || 'desc').trim().toLowerCase() === 'asc';
+    const dir = asc ? 1 : -1;
+    rows.sort(function (a, b) {
+        let va;
+        let vb;
+        if (key === 'source') {
+            va = generationRecordSourceSortKey(a);
+            vb = generationRecordSourceSortKey(b);
+        } else if (key === 'title') {
+            va = String((a && (a.title || a.prompt)) || '').toLowerCase();
+            vb = String((b && (b.title || b.prompt)) || '').toLowerCase();
+        } else if (key === 'owner') {
+            va = generationRecordOwnerSortKey(a);
+            vb = generationRecordOwnerSortKey(b);
+        } else if (key === 'access_count') {
+            va = Number(a && a.access_count) || 0;
+            vb = Number(b && b.access_count) || 0;
+        } else {
+            va = new Date(a && a.created_at || 0).getTime();
+            vb = new Date(b && b.created_at || 0).getTime();
+        }
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        return new Date(b && b.created_at || 0) - new Date(a && a.created_at || 0);
+    });
+}
+
 async function listAdminGenerationRecords(opts) {
     opts = opts || {};
     const source = (opts.source || 'all').trim().toLowerCase();
     const limit = Math.min(100, Math.max(1, parseInt(opts.limit, 10) || 50));
     const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+    const sortKey = String(opts.sort || 'created_at').trim().toLowerCase();
+    const sortOrder = String(opts.order || 'desc').trim().toLowerCase() === 'asc' ? 'asc' : 'desc';
     const manufacturerId = (opts.manufacturer_id || '').trim();
     const qText = (opts.q || '').trim().toLowerCase();
     const from = (opts.from || '').trim();
@@ -30311,9 +30384,28 @@ async function listAdminGenerationRecords(opts) {
         }
     }
 
-    merged.sort(function (a, b) {
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-    });
+    if (sortKey === 'access_count') {
+        await attachAccessStatsToGenerationRows(merged);
+    }
+    if (sortKey === 'owner') {
+        const ownerIdsForSort = [...new Set(merged.filter(function (i) {
+            return (i.source === 'site' || i.source === 'promo' || i.source === 'promo_camera_web' || i.source === 'promo_camera_app') && i.owner_id;
+        }).map(function (i) { return i.owner_id; }))];
+        if (ownerIdsForSort.length) {
+            const { data: sortProfs } = await supabase.from('profiles').select('id, email, full_name').in('id', ownerIdsForSort);
+            const sortOwnerById = {};
+            (sortProfs || []).forEach(function (p) {
+                if (p && p.id) sortOwnerById[p.id] = p;
+            });
+            merged.forEach(function (item) {
+                if (!item.owner_id || !sortOwnerById[item.owner_id]) return;
+                const p = sortOwnerById[item.owner_id];
+                item.owner_email = p.email || null;
+                item.owner_name = p.full_name || null;
+            });
+        }
+    }
+    sortGenerationRecordRows(merged, sortKey, sortOrder);
     const items = merged.slice(offset, offset + limit);
 
     const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo' || i.source === 'promo_camera_web' || i.source === 'promo_camera_app') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
@@ -30372,7 +30464,9 @@ async function listAdminGenerationRecords(opts) {
         limit: limit,
         offset: offset,
         has_more: merged.length > offset + limit,
-        summary: summary
+        summary: summary,
+        sort: sortKey,
+        order: sortOrder
     };
 }
 
@@ -33010,7 +33104,9 @@ app.get('/api/admin/generation-records', async (req, res) => {
             manufacturer_id: req.query.manufacturer_id,
             q: req.query.q,
             from: req.query.from,
-            to: req.query.to
+            to: req.query.to,
+            sort: req.query.sort,
+            order: req.query.order
         });
         return res.json(payload);
     } catch (e) {

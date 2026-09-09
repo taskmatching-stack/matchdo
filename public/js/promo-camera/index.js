@@ -2502,10 +2502,15 @@
     if (assetPickTarget === 'layout') {
       pickerOpts.allowedTabs = ['promo'];
       pickerOpts.filterItem = function (item) {
+        if (!item) return false;
         if (item.asset_kind === 'promo_camera_space_layout') return true;
         return item.shoot_mode === 'space'
           && (!item.space_output_type || item.space_output_type === 'layout_plan');
       };
+      pickerOpts.emptyMessageOverride = t(
+        'promoCamera.assetEmptySpaceMap',
+        '此處只顯示「空間地圖（ISO）」。請先在空間攝影用「空間地圖」輸出類型生成；產品攝影／平視成品請到「我的數位資產 → 情境圖」查看。'
+      );
     }
     window.__pcAssetPickerMount = window.MatchdoDigitalAssetPicker.mount(pickerOpts);
   }

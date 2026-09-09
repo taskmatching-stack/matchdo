@@ -340,7 +340,7 @@
                 ? '印花資料表尚未建立。請在 Supabase 執行 docs/add-user-print-generations.sql 後再上傳。'
                 : 'Print table is missing. Run docs/add-user-print-generations.sql in Supabase, then upload again.';
             } else {
-              opts.emptyEl.textContent = emptyMessage(tab);
+              opts.emptyEl.textContent = opts.emptyMessageOverride || emptyMessage(tab);
             }
             opts.emptyEl.classList.remove('d-none');
           }
