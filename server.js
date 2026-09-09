@@ -118,6 +118,7 @@ const materialComboAnalytics = require('./lib/material-combo-analytics');
 const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const categoryUsageStats = require('./lib/category-usage-stats');
 const platformUsageMonitor = require('./lib/platform-usage-monitor');
+const ugcRetention = require('./lib/ugc-retention');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
@@ -11021,6 +11022,10 @@ app.get('/inspiration/:type/:id', async (req, res) => {
         const base = origin || BASE_URL;
         const apiRes = await fetch(`${base}/api/media-wall-item/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } });
         if (!apiRes.ok) {
+            if (apiRes.status === 410) {
+                res.status(410).send('此作品已過期移除');
+                return;
+            }
             res.status(apiRes.status === 404 ? 404 : 500).send(apiRes.status === 404 ? '找不到該作品' : '暫時無法載入');
             return;
         }
@@ -19491,10 +19496,38 @@ async function enrichPromoRowsMissingSourceImages(rows) {
     return list;
 }
 
+async function mergeUgcRetentionForCustomProduct(payload, userId, opts) {
+    if (!payload || !userId || payload.generation_completed_at) return payload;
+    const isStaff = await isStaffProfileUserId(userId);
+    const isPaid = await hasActivePaidSubscription(userId);
+    return Object.assign(payload, ugcRetention.buildRetentionFields({
+        isStaff,
+        isPaid,
+        contentKind: 'design',
+        wallCategoryKey: (opts && opts.wallCategoryKey) || payload.subcategory_key || payload.category || null
+    }));
+}
+
+async function mergeUgcRetentionForPromoPayload(payload, userId, bodyForKind) {
+    if (!payload || !userId || payload.generation_completed_at) return payload;
+    const isStaff = await isStaffProfileUserId(userId);
+    const isPaid = await hasActivePaidSubscription(userId);
+    const contentKind = payload.content_kind || ugcRetention.promoContentKindFromBody(bodyForKind || payload);
+    return Object.assign(payload, ugcRetention.buildRetentionFields({
+        isStaff,
+        isPaid,
+        contentKind,
+        wallCategoryKey: payload.wall_category_key || null
+    }));
+}
+
 /** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
-async function insertProductPromoGenerationRow(payload) {
+async function insertProductPromoGenerationRow(payload, bodyForKind) {
     let current = await persistPromoGenerationInsertPayload(payload);
-    const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at', 'credit_transaction_id', 'generation_meta_json', 'parent_record_kind', 'parent_record_id'];
+    if (current && current.user_id) {
+        current = await mergeUgcRetentionForPromoPayload(current, current.user_id, bodyForKind || current);
+    }
+    const optionalStripOrder = ['generation_mode', 'camera_params', 'client_channel', 'show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at', 'credit_transaction_id', 'generation_meta_json', 'parent_record_kind', 'parent_record_id'].concat(ugcRetention.RETENTION_COLUMN_NAMES);
     let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
         const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
@@ -21710,10 +21743,13 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     if (autoLineage.reference_sources) autoInsertPayload.reference_sources = autoLineage.reference_sources;
                 }
                 mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
+                await mergeUgcRetentionForCustomProduct(autoInsertPayload, currentUser.id, {
+                    wallCategoryKey: subCategoryKey || mainCategoryKey
+                });
                 let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
                 if (insertRes.error && insertRes.error.code === '42703') {
                     insertRes = await supabase.from('custom_products')
-                        .insert(stripInternalCustomProductInsertColumns(autoInsertPayload))
+                        .insert(ugcRetention.stripRetentionColumns(stripInternalCustomProductInsertColumns(autoInsertPayload)))
                         .select('id').single();
                 }
                 if (insertRes.error) {
@@ -21977,11 +22013,13 @@ async function hasActivePaidSubscription(userId) {
     return isPaidMemberLevel(await readProfileMemberLevel(userId));
 }
 
-/** 付費會員或管理員／測試員：可選是否上媒體牆；免費會員強制公開 */
+/** 付費會員或管理員／測試員：可選是否上媒體牆；免費會員強制公開（降級 15 日緩衝期除外） */
 async function canControlDesignShowOnHomepage(userId) {
     if (!userId) return false;
     if (await isStaffProfileUserId(userId)) return true;
-    return hasActivePaidSubscription(userId);
+    if (await hasActivePaidSubscription(userId)) return true;
+    if (await ugcRetention.isWallGraceActive(supabase, userId)) return true;
+    return false;
 }
 
 /** 新設計寫入時媒體牆預設：一律預設公開；付費／管理員／測試員可於設計頁取消勾選 */
@@ -22002,6 +22040,11 @@ async function resolveDesignShowOnHomepageFromRequest(userId, body) {
     );
     /* 人像氛圍成品：預設不上牆；免費也不強制（草稿另外永遠 false） */
     if (shootMode === 'portrait' && renderMode === 'mood') {
+        if (body && typeof body.show_on_homepage !== 'undefined') return !!body.show_on_homepage;
+        return false;
+    }
+    /* 免費人像：不強制上牆（預設 false） */
+    if (shootMode === 'portrait' && !(await canControlDesignShowOnHomepage(userId))) {
         if (body && typeof body.show_on_homepage !== 'undefined') return !!body.show_on_homepage;
         return false;
     }
@@ -22096,10 +22139,21 @@ async function syncMembershipCatalogVisibility(userId) {
     await writeProfileMembershipCatalogTier(userId, tierNow);
     if (tierPrev === 'paid' && tierNow === 'free') {
         await hideVendorAssetsOnMembershipDowngrade(userId);
+        try {
+            const kind = await ugcRetention.resolveDowngradeKind(supabase, userId);
+            await ugcRetention.applyDowngradeToFree(supabase, userId, { kind });
+        } catch (retErr) {
+            console.warn('applyDowngradeToFree:', retErr && retErr.message);
+        }
         return;
     }
     if (tierPrev === 'free' && tierNow === 'paid') {
         await restoreVendorAssetsAfterMembershipUpgrade(userId);
+        try {
+            await ugcRetention.applyUpgradeToPaid(supabase, userId);
+        } catch (retErr) {
+            console.warn('applyUpgradeToPaid:', retErr && retErr.message);
+        }
     }
 }
 
@@ -26171,14 +26225,21 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
         const contentLang = normalizeVendorContentLang(req.query.lang || req.query.content_lang || '');
         const internalPreview = await getRequestInternalPreviewFlag(req);
         if (type === 'promo_scene') {
+            const promoRow = await mediaWallQueries.fetchPromoSceneMediaWallRowById(supabase, id, mediaWallQueryLog);
+            if (promoRow && ugcRetention.rowIsSoftDeleted(promoRow)) {
+                return res.status(410).json({ error: '此作品已過期移除' });
+            }
             const item = await fetchPromoMediaWallItemById(id, contentLang);
             if (!item) return res.status(404).json({ error: '找不到該情境圖' });
+            ugcRetention.markMediaWallItemAccessed(supabase, 'promo_scene', id).catch(function () {});
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'user_design') {
             const row = await mediaWallQueries.fetchCustomProductMediaWallRowById(supabase, id, mediaWallQueryLog);
             if (!row) return res.status(404).json({ error: '找不到該作品' });
+            if (ugcRetention.rowIsSoftDeleted(row)) return res.status(410).json({ error: '此作品已過期移除' });
             if (!row.ai_generated_image_url && !row.reference_image_url) return res.status(404).json({ error: '找不到該作品' });
+            ugcRetention.markMediaWallItemAccessed(supabase, 'user_design', id).catch(function () {});
             let ownerDisplayMap = {};
             if (row.owner_id) {
                 const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
@@ -32496,6 +32557,22 @@ app.post('/api/admin/platform-usage/supabase-snapshot', express.json(), async (r
     }
 });
 
+// POST /api/internal/ugc-retention-cron — 每日 UGC 冷儲存／刪除 sweep（需 INTERNAL_CRON_SECRET）
+app.post('/api/internal/ugc-retention-cron', express.json(), async (req, res) => {
+    try {
+        const secret = process.env.INTERNAL_CRON_SECRET || '';
+        const auth = String(req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '');
+        if (!secret || auth !== secret) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const stats = await ugcRetention.runRetentionSweep(supabase);
+        res.json({ ok: true, stats });
+    } catch (e) {
+        console.error('POST /api/internal/ugc-retention-cron:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
 // GET /api/admin/generation-records — 管理員：主站 + Embed 生圖紀錄
 app.get('/api/admin/generation-records', async (req, res) => {
     try {
@@ -37774,6 +37851,12 @@ app.get('/api/me/capabilities', async (req, res) => {
         const qualifiesForSupplierImport = isQualifiedManufacturer;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
         const canControlDesignShowOnHomepageFlag = await canControlDesignShowOnHomepage(user.id);
+        const wallGraceUntil = await ugcRetention.readWallGraceUntil(supabase, user.id);
+        let wallGraceDaysLeft = null;
+        if (wallGraceUntil) {
+            const diff = new Date(wallGraceUntil).getTime() - Date.now();
+            wallGraceDaysLeft = diff > 0 ? Math.ceil(diff / (24 * 60 * 60 * 1000)) : 0;
+        }
         let isIndustrySupplier = false;
         let industrySupplierId = null;
         if (catalogReady) {
@@ -37807,6 +37890,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
             can_control_design_show_on_homepage: canControlDesignShowOnHomepageFlag,
+            wall_grace_until: wallGraceUntil,
+            wall_grace_days_left: wallGraceDaysLeft,
             can_browse_supplier_catalog: canBrowseCatalog,
             can_use_supplier_catalog: canImport,
             can_import_supplier_catalog: canImport,

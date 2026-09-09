@@ -94,10 +94,19 @@
           : t('customProduct.paidUserShowHint', '可勾選是否展示在首頁媒體牆');
       }
     } else {
-      cb.checked = true;
-      cb.disabled = true;
-      if (hint) {
-        hint.textContent = t('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消');
+      var portrait = !!(opts && opts.portraitMode);
+      if (portrait) {
+        cb.disabled = false;
+        if (!cb.dataset.userTouched) cb.checked = defaultChecked;
+        if (hint) {
+          hint.textContent = t('customProduct.freeUserPortraitShowHint', '人像預設不上媒體牆，可自行勾選公開');
+        }
+      } else {
+        cb.checked = true;
+        cb.disabled = true;
+        if (hint) {
+          hint.textContent = t('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消');
+        }
       }
     }
     syncPortraitLikenessWarning(cb, opts);
