@@ -30155,6 +30155,7 @@ async function listAdminGenerationRecords(opts) {
                     storage_tier: row.storage_tier || null,
                     retention_tier: row.retention_tier || null,
                     soft_deleted_at: row.soft_deleted_at || null,
+                    retention_milestones: ugcRetention.describeRetentionMilestonesForAdmin(row),
                     ugc_item_type: 'user_design'
                 });
             });
@@ -30301,6 +30302,7 @@ async function listAdminGenerationRecords(opts) {
                     storage_tier: row.storage_tier || null,
                     retention_tier: row.retention_tier || null,
                     soft_deleted_at: row.soft_deleted_at || null,
+                    retention_milestones: ugcRetention.describeRetentionMilestonesForAdmin(row),
                     ugc_item_type: 'promo_scene'
                 });
             });
@@ -32326,13 +32328,12 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
                 },
                 analysis_json: embedAnalysis
             };
+            cpPayload = await mergeUgcRetentionForCustomProduct(cpPayload, ctx.vendorUserId, {
+                wallCategoryKey: proto.subcategory_key || proto.category_key || null
+            });
             let cpRes = await supabase.from('custom_products').insert(cpPayload).select('id').single();
             if (cpRes.error && cpRes.error.code === '42703') {
-                const slim = Object.assign({}, cpPayload);
-                delete slim.is_vendor_self_serve;
-                delete slim.has_self_vendor_reference;
-                delete slim.generator_manufacturer_id;
-                delete slim.data_lineage_json;
+                const slim = ugcRetention.stripRetentionColumns(stripInternalCustomProductInsertColumns(Object.assign({}, cpPayload)));
                 cpRes = await supabase.from('custom_products').insert(slim).select('id').single();
             }
             if (!cpRes.error && cpRes.data && cpRes.data.id) {

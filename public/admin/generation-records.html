@@ -310,6 +310,18 @@
       try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
     }
 
+    function formatRetentionMilestonesHtml(row) {
+      var m = row && row.retention_milestones;
+      if (!m) return '';
+      var html = '<dt class="col-sm-3">留存估算</dt><dd class="col-sm-9">' + esc(m.summary || '—');
+      if (m.anchor_at) html += '<div class="text-muted small">锚點：' + esc(fmtTime(m.anchor_at)) + '</div>';
+      if (m.coldline_estimated_at) html += '<div class="text-muted small">預估進 Coldline：' + esc(fmtTime(m.coldline_estimated_at)) + '</div>';
+      if (m.coldline_since_estimated_at) html += '<div class="text-muted small">Coldline 自：' + esc(fmtTime(m.coldline_since_estimated_at)) + '</div>';
+      if (m.soft_delete_estimated_at) html += '<div class="text-muted small">預估軟刪：' + esc(fmtTime(m.soft_delete_estimated_at)) + '</div>';
+      if (m.hard_delete_estimated_at) html += '<div class="text-muted small">預估硬刪：' + esc(fmtTime(m.hard_delete_estimated_at)) + '</div>';
+      return html + '</dd>';
+    }
+
     var CAMERA_CAT_LABELS = {
       camera_brand: '品牌色彩',
       film_simulation: '底片模擬',
@@ -495,7 +507,8 @@
         if (row.ugc_item_type) {
           html += '<dt class="col-sm-3">點閱次數</dt><dd class="col-sm-9">' + esc(row.access_count != null ? row.access_count : '—') + '</dd>' +
             '<dt class="col-sm-3">最後點閱</dt><dd class="col-sm-9">' + esc(fmtTime(row.last_access_event_at || row.last_accessed_at) || '—') + '</dd>' +
-            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>';
+            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>' +
+            formatRetentionMilestonesHtml(row);
         }
       } else if (row.source === 'embed') {
         html += '<dt class="col-sm-3">廠商</dt><dd class="col-sm-9">' + esc(row.manufacturer_name || row.manufacturer_id) + '</dd>' +
@@ -531,7 +544,8 @@
         if (row.ugc_item_type) {
           html += '<dt class="col-sm-3">點閱次數</dt><dd class="col-sm-9">' + esc(row.access_count != null ? row.access_count : '—') + '</dd>' +
             '<dt class="col-sm-3">最後點閱</dt><dd class="col-sm-9">' + esc(fmtTime(row.last_access_event_at || row.last_accessed_at) || '—') + '</dd>' +
-            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>';
+            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>' +
+            formatRetentionMilestonesHtml(row);
         }
       }
       html += '</dl>';
