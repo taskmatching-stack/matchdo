@@ -121,6 +121,7 @@ const platformUsageMonitor = require('./lib/platform-usage-monitor');
 const ugcRetention = require('./lib/ugc-retention');
 const subscriptionExpiry = require('./lib/subscription-expiry');
 const membershipDowngradeNotices = require('./lib/membership-downgrade-notices');
+const ugcAccessLog = require('./lib/ugc-access-log');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
@@ -15408,6 +15409,19 @@ async function getCurrentUser(req, res) {
     return user;
 }
 
+/** 公開 API 可選登入：有 Bearer 則回傳 user.id，否則 null（不送 401） */
+async function resolveOptionalViewerUserId(req) {
+    const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+    const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+    if (!token) return null;
+    try {
+        const { data: { user } } = await supabase.auth.getUser(token);
+        return user && user.id ? user.id : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 // 發點：依後台開關在查詢點數時執行「註冊送點」與「每月發點」（開關關閉時不執行）
 const GRANT_CONFIG_KEYS = ['grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'];
 async function ensureGrantPointsIfEnabled(userId) {
@@ -26497,7 +26511,11 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             }
             const item = await fetchPromoMediaWallItemById(id, contentLang);
             if (!item) return res.status(404).json({ error: '找不到該情境圖' });
-            ugcRetention.markMediaWallItemAccessed(supabase, 'promo_scene', id).catch(function () {});
+            const promoViewerId = await resolveOptionalViewerUserId(req);
+            ugcRetention.markMediaWallItemAccessed(supabase, 'promo_scene', id, {
+                accessPath: 'media_wall_item',
+                viewerUserId: promoViewerId
+            }).catch(function () {});
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'user_design') {
@@ -26505,7 +26523,11 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             if (!row) return res.status(404).json({ error: '找不到該作品' });
             if (ugcRetention.rowIsSoftDeleted(row)) return res.status(410).json({ error: '此作品已過期移除' });
             if (!row.ai_generated_image_url && !row.reference_image_url) return res.status(404).json({ error: '找不到該作品' });
-            ugcRetention.markMediaWallItemAccessed(supabase, 'user_design', id).catch(function () {});
+            const designViewerId = await resolveOptionalViewerUserId(req);
+            ugcRetention.markMediaWallItemAccessed(supabase, 'user_design', id, {
+                accessPath: 'media_wall_item',
+                viewerUserId: designViewerId
+            }).catch(function () {});
             let ownerDisplayMap = {};
             if (row.owner_id) {
                 const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
@@ -27055,7 +27077,10 @@ app.get('/api/custom-products/:id', async (req, res) => {
         if (ugcRetention.rowIsSoftDeleted(data)) {
             return res.status(410).json({ error: '此作品已過期移除' });
         }
-        ugcRetention.markTableRowAccessed(supabase, 'custom_products', req.params.id).catch(function () {});
+        ugcRetention.markTableRowAccessed(supabase, 'custom_products', req.params.id, {
+            accessPath: 'owner_library_detail',
+            viewerUserId: user.id
+        }).catch(function () {});
 
         const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
         const ownerEmail = user.email || '';
@@ -30071,13 +30096,24 @@ async function listAdminGenerationRecords(opts) {
         const cpRes = await fetchSupabaseRowsUpTo(function () {
             let cpQ = supabase
                 .from('custom_products')
-                .select('id, title, description, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
+                .select('id, title, description, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage, last_accessed_at, storage_tier, retention_tier, soft_deleted_at')
                 .not('ai_generated_image_url', 'is', null)
                 .order('created_at', { ascending: false });
             if (from) cpQ = cpQ.gte('created_at', from);
             if (to) cpQ = cpQ.lte('created_at', to + 'T23:59:59.999Z');
             return cpQ;
         }, fetchN);
+        if (cpRes.error && isSupabaseMissingColumnError(cpRes.error, 'last_accessed_at')) {
+            const cpResFb = await fetchSupabaseRowsUpTo(function () {
+                return supabase
+                    .from('custom_products')
+                    .select('id, title, description, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
+                    .not('ai_generated_image_url', 'is', null)
+                    .order('created_at', { ascending: false });
+            }, fetchN);
+            cpRes.data = cpResFb.data;
+            cpRes.error = cpResFb.error;
+        }
         if (!cpRes.error) {
             (cpRes.data || []).forEach(function (row) {
                 if (customProductRowIsEmbedVisitor(row)) return;
@@ -30100,7 +30136,12 @@ async function listAdminGenerationRecords(opts) {
                     subcategory_key: row.subcategory_key || null,
                     is_vendor_self_serve: row.is_vendor_self_serve === true,
                     show_on_homepage: row.show_on_homepage !== false,
-                    manufacturer_id: row.generator_manufacturer_id || null
+                    manufacturer_id: row.generator_manufacturer_id || null,
+                    last_accessed_at: row.last_accessed_at || null,
+                    storage_tier: row.storage_tier || null,
+                    retention_tier: row.retention_tier || null,
+                    soft_deleted_at: row.soft_deleted_at || null,
+                    ugc_item_type: 'user_design'
                 });
             });
         }
@@ -30154,7 +30195,7 @@ async function listAdminGenerationRecords(opts) {
     }
 
     if (source === 'all' || source === 'promo' || source === 'promo_camera' || source === 'promo_camera_web' || source === 'promo_camera_app' || ADMIN_PROMO_CAMERA_SHOOT_FILTER[source]) {
-        const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, generation_meta_json, client_channel, camera_params';
+        const promoSelectFull = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at, generation_mode, generation_meta_json, client_channel, camera_params, last_accessed_at, storage_tier, retention_tier, soft_deleted_at';
         const applyPromoDate = function (promoQ) {
             if (from) promoQ = promoQ.gte('created_at', from);
             if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
@@ -30241,7 +30282,12 @@ async function listAdminGenerationRecords(opts) {
                             });
                         }
                         return row.source_image_url ? [{ type: row.source_type || 'upload', url: row.source_image_url, image_url: row.source_image_url, id: row.source_id || null }] : [];
-                    })()
+                    })(),
+                    last_accessed_at: row.last_accessed_at || null,
+                    storage_tier: row.storage_tier || null,
+                    retention_tier: row.retention_tier || null,
+                    soft_deleted_at: row.soft_deleted_at || null,
+                    ugc_item_type: 'promo_scene'
                 });
             });
         } else if (promoRes.error && promoRes.error.code !== '42P01') {
@@ -30269,6 +30315,26 @@ async function listAdminGenerationRecords(opts) {
             item.owner_name = p.full_name || null;
         }
     });
+
+    const ugcPairs = items.filter(function (item) { return item.ugc_item_type && item.id; }).map(function (item) {
+        return { item_type: item.ugc_item_type, item_id: item.id };
+    });
+    if (ugcPairs.length) {
+        try {
+            const accessStats = await ugcAccessLog.fetchAccessStatsForItems(supabase, ugcPairs);
+            items.forEach(function (item) {
+                if (!item.ugc_item_type || !item.id) return;
+                const key = item.ugc_item_type + ':' + item.id;
+                const st = accessStats[key];
+                if (!st) return;
+                item.access_count = st.access_count;
+                item.last_access_event_at = st.last_access_event_at;
+                item.last_access_path = st.last_access_path;
+            });
+        } catch (accessErr) {
+            console.warn('listAdminGenerationRecords access stats:', accessErr && accessErr.message);
+        }
+    }
 
     const promoItemIds = items.filter(function (item) {
         return isPromoLikeGenerationRecordSource(item.source) && item.id;
@@ -32861,6 +32927,27 @@ app.post('/api/internal/subscription-expiry-cron', express.json(), async (req, r
         res.json({ ok: true, expired: result.expired, reconciled });
     } catch (e) {
         console.error('POST /api/internal/subscription-expiry-cron:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// GET /api/admin/ugc-access-events — 管理員：單一 UGC 點閱事件列表
+app.get('/api/admin/ugc-access-events', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const itemType = String(req.query.item_type || '').trim();
+        const itemId = String(req.query.item_id || '').trim();
+        if (!itemType || !itemId) {
+            return res.status(400).json({ error: '請提供 item_type 與 item_id' });
+        }
+        const payload = await ugcAccessLog.listAccessEventsForItem(supabase, itemType, itemId, {
+            limit: req.query.limit,
+            offset: req.query.offset
+        });
+        res.json(payload);
+    } catch (e) {
+        console.error('GET /api/admin/ugc-access-events:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });

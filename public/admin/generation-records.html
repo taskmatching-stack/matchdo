@@ -27,7 +27,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、商攝導演（網站／App；產品／空間／人像分開統計）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖、商攝導演（網站／App；產品／空間／人像分開統計）。主站／情境圖／商攝列可查看<strong>點閱次數</strong>（有效存取：詳情、靈感頁；不含列表滑過）。</p>
 
         <div class="row g-2 mb-3" id="summaryRow">
           <div class="col-6 col-md-4 col-lg">
@@ -136,11 +136,12 @@
                   <th>來源</th>
                   <th>標題／描述</th>
                   <th>帳號／廠商</th>
+                  <th>點閱</th>
                   <th>時間</th>
                 </tr>
               </thead>
               <tbody id="recordsBody">
-                <tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">載入中…</td></tr>
               </tbody>
             </table>
           </div>
@@ -250,6 +251,32 @@
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function loadAccessEvents(itemType, itemId) {
+      var wrap = document.getElementById('accessEventsWrap');
+      if (!wrap || !token) return;
+      fetch('/api/admin/ugc-access-events?item_type=' + encodeURIComponent(itemType) + '&item_id=' + encodeURIComponent(itemId) + '&limit=30', {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.unavailable) {
+          wrap.innerHTML = '<p class="text-warning small mb-0">請先執行 docs/add-ugc-access-events.sql</p>';
+          return;
+        }
+        var list = data.items || [];
+        if (!list.length) {
+          wrap.innerHTML = '<p class="text-muted small mb-0">尚無點閱紀錄（部署後新產生的有效存取才會記錄）</p>';
+          return;
+        }
+        wrap.innerHTML = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>時間</th><th>途徑</th><th>觀看者</th></tr></thead><tbody>' +
+          list.map(function (ev) {
+            var who = ev.viewer_user_id ? esc(ev.viewer_email || ev.viewer_name || ev.viewer_user_id) : '<span class="text-muted">匿名</span>';
+            return '<tr><td class="text-nowrap small">' + esc(fmtTime(ev.accessed_at)) + '</td><td class="small">' + esc(ev.access_path_label || ev.access_path) + '</td><td class="small">' + who + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          (data.total > list.length ? '<p class="text-muted small mt-1 mb-0">共 ' + data.total + ' 筆，顯示最近 ' + list.length + ' 筆</p>' : '');
+      }).catch(function () {
+        wrap.innerHTML = '<p class="text-danger small mb-0">載入點閱紀錄失敗</p>';
+      });
     }
 
     function collectRowRefUrls(row) {
@@ -396,7 +423,7 @@
       var chkAll = document.getElementById('chkAllPage');
       if (chkAll) chkAll.checked = false;
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">無符合紀錄</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">無符合紀錄</td></tr>';
         return;
       }
       body.innerHTML = items.map(function (row, idx) {
@@ -410,9 +437,16 @@
         var chk = canResume
           ? '<input type="checkbox" class="form-check-input rec-chk" data-idx="' + idx + '">'
           : '<span class="text-muted">—</span>';
+        var accessCell = '—';
+        if (row.ugc_item_type) {
+          var cnt = row.access_count != null ? row.access_count : '—';
+          var lastAt = row.last_access_event_at || row.last_accessed_at;
+          accessCell = '<div class="small">' + esc(String(cnt)) + ' 次</div>' +
+            (lastAt ? '<div class="text-muted" style="font-size:0.72rem">' + esc(fmtTime(lastAt)) + '</div>' : '');
+        }
         return '<tr class="rec-row" data-idx="' + idx + '"><td class="text-center">' + chk + '</td><td>' + img + '</td><td>' + renderRefThumbs(row, 64) + '</td><td>' + sourceBadge(row) + '</td>' +
           '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
-          '<td class="small">' + who + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
+          '<td class="small">' + who + '</td><td class="small text-nowrap">' + accessCell + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
       }).join('');
       body.querySelectorAll('.rec-chk').forEach(function (el) {
         el.addEventListener('click', function (ev) {
@@ -458,6 +492,11 @@
         html += '<dt class="col-sm-3">owner</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id) + '</dd>' +
           '<dt class="col-sm-3">廠商自產</dt><dd class="col-sm-9">' + (row.is_vendor_self_serve ? '是' : '否') + '</dd>' +
           '<dt class="col-sm-3">媒體牆</dt><dd class="col-sm-9">' + (row.show_on_homepage !== false ? '是' : '否') + '</dd>';
+        if (row.ugc_item_type) {
+          html += '<dt class="col-sm-3">點閱次數</dt><dd class="col-sm-9">' + esc(row.access_count != null ? row.access_count : '—') + '</dd>' +
+            '<dt class="col-sm-3">最後點閱</dt><dd class="col-sm-9">' + esc(fmtTime(row.last_access_event_at || row.last_accessed_at) || '—') + '</dd>' +
+            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>';
+        }
       } else if (row.source === 'embed') {
         html += '<dt class="col-sm-3">廠商</dt><dd class="col-sm-9">' + esc(row.manufacturer_name || row.manufacturer_id) + '</dd>' +
           '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
@@ -489,8 +528,18 @@
           html += '</dd>';
         }
         html += formatCameraParamsHtml(row);
+        if (row.ugc_item_type) {
+          html += '<dt class="col-sm-3">點閱次數</dt><dd class="col-sm-9">' + esc(row.access_count != null ? row.access_count : '—') + '</dd>' +
+            '<dt class="col-sm-3">最後點閱</dt><dd class="col-sm-9">' + esc(fmtTime(row.last_access_event_at || row.last_accessed_at) || '—') + '</dd>' +
+            '<dt class="col-sm-3">留存層級</dt><dd class="col-sm-9">' + esc(row.retention_tier || '—') + ' / ' + esc(row.storage_tier || 'standard') + '</dd>';
+        }
       }
-      html += '</dl><div class="fw-semibold mb-1">參考圖</div>';
+      html += '</dl>';
+      if (row.ugc_item_type && row.id) {
+        html += '<div class="fw-semibold mb-1 mt-2">點閱紀錄 <span class="text-muted small">（有效存取：詳情／靈感頁，不含列表滑過）</span></div>' +
+          '<div id="accessEventsWrap" class="mb-3"><div class="text-muted small">載入中…</div></div>';
+      }
+      html += '<div class="fw-semibold mb-1">參考圖</div>';
       var refList = row.reference_sources || [];
       if (row.source_image_url && !refList.length) {
         refList = [{ url: row.source_image_url, image_url: row.source_image_url, type: row.source_type || 'upload' }];
@@ -510,6 +559,9 @@
         esc(JSON.stringify(row.reference_sources || [], null, 2)) + '</pre>';
       var kind = window.ProvenanceResumeUI && ProvenanceResumeUI.mapRecordSourceToKind(row.source);
       document.getElementById('detailBody').innerHTML = html;
+      if (row.ugc_item_type && row.id) {
+        loadAccessEvents(row.ugc_item_type, row.id);
+      }
       var btnResume = document.getElementById('btnDetailResume');
       var btnPdf = document.getElementById('btnDetailResumePdf');
       if (kind && row.id) {
@@ -535,7 +587,7 @@
     async function loadPage() {
       var tok = await getToken();
       if (!tok) return;
-      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>';
+      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">載入中…</td></tr>';
       var qs = new URLSearchParams({
         limit: String(perPage),
         offset: String(page * perPage),
@@ -552,7 +604,7 @@
       });
       var data = await r.json().catch(function () { return {}; });
       if (!r.ok) {
-        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="7" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
+        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
         return;
       }
       items = data.items || [];
