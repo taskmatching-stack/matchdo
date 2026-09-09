@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>降級通知稽核 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .body-clip { max-width: 360px; white-space: pre-wrap; font-size: 0.78rem; color: #495057; }
+    .notice-row { cursor: pointer; }
+    .notice-row:hover td { background: #f8f9fa; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">降級通知稽核</h4>
+        <p class="text-muted small mb-3">付費降級免費之站內告知紀錄（含第 0 天與第 7 天提醒）。供爭議查核：顯示／確認時間。</p>
+
+        <div id="pageMsg" class="alert d-none small py-2"></div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-5">
+                <label class="form-label small mb-1">使用者 UUID</label>
+                <input type="text" class="form-control form-control-sm" id="filterUserId" placeholder="auth.users id" />
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill" id="btnSearch"><i class="bi bi-search me-1"></i>查詢</button>
+                <button class="btn btn-outline-secondary btn-sm" id="btnReset"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>建立時間</th>
+                  <th>使用者</th>
+                  <th>類型</th>
+                  <th>標題</th>
+                  <th>緩衝截止</th>
+                  <th>首次顯示</th>
+                  <th>已確認</th>
+                </tr>
+              </thead>
+              <tbody id="noticeBody">
+                <tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center small">
+            <span class="text-muted" id="pagerInfo">—</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary" id="btnPrev" disabled>上一頁</button>
+              <button class="btn btn-outline-secondary" id="btnNext" disabled>下一頁</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="detailTitle">通知內容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <pre id="detailBody" class="small mb-3" style="white-space:pre-wrap;font-family:inherit;"></pre>
+                <dl class="row small mb-0" id="detailMeta"></dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/admin/js/admin-layout.js"></script>
+  <script>
+  (function () {
+    var offset = 0;
+    var limit = 30;
+    var total = 0;
+    var lastItems = [];
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('zh-TW'); } catch (_) { return iso; }
+    }
+    function kindLabel(k) {
+      var map = {
+        involuntary_wall_grace: '降級（第 0 天）',
+        involuntary_wall_grace_day7: '緩衝提醒（第 7 天）',
+        voluntary_immediate: '主動調整免費'
+      };
+      return map[k] || k || '—';
+    }
+    function showMsg(text, type) {
+      var el = document.getElementById('pageMsg');
+      el.textContent = text;
+      el.className = 'alert alert-' + (type || 'info') + ' small py-2';
+      el.classList.remove('d-none');
+    }
+    async function getToken() {
+      if (!window.AdminAuth || typeof AdminAuth.getToken !== 'function') return null;
+      return AdminAuth.getToken();
+    }
+    function renderRows(items) {
+      lastItems = items || [];
+      if (!items.length) {
+        document.getElementById('noticeBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">尚無紀錄</td></tr>';
+        return;
+      }
+      document.getElementById('noticeBody').innerHTML = items.map(function (row, idx) {
+        return '<tr class="notice-row" data-idx="' + idx + '">' +
+          '<td class="text-nowrap small">' + esc(fmtTime(row.created_at)) + '</td>' +
+          '<td class="small"><code>' + esc((row.user_id || '').slice(0, 8)) + '…</code></td>' +
+          '<td class="small">' + esc(kindLabel(row.notice_kind)) + '</td>' +
+          '<td>' + esc(row.title || '') + '</td>' +
+          '<td class="small text-nowrap">' + esc(fmtTime(row.wall_grace_until)) + '</td>' +
+          '<td class="small text-nowrap">' + esc(fmtTime(row.first_shown_at)) + '</td>' +
+          '<td class="small text-nowrap">' + (row.acknowledged_at
+            ? esc(fmtTime(row.acknowledged_at)) + (row.acknowledged_via ? ' <span class="text-muted">(' + esc(row.acknowledged_via) + ')</span>' : '')
+            : '<span class="text-warning">待確認</span>') +
+          '</td></tr>';
+      }).join('');
+      document.querySelectorAll('.notice-row').forEach(function (tr) {
+        tr.addEventListener('click', function () {
+          var item = lastItems[parseInt(tr.getAttribute('data-idx'), 10)];
+          if (!item) return;
+          document.getElementById('detailTitle').textContent = item.title || '通知';
+          document.getElementById('detailBody').textContent = item.body_text || '';
+          document.getElementById('detailMeta').innerHTML =
+            '<dt class="col-sm-3">ID</dt><dd class="col-sm-9"><code>' + esc(item.id) + '</code></dd>' +
+            '<dt class="col-sm-3">使用者</dt><dd class="col-sm-9"><code>' + esc(item.user_id) + '</code></dd>' +
+            '<dt class="col-sm-3">類型</dt><dd class="col-sm-9">' + esc(kindLabel(item.notice_kind)) + '</dd>' +
+            '<dt class="col-sm-3">版本</dt><dd class="col-sm-9">' + esc(item.message_version || '—') + '</dd>';
+          new bootstrap.Modal(document.getElementById('detailModal')).show();
+        });
+      });
+    }
+    function updatePager() {
+      document.getElementById('pagerInfo').textContent = '共 ' + total + ' 筆 · offset ' + offset;
+      document.getElementById('btnPrev').disabled = offset <= 0;
+      document.getElementById('btnNext').disabled = offset + limit >= total;
+    }
+    async function loadList() {
+      var tok = await getToken();
+      if (!tok) return;
+      document.getElementById('noticeBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">載入中…</td></tr>';
+      var uid = document.getElementById('filterUserId').value.trim();
+      var qs = '?limit=' + limit + '&offset=' + offset + (uid ? '&user_id=' + encodeURIComponent(uid) : '');
+      var r = await fetch('/api/admin/membership-downgrade-notices' + qs, {
+        headers: { Authorization: 'Bearer ' + tok }
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        showMsg(data.error || '載入失敗', 'danger');
+        return;
+      }
+      document.getElementById('pageMsg').classList.add('d-none');
+      if (data.tables_ready === false) {
+        showMsg('membership_downgrade_notices 表尚未建立，請執行 migration', 'warning');
+      }
+      total = data.total || 0;
+      renderRows(data.items || []);
+      updatePager();
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('btnSearch').addEventListener('click', function () { offset = 0; loadList(); });
+      document.getElementById('btnReset').addEventListener('click', function () {
+        document.getElementById('filterUserId').value = '';
+        offset = 0;
+        loadList();
+      });
+      document.getElementById('btnPrev').addEventListener('click', function () {
+        offset = Math.max(0, offset - limit);
+        loadList();
+      });
+      document.getElementById('btnNext').addEventListener('click', function () {
+        offset += limit;
+        loadList();
+      });
+      setTimeout(loadList, 400);
+    });
+  })();
+  </script>
+</body>
+</html>

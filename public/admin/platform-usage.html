@@ -80,6 +80,24 @@
 
         <div class="card border-0 shadow-sm mb-4">
           <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <h6 class="card-title mb-0">UGC 留存估算</h6>
+              <span class="text-muted small" id="ugcRetentionNote">—</span>
+            </div>
+            <div class="row g-2 mb-2" id="ugcRetentionCards">
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">Coldline 筆數</div><div class="stat-num" id="ugcColdline">—</div></div></div></div>
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">免費 Standard</div><div class="stat-num" id="ugcStandardFree">—</div></div></div></div>
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">軟刪待硬刪</div><div class="stat-num" id="ugcSoftPending">—</div></div></div></div>
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">30 天內可能進 Coldline</div><div class="stat-num" id="ugcExpiringCold">—</div></div></div></div>
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">15 天內可能硬刪</div><div class="stat-num" id="ugcExpiringHard">—</div></div></div></div>
+              <div class="col-md-4 col-6"><div class="card stat-card level-unknown"><div class="card-body py-2 px-3"><div class="text-muted small">免費上牆中</div><div class="stat-num" id="ugcOnWallFree">—</div></div></div></div>
+            </div>
+            <p class="text-muted small mb-0" id="ugcRetentionConfig"></p>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
             <h6 class="card-title">外部 API 明細（本月）</h6>
             <p class="text-muted small mb-2" id="externalNote"></p>
             <div class="table-responsive">
@@ -381,6 +399,29 @@
         }
       }
     }
+    function renderUgcRetention(stats) {
+      var t = (stats && stats.totals) || {};
+      var cfg = (stats && stats.config) || {};
+      document.getElementById('ugcColdline').textContent = t.coldline != null ? String(t.coldline) : '—';
+      document.getElementById('ugcStandardFree').textContent = t.standard_free != null ? String(t.standard_free) : '—';
+      document.getElementById('ugcSoftPending').textContent = t.soft_pending != null ? String(t.soft_pending) : '—';
+      document.getElementById('ugcExpiringCold').textContent = t.expiring_to_coldline_30d != null ? String(t.expiring_to_coldline_30d) : '—';
+      document.getElementById('ugcExpiringHard').textContent = t.expiring_soft_delete_15d != null ? String(t.expiring_soft_delete_15d) : '—';
+      document.getElementById('ugcOnWallFree').textContent = t.on_wall_free != null ? String(t.on_wall_free) : '—';
+      document.getElementById('ugcRetentionNote').textContent = stats && stats.tables_ready
+        ? '來自 custom_products + product_promo_generations'
+        : '部分留存欄位尚未 migration';
+      document.getElementById('ugcRetentionConfig').textContent = cfg.coldline_days
+        ? ('規則：' + cfg.coldline_days + ' 天未存取 → Coldline；再 ' + cfg.delete_after_coldline_days + ' 天軟刪；軟刪 ' + cfg.soft_delete_grace_days + ' 天硬刪。牆輪替：分類 ≥' + cfg.wall_sparse_max + ' 且上牆逾 ' + cfg.wall_rotation_days + ' 天。')
+        : '';
+    }
+    async function loadUgcRetention(tok) {
+      try {
+        var r = await fetch('/api/admin/ugc-retention-stats', { headers: { Authorization: 'Bearer ' + tok } });
+        var data = await r.json().catch(function () { return {}; });
+        if (r.ok) renderUgcRetention(data.stats || {});
+      } catch (_) {}
+    }
     async function loadReport() {
       var tok = await getToken();
       if (!tok) return;
@@ -393,6 +434,7 @@
       }
       document.getElementById('pageMsg').classList.add('d-none');
       renderReport(data.report || {});
+      loadUgcRetention(tok);
     }
     document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('btnRefresh').addEventListener('click', loadReport);

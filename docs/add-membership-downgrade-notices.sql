@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.membership_downgrade_notices (
 );
 
 COMMENT ON TABLE public.membership_downgrade_notices IS '付費降級免費之告知紀錄（含 15 日緩衝說明）；acknowledged_at 為使用者已讀確認';
-COMMENT ON COLUMN public.membership_downgrade_notices.notice_kind IS 'involuntary_wall_grace | voluntary_immediate';
+COMMENT ON COLUMN public.membership_downgrade_notices.notice_kind IS 'involuntary_wall_grace | involuntary_wall_grace_day7 | voluntary_immediate';
 COMMENT ON COLUMN public.membership_downgrade_notices.acknowledged_via IS 'login_modal | credits_page | api';
 
 CREATE INDEX IF NOT EXISTS idx_mdn_user_pending

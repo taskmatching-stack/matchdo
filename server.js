@@ -19869,8 +19869,16 @@ function mapUserPromoGenerationListItem(row) {
         shoot_mode: meta.shoot_mode || null,
         space_output_type: meta.space_output_type || null,
         space_use_type: spaceUseType,
-        space_use_label: spaceUseRow ? spaceUseRow.label : null
+        space_use_label: spaceUseRow ? spaceUseRow.label : null,
+        retention_status: ugcRetention.describeRetentionForUser(row)
     };
+}
+
+function attachUserRetentionStatus(row) {
+    if (!row || typeof row !== 'object') return row;
+    const status = ugcRetention.describeRetentionForUser(row);
+    if (!status) return row;
+    return Object.assign({}, row, { retention_status: status });
 }
 
 /** 使用者「我的數位資產 → 情境圖」列表（對齊管理區：缺欄位時 fallback，避免整頁空白） */
@@ -19901,7 +19909,8 @@ async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd, shoot
             .order('created_at', { ascending: false }),
         shootFilter
     ).range(offsetN, rangeEnd);
-    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json';
+    const retentionCols = 'retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at';
+    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode, generation_meta_json, ' + retentionCols;
     const selectNoMeta = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, ai_tags, generation_mode';
     const selectNoTags = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, description, generation_mode, generation_meta_json';
     const selectNoDesc = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, source_image_url, show_on_homepage, generation_mode, generation_meta_json';
@@ -25556,7 +25565,7 @@ app.get('/api/custom-products', async (req, res) => {
             const rangeEnd = offsetN + limitN;
             const { data, error } = await supabase
                 .from('custom_products')
-                .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at')
+                .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at, retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at')
                 .eq('owner_id', user.id)
                 .not('ai_generated_image_url', 'is', null)
                 .neq('ai_generated_image_url', '')
@@ -25570,11 +25579,11 @@ app.get('/api/custom-products', async (req, res) => {
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
             const productsWithOwner = list.map(function (p) {
-                return customProductLineage.stripInternalCustomProductFields({
+                return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
                     owner_email: ownerEmail,
                     owner_display: ownerDisplay
-                });
+                }));
             });
             return res.json({
                 success: true,
@@ -25591,7 +25600,8 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
+            const retentionListCols = 'retention_tier, storage_tier, soft_deleted_at, last_accessed_at, free_retention_started_at, generation_completed_at';
+            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources, ' + retentionListCols;
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -25614,11 +25624,13 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
-            const productsWithOwner = list.map(p => customProductLineage.stripInternalCustomProductFields({
-                ...p,
-                owner_email: ownerEmail,
-                owner_display: ownerDisplay
-            }));
+            const productsWithOwner = list.map(function (p) {
+                return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
+                    ...p,
+                    owner_email: ownerEmail,
+                    owner_display: ownerDisplay
+                }));
+            });
             return res.json({
                 success: true,
                 products: productsWithOwner,
@@ -25645,11 +25657,13 @@ app.get('/api/custom-products', async (req, res) => {
         if (summaryOnly) {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
         }
-        const productsWithOwner = list.map(p => customProductLineage.stripInternalCustomProductFields({
-            ...p,
-            owner_email: ownerEmail,
-            owner_display: ownerDisplay
-        }));
+        const productsWithOwner = list.map(function (p) {
+            return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
+                ...p,
+                owner_email: ownerEmail,
+                owner_display: ownerDisplay
+            }));
+        });
         res.json({ success: true, products: productsWithOwner });
     } catch (e) {
         console.error('GET /api/custom-products 異常:', e);
@@ -32924,9 +32938,40 @@ app.post('/api/internal/subscription-expiry-cron', express.json(), async (req, r
             await reconcileMembershipAfterSubscriptionEnd(result.userIds[i]);
             reconciled.push(result.userIds[i]);
         }
-        res.json({ ok: true, expired: result.expired, reconciled });
+        const day7Reminders = await membershipDowngradeNotices.runWallGraceDay7Reminders(supabase);
+        res.json({ ok: true, expired: result.expired, reconciled, day7Reminders });
     } catch (e) {
         console.error('POST /api/internal/subscription-expiry-cron:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// GET /api/admin/membership-downgrade-notices — 管理員：降級通知稽核列表
+app.get('/api/admin/membership-downgrade-notices', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const payload = await membershipDowngradeNotices.listAdminDowngradeNotices(supabase, {
+            userId: req.query.user_id,
+            limit: req.query.limit,
+            offset: req.query.offset
+        });
+        res.json({ success: true, ...payload });
+    } catch (e) {
+        console.error('GET /api/admin/membership-downgrade-notices:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// GET /api/admin/ugc-retention-stats — 管理員：UGC 留存／Coldline 估算
+app.get('/api/admin/ugc-retention-stats', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const stats = await ugcRetention.fetchAdminRetentionStats(supabase);
+        res.json({ success: true, stats });
+    } catch (e) {
+        console.error('GET /api/admin/ugc-retention-stats:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });

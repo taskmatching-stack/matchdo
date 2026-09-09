@@ -1683,6 +1683,8 @@
   "pricing.featureMaker3": "Maker listings: 3 categories",
   "pricing.featureMaker10": "Maker listings: 10 categories",
   "pricing.featureMaker30": "Maker listings: 30 categories",
+  "pricing.featureFreeStorage90d": "At least 90-day storage guarantee for designs",
+  "pricing.featurePaidLongTermStorage": "Long-term storage for your designs",
   "pricing.featureWallRequired": "Designs must appear on the media wall",
   "pricing.featureWallOptional": "Designs can stay off the media wall",
   "pricing.featureAiEditDiscount": "40% off AI edits (upscale, erase, replace, and other basic retouching)",

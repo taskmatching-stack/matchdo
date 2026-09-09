@@ -7,6 +7,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { createClient } = require('@supabase/supabase-js');
 const subscriptionExpiry = require('../lib/subscription-expiry');
 const ugcRetention = require('../lib/ugc-retention');
+const membershipDowngradeNotices = require('../lib/membership-downgrade-notices');
 
 async function reconcileUserTier(supabase, userId) {
     const now = new Date().toISOString();
@@ -75,11 +76,13 @@ async function main() {
     for (let i = 0; i < result.userIds.length; i++) {
         reconciled.push(await reconcileUserTier(supabase, result.userIds[i]));
     }
+    const day7Reminders = await membershipDowngradeNotices.runWallGraceDay7Reminders(supabase);
     console.log(JSON.stringify({
         ok: true,
         at: new Date().toISOString(),
         expired: result.expired,
-        reconciled
+        reconciled,
+        day7Reminders
     }, null, 2));
 }
 

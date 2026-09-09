@@ -1712,6 +1712,8 @@
   "pricing.featureMaker3": "製作方接案分類 3 個",
   "pricing.featureMaker10": "製作方接案分類 10 個",
   "pricing.featureMaker30": "製作方接案分類 30 個",
+  "pricing.featureFreeStorage90d": "設計稿至少 90 天儲存保證",
+  "pricing.featurePaidLongTermStorage": "設計稿長期保存",
   "pricing.featureWallRequired": "設計稿需公開至媒體牆",
   "pricing.featureWallOptional": "設計稿可不公開至媒體牆",
   "pricing.featureAiEditDiscount": "AI 編輯 6 折（放大、去背、置換等基本修圖功能）",
