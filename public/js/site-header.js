@@ -899,7 +899,11 @@ function initMobileNavDrawer(headerContainer) {
                 for (var j = 0; j < links.length; j++) {
                     links[j].addEventListener('click', function () { closeDrawer(); });
                 }
-                openDrawer(title, menuClone.innerHTML);
+                var menuHtml = menuClone.innerHTML;
+                if (menu.classList.contains('nav-cp-menu')) {
+                    menuHtml = '<div class="nav-cp-menu">' + menuHtml + '</div>';
+                }
+                openDrawer(title, menuHtml);
             });
         })(triggerLinks[i]);
     }

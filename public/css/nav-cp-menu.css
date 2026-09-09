@@ -13,7 +13,7 @@
     background: #F5F7FA;
 }
 
-#site-header .nav-cp-menu .nav-cp-link {
+.nav-cp-menu .nav-cp-link {
     display: block;
     box-sizing: border-box;
     width: 100%;
@@ -28,29 +28,29 @@
     background: transparent;
     cursor: pointer;
 }
-#site-header .nav-cp-menu .nav-cp-link i {
+.nav-cp-menu .nav-cp-link i {
     display: inline-block;
     margin-right: 0.35rem;
     vertical-align: -0.1em;
 }
 
 /* 設計稿 — 全區最深灰藍（不與下方以結構標題同色） */
-#site-header .nav-cp-menu .nav-cp-link--design {
+.nav-cp-menu .nav-cp-link--design {
     padding: 0.55rem 1rem;
     background: #7A8FA3;
     color: #fff;
     font-weight: 600;
 }
-#site-header .nav-cp-menu .nav-cp-link--design:hover,
-#site-header .nav-cp-menu .nav-cp-link--design:focus {
+.nav-cp-menu .nav-cp-link--design:hover,
+.nav-cp-menu .nav-cp-link--design:focus {
     background: #657A8E;
     color: #fff;
 }
-#site-header .nav-cp-menu .nav-cp-link--design i {
+.nav-cp-menu .nav-cp-link--design i {
     color: #fff;
 }
 
-#site-header .nav-cp-menu .nav-cp-section-label {
+.nav-cp-menu .nav-cp-section-label {
     display: block;
     box-sizing: border-box;
     width: 100%;
@@ -63,122 +63,141 @@
     color: #fff;
 }
 
-#site-header .nav-cp-menu .nav-cp-section {
+.nav-cp-menu .nav-cp-section {
     border-top: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 /* 以結構 — 灰藍系（標題比項目深，且淺於設計稿） */
-#site-header .nav-cp-menu .nav-cp-section--structure {
+.nav-cp-menu .nav-cp-section--structure {
     background: #C5D6E3;
 }
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-section-label {
+.nav-cp-menu .nav-cp-section--structure .nav-cp-section-label {
     background: #6B8498;
     color: #fff;
 }
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-link {
+.nav-cp-menu .nav-cp-section--structure .nav-cp-link {
     color: #3D5163;
     background: rgba(107, 132, 152, 0.14);
 }
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-link + .nav-cp-link {
+.nav-cp-menu .nav-cp-section--structure .nav-cp-link + .nav-cp-link {
     border-top: 1px solid rgba(107, 132, 152, 0.12);
 }
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-link i {
+.nav-cp-menu .nav-cp-section--structure .nav-cp-link i {
     color: #5A7286;
 }
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-link:hover,
-#site-header .nav-cp-menu .nav-cp-section--structure .nav-cp-link:focus {
+.nav-cp-menu .nav-cp-section--structure .nav-cp-link:hover,
+.nav-cp-menu .nav-cp-section--structure .nav-cp-link:focus {
     background: rgba(107, 132, 152, 0.26);
     color: #3D5163;
 }
 
 /* 以風格 — 鼠尾草綠系 */
-#site-header .nav-cp-menu .nav-cp-section--style {
+.nav-cp-menu .nav-cp-section--style {
     background: #C5DDD2;
 }
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-section-label {
+.nav-cp-menu .nav-cp-section--style .nav-cp-section-label {
     background: #7A9488;
     color: #fff;
 }
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-link {
+.nav-cp-menu .nav-cp-section--style .nav-cp-link {
     color: #3F5248;
     background: rgba(122, 148, 136, 0.14);
 }
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-link + .nav-cp-link {
+.nav-cp-menu .nav-cp-section--style .nav-cp-link + .nav-cp-link {
     border-top: 1px solid rgba(122, 148, 136, 0.12);
 }
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-link i {
+.nav-cp-menu .nav-cp-section--style .nav-cp-link i {
     color: #5E7568;
 }
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-link:hover,
-#site-header .nav-cp-menu .nav-cp-section--style .nav-cp-link:focus {
+.nav-cp-menu .nav-cp-section--style .nav-cp-link:hover,
+.nav-cp-menu .nav-cp-section--style .nav-cp-link:focus {
     background: rgba(122, 148, 136, 0.26);
     color: #3F5248;
 }
 
 /* 行銷影像 — 灰紫系 */
-#site-header .nav-cp-menu .nav-cp-section--marketing {
+.nav-cp-menu .nav-cp-section--marketing {
     background: #D0CED8;
 }
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-section-label {
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-section-label {
     background: #8A8498;
     color: #fff;
 }
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-link {
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-link {
     color: #4A4654;
     background: rgba(138, 132, 152, 0.14);
 }
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-link + .nav-cp-link {
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-link + .nav-cp-link {
     border-top: 1px solid rgba(138, 132, 152, 0.12);
 }
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-link i {
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-link i {
     color: #6E6878;
 }
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-link:hover,
-#site-header .nav-cp-menu .nav-cp-section--marketing .nav-cp-link:focus {
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-link:hover,
+.nav-cp-menu .nav-cp-section--marketing .nav-cp-link:focus {
     background: rgba(138, 132, 152, 0.26);
     color: #4A4654;
 }
 
 /* 輔助工具 — 灰陶系 */
-#site-header .nav-cp-menu .nav-cp-section--assist {
+.nav-cp-menu .nav-cp-section--assist {
     background: #D5DCE6;
 }
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-section-label {
+.nav-cp-menu .nav-cp-section--assist .nav-cp-section-label {
     background: #8E9AAD;
     color: #fff;
 }
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-link {
+.nav-cp-menu .nav-cp-section--assist .nav-cp-link {
     color: #444E5C;
     background: rgba(142, 154, 173, 0.14);
 }
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-link + .nav-cp-link {
+.nav-cp-menu .nav-cp-section--assist .nav-cp-link + .nav-cp-link {
     border-top: 1px solid rgba(142, 154, 173, 0.12);
 }
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-link i {
+.nav-cp-menu .nav-cp-section--assist .nav-cp-link i {
     color: #6E7888;
 }
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-link:hover,
-#site-header .nav-cp-menu .nav-cp-section--assist .nav-cp-link:focus {
+.nav-cp-menu .nav-cp-section--assist .nav-cp-link:hover,
+.nav-cp-menu .nav-cp-section--assist .nav-cp-link:focus {
     background: rgba(142, 154, 173, 0.26);
     color: #444E5C;
 }
 
 /* 底部工具 */
-#site-header .nav-cp-menu .nav-cp-section--utility {
+.nav-cp-menu .nav-cp-section--utility {
     background: #F5F7FA;
     border-top: 1px solid rgba(88, 100, 112, 0.16);
     padding: 0.2rem 0 0.35rem;
 }
-#site-header .nav-cp-menu .nav-cp-section--utility .nav-cp-link {
+.nav-cp-menu .nav-cp-section--utility .nav-cp-link {
     color: #5C6670;
     font-weight: 500;
     background: transparent;
 }
-#site-header .nav-cp-menu .nav-cp-section--utility .nav-cp-link i {
+.nav-cp-menu .nav-cp-section--utility .nav-cp-link i {
     color: #8A96A3;
 }
-#site-header .nav-cp-menu .nav-cp-section--utility .nav-cp-link:hover,
-#site-header .nav-cp-menu .nav-cp-section--utility .nav-cp-link:focus {
+.nav-cp-menu .nav-cp-section--utility .nav-cp-link:hover,
+.nav-cp-menu .nav-cp-section--utility .nav-cp-link:focus {
     background: #EAEEF3;
     color: #5C6670;
+}
+
+/* 手機滑出層：沿用區塊配色，全寬列表（非浮動卡片） */
+.nav-mobile-drawer-body .nav-cp-menu {
+    min-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+}
+.nav-mobile-drawer-body .nav-cp-menu .nav-cp-link {
+    font-size: 1rem;
+    padding: 0.65rem 1.25rem;
+}
+.nav-mobile-drawer-body .nav-cp-menu .nav-cp-link--design {
+    padding: 0.75rem 1.25rem;
+}
+.nav-mobile-drawer-body .nav-cp-menu .nav-cp-section-label {
+    padding: 0.55rem 1.25rem;
+    font-size: 0.75rem;
 }
