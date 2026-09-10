@@ -43318,6 +43318,60 @@ app.delete('/api/admin/promo-camera-params/:id', async (req, res) => {
     }
 });
 
+async function runPromoSceneTemplateMigrationsIfNeeded(migrationIds) {
+    const ids = (migrationIds || []).filter(Boolean);
+    if (!DB_URL || !ids.length) return { ran: [], skipped: true };
+    const ran = [];
+    const pool = new Pool({ connectionString: DB_URL });
+    const client = await pool.connect();
+    try {
+        const st = await adminMigrations.getMigrationStatuses(client);
+        for (let i = 0; i < ids.length; i++) {
+            const mig = st.find(function (m) { return m.id === ids[i]; });
+            if (mig && !mig.applied) {
+                await adminMigrations.runMigrationById(ids[i], client);
+                ran.push(ids[i]);
+            }
+        }
+    } finally {
+        client.release();
+        await pool.end();
+    }
+    return { ran, skipped: false };
+}
+
+// POST /api/admin/promo-scene-templates/apply-is-default-column — 新增 is_default 欄位
+app.post('/api/admin/promo-scene-templates/apply-is-default-column', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        if (!DB_URL) {
+            return res.status(503).json({
+                success: false,
+                code: 'DB_URL_REQUIRED',
+                message: '伺服器未設定 DB_URL，請至 Supabase SQL Editor 執行 docs/add-promo-scene-template-is-default.sql，或於「資料庫維護」執行「情境圖／人像主題預設值」。'
+            });
+        }
+        const migResult = await runPromoSceneTemplateMigrationsIfNeeded(['promo-scene-template-is-default']);
+        const probe = await supabase.from('promo_scene_templates').select('is_default').limit(1);
+        if (probe.error && isSupabaseMissingColumnError(probe.error, 'is_default')) {
+            return res.status(500).json({
+                success: false,
+                message: '套用失敗：is_default 欄位仍未建立。請至「資料庫維護」手動執行「情境圖／人像主題預設值」。',
+                migrations_ran: migResult.ran
+            });
+        }
+        res.json({
+            success: true,
+            message: '已建立 is_default 欄位。請重新整理本頁，即可勾選「預設主題」。',
+            migrations_ran: migResult.ran
+        });
+    } catch (e) {
+        console.error('POST apply-is-default-column:', e);
+        res.status(500).json({ success: false, error: e.message || '套用失敗' });
+    }
+});
+
 // POST /api/admin/promo-scene-templates/apply-scene-seed — 寫入預設場景（可再於後台編輯）
 app.post('/api/admin/promo-scene-templates/apply-scene-seed', express.json(), async (req, res) => {
     try {
@@ -43358,23 +43412,10 @@ app.post('/api/admin/promo-scene-templates/apply-portrait-seed', express.json(),
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        if (DB_URL) {
-            try {
-                const pool = new Pool({ connectionString: DB_URL });
-                const client = await pool.connect();
-                try {
-                    const st = await adminMigrations.getMigrationStatuses(client);
-                    const mig = st.find((m) => m.id === 'promo-shoot-modes');
-                    if (mig && !mig.applied) {
-                        await adminMigrations.runMigrationById('promo-shoot-modes', client);
-                    }
-                } finally {
-                    client.release();
-                    await pool.end();
-                }
-            } catch (migErr) {
-                console.warn('apply-portrait-seed migration:', migErr && migErr.message);
-            }
+        try {
+            await runPromoSceneTemplateMigrationsIfNeeded(['promo-shoot-modes', 'promo-scene-template-is-default']);
+        } catch (migErr) {
+            console.warn('apply-portrait-seed migration:', migErr && migErr.message);
         }
         const result = await promoSceneSeed.applyPromoPortraitThemeDefaults(supabase);
         if (!result.success) {

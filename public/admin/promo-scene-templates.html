@@ -44,6 +44,12 @@
           <button type="button" class="btn btn-sm btn-warning me-2" id="btnApplyPortraitSeed">一鍵寫入預設人像主題（8 筆，可再編輯）</button>
           <a class="btn btn-sm btn-outline-secondary" href="/admin/db-migrations.html">資料庫維護</a>
         </div>
+        <div id="isDefaultSetupBanner" class="alert alert-warning mb-3 py-3 d-none">
+          <div class="fw-semibold mb-1">尚無「預設主題」欄位（is_default）</div>
+          <p class="small mb-2">後台已可勾選預設主題，但資料庫需先新增 <code>is_default</code> 欄位。請按下方按鈕一鍵套用（需伺服器已設定 DB_URL），或至「資料庫維護」執行「情境圖／人像主題預設值」。</p>
+          <button type="button" class="btn btn-sm btn-warning me-2" id="btnApplyIsDefaultColumn">一鍵套用預設欄位</button>
+          <a class="btn btn-sm btn-outline-secondary" href="/admin/db-migrations.html">資料庫維護</a>
+        </div>
 
         <ul class="nav nav-tabs mb-2" role="tablist">
           <li class="nav-item"><button class="nav-link active" type="button" id="tabTheme" data-slot="theme">主題</button></li>
@@ -387,10 +393,14 @@
       var showPortrait = audienceReady && pc === 0;
       portraitBanner.classList.toggle('d-none', !showPortrait);
     }
+    var isDefaultBanner = document.getElementById('isDefaultSetupBanner');
+    if (isDefaultBanner) {
+      isDefaultBanner.classList.toggle('d-none', isDefaultReady);
+    }
     if (!audienceReady) {
       showStatus('尚無 audience 欄位：人像主題無法與情境圖分開。請至「資料庫維護」執行「商攝・人像主題 audience + 8 類 seed」。', 'warn');
     } else if (!isDefaultReady) {
-      showStatus('尚無 is_default 欄位：無法設定預設主題。請至「資料庫維護」執行「情境圖／人像主題預設值」。', 'warn');
+      showStatus('尚無 is_default 欄位：請按上方黃色提示區的「一鍵套用預設欄位」，或至「資料庫維護」執行「情境圖／人像主題預設值」。', 'warn');
     } else if (d.migration_hint) showStatus(d.migration_hint, 'warn');
     var legacyCount = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; }).length;
     if (legacyCount > 0) {
@@ -567,6 +577,18 @@
   });
 
   document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('btnApplyIsDefaultColumn').addEventListener('click', async function () {
+    if (!confirm('在 promo_scene_templates 新增 is_default 欄位（可勾選預設主題）。確定？')) return;
+    var headers = await authHeaders();
+    var r = await fetch(API + '/apply-is-default-column', { method: 'POST', headers: headers, body: '{}' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok || d.success === false) {
+      showStatus(d.message || d.error || '套用失敗', false);
+      return;
+    }
+    showStatus(d.message || '已套用 is_default 欄位', true);
+    await loadList();
+  });
   document.getElementById('btnApplyPortraitSeed').addEventListener('click', async function () {
     if (!confirm('寫入 8 筆預設人像主題（商業形象、美妝等）。已有相同 key 會更新。確定？')) return;
     var headers = await authHeaders();
