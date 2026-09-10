@@ -1417,7 +1417,7 @@
     var themes = themesForCurrentMode();
     var st = St.get();
     if (themes.length && !themes.some(function (t) { return t.key === st.themeKey; })) {
-      st.themeKey = themes[0].key || '';
+      st.themeKey = St.pickDefaultThemeKey ? St.pickDefaultThemeKey(themes) : ((themes[0] && themes[0].key) || '');
     }
     fillThemeSceneSelects(themes);
     var themeEl = document.getElementById('pcThemeSelect');

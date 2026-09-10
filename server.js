@@ -19310,13 +19310,20 @@ app.get('/api/promo-image/options', async (req, res) => {
         let photoMigrationHint;
         let slotMigrationHint;
         try {
-            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot';
+            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot, is_default';
             const promoSelectLegacy = 'key, name, description, recommended_ratios, category, sort_order';
             let { data: tRows, error: tErr } = await supabase
                 .from('promo_scene_templates')
                 .select(promoSelect)
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
+            if (tErr && isSupabaseMissingColumnError(tErr, 'is_default')) {
+                ({ data: tRows, error: tErr } = await supabase
+                    .from('promo_scene_templates')
+                    .select('key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }));
+            }
             if (tErr && (tErr.code === '42703' || (tErr.message && /column.*does not exist|name_en/.test(tErr.message)))) {
                 ({ data: tRows, error: tErr } = await supabase
                     .from('promo_scene_templates')
@@ -20245,14 +20252,22 @@ app.get('/api/promo-camera/options', async (req, res) => {
         let slotMigrationHint;
         let allThemes = [];
         try {
-            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot, audience';
-            const promoSelectNoAudience = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot';
+            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot, audience, is_default';
+            const promoSelectNoAudience = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot, is_default';
+            const promoSelectNoDefault = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot, audience';
             const promoSelectLegacy = 'key, name, description, recommended_ratios, category, sort_order';
             let { data: tRows, error: tErr } = await supabase
                 .from('promo_scene_templates')
                 .select(promoSelect)
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
+            if (tErr && isSupabaseMissingColumnError(tErr, 'is_default')) {
+                ({ data: tRows, error: tErr } = await supabase
+                    .from('promo_scene_templates')
+                    .select(promoSelectNoDefault)
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true }));
+            }
             if (tErr && isSupabaseMissingColumnError(tErr, 'audience')) {
                 ({ data: tRows, error: tErr } = await supabase
                     .from('promo_scene_templates')
@@ -42231,7 +42246,7 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
     }
 });
 
-const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, flux_safety_tolerance, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, audience, is_default, sort_order, is_active, flux_safety_tolerance, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_NO_I18N = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, flux_safety_tolerance, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_LEGACY = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_LEGACY_NO_FLUX = PROMO_SCENE_TEMPLATE_SELECT_LEGACY;
@@ -42242,6 +42257,45 @@ function normalizePromoSceneTemplateKey(raw) {
 
 function normalizePromoTemplateSlot(raw) {
     return String(raw || '').trim().toLowerCase() === 'scene' ? 'scene' : 'theme';
+}
+
+function normalizePromoTemplateAudienceInput(raw, slot, key) {
+    const slotNorm = normalizePromoTemplateSlot(slot);
+    if (slotNorm === 'scene') return 'all';
+    const a = String(raw || '').trim().toLowerCase();
+    if (a === 'portrait' || a === 'all' || a === 'product') return a;
+    const k = String(key || '').trim().toLowerCase();
+    if (k.indexOf('portrait_') === 0) return 'portrait';
+    return 'product';
+}
+
+function resolvePromoSceneThemeAudienceFromRow(row) {
+    if (!row) return 'product';
+    const slot = resolvePromoTemplateSlot(row);
+    if (slot === 'scene') return 'all';
+    return normalizePromoTemplateAudienceInput(row.audience, 'theme', row.key);
+}
+
+async function clearPromoSceneThemeDefaultExcept(audience, exceptId) {
+    const aud = normalizePromoTemplateAudienceInput(audience, 'theme');
+    if (aud === 'all') return;
+    let query = supabase.from('promo_scene_templates')
+        .select('id, slot, audience, key, is_default')
+        .eq('is_default', true);
+    const { data: rows, error } = await query;
+    if (error) {
+        if (isSupabaseMissingColumnError(error, 'is_default')) return;
+        console.warn('clearPromoSceneThemeDefaultExcept:', error.message || error);
+        return;
+    }
+    const now = new Date().toISOString();
+    for (let i = 0; i < (rows || []).length; i++) {
+        const row = rows[i];
+        if (exceptId && String(row.id) === String(exceptId)) continue;
+        if (resolvePromoTemplateSlot(row) !== 'theme') continue;
+        if (resolvePromoSceneThemeAudienceFromRow(row) !== aud) continue;
+        await supabase.from('promo_scene_templates').update({ is_default: false, updated_at: now }).eq('id', row.id);
+    }
 }
 
 function parsePromoRecommendedRatios(raw) {
@@ -42375,11 +42429,30 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
         if (!user) return;
         const slotFilter = req.query.slot ? normalizePromoTemplateSlot(req.query.slot) : '';
         let usedNoI18nFallback = false;
+        let audienceReady = true;
+        let isDefaultReady = true;
         let { data, error } = await supabase
             .from('promo_scene_templates')
             .select(PROMO_SCENE_TEMPLATE_SELECT)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
+        if (error && isSupabaseMissingColumnError(error, 'is_default')) {
+            isDefaultReady = false;
+            ({ data, error } = await supabase
+                .from('promo_scene_templates')
+                .select(PROMO_SCENE_TEMPLATE_SELECT.replace(', is_default', ''))
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true }));
+        }
+        if (error && isSupabaseMissingColumnError(error, 'audience')) {
+            audienceReady = false;
+            const sel = PROMO_SCENE_TEMPLATE_SELECT.replace(', audience', '').replace(', is_default', isDefaultReady ? ', is_default' : '');
+            ({ data, error } = await supabase
+                .from('promo_scene_templates')
+                .select(sel)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true }));
+        }
         if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja|flux_safety_tolerance/.test(error.message)))) {
             usedNoI18nFallback = true;
             ({ data, error } = await supabase
@@ -42432,7 +42505,10 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
             items,
             migration_hint: usedNoI18nFallback ? '若要儲存多語系名稱，請執行 docs/add-promo-scene-templates-multilang.sql' : undefined,
             scene_count: promoSceneSeed.countSceneTemplates(items),
-            slot_ready: true
+            portrait_count: promoSceneSeed.countPortraitThemeTemplates(items),
+            slot_ready: true,
+            audience_ready: audienceReady,
+            is_default_ready: isDefaultReady
         });
     } catch (e) {
         console.error('GET /api/admin/promo-scene-templates 異常:', e);
@@ -42459,6 +42535,7 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
             recommended_ratios: parsePromoRecommendedRatios(body.recommended_ratios),
             category: body.category != null ? String(body.category).trim() || null : null,
             slot: normalizePromoTemplateSlot(body.slot),
+            audience: normalizePromoTemplateAudienceInput(body.audience, body.slot, key),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
             flux_safety_tolerance: body.flux_safety_tolerance !== undefined
@@ -42466,9 +42543,31 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
                 : undefined,
             updated_at: new Date().toISOString()
         };
+        if (payload.slot === 'theme' && body.is_default === true) payload.is_default = true;
+        else if (body.is_default === false) payload.is_default = false;
         if (payload.flux_safety_tolerance === undefined) delete payload.flux_safety_tolerance;
         appendPromoSceneMultilangFields(payload, body);
         let { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error && isSupabaseMissingColumnError(error, 'is_default')) {
+            delete payload.is_default;
+            ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT.replace(', is_default', '')).single());
+            if (!error) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無 is_default 欄位）。請執行 docs/add-promo-scene-template-is-default.sql 以設定預設主題'
+                });
+            }
+        }
+        if (error && isSupabaseMissingColumnError(error, 'audience')) {
+            delete payload.audience;
+            ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT.replace(', audience', '')).single());
+            if (!error) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無 audience 欄位）。請執行 docs/add-promo-shoot-modes.sql 以區分情境圖／人像主題'
+                });
+            }
+        }
         if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
             for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete payload[col];
             ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
@@ -42509,6 +42608,9 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
             console.error('POST /api/admin/promo-scene-templates:', error);
             return res.status(500).json({ error: '新增失敗' });
         }
+        if (data && data.is_default && resolvePromoTemplateSlot(data) === 'theme') {
+            await clearPromoSceneThemeDefaultExcept(resolvePromoSceneThemeAudienceFromRow(data), data.id);
+        }
         res.status(201).json({ item: data });
     } catch (e) {
         console.error('POST /api/admin/promo-scene-templates 異常:', e);
@@ -42541,13 +42643,42 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
         if (body.recommended_ratios !== undefined) updates.recommended_ratios = parsePromoRecommendedRatios(body.recommended_ratios);
         if (body.category !== undefined) updates.category = String(body.category || '').trim() || null;
         if (body.slot !== undefined) updates.slot = normalizePromoTemplateSlot(body.slot);
+        if (body.audience !== undefined) {
+            updates.audience = normalizePromoTemplateAudienceInput(body.audience, body.slot, body.key);
+        } else if (body.slot !== undefined || body.key !== undefined) {
+            updates.audience = normalizePromoTemplateAudienceInput(undefined, body.slot, body.key);
+        }
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.is_default !== undefined) {
+            const slotForDefault = updates.slot || body.slot || 'theme';
+            updates.is_default = (body.is_default === true && normalizePromoTemplateSlot(slotForDefault) === 'theme');
+        }
         if (body.flux_safety_tolerance !== undefined) {
             updates.flux_safety_tolerance = parseFluxSafetyToleranceInput(body.flux_safety_tolerance);
         }
         appendPromoSceneMultilangFields(updates, body);
         let { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error && isSupabaseMissingColumnError(error, 'is_default')) {
+            delete updates.is_default;
+            ({ data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT.replace(', is_default', '')).single());
+            if (!error && body.is_default !== undefined) {
+                return res.json({
+                    item: data,
+                    warning: '其他欄位已儲存（尚無 is_default 欄位）。請執行 docs/add-promo-scene-template-is-default.sql'
+                });
+            }
+        }
+        if (error && isSupabaseMissingColumnError(error, 'audience')) {
+            delete updates.audience;
+            ({ data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT.replace(', audience', '')).single());
+            if (!error) {
+                return res.json({
+                    item: data,
+                    warning: '其他欄位已儲存（尚無 audience 欄位）。請執行 docs/add-promo-shoot-modes.sql'
+                });
+            }
+        }
         if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
             for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete updates[col];
             ({ data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
@@ -42586,6 +42717,9 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
             if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
             console.error('PUT /api/admin/promo-scene-templates:', error);
             return res.status(500).json({ error: '更新失敗' });
+        }
+        if (data && data.is_default && resolvePromoTemplateSlot(data) === 'theme') {
+            await clearPromoSceneThemeDefaultExcept(resolvePromoSceneThemeAudienceFromRow(data), data.id);
         }
         res.json({ item: data });
     } catch (e) {
@@ -43215,6 +43349,41 @@ app.post('/api/admin/promo-scene-templates/apply-scene-seed', express.json(), as
         res.json(result);
     } catch (e) {
         console.error('POST apply-scene-seed:', e);
+        res.status(500).json({ error: e.message || '套用失敗' });
+    }
+});
+
+// POST /api/admin/promo-scene-templates/apply-portrait-seed — 寫入預設人像主題（可再於後台編輯）
+app.post('/api/admin/promo-scene-templates/apply-portrait-seed', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        if (DB_URL) {
+            try {
+                const pool = new Pool({ connectionString: DB_URL });
+                const client = await pool.connect();
+                try {
+                    const st = await adminMigrations.getMigrationStatuses(client);
+                    const mig = st.find((m) => m.id === 'promo-shoot-modes');
+                    if (mig && !mig.applied) {
+                        await adminMigrations.runMigrationById('promo-shoot-modes', client);
+                    }
+                } finally {
+                    client.release();
+                    await pool.end();
+                }
+            } catch (migErr) {
+                console.warn('apply-portrait-seed migration:', migErr && migErr.message);
+            }
+        }
+        const result = await promoSceneSeed.applyPromoPortraitThemeDefaults(supabase);
+        if (!result.success) {
+            const code = result.code === 'AUDIENCE_MIGRATION_REQUIRED' ? 503 : 500;
+            return res.status(code).json(result);
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('POST apply-portrait-seed:', e);
         res.status(500).json({ error: e.message || '套用失敗' });
     }
 });

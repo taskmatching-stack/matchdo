@@ -185,7 +185,7 @@
     if (data) {
       var themes = getThemesForMode(state.shootMode);
       if (themes.length && !state.themeKey) {
-        state.themeKey = themes[0].key || '';
+        state.themeKey = pickDefaultThemeKey(themes);
       }
       var defMode = String(data.promo_portrait_default_render_mode || '').toLowerCase();
       if (defMode === 'mood' || defMode === 'clear' || defMode === 'hybrid') {
@@ -347,6 +347,12 @@
     return state.options.themes || [];
   }
 
+  function pickDefaultThemeKey(themes) {
+    if (!themes || !themes.length) return '';
+    var marked = themes.find(function (t) { return t && t.is_default === true; });
+    return (marked && marked.key) || (themes[0] && themes[0].key) || '';
+  }
+
   function themeKeyExists(key) {
     if (!key) return false;
     return getThemesForMode(state.shootMode).some(function (r) { return r.key === key; });
@@ -418,7 +424,7 @@
     var themes = getThemesForMode(state.shootMode);
     if (state.shootMode !== 'space' && themes.length) {
       if (!themes.some(function (t) { return t.key === state.themeKey; })) {
-        state.themeKey = themes[0].key || '';
+        state.themeKey = pickDefaultThemeKey(themes);
       }
     }
     applyShootModeCameraDefaults();
@@ -857,6 +863,7 @@
     getCategoryLabel: getCategoryLabel,
     visibleCategories: visibleCategories,
     getThemesForMode: getThemesForMode,
+    pickDefaultThemeKey: pickDefaultThemeKey,
     setShootMode: setShootMode,
     setPortraitRenderMode: setPortraitRenderMode,
     setPortraitStylingMode: setPortraitStylingMode,

@@ -15,8 +15,9 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">情境圖主題／場景</h4>
         <p class="text-muted small mb-2">
-          前台情境圖有兩個下拉：<strong>主題</strong>與<strong>場景</strong>（同一張表 <code>promo_scene_templates</code>，以 <code>slot</code> 區分）。
-          請先執行 <code>docs/add-promo-theme-scene-slots.sql</code>。
+          同一張表 <code>promo_scene_templates</code>：<strong>情境圖</strong>用 <code>slot=theme</code>＋<code>audience=product</code>；
+          <strong>商攝・人像</strong>用 <code>slot=theme</code>＋<code>audience=portrait</code>（key 建議 <code>portrait_*</code>）；
+          <strong>場景</strong>用 <code>slot=scene</code>（產品／人像共用）。
         </p>
         <p class="text-muted small mb-2">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-promo-scene-templates-multilang.sql</code>，執行後重新整理本頁即可。</p>
         <p class="text-muted small mb-2">若後台「場景」分頁是空的但前台仍看到舊選項，請執行 <code>docs/fix-promo-scene-slot-mismatch.sql</code> 修正 slot 標記。</p>
@@ -37,10 +38,20 @@
           <button type="button" class="btn btn-sm btn-warning me-2" id="btnApplySceneSeed">一鍵寫入預設場景（5 筆，可再編輯）</button>
           <a class="btn btn-sm btn-outline-secondary" href="/admin/db-migrations.html">資料庫維護</a>
         </div>
+        <div id="portraitSetupBanner" class="alert alert-warning mb-3 py-3 d-none">
+          <div class="fw-semibold mb-1">尚無可編輯的「人像攝影主題」</div>
+          <p class="small mb-2">商攝導演・人像模式的<strong>拍攝主題</strong>也在此表管理（<code>audience=portrait</code>）。若「主題 → 人像攝影」是空的，請先寫入預設 8 類，或至「資料庫維護」執行「商攝・人像主題 audience + 8 類 seed」。</p>
+          <button type="button" class="btn btn-sm btn-warning me-2" id="btnApplyPortraitSeed">一鍵寫入預設人像主題（8 筆，可再編輯）</button>
+          <a class="btn btn-sm btn-outline-secondary" href="/admin/db-migrations.html">資料庫維護</a>
+        </div>
 
-        <ul class="nav nav-tabs mb-3" role="tablist">
+        <ul class="nav nav-tabs mb-2" role="tablist">
           <li class="nav-item"><button class="nav-link active" type="button" id="tabTheme" data-slot="theme">主題</button></li>
           <li class="nav-item"><button class="nav-link" type="button" id="tabScene" data-slot="scene">場景</button></li>
+        </ul>
+        <ul class="nav nav-pills small mb-3" id="themeAudienceTabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" type="button" id="tabThemeProduct" data-audience="product">情境圖主題</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" id="tabThemePortrait" data-audience="portrait">人像攝影主題</button></li>
         </ul>
 
         <div class="card mb-3">
@@ -61,7 +72,19 @@
                 </div>
               </div>
               <div class="col-md-2"><label class="form-label small mb-0">分類標籤</label><input id="tplCategory" class="form-control form-control-sm" placeholder="print"></div>
+              <div class="col-md-2" id="tplAudienceWrap"><label class="form-label small mb-0">適用</label>
+                <select id="tplAudience" class="form-select form-select-sm">
+                  <option value="product">情境圖</option>
+                  <option value="portrait">人像攝影</option>
+                </select>
+              </div>
               <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="tplSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-2 d-flex align-items-end" id="tplDefaultWrap">
+                <div class="form-check mb-1">
+                  <input class="form-check-input" type="checkbox" id="tplIsDefault">
+                  <label class="form-check-label small" for="tplIsDefault">預設主題</label>
+                </div>
+              </div>
               <div class="col-md-4"><label class="form-label small mb-0">說明（選填，UI 提示）</label><input id="tplDesc" class="form-control form-control-sm" placeholder="清楚好印，適合DM"></div>
               <div class="col-12"><label class="form-label small mb-0">提示詞 scene_prompt（進 FLUX）</label><textarea id="tplScene" class="form-control form-control-sm" rows="2" placeholder="print-ready promotional flyer visual…"></textarea></div>
               <div class="col-12"><label class="form-label small mb-0">構圖提示 composition_hint（進 FLUX，選填）</label><textarea id="tplComp" class="form-control form-control-sm" rows="2" placeholder="centered product hero…"></textarea></div>
@@ -90,6 +113,8 @@
                 <tr>
                   <th>key</th>
                   <th>名稱</th>
+                  <th>適用</th>
+                  <th>預設</th>
                   <th>提示詞（進 FLUX）</th>
                   <th>構圖</th>
                   <th title="BFL safety_tolerance">FLUX</th>
@@ -122,6 +147,13 @@
                       <option value="scene">場景</option>
                     </select>
                   </div>
+                  <div class="col-md-3" id="editAudienceWrap"><label class="form-label">適用</label>
+                    <select id="editAudience" class="form-select">
+                      <option value="product">情境圖</option>
+                      <option value="portrait">人像攝影</option>
+                      <option value="all">場景共用</option>
+                    </select>
+                  </div>
                   <div class="col-md-3"><label class="form-label">分類標籤</label><input id="editCategory" class="form-control"></div>
                   <div class="col-12">
                     <label class="form-label">其他語系（選填，預留）</label>
@@ -138,7 +170,11 @@
                   <div class="col-md-6"><label class="form-label">建議比例</label><input id="editRatios" class="form-control"></div>
                   <div class="col-md-2"><label class="form-label" title="BFL safety_tolerance；空白=預設2">FLUX審核</label><input id="editFluxTol" type="number" min="0" max="6" step="1" class="form-control" placeholder="2"></div>
                   <div class="col-md-2"><label class="form-label">排序</label><input id="editSort" type="number" class="form-control"></div>
-                  <div class="col-md-3 d-flex align-items-end">
+                  <div class="col-md-3 d-flex align-items-end flex-wrap gap-3" id="editDefaultWrap">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="editIsDefault">
+                      <label class="form-check-label" for="editIsDefault">預設主題</label>
+                    </div>
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="editActive">
                       <label class="form-check-label" for="editActive">啟用</label>
@@ -165,6 +201,9 @@
   var API = '/api/admin/promo-scene-templates';
   var items = [];
   var currentSlot = 'theme';
+  var currentThemeAudience = 'product';
+  var audienceReady = true;
+  var isDefaultReady = true;
   var editModal = null;
 
   function esc(s) {
@@ -195,6 +234,52 @@
     return t.length > n ? t.slice(0, n) + '…' : t;
   }
   function slotLabel(s) { return s === 'scene' ? '場景' : '主題'; }
+  function resolveItemAudience(s) {
+    if (!s) return 'product';
+    var aud = String(s.audience || '').trim().toLowerCase();
+    if (aud === 'portrait' || aud === 'all' || aud === 'product') return aud;
+    var key = String(s.key || '').toLowerCase();
+    if (resolvePromoTemplateSlotLocal(s) === 'scene') return 'all';
+    if (key.indexOf('portrait_') === 0) return 'portrait';
+    return 'product';
+  }
+  function resolvePromoTemplateSlotLocal(s) {
+    var slot = String((s && s.slot) || '').toLowerCase();
+    if (slot === 'scene') return 'scene';
+    var key = String((s && s.key) || '').toLowerCase();
+    var cat = String((s && s.category) || '').toLowerCase();
+    if (key.indexOf('scene_') === 0 || cat === 'scene') return 'scene';
+    return 'theme';
+  }
+  function audienceLabel(aud) {
+    if (aud === 'portrait') return '人像攝影';
+    if (aud === 'all') return '場景共用';
+    return '情境圖';
+  }
+  function syncAudienceFormUi() {
+    var themeOnly = currentSlot === 'theme';
+    var tabs = document.getElementById('themeAudienceTabs');
+    if (tabs) tabs.classList.toggle('d-none', !themeOnly);
+    var tplWrap = document.getElementById('tplAudienceWrap');
+    var editWrap = document.getElementById('editAudienceWrap');
+    if (tplWrap) tplWrap.classList.toggle('d-none', !themeOnly);
+    if (editWrap) editWrap.classList.toggle('d-none', !themeOnly);
+    var tplDefaultWrap = document.getElementById('tplDefaultWrap');
+    var editDefaultWrap = document.getElementById('editDefaultWrap');
+    if (tplDefaultWrap) tplDefaultWrap.classList.toggle('d-none', !themeOnly);
+    if (editDefaultWrap) editDefaultWrap.classList.toggle('d-none', currentSlot === 'scene');
+    var tplAud = document.getElementById('tplAudience');
+    if (tplAud) tplAud.value = currentThemeAudience === 'portrait' ? 'portrait' : 'product';
+    var keyEl = document.getElementById('tplKey');
+    var nameEl = document.getElementById('tplName');
+    if (themeOnly && currentThemeAudience === 'portrait') {
+      if (keyEl && !keyEl.value) keyEl.placeholder = 'portrait_beauty';
+      if (nameEl && !nameEl.value) nameEl.placeholder = '美妝';
+    } else if (themeOnly) {
+      if (keyEl) keyEl.placeholder = 'flyer_dm';
+      if (nameEl) nameEl.placeholder = 'DM／傳單風';
+    }
+  }
   /** 從試算表／瀏覽器貼上時去掉重複行與 Google 介面雜字 */
   function sanitizePromptPaste(raw) {
     var s = String(raw == null ? '' : raw);
@@ -252,16 +337,29 @@
     ecommerce_white: 1
   };
 
+  function setThemeAudience(aud) {
+    currentThemeAudience = aud === 'portrait' ? 'portrait' : 'product';
+    document.getElementById('tabThemeProduct').classList.toggle('active', currentThemeAudience === 'product');
+    document.getElementById('tabThemePortrait').classList.toggle('active', currentThemeAudience === 'portrait');
+    syncAudienceFormUi();
+    renderList();
+  }
+
   function setSlot(slot) {
     currentSlot = slot === 'scene' ? 'scene' : 'theme';
     document.getElementById('tplSlot').value = currentSlot;
     document.getElementById('tabTheme').classList.toggle('active', currentSlot === 'theme');
     document.getElementById('tabScene').classList.toggle('active', currentSlot === 'scene');
-    document.getElementById('addCardTitle').textContent = '新增' + slotLabel(currentSlot);
-    document.getElementById('listCardTitle').innerHTML = slotLabel(currentSlot) + '列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span>';
-    document.getElementById('editModalTitle').textContent = '編輯' + slotLabel(currentSlot);
-    document.getElementById('tplKey').placeholder = currentSlot === 'scene' ? 'scene_clean_studio' : 'flyer_dm';
-    document.getElementById('tplName').placeholder = currentSlot === 'scene' ? '乾淨棚拍場景' : 'DM／傳單風';
+    var listTitle = slotLabel(currentSlot);
+    if (currentSlot === 'theme') listTitle += '（' + audienceLabel(currentThemeAudience) + '）';
+    document.getElementById('addCardTitle').textContent = '新增' + listTitle;
+    document.getElementById('listCardTitle').innerHTML = listTitle + '列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span>';
+    document.getElementById('editModalTitle').textContent = '編輯' + listTitle;
+    syncAudienceFormUi();
+    if (currentSlot === 'scene') {
+      document.getElementById('tplKey').placeholder = 'scene_clean_studio';
+      document.getElementById('tplName').placeholder = '乾淨棚拍場景';
+    }
     renderList();
   }
 
@@ -274,6 +372,8 @@
       return;
     }
     items = d.items || [];
+    audienceReady = d.audience_ready !== false;
+    isDefaultReady = d.is_default_ready !== false;
     renderList();
     var sceneBanner = document.getElementById('sceneSetupBanner');
     if (sceneBanner) {
@@ -281,7 +381,17 @@
       var show = !d.slot_ready || sc === 0;
       sceneBanner.classList.toggle('d-none', !show);
     }
-    if (d.migration_hint) showStatus(d.migration_hint, 'warn');
+    var portraitBanner = document.getElementById('portraitSetupBanner');
+    if (portraitBanner) {
+      var pc = d.portrait_count != null ? d.portrait_count : 0;
+      var showPortrait = audienceReady && pc === 0;
+      portraitBanner.classList.toggle('d-none', !showPortrait);
+    }
+    if (!audienceReady) {
+      showStatus('尚無 audience 欄位：人像主題無法與情境圖分開。請至「資料庫維護」執行「商攝・人像主題 audience + 8 類 seed」。', 'warn');
+    } else if (!isDefaultReady) {
+      showStatus('尚無 is_default 欄位：無法設定預設主題。請至「資料庫維護」執行「情境圖／人像主題預設值」。', 'warn');
+    } else if (d.migration_hint) showStatus(d.migration_hint, 'warn');
     var legacyCount = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; }).length;
     if (legacyCount > 0) {
       showStatus('偵測到 ' + legacyCount + ' 筆舊「換場景」模板；請按「清除舊換場景模板」或執行 update-promo-templates-ad-dm.sql。', false);
@@ -291,11 +401,13 @@
   function visibleItems() {
     var showInactive = document.getElementById('showInactive') && document.getElementById('showInactive').checked;
     return items.filter(function (s) {
-      var slot = (s.slot === 'scene') ? 'scene' : 'theme';
-      var key = String(s.key || '').toLowerCase();
-      var cat = String(s.category || '').toLowerCase();
-      if (slot !== 'scene' && currentSlot === 'scene' && (key.indexOf('scene_') === 0 || cat === 'scene')) slot = 'scene';
+      var slot = resolvePromoTemplateSlotLocal(s);
       if (slot !== currentSlot) return false;
+      if (currentSlot === 'theme') {
+        var aud = resolveItemAudience(s);
+        var want = currentThemeAudience === 'portrait' ? 'portrait' : 'product';
+        if (aud !== want) return false;
+      }
       if (showInactive) return true;
       return s.is_active !== false;
     });
@@ -308,6 +420,7 @@
       var legacyBadge = LEGACY_SCENE_KEYS[s.key]
         ? ' <span class="badge bg-warning text-dark">舊換場景</span>'
         : '';
+      var aud = resolveItemAudience(s);
       return '<tr>' +
         '<td><code>' + esc(s.key) + '</code>' + legacyBadge + '</td>' +
         '<td>' + esc(s.name) +
@@ -315,6 +428,8 @@
           (s.name_en ? '<div class="small text-muted">EN: ' + esc(s.name_en) + '</div>' : '') +
           (s.description ? '<div class="small text-muted">' + esc(s.description) + '</div>' : '') +
         '</td>' +
+        '<td class="small">' + esc(audienceLabel(aud)) + '</td>' +
+        '<td class="small">' + (s.is_default ? '<span class="text-success fw-semibold">預設</span>' : '—') + '</td>' +
         '<td class="small text-muted" title="' + esc(s.scene_prompt || '') + '">' + esc(shortText(s.scene_prompt, 48)) + '</td>' +
         '<td class="small text-muted" title="' + esc(s.composition_hint || '') + '">' + esc(shortText(s.composition_hint, 36)) + '</td>' +
         '<td class="small">' + (s.flux_safety_tolerance != null ? esc(s.flux_safety_tolerance) : '<span class="text-muted">2</span>') + '</td>' +
@@ -324,7 +439,7 @@
           '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit" data-id="' + esc(s.id) + '">編輯</button>' +
           '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(s.id) + '">刪除</button>' +
         '</td></tr>';
-    }).join('') || '<tr><td colspan="8" class="text-muted text-center">' +
+    }).join('') || '<tr><td colspan="10" class="text-muted text-center">' +
       (items.length && !rows.length
         ? '目前沒有啟用中的' + slotLabel(currentSlot) + '（勾選「顯示已停用」可查看）'
         : '尚無資料') +
@@ -333,6 +448,8 @@
 
   document.getElementById('tabTheme').addEventListener('click', function () { setSlot('theme'); });
   document.getElementById('tabScene').addEventListener('click', function () { setSlot('scene'); });
+  document.getElementById('tabThemeProduct').addEventListener('click', function () { setThemeAudience('product'); });
+  document.getElementById('tabThemePortrait').addEventListener('click', function () { setThemeAudience('portrait'); });
 
   document.getElementById('btnAdd').addEventListener('click', async function () {
     var headers = await authHeaders();
@@ -351,7 +468,9 @@
           return v === '' ? null : v;
         })(),
         sort_order: Number(document.getElementById('tplSort').value) || 0,
-        slot: document.getElementById('tplSlot').value
+        slot: document.getElementById('tplSlot').value,
+        audience: (document.getElementById('tplAudience') || {}).value || currentThemeAudience,
+        is_default: !!(document.getElementById('tplIsDefault') && document.getElementById('tplIsDefault').checked)
       }, promoMultilangBody('tpl')))
     });
     var d = await r.json().catch(function () { return {}; });
@@ -369,6 +488,8 @@
     document.getElementById('tplComp').value = '';
     var tplFlux = document.getElementById('tplFluxTol');
     if (tplFlux) tplFlux.value = '';
+    var tplDef = document.getElementById('tplIsDefault');
+    if (tplDef) tplDef.checked = false;
     await loadList();
   });
 
@@ -387,6 +508,8 @@
       document.getElementById('editNameDe').value = s.name_de || '';
       document.getElementById('editNameFr').value = s.name_fr || '';
       document.getElementById('editSlot').value = s.slot === 'scene' ? 'scene' : 'theme';
+      var editAud = document.getElementById('editAudience');
+      if (editAud) editAud.value = resolveItemAudience(s) === 'portrait' ? 'portrait' : 'product';
       document.getElementById('editCategory').value = s.category || '';
       document.getElementById('editDesc').value = s.description || '';
       document.getElementById('editScene').value = s.scene_prompt || '';
@@ -395,6 +518,8 @@
       document.getElementById('editSort').value = s.sort_order != null ? s.sort_order : 0;
       document.getElementById('editFluxTol').value = s.flux_safety_tolerance != null ? s.flux_safety_tolerance : '';
       document.getElementById('editActive').checked = s.is_active !== false;
+      var editDef = document.getElementById('editIsDefault');
+      if (editDef) editDef.checked = s.is_default === true;
       document.getElementById('editModalTitle').textContent = '編輯' + slotLabel(s.slot === 'scene' ? 'scene' : 'theme');
       if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
       editModal.show();
@@ -429,7 +554,9 @@
         })(),
         sort_order: Number(document.getElementById('editSort').value) || 0,
         is_active: document.getElementById('editActive').checked,
-        slot: document.getElementById('editSlot').value
+        is_default: !!(document.getElementById('editIsDefault') && document.getElementById('editIsDefault').checked),
+        slot: document.getElementById('editSlot').value,
+        audience: (document.getElementById('editAudience') || {}).value
       }, promoMultilangBody('edit', true)))
     });
     var d = await r.json().catch(function () { return {}; });
@@ -440,6 +567,17 @@
   });
 
   document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('btnApplyPortraitSeed').addEventListener('click', async function () {
+    if (!confirm('寫入 8 筆預設人像主題（商業形象、美妝等）。已有相同 key 會更新。確定？')) return;
+    var headers = await authHeaders();
+    var r = await fetch(API + '/apply-portrait-seed', { method: 'POST', headers: headers, body: '{}' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.message || d.error || '寫入失敗', false); return; }
+    showStatus(d.message || '已寫入人像主題', true);
+    setSlot('theme');
+    setThemeAudience('portrait');
+    await loadList();
+  });
   document.getElementById('btnApplySceneSeed').addEventListener('click', async function () {
     if (!confirm('寫入 5 筆預設場景模板（乾淨棚拍、零售陳列等）。已有相同 key 會更新 slot=scene。確定？')) return;
     var headers = await authHeaders();
@@ -468,7 +606,9 @@
     await loadList();
   });
   var initTab = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
+  var initAudience = (new URLSearchParams(window.location.search).get('audience') || '').toLowerCase();
   setSlot(initTab === 'scene' ? 'scene' : 'theme');
+  if (initAudience === 'portrait') setThemeAudience('portrait');
   loadList();
 })();
   </script>
