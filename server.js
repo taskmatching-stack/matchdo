@@ -3409,7 +3409,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         client_channel: clientChannel,
         staging_product: !!resolvedRefs.hasStagingProduct,
         scene_image: !!resolvedRefs.hasSceneImage,
-        reference_images: promoReferenceImagesFromUrls(refUrls),
+        reference_images: promoExtraReferenceImagesFromUrls(refUrls),
         image_provider: imageProvider,
         gemini_model: imageProvider === 'gemini' ? (geminiModel || await getPromoPortraitModelName()) : null,
         flux_model: imageProvider === 'flux' ? fluxModel : null,
@@ -19478,6 +19478,28 @@ function normalizePromoRefUrlKey(url) {
     }
 }
 
+/** 上傳前去重 key（data: 用完整字串，避免同一張本機圖被 push 兩次各上傳一次） */
+function promoRefRawDedupeKey(raw) {
+    const val = typeof raw === 'string' ? raw.trim() : '';
+    if (!val) return '';
+    if (val.indexOf('data:') === 0) return val;
+    return normalizePromoRefUrlKey(val);
+}
+
+function dedupePromoReferenceImageEntries(entries) {
+    const out = [];
+    const seen = {};
+    (entries || []).forEach(function (r) {
+        if (!r) return;
+        const u = String(r.url || r.image_url || '').trim();
+        const key = normalizePromoRefUrlKey(u);
+        if (!u || !key || seen[key]) return;
+        seen[key] = true;
+        out.push(r);
+    });
+    return out;
+}
+
 /** 上傳 data: 參考圖到 storage，避免 source_image_url 因 data: 被丟棄或截斷 */
 async function persistPromoReferenceImageUrl(userId, url) {
     const s = String(url || '').trim();
@@ -19536,20 +19558,34 @@ function promoReferenceImagesFromUrls(urls) {
     }).filter(function (r) { return r && r.url; });
 }
 
+/** enrich 會從 spec.primary 收第一張；baseMeta 只帶第 2 張起，避免同一張寫兩次進 reference_images */
+function promoExtraReferenceImagesFromUrls(urls) {
+    const list = (urls || []).map(function (u) { return String(u || '').trim(); }).filter(Boolean);
+    if (list.length <= 1) return [];
+    return promoReferenceImagesFromUrls(list.slice(1));
+}
+
 /** 商攝導演：本機 data URL 參考圖上傳 GCS 並寫入 generation_meta（履歷／後台詳情） */
 async function enrichPromoGenerationMetaWithPersistedRefs(userId, baseMeta, spec) {
     const next = baseMeta && typeof baseMeta === 'object' ? Object.assign({}, baseMeta) : {};
     const s = spec && typeof spec === 'object' ? spec : {};
     const refImages = [];
-    const seen = {};
+    const seenUrlKey = {};
+    const urlByRawKey = {};
 
     async function pushRef(role, raw) {
         const val = typeof raw === 'string' ? raw.trim() : '';
         if (!val) return null;
+        const rawKey = promoRefRawDedupeKey(val);
+        if (rawKey && urlByRawKey[rawKey]) {
+            return urlByRawKey[rawKey];
+        }
         const u = await persistPromoReferenceImageUrl(userId, val);
         if (!u) return null;
-        if (!seen[u]) {
-            seen[u] = true;
+        if (rawKey) urlByRawKey[rawKey] = u;
+        const urlKey = normalizePromoRefUrlKey(u);
+        if (urlKey && !seenUrlKey[urlKey]) {
+            seenUrlKey[urlKey] = true;
             refImages.push({ role: role || 'reference', url: u });
         }
         return u;
@@ -19588,15 +19624,18 @@ async function enrichPromoGenerationMetaWithPersistedRefs(userId, baseMeta, spec
             if (!primaryUrl && u) primaryUrl = u;
         }
     }
+    const primaryRawKey = s.primary ? promoRefRawDedupeKey(s.primary) : '';
     if (Array.isArray(next.reference_images)) {
         for (let i = 0; i < next.reference_images.length; i++) {
             const r = next.reference_images[i];
             if (!r) continue;
-            const u = await pushRef(r.role || r.role_key || 'reference', r.url || r.image_url);
+            const raw = r.url || r.image_url;
+            if (primaryRawKey && promoRefRawDedupeKey(raw) === primaryRawKey) continue;
+            const u = await pushRef(r.role || r.role_key || 'reference', raw);
             if (!primaryUrl && u) primaryUrl = u;
         }
     }
-    if (refImages.length) next.reference_images = refImages;
+    if (refImages.length) next.reference_images = dedupePromoReferenceImageEntries(refImages);
     if (!primaryUrl && refImages.length) primaryUrl = refImages[0].url;
     return { meta: next, primaryUrl: primaryUrl || null };
 }
@@ -19645,12 +19684,23 @@ function promoSpaceEyeLevelLayoutPersistRaw(body, eyeRefs) {
 async function persistPromoGenerationMetaReferenceImages(userId, meta) {
     const next = meta && typeof meta === 'object' ? Object.assign({}, meta) : {};
     const out = [];
-    const seen = {};
+    const seenUrlKey = {};
+    const urlByRawKey = {};
     async function add(role, url) {
-        const persisted = await persistPromoReferenceImageUrl(userId, url);
-        if (!persisted || seen[persisted]) return persisted;
-        seen[persisted] = true;
-        out.push({ role: role || 'reference', url: persisted });
+        const val = typeof url === 'string' ? url.trim() : '';
+        if (!val) return null;
+        const rawKey = promoRefRawDedupeKey(val);
+        if (rawKey && urlByRawKey[rawKey]) {
+            return urlByRawKey[rawKey];
+        }
+        const persisted = await persistPromoReferenceImageUrl(userId, val);
+        if (!persisted) return null;
+        if (rawKey) urlByRawKey[rawKey] = persisted;
+        const urlKey = normalizePromoRefUrlKey(persisted);
+        if (urlKey && !seenUrlKey[urlKey]) {
+            seenUrlKey[urlKey] = true;
+            out.push({ role: role || 'reference', url: persisted });
+        }
         return persisted;
     }
     if (Array.isArray(next.reference_images)) {
@@ -19675,7 +19725,7 @@ async function persistPromoGenerationMetaReferenceImages(userId, meta) {
             next[key] = u;
         }
     }
-    if (out.length) next.reference_images = out;
+    if (out.length) next.reference_images = dedupePromoReferenceImageEntries(out);
     return next;
 }
 
@@ -19703,7 +19753,7 @@ async function persistPromoGenerationInsertPayload(payload) {
                     source_id: current.source_id || null
                 });
             }
-            meta.reference_images = refs;
+            meta.reference_images = dedupePromoReferenceImageEntries(refs);
             current.generation_meta_json = meta;
         }
     } catch (persistErr) {
@@ -19711,6 +19761,25 @@ async function persistPromoGenerationInsertPayload(payload) {
         if (isDataImageUrl(current.source_image_url)) current.source_image_url = null;
     }
     return current;
+}
+
+/** 9/9 存檔 bug 曾把單張參考寫成兩筆；依 reference_count 還原使用者實際上傳張數 */
+function clampPromoListRefsToRecordedCount(refs, meta, row) {
+    const list = Array.isArray(refs) ? refs : [];
+    const n = meta && meta.reference_count != null ? parseInt(meta.reference_count, 10) : NaN;
+    if (!Number.isFinite(n) || n < 1 || list.length <= n) return list;
+    if (n !== 1) return list.slice(0, n);
+    const srcKey = normalizePromoRefUrlKey(row && row.source_image_url);
+    let pick = srcKey ? list.find(function (r) {
+        return normalizePromoRefUrlKey(r && r.image_url) === srcKey;
+    }) : null;
+    if (!pick) {
+        pick = list.find(function (r) {
+            const roleTitle = String((r && r.title) || '');
+            return roleTitle.indexOf('來源') >= 0 || roleTitle === '參考圖';
+        });
+    }
+    return [pick || list[0]];
 }
 
 function collectPromoListRefsFromRow(row) {
@@ -19752,7 +19821,7 @@ function collectPromoListRefsFromRow(row) {
         add(meta.style_image_url, '風格參考', 'upload', null);
         add(meta.staging_product_url, '陳列產品', 'upload', null);
     }
-    return refs;
+    return clampPromoListRefsToRecordedCount(refs, meta, row);
 }
 
 async function enrichPromoRowsMissingSourceImages(rows) {
@@ -20166,7 +20235,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             aspect_ratio: aspectRatio,
             theme_key: themeKey || null,
             scene_key: sceneKey || null,
-            reference_images: promoReferenceImagesFromUrls(refUrls)
+            reference_images: promoExtraReferenceImagesFromUrls(refUrls)
         }, { primary: refUrls[0] || null });
         if (!resultImageUrl) {
             librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
@@ -20712,7 +20781,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             scene_key: sceneKey || null,
             generation_mode: 'camera_advanced',
             client_channel: clientChannel,
-            reference_images: promoReferenceImagesFromUrls(refUrls)
+            reference_images: promoExtraReferenceImagesFromUrls(refUrls)
         }, promoCameraBodyRefSpec(body, resolvedRefs, refUrls));
         if (!resultImageUrl) {
             librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
