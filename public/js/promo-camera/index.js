@@ -919,7 +919,7 @@
       } else if (mode === 'prompt') {
         stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；描述可調髮型、表情與小道具。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；道具不跟參考圖，可依描述或場景；描述可調髮型、表情與道具。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -930,7 +930,7 @@
       } else if (mode === 'prompt') {
         promptLabel.textContent = t('promoCamera.portraitDescPrompt', '描述（服裝、髮型等，必填）');
       } else {
-        promptLabel.textContent = t('promoCamera.portraitDescReference', '描述（髮型、表情、道具；衣著維持參考圖）');
+        promptLabel.textContent = t('promoCamera.portraitDescReference', '描述（髮型、表情、道具；衣著維持參考圖，道具不跟參考圖）');
       }
     }
     if (promptInput) {
