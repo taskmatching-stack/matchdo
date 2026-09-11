@@ -888,6 +888,10 @@
                 return fromInput || currentQ || '';
             }
             function reloadMediaWall(page, append) {
+                if (showingFavoritesOnly) {
+                    if (!append) renderFavoritesGrid();
+                    return;
+                }
                 currentQ = getActiveSearchQ();
                 if (searchInput) searchInput.value = currentQ;
                 loadMediaWall(page || 1, currentQ, !!append, adminOpts);
@@ -1458,7 +1462,8 @@
                     else if (mediaWallHasRendered) patchMediaWallAdminButtons();
                 }
                 if (mediaWallInitialLoadDone && adminOpts.staffPreview !== wasStaffPreview) {
-                    reloadMediaWall(1, false);
+                    if (showingFavoritesOnly) renderFavoritesGrid();
+                    else reloadMediaWall(1, false);
                 }
             }
             (function bootMediaWallWithAuth() {
@@ -1468,7 +1473,8 @@
                     mediaWallInitialLoadDone = true;
                     if (authTimer) clearTimeout(authTimer);
                     applyMediaWallAdminFromProfile(profile, session);
-                    reloadMediaWall(1, false);
+                    if (showingFavoritesOnly) renderFavoritesGrid();
+                    else reloadMediaWall(1, false);
                 }
                 if (!window.AuthService || !AuthService.getSession) {
                     finishBoot(null, null);
@@ -1815,6 +1821,10 @@
             }
             function loadMediaWall(page, q, append, opts) {
                 opts = opts || adminOpts;
+                if (showingFavoritesOnly) {
+                    if (!append) renderFavoritesGrid();
+                    return;
+                }
                 if (isLoading && append) return;
                 if (isLoading && !append) loadMediaWallRequestId++;
                 isLoading = true;
@@ -1848,6 +1858,11 @@
                 }
                 function renderMediaWallItems(data) {
                     if (thisRequestId !== loadMediaWallRequestId) return;
+                    if (showingFavoritesOnly) {
+                        clearMediaWallLoadingShell();
+                        isLoading = false;
+                        return;
+                    }
                     clearMediaWallLoadingShell();
                     if (data.error) { showMediaWallLoadError(); return; }
                     if (data.internal_preview && !adminOpts.staffPreview) return;
