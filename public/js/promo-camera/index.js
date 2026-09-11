@@ -915,11 +915,11 @@
     var stylingHint = document.getElementById('pcPortraitStylingHint');
     if (stylingHint) {
       if (mode === 'scene') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；描述可寫姿勢、表情等。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；構圖預設商用、避免情色感；姿勢依場景、不跟原圖；描述可寫姿勢、表情等。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；構圖預設商用、避免情色感；姿勢依場景、不跟原圖。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；構圖預設商用、避免情色感；描述可調髮型、表情與姿勢。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；構圖預設商用、避免情色感；姿勢依場景、不跟原圖；描述可調髮型、表情與姿勢。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');

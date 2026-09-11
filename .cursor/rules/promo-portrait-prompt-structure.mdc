@@ -1,0 +1,31 @@
+---
+description: 人像生圖 prompt 結構凍結（不要情色感／忽略原圖姿勢）；勿重排、勿再加英文情色詞
+globs: lib/promo-portrait-styling.js,lib/promo-space-gemini.js,server.js,docs/PROGRESS-promo-portrait-commercial-framing-handoff.md
+alwaysApply: false
+---
+
+# 人像生圖原則（凍結）
+
+可用基準：`7c20cc8` 組裝 + 後續「通用原則套全人像」。交接：`docs/PROGRESS-promo-portrait-commercial-framing-handoff.md`
+
+## 人像模式通用（三種風格 × 三種衣著 × 有無描述）
+
+證件照 `portrait_formal_id` 除外（姿勢維持參考圖）。其餘都要進**模型提示詞**（畫面提示不算）：
+
+- `***忽略原圖姿勢***`
+- `***姿勢依場景***`
+- `***不要情色感***`
+- 依原圖：只複製人物與衣著；依場景／依描述：只複製人物
+
+有描述時：原則在 `Styling and details:` **之前**，不要貼在描述後面。
+
+## 禁止再犯
+
+- ❌ `erotic` / `suggestive` 貼在描述後，或加進依場景／依描述英文 lead
+- ❌ 項鍊／牽繩等道具句
+- ❌ Gemini 400 **改詞再送**、自動切依場景
+- ❌ 為 Store／文案「更清楚」重排清晰人像組裝
+
+## 可改
+
+描述審核潤飾門檻、操作介紹、畫面 hint（不送模型）。氛圍第二段 FLUX 重拍保持「姿勢不變」，只加 `***不要情色感***`。
