@@ -1252,19 +1252,12 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
         responseFormat = extracted.response_format || responseFormat;
         apiUsed = extracted.api || apiUsed;
     } catch (interErr) {
-        /* 同一句 prompt 改走 generateContent（不是換衣著／改詞再送）。Interactions 對部分參考圖會 400，01:46 同期 generateContent fallback 仍可用。 */
-        console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
-        try {
-            extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
-            apiUsed = 'generateContent';
-        } catch (gcErr) {
-            if (isPromoPortraitExternalImageGenBlockedError(interErr) || isPromoPortraitExternalImageGenBlockedError(gcErr)) {
-                throw markPromoPortraitExternalBlockErrorStatus(
-                    isPromoPortraitExternalImageGenBlockedError(gcErr) ? gcErr : interErr
-                );
-            }
-            throw gcErr;
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(interErr);
         }
+        console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
+        extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
+        apiUsed = 'generateContent';
     }
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
     let buffer = extracted.buffer;
