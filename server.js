@@ -749,7 +749,7 @@ function promoPortraitMoodSwapClothesCaptions(stylingMode) {
     return {
         personLabel: '第一張・身份參考（僅臉與身材；不要保留裁切框或背景）',
         sceneLabel: '第二張・場景底圖（沒有人；光、地面與構圖以這張為準）',
-        lead: promoPortraitStyling.buildPortraitStylingHybridSwapLead(),
+        lead: promoPortraitStyling.buildPortraitStylingHybridSwapLead(stylingMode),
         closing: promoPortraitStyling.buildPortraitStylingMoodSwapClosing(stylingMode)
     };
 }
