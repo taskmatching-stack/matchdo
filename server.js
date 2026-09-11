@@ -659,6 +659,20 @@ function isPromoPortraitExternalImageGenBlockedError(err) {
     return false;
 }
 
+function markPromoPortraitExternalBlockErrorStatus(err) {
+    if (err && isPromoPortraitExternalImageGenBlockedError(err)) {
+        if (!(Number(err.status) >= 400 && Number(err.status) < 600)) err.status = 400;
+    }
+    return err;
+}
+
+function promoPortraitGenerateHttpStatus(genErr) {
+    if (isPromoPortraitExternalImageGenBlockedError(genErr)) return 400;
+    const s = Number(genErr && genErr.status);
+    if (s >= 400 && s < 600) return s;
+    return 500;
+}
+
 function logPromoPortraitApiBlockEvent(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const stage = String(o.stage || 'first').trim();
@@ -767,7 +781,7 @@ async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt,
         if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
         const o = extra && typeof extra === 'object' ? extra : {};
         const ctx = o.retryPromptCtx;
-        if (!ctx) throw err;
+        if (!ctx) throw markPromoPortraitExternalBlockErrorStatus(err);
         logPromoPortraitApiBlockEvent({
             userId: ctx.userId,
             userPrompt: ctx.userPrompt,
@@ -782,15 +796,24 @@ async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt,
             ', clothing adjust only, err=',
             err && err.message
         );
-        const rebuilt = await buildPromoPortraitBlockRetryPromptPack(ctx);
+        let rebuilt;
+        try {
+            rebuilt = await buildPromoPortraitBlockRetryPromptPack(ctx);
+        } catch (rebuildErr) {
+            console.error('[promo-portrait] block retry rebuild failed:', rebuildErr && rebuildErr.message);
+            throw markPromoPortraitExternalBlockErrorStatus(err);
+        }
         const pipeline = normalizePromoPortraitMoodPipeline(o.pipeline);
+        const retryGenerationId = newPromoPortraitGenerationId();
+        console.warn('[promo-portrait] block retry: new independent generationId=', retryGenerationId);
         const retryExtra = Object.assign({}, o, {
             userPrompt: rebuilt.userPrompt,
             stylingMode: rebuilt.stylingMode,
             portrait_styling_mode: rebuilt.stylingMode,
             blockRetryClothingAdjust: true,
             facePrompt: rebuilt.facePrompt,
-            fluxPrompt: rebuilt.fluxPrompt
+            fluxPrompt: rebuilt.fluxPrompt,
+            generationId: retryGenerationId
         });
         try {
             if (pipeline === 'flux_then_lite') {
@@ -809,7 +832,7 @@ async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt,
                     errorMessage: retryErr && retryErr.message
                 });
             }
-            throw retryErr;
+            throw markPromoPortraitExternalBlockErrorStatus(retryErr);
         }
     }
 }
@@ -819,7 +842,7 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
         return await generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts);
     } catch (err) {
         if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
-        if (!retryPromptCtx) throw err;
+        if (!retryPromptCtx) throw markPromoPortraitExternalBlockErrorStatus(err);
         logPromoPortraitApiBlockEvent({
             userId: retryPromptCtx.userId,
             userPrompt: retryPromptCtx.userPrompt,
@@ -829,13 +852,24 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
             errorMessage: err && err.message
         });
         console.warn('[promo-portrait clear] external API block, retry once with clothing adjust:', err && err.message);
-        const rebuilt = await buildPromoPortraitBlockRetryPromptPack(Object.assign({}, retryPromptCtx, { mode: 'clear' }));
+        let rebuilt;
+        try {
+            rebuilt = await buildPromoPortraitBlockRetryPromptPack(Object.assign({}, retryPromptCtx, { mode: 'clear' }));
+        } catch (rebuildErr) {
+            console.error('[promo-portrait clear] block retry rebuild failed:', rebuildErr && rebuildErr.message);
+            throw markPromoPortraitExternalBlockErrorStatus(err);
+        }
+        const retryGenerationId = newPromoPortraitGenerationId();
+        console.warn('[promo-portrait clear] block retry: new independent generationId=', retryGenerationId);
         try {
             return await generatePromoPortraitImage(
                 imageRefs,
                 rebuilt.geminiPrompt,
                 rebuilt.fluxPrompt,
-                geminiOpts,
+                Object.assign({}, geminiOpts, {
+                    generationId: retryGenerationId,
+                    blockRetryClothingAdjust: true
+                }),
                 fluxOpts
             );
         } catch (retryErr) {
@@ -850,7 +884,7 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
                     errorMessage: retryErr && retryErr.message
                 });
             }
-            throw retryErr;
+            throw markPromoPortraitExternalBlockErrorStatus(retryErr);
         }
     }
 }
@@ -979,6 +1013,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     console.log(
         '[promo-portrait mood-swap] model=', model,
         'generationId=', generationId,
+        'attempt=', styleOpts.blockRetryClothingAdjust ? 2 : 1,
         'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
         'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
     );
@@ -1000,7 +1035,9 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
         extracted = { buffer, response_format: responseFormat };
     } catch (interErr) {
-        if (isPromoPortraitExternalImageGenBlockedError(interErr)) throw interErr;
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(interErr);
+        }
         console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
@@ -1223,7 +1260,9 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             aspect_ratio: userAspect,
             minEdge: 1024,
             targetWidth: draftDims.width,
-            targetHeight: draftDims.height
+            targetHeight: draftDims.height,
+            generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId),
+            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true
         }
     );
     if (!draft || !draft.buffer || !draft.buffer.length) {
@@ -1335,6 +1374,43 @@ async function buildPromoPortraitCameraBlock(cameraKeys) {
     };
 }
 
+/** 人像 Gemini Interactions：每次皆無狀態（新 client + store:false），400 重試也是全新事件 */
+async function generatePromoPortraitImageViaInteractions(model, promptText, imageRefs, geminiOpts) {
+    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
+    const input = promoSpaceGemini.buildPromoSpaceInteractionsInput(promptText, imageRefs);
+    const trailing = String(opts.trailingText || '').trim();
+    if (trailing) input.push({ type: 'text', text: trailing });
+    const generationId = sanitizePromoPortraitGenerationId(opts.generationId);
+    const refs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
+    const geminiClient = createStatelessGeminiClient();
+    console.log(
+        '[promo-portrait interactions] model=', model,
+        'generationId=', generationId,
+        'attempt=', opts.blockRetryClothingAdjust === true ? 2 : 1,
+        'refs=', refs.length
+    );
+    const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
+        model,
+        input,
+        response_format: responseFormat,
+        store: false
+    }));
+    const oi = interaction && interaction.output_image;
+    if (!oi || !oi.data) {
+        throw new Error('Gemini Interactions 未回傳圖片');
+    }
+    const buffer = Buffer.from(String(oi.data), 'base64');
+    if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
+    return {
+        buffer,
+        mime: oi.mime_type || oi.mimeType || 'image/jpeg',
+        response_format: responseFormat,
+        api: 'interactions',
+        generation_id: generationId
+    };
+}
+
 async function generatePromoPortraitImageWithGemini(imageRefs, promptText, geminiOpts) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -1349,10 +1425,12 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     let apiUsed = 'interactions';
     let responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     try {
-        extracted = await generatePromoSpaceImageViaInteractions(model, prompt, refs, opts);
+        extracted = await generatePromoPortraitImageViaInteractions(model, prompt, refs, opts);
         responseFormat = extracted.response_format || responseFormat;
     } catch (interErr) {
-        if (isPromoPortraitExternalImageGenBlockedError(interErr)) throw interErr;
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(interErr);
+        }
         console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const parts = [{ text: prompt }];
@@ -1361,7 +1439,8 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
         });
         const trailing = String(opts.trailingText || '').trim();
         if (trailing) parts.push({ text: trailing });
-        const result = await runInGeminiImageQueue(() => genAI.models.generateContent({
+        const geminiClient = createStatelessGeminiClient();
+        const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
             contents: [{ role: 'user', parts }],
             config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
@@ -2982,7 +3061,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         minEdge,
                         targetWidth: w,
                         targetHeight: h,
-                        aspect_ratio: aspectRatio
+                        aspect_ratio: aspectRatio,
+                        generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     },
                     { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
                     {
@@ -3386,6 +3466,12 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             })
             : '';
         const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
+        const moodDraftDims = reverseMood
+            ? null
+            : promoSpaceGemini.resolveSpaceOutputDimensions({
+                tier: '1k',
+                aspect_ratio: aspectRatio
+            });
         let draftPrompt;
         let lookPrompt;
         try {
@@ -3406,10 +3492,6 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 });
                 lookPrompt = moodFacePrompt;
             } else {
-                const moodDraftDims = promoSpaceGemini.resolveSpaceOutputDimensions({
-                    tier: '1k',
-                    aspect_ratio: aspectRatio
-                });
                 draftPrompt = await buildPromoPortraitFinalPrompt({
                     themeKey,
                     themeParts,
@@ -3478,8 +3560,10 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             );
         } catch (genErr) {
             console.error('promo-camera portrait mood:', genErr);
-            const status = genErr.status >= 400 && genErr.status < 600 ? genErr.status : 500;
-            return res.status(status).json({ success: false, error: genErr.message || '生成失敗，請稍後再試' });
+            return res.status(promoPortraitGenerateHttpStatus(genErr)).json({
+                success: false,
+                error: genErr.message || '生成失敗，請稍後再試'
+            });
         }
 
         let balanceAfter = null;
@@ -3705,7 +3789,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 minEdge,
                 targetWidth: w,
                 targetHeight: h,
-                aspect_ratio: aspectRatio
+                aspect_ratio: aspectRatio,
+                generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
             },
             { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
             {
@@ -3735,7 +3820,10 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     } catch (genErr) {
         console.error('promo-camera portrait:', genErr);
         if (sendJsonImageGenError(res, genErr, { success: false })) return;
-        return res.status(500).json({ success: false, error: genErr.message || '生成失敗，請稍後再試' });
+        return res.status(promoPortraitGenerateHttpStatus(genErr)).json({
+            success: false,
+            error: genErr.message || '生成失敗，請稍後再試'
+        });
     }
     if (!buffer || !buffer.length) {
         return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
