@@ -673,14 +673,21 @@ function promoPortraitGenerateHttpStatus(genErr) {
     return 500;
 }
 
+function promoPortraitReviewHelpLinkFields() {
+    return {
+        help_url: '/help/promo-camera/portrait-modes',
+        help_label: '查看審核說明'
+    };
+}
+
 function promoPortraitBlockedClientPayload(genErr) {
     if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
         return { error: (genErr && genErr.message) || '生成失敗，請稍後再試' };
     }
-    return {
-        error: '外部生圖審核未通過，請調整參考圖、衣著模式或描述後再試。',
+    return Object.assign({
+        error: '外部生圖審核未通過，請調整參考圖、衣著模式、場景或描述後再試。',
         code: 'image_gen_blocked'
-    };
+    }, promoPortraitReviewHelpLinkFields());
 }
 
 function logPromoPortraitApiBlockEvent(opts) {
@@ -2637,10 +2644,12 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         if (reviewErr && reviewErr.status === 400) {
             await recordPromptReviewBlock(currentUser && currentUser.id);
         }
-        return res.status(reviewErr.status || 503).json({
+        return res.status(reviewErr.status || 503).json(Object.assign({
             success: false,
             error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
-        });
+        }, (reviewErr && reviewErr.status === 400) ? Object.assign({
+            code: 'prompt_review_blocked'
+        }, promoPortraitReviewHelpLinkFields()) : {}));
     }
     const portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
     try {
@@ -2902,12 +2911,28 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 if (sendJsonImageGenError(res, genErr, { success: false })) return;
             }
             console.error('promo-camera portrait batch:', genErr);
+            if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
+                logPromoPortraitApiBlockEvent({
+                    userId: currentUser && currentUser.id,
+                    userPrompt: userPrompt,
+                    clientChannel: clientChannel,
+                    shootMode: renderCtx.mode,
+                    errorMessage: genErr && genErr.message
+                });
+            }
+            var blockedPayload = isPromoPortraitExternalImageGenBlockedError(genErr)
+                ? promoPortraitBlockedClientPayload(genErr)
+                : null;
             results.push({
                 shot_index: i + 1,
                 success: false,
-                error: isBackupConfirmError(genErr) || (genErr && genErr.code === 'quota_busy')
-                    ? (genErr.message || IMAGE_BUSY_RETRY_MESSAGE)
-                    : '生成失敗，請稍後再試',
+                error: blockedPayload
+                    ? blockedPayload.error
+                    : (isBackupConfirmError(genErr) || (genErr && genErr.code === 'quota_busy')
+                        ? (genErr.message || IMAGE_BUSY_RETRY_MESSAGE)
+                        : '生成失敗，請稍後再試'),
+                code: blockedPayload ? blockedPayload.code : undefined,
+                help_url: blockedPayload ? blockedPayload.help_url : undefined,
                 shot_brief: shotBrief
             });
             continue;
@@ -3197,10 +3222,12 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         if (reviewErr && reviewErr.status === 400) {
             await recordPromptReviewBlock(currentUser && currentUser.id);
         }
-        return res.status(reviewErr.status || 503).json({
+        return res.status(reviewErr.status || 503).json(Object.assign({
             success: false,
             error: (reviewErr && reviewErr.message) || '描述審核失敗，請稍後再試'
-        });
+        }, (reviewErr && reviewErr.status === 400) ? Object.assign({
+            code: 'prompt_review_blocked'
+        }, promoPortraitReviewHelpLinkFields()) : {}));
     }
     const portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
     try {

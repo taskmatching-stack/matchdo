@@ -12,3 +12,5 @@
 送給 Gemini：提示詞開頭＋看完參考圖後再送一次忽略姿勢句。有描述接在原則**後面**。
 
 勿再：英文 erotic 貼描述後、依場景英文情色 lead、道具句、400 改詞再送、證件照另開「姿勢維持參考圖」。
+
+被擋時錯誤區連到 `/help/promo-camera/portrait-modes`「描述審核與外部擋圖」（勿把防情色句再加進 Gemini prompt）。部署後須跑資料庫維護 `help-guides-promo-portrait-review-20260912`。

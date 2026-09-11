@@ -1156,6 +1156,7 @@
   "promoCamera.appLibraryHint": "Tap a thumbnail to zoom in. To set a product image, use \"Choose from digital assets\".",
   "promoCamera.chatWelcome": "Upload <strong>one</strong> product reference, or pick from digital assets. Adjust camera optics on the right (quality simulation only).",
   "promoCamera.generateFailedShort": "Generation failed",
+  "promoCamera.reviewGuideLink": "Review guidelines",
   "genBackup.confirm": "The main generate channel is busy. OK = use a backup method. Cancel = send later.",
   "genBackup.later": "Cancelled. You can send it later.",
   "promoCamera.cat.camera_brand": "Brand color",

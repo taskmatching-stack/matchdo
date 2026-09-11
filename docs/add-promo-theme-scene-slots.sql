@@ -33,8 +33,8 @@ ALTER TABLE public.product_promo_generations
 -- 種子：商業廣告「場景」（非居家生活換場景）
 INSERT INTO public.promo_scene_templates (key, name, description, scene_prompt, composition_hint, category, sort_order, slot) VALUES
 ('scene_clean_studio', '乾淨棚拍場景', '簡潔商業棚拍環境，適合主視覺',
- 'place the product in a clean commercial studio advertising environment with controlled seamless backdrop and polished studio lighting',
- 'studio advertising set; product clearly isolated as hero; not a lifestyle room story',
+ 'place the product against a seamless advertising backdrop with even wrap light and gentle form shadows on the subject. Catalog-ready commercial still. Finished hero photograph, not a behind-the-scenes studio view.',
+ 'seamless advertising backdrop. product clearly isolated as hero. catalog still, not a behind-the-scenes studio. not a lifestyle room story',
  'scene', 10, 'scene'),
 ('scene_retail_display', '零售陳列場景', '店頭／陳列架廣告感',
  'place the product in a premium retail display advertising environment suitable for in-store promo',

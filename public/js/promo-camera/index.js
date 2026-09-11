@@ -49,6 +49,19 @@
     return url + sep + 'lang=en' + hash;
   }
 
+  function portraitReviewHelpHref(raw) {
+    var href = String(raw || '').trim();
+    if (!href || /portrait-review/.test(href)) href = '/help/promo-camera/portrait-modes';
+    var path = href.replace(/[?#].*$/, '');
+    if (/\/help\/promo-camera\/portrait-modes\/?$/.test(path)) {
+      var hash = apiLang() === 'en'
+        ? '#description-review-and-external-blocks'
+        : '#描述審核與外部擋圖';
+      href = path + hash;
+    }
+    return appendLangToUrl(href);
+  }
+
   function isEmbedDesign() {
     return new URLSearchParams(window.location.search).get('embed') === 'design';
   }
@@ -523,7 +536,11 @@
     if (panel) panel.classList.add('has-result');
     var ok = (data.results || []).filter(function (r) { return r.success && (r.image_url || r.imageData); });
     if (!ok.length) {
-      showResultError(isSpaceMode() ? '平視套圖生成失敗' : '人像套圖生成失敗');
+      var fail = (data.results || []).filter(function (r) { return r && !r.success; })[0] || {};
+      var failMsg = isSpaceMode()
+        ? '平視套圖生成失敗'
+        : (fail.error || '人像套圖生成失敗');
+      showResultError(failMsg, fail);
       return;
     }
     el.classList.add('has-result');
@@ -594,6 +611,22 @@
       grid.appendChild(item);
     });
     inner.appendChild(grid);
+    var blockedFail = (data.results || []).filter(function (r) {
+      return r && !r.success && (r.help_url || r.code === 'image_gen_blocked' || r.code === 'prompt_review_blocked'
+        || /外部生圖審核|安全審核/.test(String(r.error || '')));
+    })[0];
+    if (blockedFail && !isSpaceMode()) {
+      var helpP = document.createElement('p');
+      helpP.className = 'small mb-0 mt-2';
+      helpP.appendChild(document.createTextNode((blockedFail.error || '部分張次未通過審核') + ' '));
+      var helpA = document.createElement('a');
+      helpA.href = portraitReviewHelpHref(blockedFail.help_url);
+      helpA.target = '_blank';
+      helpA.rel = 'noopener';
+      helpA.textContent = t('promoCamera.reviewGuideLink', '查看審核說明');
+      helpP.appendChild(helpA);
+      inner.appendChild(helpP);
+    }
     if (data.points_deducted != null) {
       var pts = document.createElement('p');
       pts.className = 'small text-muted mt-2 mb-0';
@@ -603,13 +636,25 @@
     el.appendChild(inner);
   }
 
-  function showResultError(msg) {
+  function showResultError(msg, meta) {
     var el = document.getElementById('pcResultArea');
     var panel = getChatPanel();
     if (!el || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || t('promoCamera.generateFailedShort', '生成失敗') }));
+    var text = msg || t('promoCamera.generateFailedShort', '生成失敗');
+    var href = meta && String(meta.help_url || '').trim();
+    var code = meta && String(meta.code || '').trim();
+    if (!href && (code === 'image_gen_blocked' || code === 'prompt_review_blocked'
+        || /外部生圖審核|安全審核|image generation blocked|image_gen_blocked|prompt_review_blocked/i.test(String(text)))) {
+      href = '/help/promo-camera/portrait-modes';
+    }
+    var extra = { errorText: text, resultNoteHtml: '' };
+    if (href) {
+      extra.errorHelpHref = portraitReviewHelpHref(href);
+      extra.errorHelpLabel = t('promoCamera.reviewGuideLink', (meta && meta.help_label) || '查看審核說明');
+    }
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts(extra));
   }
 
   function renderMessages() {
@@ -2884,7 +2929,7 @@
           st.generating = false;
           updateGenerateBtn();
           if (!res.ok || !res.data || !res.data.success) {
-            showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'));
+            showResultError((res.data && res.data.error) ? res.data.error : t('promoCamera.generateFailedShort', '生成失敗'), res.data);
             return;
           }
           var d = res.data;
