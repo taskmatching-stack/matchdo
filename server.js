@@ -699,7 +699,7 @@ async function buildPromoPortraitBlockRetryPromptPack(ctx) {
         themeParts: c.themeParts,
         sceneParts: c.sceneParts,
         originalUserPrompt: originalUserPrompt,
-        userPrompt: retryUser,
+        userPrompt: originalUserPrompt,
         shotBrief: c.shotBrief,
         cameraBlock: c.cameraBlock,
         hasSceneImage: c.hasSceneImage,
@@ -900,7 +900,10 @@ function buildPromoPortraitMoodCastHint(cast) {
 
 function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
-    const user = String(o.userPrompt || '').trim();
+    const origUser = String(
+        o.originalUserPrompt != null ? o.originalUserPrompt : o.userPrompt || ''
+    ).trim();
+    const user = origUser;
     const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
     const gender = normalizePromoPortraitSubjectGender(o.gender);
     const zhPerson = gender === 'male' ? '男性' : '女性';
@@ -916,9 +919,6 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         '人物膚色與服裝色調要跟第二張場景同一套色彩分級，不要比場景更亮或更霧。',
         '成品只能是一張連續的實拍照，像同一台相機同一瞬間拍下的單張照片。'
     ];
-    const origUser = String(
-        o.originalUserPrompt != null ? o.originalUserPrompt : o.userPrompt || ''
-    ).trim();
     if (!origUser) {
         parts.push('姿勢依第二張場景與主題自然決定（可站、可坐、可倚靠等），不要僵硬假人姿；透視與第二張場景、家具一致。');
     }
@@ -929,7 +929,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     }
     const stylingLines = promoPortraitStyling.buildPortraitStylingMoodFaceLines(
         o.stylingMode || o.portrait_styling_mode,
-        user,
+        origUser,
         { blockRetryClothingAdjust: o.blockRetryClothingAdjust === true }
     );
     stylingLines.forEach(function (line) { parts.push(line); });
@@ -1661,6 +1661,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
         scenePrompt: scene.prompt,
         sceneComposition: scene.composition,
         userPrompt: o.userPrompt,
+        originalUserPrompt: o.originalUserPrompt,
         shotBrief: o.shotBrief,
         cameraBlock: o.cameraBlock,
         moodDraft: o.moodDraft === true,
