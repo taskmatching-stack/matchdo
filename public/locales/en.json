@@ -1273,7 +1273,7 @@
   "promoCamera.portraitStylingReference": "Reference outfit",
   "promoCamera.portraitStylingScene": "From scene",
   "promoCamera.portraitStylingPrompt": "From description",
-  "promoCamera.portraitStylingHintReference": "Keep outfit from the reference; do not copy props from the reference—use description or scene instead.",
+  "promoCamera.portraitStylingHintReference": "Keep outfit from the reference; props not from reference; default to commercial, non-suggestive framing.",
   "promoCamera.portraitStylingHintScene": "Outfit follows shoot theme and scene; description may cover pose and expression.",
   "promoCamera.portraitStylingHintPrompt": "Describe clothing and hairstyle in the prompt field (required).",
   "promoCamera.portraitDescReference": "Description (hair, expression, props; outfit from reference, props not from reference)",
