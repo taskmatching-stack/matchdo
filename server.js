@@ -730,7 +730,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         '成品只能是一張連續的實拍照，像同一台相機同一瞬間拍下的單張照片。'
     ];
     if (!origUser) {
-        parts.push('***姿勢依場景***（可站可坐可倚靠），只複製第一張的人物與衣著，不採用原圖姿勢；透視與第二張場景、家具一致。');
+        parts.push('***忽略原圖姿勢***，***姿勢依場景***（可站可坐可倚靠），只複製第一張的人物與衣著；透視與第二張場景、家具一致。');
     }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
@@ -1066,6 +1066,7 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             minEdge: 1024,
             targetWidth: draftDims.width,
             targetHeight: draftDims.height,
+            themeKey: (extra && extra.themeKey) || userOpts.themeKey,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
@@ -1240,7 +1241,13 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     }
     const prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('人像提示詞為空');
-    const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
+    const opts = Object.assign({}, geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {});
+    if (String(opts.themeKey || '').trim() !== 'portrait_formal_id' && opts.keepReferencePose !== true) {
+        const ignorePose = promoPortraitStyling.buildPortraitIgnoreRefPoseEmphasisLine(opts.themeKey);
+        if (ignorePose && !String(opts.trailingText || '').trim()) {
+            opts.trailingText = ignorePose;
+        }
+    }
     const model = String(opts.model || '').trim() || await getPromoPortraitModelName();
     const refs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
     if (!refs.length) throw new Error('請上傳一張人像參考圖');
@@ -1515,7 +1522,9 @@ async function buildPromoPortraitFluxPrompt(opts) {
     } else {
         parts.push(poseLine);
     }
-    parts.push('生圖原則（必須遵守）：只複製人物與衣著，***姿勢依場景***，***不要情色感***');
+    parts.push(isFormalId
+        ? '生圖原則（必須遵守）：只複製人物與衣著，姿勢維持參考圖，***不要情色感***'
+        : '生圖原則（必須遵守）：只複製人物與衣著，***忽略原圖姿勢***，***姿勢依場景***，***不要情色感***');
 
     if (cameraBlock) parts.push(cameraBlock);
     parts.push('No text, labels, logos, or watermarks in the image.');
@@ -2797,7 +2806,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         minEdge,
                         targetWidth: w,
                         targetHeight: h,
-                        aspect_ratio: aspectRatio
+                        aspect_ratio: aspectRatio,
+                        themeKey
                     },
                     {
                         pipeline: moodPipeline,
@@ -2810,6 +2820,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         gender: portraitCast.gender,
                         cameraBlock: cameraBlock,
                         stylingMode: portraitStylingMode,
+                        themeKey,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     }
                 );
@@ -2846,6 +2857,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         targetWidth: w,
                         targetHeight: h,
                         aspect_ratio: aspectRatio,
+                        themeKey,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     },
                     { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
@@ -3214,7 +3226,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         minEdge,
         targetWidth: w,
         targetHeight: h,
-        aspect_ratio: aspectRatio
+        aspect_ratio: aspectRatio,
+        themeKey
     };
 
     if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
@@ -3296,6 +3309,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     gender: portraitCast.gender,
                     cameraBlock: cameraBlock,
                     stylingMode: portraitStylingMode,
+                    themeKey,
                     generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                 }
             );
@@ -3540,6 +3554,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 targetWidth: w,
                 targetHeight: h,
                 aspect_ratio: aspectRatio,
+                themeKey,
                 generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
             },
             { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
