@@ -1,33 +1,7 @@
--- 操作介紹：人像三種生成風格（對齊現況）+ 英文欄 + 發佈
--- 可重複執行。portrait-modes 一律更新並公開；不寫「400 自動重試」。
-
-INSERT INTO public.help_guide_pages (
-    folder_id, slug, title, title_en, summary, summary_en, blocks_json, sort_order, is_published
-)
-SELECT
-    f.id,
-    'portrait-modes',
-    '人像三種生成風格',
-    'Portrait: clear, mood, and hybrid',
-    '清晰、氛圍、混合的差別；衣著模式；人像通用生圖原則；外部審核。',
-    'Clear vs mood vs hybrid; outfit modes; portrait-wide generation principles; external review.',
-    '[]'::jsonb,
-    35,
-    true
-FROM public.help_guide_folders f
-WHERE f.slug = 'promo-camera'
-  AND NOT EXISTS (
-      SELECT 1 FROM public.help_guide_pages p
-      WHERE p.folder_id = f.id AND p.slug = 'portrait-modes'
-  );
+-- 若 20260912 已跑過：補上「證件主題不鎖原圖姿勢」文案（可重複執行）
 
 UPDATE public.help_guide_pages p
 SET
-    title = '人像三種生成風格',
-    title_en = 'Portrait: clear, mood, and hybrid',
-    summary = '清晰、氛圍、混合的差別；衣著模式；人像通用生圖原則；外部審核。',
-    summary_en = 'Clear vs mood vs hybrid; outfit modes; portrait-wide generation principles; external review.',
-    is_published = true,
     blocks_json = $hg$[
         {"type":"text","sort":0,"text":"## 這是做什麼\n人像攝影可選三種**生成風格**（清晰／氛圍／混合）。同一套主題、場景、攝影參數與衣著模式下，流程與成品質感不同。\n\n總覽：[/help/promo-camera/portrait](/help/promo-camera/portrait)","text_en":"## What this is\nPortrait photography has three **render styles** (clear / mood / hybrid). Theme, scene, camera settings, and outfit mode stay the same; the pipeline and look change.\n\nOverview: [/help/promo-camera/portrait](/help/promo-camera/portrait)"},
         {"type":"text","sort":1,"text":"## 人像通用生圖原則\n下列原則適用**整個人像模式**：三種生成風格、三種衣著（依原圖／依場景／依描述）、有沒有填描述、含證件／正式主題都一樣。選證件主題時姿勢依該主題（正面正式），不鎖原圖姿勢。\n\n- **忽略原圖姿勢**，**姿勢依場景**（可站可坐可倚靠；正式主題則依證件規格）\n- **不要情色感**（構圖預設商用生活人像）\n- 依原圖：只複製人物與衣著；依場景／依描述：只複製人物，衣服另依場景或描述\n\n畫面說明不會送給生圖模型；原則是後端寫進提示詞的。","text_en":"## Portrait-wide generation principles\nThese apply to **all of portrait mode**: every render style, every outfit mode (reference / scene / description), with or without a written description, including formal ID. Choosing the ID theme means pose follows that brief (front-facing, formal)—not the uploaded pose.\n\n- **Ignore the original pose**; **pose follows the scene** (standing, sitting, or leaning; formal ID follows ID specs)\n- **No erotic mood** (commercial lifestyle framing)\n- Reference outfit: copy person and garment only; scene / description outfit: copy the person only\n\nOn-screen hints are not sent to the image model; the backend writes these into the prompt."},
@@ -45,8 +19,6 @@ WHERE p.folder_id = f.id
 
 UPDATE public.help_guide_pages p
 SET
-    summary = '商攝導演：人像攝影（清晰／氛圍／混合）。',
-    summary_en = 'Promo camera: portrait mode (clear / mood / hybrid).',
     blocks_json = $hg$[
         {"type":"text","sort":0,"text":"## 這是做什麼\n人像模式模擬人物在場景中的商業人像／穿戴照，適合服裝、配件上身、形象圖。","text_en":"## What this is\nPortrait mode places a person in a commercial still or wear-shot. Use it for apparel, accessories on-body, and lookbook images."},
         {"type":"text","sort":1,"text":"## 怎麼操作\n1. `/promo-camera` 切到**人像**。\n2. 上傳人物參考。\n3. 選**拍攝主題**與場景；可選產品圖、場景參考圖。\n4. 選**生成風格**：清晰／氛圍／混合（詳見 [/help/promo-camera/portrait-modes](/help/promo-camera/portrait-modes)）。\n5. 選衣著模式（依原圖／依場景／依描述）。\n6. 看點數後生成。","text_en":"## How to use it\n1. Open `/promo-camera` and choose **Portrait**.\n2. Upload a person reference.\n3. Pick a shoot theme and scene; optional product or scene photo.\n4. Pick a **render style**: clear / mood / hybrid (see [/help/promo-camera/portrait-modes](/help/promo-camera/portrait-modes)).\n5. Pick outfit mode (from reference / scene / description).\n6. Check credits and generate."},
@@ -59,5 +31,5 @@ WHERE p.folder_id = f.id
   AND p.slug = 'portrait';
 
 INSERT INTO public.payment_config (key, value, updated_at)
-VALUES ('help_guides_promo_portrait_modes_20260912', '1', now())
+VALUES ('help_guides_promo_portrait_id_pose_20260912', '1', now())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;

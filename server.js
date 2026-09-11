@@ -1248,7 +1248,7 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     const prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('人像提示詞為空');
     const opts = Object.assign({}, geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {});
-    if (String(opts.themeKey || '').trim() !== 'portrait_formal_id' && opts.keepReferencePose !== true) {
+    if (opts.keepReferencePose !== true) {
         const ignorePose = promoPortraitStyling.buildPortraitIgnoreRefPoseEmphasisLine(opts.themeKey);
         if (ignorePose && !String(opts.trailingText || '').trim()) {
             opts.trailingText = ignorePose;
@@ -1500,7 +1500,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
  * 人像 FLUX（氛圍）— 依使用者 BFL 官網實測（2026-08-21）：
  * 只需「改為在{場景名}，人物姿勢依情境調整」＋相機參數＋無文字句。
  * 主題／場景的 scene_prompt、composition 等內容描述一律不送（官網長詞會換臉）。
- * 證件／正式：姿勢改「姿勢維持參考圖」。清晰 Gemini 不經此函式。
+ * 清晰 Gemini 不經此函式。
  */
 async function buildPromoPortraitFluxPrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -1509,8 +1509,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     const themeKey = String(o.themeKey || '').trim();
     const user = String(o.userPrompt || '').trim();
     const cameraBlock = String(o.cameraBlock || '').trim();
-    const isFormalId = themeKey === 'portrait_formal_id';
-    const poseLine = isFormalId ? '姿勢維持參考圖' : '人物姿勢依情境調整';
+    const poseLine = '人物姿勢依情境調整';
     const stylingMode = o.stylingMode || o.portrait_styling_mode;
     const parts = [];
 
@@ -1529,9 +1528,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     } else {
         parts.push(poseLine);
     }
-    parts.push(isFormalId
-        ? '生圖原則（必須遵守）：只複製人物與衣著，姿勢維持參考圖，***不要情色感***'
-        : promoPortraitStyling.buildPortraitCommercialPrincipleZh(stylingMode, themeKey).replace(/。$/, ''));
+    parts.push(promoPortraitStyling.buildPortraitCommercialPrincipleZh(stylingMode, themeKey).replace(/。$/, ''));
 
     if (cameraBlock) parts.push(cameraBlock);
     parts.push('No text, labels, logos, or watermarks in the image.');
