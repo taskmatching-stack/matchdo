@@ -21,7 +21,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">描述審核紀錄</h4>
-        <p class="text-muted small mb-3">自動潤飾（仍生圖）與攔截（無法生圖）分開列出，供後續檢討。通過且未改寫的不記錄。</p>
+        <p class="text-muted small mb-3">描述審核（潤飾／擋下）與 Gemini 外部生圖 safety 400（API 阻擋）分開列出。描述通過且未改寫的不記錄。</p>
 
         <div class="row g-2 mb-3">
           <div class="col-6 col-md-4">
@@ -32,8 +32,14 @@
           </div>
           <div class="col-6 col-md-4">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">擋下</div>
+              <div class="text-muted small">描述擋下</div>
               <div class="stat-num text-danger" id="sumBlocked">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">API 阻擋</div>
+              <div class="stat-num text-warning" id="sumApiBlocked">—</div>
             </div></div>
           </div>
         </div>
@@ -46,7 +52,8 @@
                 <select class="form-select form-select-sm" id="filterAction">
                   <option value="all">全部</option>
                   <option value="polished">潤飾</option>
-                  <option value="blocked">擋下</option>
+                  <option value="blocked">描述擋下</option>
+                  <option value="api_blocked">API 阻擋（Gemini 400）</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -145,7 +152,8 @@
     }
 
     function actionBadge(action) {
-      if (action === 'blocked') return '<span class="badge bg-danger">擋下</span>';
+      if (action === 'blocked') return '<span class="badge bg-danger">描述擋下</span>';
+      if (action === 'api_blocked') return '<span class="badge bg-warning text-dark">API 阻擋</span>';
       return '<span class="badge bg-primary">潤飾</span>';
     }
 
@@ -216,6 +224,7 @@
       var sum = data.summary || {};
       document.getElementById('sumPolished').textContent = String(sum.polished != null ? sum.polished : '—');
       document.getElementById('sumBlocked').textContent = String(sum.blocked != null ? sum.blocked : '—');
+      document.getElementById('sumApiBlocked').textContent = String(sum.api_blocked != null ? sum.api_blocked : '—');
       document.getElementById('pageInfo').textContent = '第 ' + (page + 1) + ' 頁' + (data.total != null ? '（共 ' + data.total + ' 筆）' : '');
       document.getElementById('btnPrev').disabled = page <= 0;
       document.getElementById('btnNext').disabled = !hasMore;

@@ -529,6 +529,7 @@ async function loadPromptReviewThrottleState(userId) {
 async function assertAccountGenerateThrottle(userId, isAdmin) {
     const uid = String(userId || '').trim();
     if (!uid || isAdmin) return;
+    if (await matchdoInternal.isMatchdoInternalUserId(supabase, uid)) return;
     const state = await loadPromptReviewThrottleState(uid);
     const waitMs = (state.until || 0) - Date.now();
     if (waitMs <= 0) return;
@@ -553,6 +554,7 @@ function sendGenerateThrottle(res, err) {
 async function recordPromptReviewBlock(userId) {
     const uid = String(userId || '').trim();
     if (!uid) return;
+    if (await matchdoInternal.isMatchdoInternalUserId(supabase, uid)) return;
     const state = await loadPromptReviewThrottleState(uid);
     const streak = (state.streak || 0) + 1;
     const until = Date.now() + promptReviewCooldownMs(streak);
@@ -649,6 +651,7 @@ function isPromoPortraitExternalImageGenBlockedError(err) {
     if (!err) return false;
     const msg = String(err.message || err || '').toLowerCase();
     if (msg.indexOf('image generation blocked') !== -1) return true;
+    if (msg.indexOf('safety violations') !== -1) return true;
     if (msg.indexOf('blocked for unspecified') !== -1) return true;
     if (msg.indexOf('image_safety') !== -1) return true;
     if (msg.indexOf('image_prohibited_content') !== -1) return true;
@@ -656,23 +659,39 @@ function isPromoPortraitExternalImageGenBlockedError(err) {
     return false;
 }
 
+function logPromoPortraitApiBlockEvent(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const stage = String(o.stage || 'first').trim();
+    const msg = String(o.errorMessage || o.message || 'external_api_blocked').slice(0, 400);
+    insertPromptReviewEvent({
+        userId: o.userId,
+        action: 'api_blocked',
+        originalPrompt: String(o.userPrompt || '').slice(0, 4000),
+        rewrittenPrompt: o.retried ? 'clothing_retry' : null,
+        reason: ('[' + stage + '] ' + msg).slice(0, 500),
+        autoPolish: null,
+        clientChannel: o.clientChannel,
+        shootMode: o.shootMode || 'portrait'
+    });
+}
+
 async function buildPromoPortraitBlockRetryPromptPack(ctx) {
     const c = ctx && typeof ctx === 'object' ? ctx : {};
     const origMode = promoPortraitStyling.normalizePortraitStylingMode(c.stylingMode || c.portrait_styling_mode);
-    const retryMode = promoPortraitStyling.portraitStylingModeForBlockRetry(origMode);
-    const keepRefClothes = origMode === 'reference';
+    const originalUserPrompt = String(c.userPrompt || '').trim();
     const retryUser = promoPortraitStyling.buildPortraitBlockRetryUserPrompt(c.userPrompt, origMode);
     const common = {
         themeKey: c.themeKey,
         themeParts: c.themeParts,
         sceneParts: c.sceneParts,
+        originalUserPrompt: originalUserPrompt,
         userPrompt: retryUser,
         shotBrief: c.shotBrief,
         cameraBlock: c.cameraBlock,
         hasSceneImage: c.hasSceneImage,
         hasStagingProduct: c.hasStagingProduct,
-        stylingMode: retryMode,
-        blockRetryKeepRefClothes: keepRefClothes
+        stylingMode: origMode,
+        blockRetryClothingAdjust: true
     };
     const pipeline = normalizePromoPortraitMoodPipeline(c.pipeline);
     const reverseMood = c.reverseMood === true || pipeline === 'flux_then_lite';
@@ -689,7 +708,7 @@ async function buildPromoPortraitBlockRetryPromptPack(ctx) {
             height: c.height,
             tier: c.tier
         }));
-        return { stylingMode: retryMode, userPrompt: retryUser, blockRetryKeepRefClothes: keepRefClothes, geminiPrompt, fluxPrompt };
+        return { stylingMode: origMode, userPrompt: retryUser, geminiPrompt, fluxPrompt };
     }
 
     if (reverseMood) {
@@ -702,13 +721,11 @@ async function buildPromoPortraitBlockRetryPromptPack(ctx) {
         }));
         const facePrompt = buildPromoPortraitMoodFaceRefinePrompt(Object.assign({}, common, {
             peopleCount: c.peopleCount,
-            gender: c.gender,
-            blockRetryKeepRefClothes: keepRefClothes
+            gender: c.gender
         }));
         return {
-            stylingMode: retryMode,
+            stylingMode: origMode,
             userPrompt: retryUser,
-            blockRetryKeepRefClothes: keepRefClothes,
             draftPrompt: '',
             cameraPrompt: fluxPrompt,
             fluxPrompt,
@@ -731,13 +748,11 @@ async function buildPromoPortraitBlockRetryPromptPack(ctx) {
     const lookPrompt = buildPromoPortraitMoodFluxLookPrompt(c.cameraBlock);
     const facePrompt = buildPromoPortraitMoodFaceRefinePrompt(Object.assign({}, common, {
         peopleCount: c.peopleCount,
-        gender: c.gender,
-        blockRetryKeepRefClothes: keepRefClothes
+        gender: c.gender
     }));
     return {
-        stylingMode: retryMode,
+        stylingMode: origMode,
         userPrompt: retryUser,
-        blockRetryKeepRefClothes: keepRefClothes,
         draftPrompt,
         cameraPrompt: lookPrompt,
         fluxPrompt: lookPrompt,
@@ -753,21 +768,49 @@ async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt,
         const o = extra && typeof extra === 'object' ? extra : {};
         const ctx = o.retryPromptCtx;
         if (!ctx) throw err;
-        console.warn('[promo-portrait] external API block, retry once with scene styling:', err && err.message);
+        logPromoPortraitApiBlockEvent({
+            userId: ctx.userId,
+            userPrompt: ctx.userPrompt,
+            clientChannel: ctx.clientChannel,
+            shootMode: ctx.renderMode,
+            stage: 'first',
+            errorMessage: err && err.message
+        });
+        console.warn(
+            '[promo-portrait] block retry: keep stylingMode=',
+            promoPortraitStyling.normalizePortraitStylingMode(ctx.stylingMode || ctx.portrait_styling_mode),
+            ', clothing adjust only, err=',
+            err && err.message
+        );
         const rebuilt = await buildPromoPortraitBlockRetryPromptPack(ctx);
         const pipeline = normalizePromoPortraitMoodPipeline(o.pipeline);
         const retryExtra = Object.assign({}, o, {
             userPrompt: rebuilt.userPrompt,
             stylingMode: rebuilt.stylingMode,
             portrait_styling_mode: rebuilt.stylingMode,
-            blockRetryKeepRefClothes: rebuilt.blockRetryKeepRefClothes,
+            blockRetryClothingAdjust: true,
             facePrompt: rebuilt.facePrompt,
             fluxPrompt: rebuilt.fluxPrompt
         });
-        if (pipeline === 'flux_then_lite') {
-            return await runPromoPortraitMoodTwoStep(imageRefs, '', rebuilt.cameraPrompt, geminiOpts, retryExtra);
+        try {
+            if (pipeline === 'flux_then_lite') {
+                return await runPromoPortraitMoodTwoStep(imageRefs, '', rebuilt.cameraPrompt, geminiOpts, retryExtra);
+            }
+            return await runPromoPortraitMoodTwoStep(imageRefs, rebuilt.draftPrompt, rebuilt.cameraPrompt, geminiOpts, retryExtra);
+        } catch (retryErr) {
+            if (isPromoPortraitExternalImageGenBlockedError(retryErr)) {
+                logPromoPortraitApiBlockEvent({
+                    userId: ctx.userId,
+                    userPrompt: ctx.userPrompt,
+                    clientChannel: ctx.clientChannel,
+                    shootMode: ctx.renderMode,
+                    stage: 'retry_failed',
+                    retried: true,
+                    errorMessage: retryErr && retryErr.message
+                });
+            }
+            throw retryErr;
         }
-        return await runPromoPortraitMoodTwoStep(imageRefs, rebuilt.draftPrompt, rebuilt.cameraPrompt, geminiOpts, retryExtra);
     }
 }
 
@@ -777,15 +820,38 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
     } catch (err) {
         if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
         if (!retryPromptCtx) throw err;
-        console.warn('[promo-portrait clear] external API block, retry once with scene styling:', err && err.message);
+        logPromoPortraitApiBlockEvent({
+            userId: retryPromptCtx.userId,
+            userPrompt: retryPromptCtx.userPrompt,
+            clientChannel: retryPromptCtx.clientChannel,
+            shootMode: retryPromptCtx.renderMode,
+            stage: 'first',
+            errorMessage: err && err.message
+        });
+        console.warn('[promo-portrait clear] external API block, retry once with clothing adjust:', err && err.message);
         const rebuilt = await buildPromoPortraitBlockRetryPromptPack(Object.assign({}, retryPromptCtx, { mode: 'clear' }));
-        return await generatePromoPortraitImage(
-            imageRefs,
-            rebuilt.geminiPrompt,
-            rebuilt.fluxPrompt,
-            geminiOpts,
-            fluxOpts
-        );
+        try {
+            return await generatePromoPortraitImage(
+                imageRefs,
+                rebuilt.geminiPrompt,
+                rebuilt.fluxPrompt,
+                geminiOpts,
+                fluxOpts
+            );
+        } catch (retryErr) {
+            if (isPromoPortraitExternalImageGenBlockedError(retryErr)) {
+                logPromoPortraitApiBlockEvent({
+                    userId: retryPromptCtx.userId,
+                    userPrompt: retryPromptCtx.userPrompt,
+                    clientChannel: retryPromptCtx.clientChannel,
+                    shootMode: retryPromptCtx.renderMode,
+                    stage: 'retry_failed',
+                    retried: true,
+                    errorMessage: retryErr && retryErr.message
+                });
+            }
+            throw retryErr;
+        }
     }
 }
 
@@ -814,9 +880,14 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         '人物必須完全採用第二張的光影：主光方向、受光面、陰影邊緣、色溫、對比、環境反光都跟場景一致；不要保留上傳圖自己的棚拍光或邊緣光。',
         '人物與場景的接觸點（地面、沙發、椅面、床沿等）要有正確接觸陰影與環境反射；髮絲、肩線、下擺與背景自然過渡，禁止貼紙、拼貼、矩形貼圖。',
         '人物膚色與服裝色調要跟第二張場景同一套色彩分級，不要比場景更亮或更霧。',
-        '姿勢依第二張場景與主題自然決定（可站、可坐、可倚靠等），不要僵硬假人姿；透視與第二張場景、家具一致。',
         '成品只能是一張連續的實拍照，像同一台相機同一瞬間拍下的單張照片。'
     ];
+    const origUser = String(
+        o.originalUserPrompt != null ? o.originalUserPrompt : o.userPrompt || ''
+    ).trim();
+    if (!origUser) {
+        parts.push('姿勢依第二張場景與主題自然決定（可站、可坐、可倚靠等），不要僵硬假人姿；透視與第二張場景、家具一致。');
+    }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
         parts.push('第二張底圖的成像條件，人物受光與色調要對齊：');
@@ -825,7 +896,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const stylingLines = promoPortraitStyling.buildPortraitStylingMoodFaceLines(
         o.stylingMode || o.portrait_styling_mode,
         user,
-        { blockRetryKeepRefClothes: o.blockRetryKeepRefClothes === true }
+        { blockRetryClothingAdjust: o.blockRetryClothingAdjust === true }
     );
     stylingLines.forEach(function (line) { parts.push(line); });
     return parts.join('');
@@ -837,7 +908,7 @@ function promoPortraitMoodSwapClothesCaptions(stylingMode, styleOpts) {
         personLabel: '第一張・身份參考（僅臉與身材；不要保留裁切框或背景）',
         sceneLabel: '第二張・場景底圖（沒有人；光、地面與構圖以這張為準）',
         lead: promoPortraitStyling.buildPortraitStylingHybridSwapLead(),
-        closing: promoPortraitStyling.buildPortraitStylingMoodSwapClosing(stylingMode, o)
+        closing: promoPortraitStyling.buildPortraitStylingMoodSwapClosing(stylingMode)
     };
 }
 
@@ -900,7 +971,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const generationId = sanitizePromoPortraitGenerationId(opts.generationId);
     const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(opts.stylingMode || opts.portrait_styling_mode);
-    const styleOpts = { blockRetryKeepRefClothes: opts.blockRetryKeepRefClothes === true };
+    const styleOpts = { blockRetryClothingAdjust: opts.blockRetryClothingAdjust === true };
     const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt(Object.assign({ stylingMode }, styleOpts));
     const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
@@ -929,6 +1000,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
         extracted = { buffer, response_format: responseFormat };
     } catch (interErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) throw interErr;
         console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
@@ -1054,7 +1126,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             targetHeight: lookDims.height,
             userPrompt: userPrompt,
             stylingMode,
-            blockRetryKeepRefClothes: extra && extra.blockRetryKeepRefClothes === true,
+            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
@@ -1280,6 +1352,7 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
         extracted = await generatePromoSpaceImageViaInteractions(model, prompt, refs, opts);
         responseFormat = extracted.response_format || responseFormat;
     } catch (interErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) throw interErr;
         console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
         apiUsed = 'generateContent';
         const parts = [{ text: prompt }];
@@ -1519,7 +1592,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
         tier: o.tier,
         minLongEdge: o.minLongEdge || portraitMinLongEdgeForTier(o.tier),
         stylingMode: o.stylingMode || o.portrait_styling_mode,
-        blockRetryKeepRefClothes: o.blockRetryKeepRefClothes === true
+        blockRetryClothingAdjust: o.blockRetryClothingAdjust === true
     });
 }
 
@@ -2470,7 +2543,7 @@ function withTimeoutMs(promise, ms, label) {
 
 function insertPromptReviewEvent(row) {
     const action = row && row.action;
-    if (action !== 'polished' && action !== 'blocked') return;
+    if (action !== 'polished' && action !== 'blocked' && action !== 'api_blocked') return;
     Promise.resolve().then(async function () {
         const payload = {
             user_id: row.userId || null,
@@ -2509,6 +2582,7 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
     const src = String(original || '').trim();
     if (!src) return { prompt: '', rewritten: false };
     const autoPolish = !(opts && opts.autoPolish === false);
+    const relaxBlock = !!(opts && opts.relaxBlockRestrictions);
     const logUserId = opts && opts.userId;
     const logCtx = {
         userId: logUserId,
@@ -2531,8 +2605,9 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
                 insertPromptReviewEvent(Object.assign({}, logCtx, {
                     action: 'blocked',
                     originalPrompt: src,
-                    reason: parsed.reason || 'blocked'
+                    reason: (relaxBlock ? '[internal_bypass] ' : '') + (parsed.reason || 'blocked')
                 }));
+                if (relaxBlock) return { prompt: src, rewritten: false, reviewBypassed: true };
                 const err = new Error('描述未通過安全審核，無法生圖。關閉自動潤飾後不會改寫描述，請自行修改後再試');
                 err.status = 400;
                 throw err;
@@ -2542,8 +2617,9 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
                 insertPromptReviewEvent(Object.assign({}, logCtx, {
                     action: 'blocked',
                     originalPrompt: src,
-                    reason: parsed.reason || 'blocked'
+                    reason: (relaxBlock ? '[internal_bypass] ' : '') + (parsed.reason || 'blocked')
                 }));
+                if (relaxBlock) return { prompt: src, rewritten: false, reviewBypassed: true };
                 const err = new Error('描述無法通過安全審核，請修改後再試');
                 err.status = 400;
                 throw err;
@@ -2571,8 +2647,10 @@ async function resolveReviewedPromoPortraitUserPrompt(body, userId) {
     const original = String((body && (body.user_prompt || body.prompt)) || '').trim();
     if (!original) return { prompt: '', rewritten: false };
     const autoPolish = await isPromoPortraitPromptAutoPolishEnabled(userId);
+    const relaxBlock = !!(userId && await matchdoInternal.isMatchdoInternalUserId(supabase, userId));
     const reviewed = await reviewPromoPortraitUserPrompt(original, {
         autoPolish: autoPolish,
+        relaxBlockRestrictions: relaxBlock,
         userId: userId,
         clientChannel: body && body.client_channel,
         shootMode: 'portrait'
@@ -2847,9 +2925,12 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id),
                         retryPromptCtx: {
                             mode: renderCtx.mode,
+                            renderMode: renderCtx.mode,
                             pipeline: moodPipeline,
                             reverseMood: reverseMood,
                             stylingMode: portraitStylingMode,
+                            userId: currentUser && currentUser.id,
+                            clientChannel: clientChannel,
                             themeKey: themeKey,
                             themeParts: themeParts,
                             sceneParts: sceneParts,
@@ -2906,6 +2987,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
                     {
                         mode: 'clear',
+                        renderMode: renderCtx.mode,
+                        userId: currentUser && currentUser.id,
+                        clientChannel: clientChannel,
                         stylingMode: portraitStylingMode,
                         themeKey: themeKey,
                         themeParts: themeParts,
@@ -3368,9 +3452,12 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     generationId: sanitizePromoPortraitGenerationId(body.client_generation_id),
                     retryPromptCtx: {
                         mode: renderCtx.mode,
+                        renderMode: renderCtx.mode,
                         pipeline: moodPipeline,
                         reverseMood: reverseMood,
                         stylingMode: portraitStylingMode,
+                        userId: currentUser && currentUser.id,
+                        clientChannel: clientChannel,
                         themeKey: themeKey,
                         themeParts: themeParts,
                         sceneParts: sceneParts,
@@ -3623,6 +3710,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
             {
                 mode: 'clear',
+                renderMode: renderCtx.mode,
+                userId: currentUser && currentUser.id,
+                clientChannel: clientChannel,
                 stylingMode: portraitStylingMode,
                 themeKey: themeKey,
                 themeParts: themeParts,
@@ -33650,7 +33740,9 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
 
         function applyFilters(qb) {
             let qy = qb;
-            if (action === 'polished' || action === 'blocked') qy = qy.eq('action', action);
+            if (action === 'polished' || action === 'blocked' || action === 'api_blocked') {
+                qy = qy.eq('action', action);
+            }
             if (from) qy = qy.gte('created_at', from + 'T00:00:00.000Z');
             if (to) qy = qy.lte('created_at', to + 'T23:59:59.999Z');
             if (q) {
@@ -33706,23 +33798,29 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
 
         let polished = 0;
         let blocked = 0;
+        let apiBlocked = 0;
         const sumPolished = applyFilters(
             supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'polished')
         );
         const sumBlocked = applyFilters(
             supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'blocked')
         );
-        const [pRes, bRes] = await Promise.all([sumPolished, sumBlocked]);
+        const sumApiBlocked = applyFilters(
+            supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'api_blocked')
+        );
+        const [pRes, bRes, aRes] = await Promise.all([sumPolished, sumBlocked, sumApiBlocked]);
         if (!pRes.error) polished = pRes.count || 0;
         if (!bRes.error) blocked = bRes.count || 0;
-        if (action === 'polished') { polished = count || 0; blocked = 0; }
-        if (action === 'blocked') { blocked = count || 0; polished = 0; }
+        if (!aRes.error) apiBlocked = aRes.count || 0;
+        if (action === 'polished') { polished = count || 0; blocked = 0; apiBlocked = 0; }
+        if (action === 'blocked') { blocked = count || 0; polished = 0; apiBlocked = 0; }
+        if (action === 'api_blocked') { apiBlocked = count || 0; polished = 0; blocked = 0; }
 
         return res.json({
             items: items,
             total: count || 0,
             has_more: offset + items.length < (count || 0),
-            summary: { polished: polished, blocked: blocked }
+            summary: { polished: polished, blocked: blocked, api_blocked: apiBlocked }
         });
     } catch (e) {
         console.error('GET /api/admin/prompt-review-events:', e);
