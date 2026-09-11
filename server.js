@@ -730,7 +730,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         '成品只能是一張連續的實拍照，像同一台相機同一瞬間拍下的單張照片。'
     ];
     if (!origUser) {
-        parts.push('姿勢依第二張場景與主題自然決定（可站、可坐、可倚靠等），不要僵硬假人姿；透視與第二張場景、家具一致。');
+        parts.push('***姿勢依場景***（可站可坐可倚靠），只複製第一張的人物與衣著，不採用原圖姿勢；透視與第二張場景、家具一致。');
     }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
@@ -1515,7 +1515,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     } else {
         parts.push(poseLine);
     }
-    parts.push('生圖原則（必須遵守）：商用生活人像，***不要情色感***');
+    parts.push('生圖原則（必須遵守）：只複製人物與衣著，***姿勢依場景***，***不要情色感***');
 
     if (cameraBlock) parts.push(cameraBlock);
     parts.push('No text, labels, logos, or watermarks in the image.');
