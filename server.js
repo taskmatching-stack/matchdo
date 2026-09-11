@@ -2409,13 +2409,14 @@ const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
 
 function buildPromoPortraitPromptReviewModeNote(stylingMode) {
     const mode = promoPortraitStyling.normalizePortraitStylingMode(stylingMode);
+    const framing = ' Final generation always reframes as commercial, non-suggestive portrait.';
     if (mode === 'reference') {
-        return 'Outfit styling mode: reference (keep upload garment). Final generation reframes as commercial, non-suggestive portrait—do not auto-polish merely provocative fashion wording.';
+        return 'Outfit styling mode: reference (keep upload garment).' + framing + ' Do not auto-polish merely provocative fashion wording.';
     }
     if (mode === 'scene') {
-        return 'Outfit styling mode: scene (clothing from theme/scene, not upload).';
+        return 'Outfit styling mode: scene (clothing from theme/scene, not upload).' + framing;
     }
-    return 'Outfit styling mode: prompt (clothing from user description).';
+    return 'Outfit styling mode: prompt (clothing from user description).' + framing;
 }
 
 function parsePromoPortraitPromptReviewJson(raw) {
