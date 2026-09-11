@@ -65,6 +65,14 @@
   padding: 0.75rem 1rem;
   border-top: 1px solid #e9ecef;
 }
+#promo-camera-app .pc-shooting-status {
+  margin: 0.35rem 0 0.15rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  color: #C4784A;
+}
 #promo-camera-app .pc-result-slot .scene-sim-result-inner img {
   max-width: 100%;
   height: auto;

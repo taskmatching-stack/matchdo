@@ -482,7 +482,7 @@
     }
     if (opts.loadingText) {
       container.classList.remove('has-result');
-      container.innerHTML = '<p class="text-muted small mb-0">' + escHtml(opts.loadingText) + '</p>' + noteHtml;
+      container.innerHTML = '<p class="pc-shooting-status mb-0">' + escHtml(opts.loadingText) + '</p>' + noteHtml;
       return;
     }
     if (!imageDataUrl && !(meta && meta.image_url)) return;

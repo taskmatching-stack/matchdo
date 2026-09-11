@@ -685,7 +685,7 @@ function promoPortraitBlockedClientPayload(genErr) {
         return { error: (genErr && genErr.message) || '生成失敗，請稍後再試' };
     }
     return Object.assign({
-        error: '外部生圖審核未通過，請調整參考圖、場景或描述後再試，或將衣著設定改為依場景。',
+        error: '外部生圖審核未通過，請調整參考圖的姿勢與構圖，或將衣著設定改為依場景後再試。',
         code: 'image_gen_blocked'
     }, promoPortraitReviewHelpLinkFields());
 }

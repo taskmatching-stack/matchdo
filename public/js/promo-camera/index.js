@@ -370,7 +370,10 @@
     if (!el || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
     if (panel) panel.classList.add('has-result');
-    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: t('promoCamera.loadingGenerate', '拍攝中…') }));
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({
+      loadingText: t('promoCamera.loadingGenerate', '拍攝中…'),
+      resultNoteHtml: ''
+    }));
   }
 
   function isPortraitPromptDebugEnabled() {
