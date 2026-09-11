@@ -662,15 +662,15 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     const zhPerson = gender === 'male' ? '男性' : '女性';
     const zhNum = ['', '一', '兩', '三', '四'][peopleCount] || String(peopleCount);
     const parts = [
-        '第一張是上傳人像，第二張是已打好人像光、構圖留人位、畫面裡沒有人的場景底圖。',
+        '第一張只作臉、髮型、身材參考；第二張是已打好人像光、構圖留人位、畫面裡沒有人的場景底圖。',
         peopleCount <= 1
-            ? '把第一張這位' + zhPerson + '放進第二張的預留站立區與主光方向：臉、頭髮、肩頸、身材都跟第一張。'
-            : '放入正好' + zhNum + '位' + zhPerson + '，面孔與體型都依第一張這個人，站位對齊第二張預留區。',
-        '第二張的場景、構圖、地面材質全部保留，不要改場景、不要平移背景。',
+            ? '在第二張場景裡重繪這位' + zhPerson + '的完整站立全身：臉、頭髮、肩頸、身材都跟第一張，但不要保留第一張的裁切範圍或矩形邊界。'
+            : '在第二張裡重繪正好' + zhNum + '位' + zhPerson + '的完整站立全身，面孔與體型依第一張，站位對齊第二張預留區。',
+        '第二張的場景、構圖、地面材質全部保留，不要改場景、不要平移背景；第二張不得殘留多餘的腳、腿或人形碎片。',
         '人物必須完全採用第二張的光影：主光方向、受光面、陰影邊緣、色溫、對比、環境反光都跟場景一致；不要保留上傳圖自己的棚拍光或邊緣光。',
-        '腳下與接觸面要有與場景一致的接觸陰影與環境反射；髮絲、肩線、下擺與背景自然過渡，不要剪貼邊。',
+        '腿腳要連續、站在地面材質上，腳下接觸陰影與環境反射正確；髮絲、肩線、下擺與背景自然過渡，禁止貼紙、拼貼、矩形貼圖。',
         '人物膚色與服裝色調要跟第二張場景同一套色彩分級，不要比場景更亮或更霧。',
-        '姿勢配合第二張預留區的站位與視線方向。'
+        '成品只能是一張連續的實拍照，姿勢配合第二張預留區的站位與視線方向。'
     ];
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
@@ -687,7 +687,9 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
 
 function promoPortraitMoodSwapClothesCaptions(stylingMode) {
     return {
-        sceneLabel: '第二張・FLUX 場景底圖（沒有人；光與構圖留這張）',
+        personLabel: '第一張・身份參考（僅臉與身材；不要保留裁切框或背景）',
+        sceneLabel: '第二張・場景底圖（沒有人；光、地面與構圖以這張為準）',
+        lead: promoPortraitStyling.buildPortraitStylingHybridSwapLead(),
         closing: promoPortraitStyling.buildPortraitStylingMoodSwapClosing(stylingMode)
     };
 }
@@ -704,7 +706,8 @@ function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, pr
     const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     /* 圖在前：避免第二次請求時模型只吃文字、略過參考圖 */
     return [
-        { type: 'text', text: '第一張・上傳人像（人物與體型）' },
+        { type: 'text', text: cap.lead },
+        { type: 'text', text: cap.personLabel },
         promoPortraitMoodSwapImagePart(personRef),
         { type: 'text', text: cap.sceneLabel },
         promoPortraitMoodSwapImagePart(sceneRef),
@@ -724,7 +727,8 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
     }
     const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     return [
-        { text: '第一張・上傳人像（人物與體型）' },
+        { text: cap.lead },
+        { text: cap.personLabel },
         inline(personRef),
         { text: cap.sceneLabel },
         inline(sceneRef),
