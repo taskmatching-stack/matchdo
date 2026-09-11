@@ -2369,28 +2369,36 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
     }
 }
 
-/** 對齊 Gemini 生圖禁止項 + BFL FLUX Usage Policy（人像）。時裝／泳裝／商業親密仍放行。 */
+/** 人像描述審核：攔截門檻不變；潤飾標準放寬（下游生圖已帶商用構圖防護）。 */
 const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
-    'You are a pre-filter for commercial PORTRAIT stills that will be sent to Gemini image models and/or FLUX (BFL).',
+    'You review user descriptions before commercial PORTRAIT generation (Gemini and/or FLUX).',
+    'Auto-polish may rewrite descriptions, but the bar for rewriting is now HIGHER, not lower for blocking.',
+    'The image pipeline ALREADY adds commercial lifestyle framing and avoids erotic/suggestive composition in the final generation prompt (especially when keeping outfit from a reference upload).',
+    'Therefore: default to ok=true and leave the user text unchanged. Only rewrite when the description would clearly cause those APIs to hard-block generation.',
+    'When unsure between ok=true and a mild rewrite, ALWAYS choose ok=true with rewritten empty.',
     'Align with those APIs: Gemini forbids sexually explicit images, CSAM, and non-consensual intimate imagery; FLUX Usage Policy forbids sexual/intimate depiction of a real person without consent, CSAM/NCII, and any sexual/obscene/harmful depiction of minors.',
     'Judge ONLY the user description. Ignore system camera, theme, film, or lens wording.',
     '',
-    'ALLOW (ok=true, rewritten MUST be empty):',
+    'PASS UNCHANGED (ok=true, rewritten MUST be empty) — includes most commercial fashion copy:',
     '- Adults 18+ fashion, editorial, beauty, fitness, lifestyle portraits.',
     '- Swimwear, bikini, lingerie worn as clothing; visible skin, cleavage, midriff, legs, wet look, sheer fashion if still clothing.',
-    '- Words like sexy, seductive, glamorous, alluring, body-hugging, low-cut, wet hair, bedroom light — if the body stays clothed and there is no sex act.',
-    '- Romantic or commercially suggestive poses (hug, kiss, gaze, reclining) without sexual acts or genitals.',
+    '- Words like sexy, seductive, glamorous, alluring, provocative, body-hugging, low-cut, wet hair, bedroom light, boudoir mood — if clothed and there is no sex act.',
+    '- Romantic or commercially suggestive poses (hug, kiss, gaze, reclining, kneeling, arching) without sexual acts or genitals.',
+    '- Fetish-adjacent fashion props or styling words (collar, leash, stockings, harness as fashion) when there is no sexual act or explicit nudity.',
+    '- Chinese 脫／脫下／脱掉 when it means removing outerwear or accessories only (e.g. 脫外套、脫大衣、脫帽、脫鞋、脫下圍巾) — pass unchanged; do not treat 脫 alone as nudity.',
     '- Tasteful spa/beach/nightclub/bedroom fashion editorials that stay clothed.',
     '- Non-sexual family or child-in-scene as ordinary commercial photography (no sexualization).',
     '',
-    'REWRITE (ok=false + rewritten): adult content those APIs typically block, but commercial intent can be kept:',
-    '- Full nudity, naked, no clothes, undress, strip, topless/bottomless, exposed breasts or genitals as the subject.',
-    '- Sexual acts, pornography, erotic sex instructions, fetish sex, masturbation, explicit genital/anus focus.',
+    'REWRITE (ok=false + rewritten) — rare; only unmistakable API hard-blocks:',
+    '- Full nudity, naked, no clothes, topless/bottomless, exposed breasts or genitals as the subject.',
+    '- undress/strip/脫衣/全裸/脫光/脫掉衣服 when the intent is to remove clothing to become nude (not merely 脫外套 or removing one layer while still clothed).',
+    '- Sexual acts, pornography, erotic sex instructions, explicit intercourse/masturbation, explicit genital/anus focus.',
     '- Graphic sexual violence between adults → recast as non-violent clothed editorial (do not keep assault).',
     '- Named living real person (celebrity/public figure) combined with nude or sexual/intimate depiction → recast as an anonymous adult fashion model; keep scene, clothing style if wearable, lighting, people count, pose direction, mood.',
-    'Rewritten must stay in the user language. Keep scene, wearable clothing style, lighting, people count, pose direction, mood. Only remove blocked sexual/nude parts. No camera/lens/film jargon. Do not invent a new concept.',
+    'Do NOT rewrite merely because the description sounds sexy, seductive, provocative, or fetish-fashion if clothing remains and there is no sex act.',
+    'When rewriting, change as little as possible. Rewritten must stay in the user language. Keep scene, wearable clothing style, lighting, people count, pose direction, mood. Only remove blocked sexual/nude parts. No camera/lens/film jargon. Do not invent a new concept.',
     '',
-    'HARD FAIL (ok=false, rewritten MUST be empty):',
+    'HARD FAIL (ok=false, rewritten MUST be empty) — same strict block as before:',
     '- Anyone 17 or under, or child/teen/school framing, in any nude, sexual, or sexualized way. Never rewrite this into a keepable version.',
     '- CSAM or any sexual content involving minors.',
     '- Non-consensual intimate imagery of a real identifiable person when the request is specifically to undress or sexualize that named person and cannot be recast without keeping that identity plus intimate intent.',
@@ -2398,6 +2406,17 @@ const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
     'If ok=true, rewritten must be empty.',
     'Return JSON only: {"ok":true,"rewritten":"","reason":""} or {"ok":false,"rewritten":"...","reason":"..."}'
 ].join('\n');
+
+function buildPromoPortraitPromptReviewModeNote(stylingMode) {
+    const mode = promoPortraitStyling.normalizePortraitStylingMode(stylingMode);
+    if (mode === 'reference') {
+        return 'Outfit styling mode: reference (keep upload garment). Final generation reframes as commercial, non-suggestive portrait—do not auto-polish merely provocative fashion wording.';
+    }
+    if (mode === 'scene') {
+        return 'Outfit styling mode: scene (clothing from theme/scene, not upload).';
+    }
+    return 'Outfit styling mode: prompt (clothing from user description).';
+}
 
 function parsePromoPortraitPromptReviewJson(raw) {
     let t = String(raw || '').trim();
@@ -2451,12 +2470,13 @@ function insertPromptReviewEvent(row) {
     });
 }
 
-async function reviewPromoPortraitUserPromptOnce(text, model) {
+async function reviewPromoPortraitUserPromptOnce(text, model, stylingMode) {
+    const modeNote = buildPromoPortraitPromptReviewModeNote(stylingMode);
     const result = await runInGeminiQueue(() => withTimeoutMs(genAI.models.generateContent({
         model,
         contents: [{
             role: 'user',
-            parts: [{ text: PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION + '\n\nUser description:\n' + text }]
+            parts: [{ text: PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION + '\n\n' + modeNote + '\n\nUser description:\n' + text }]
         }]
     }), 8000, 'prompt review timeout'));
     const parsed = parsePromoPortraitPromptReviewJson(result && result.text);
@@ -2470,6 +2490,7 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
     if (!src) return { prompt: '', rewritten: false };
     const autoPolish = !(opts && opts.autoPolish === false);
     const relaxBlock = !!(opts && opts.relaxBlockRestrictions);
+    const stylingMode = opts && opts.stylingMode;
     const logUserId = opts && opts.userId;
     const logCtx = {
         userId: logUserId,
@@ -2486,7 +2507,7 @@ async function reviewPromoPortraitUserPrompt(original, opts) {
     let lastErr = null;
     for (let i = 0; i < 2; i++) {
         try {
-            const parsed = await reviewPromoPortraitUserPromptOnce(src, model);
+            const parsed = await reviewPromoPortraitUserPromptOnce(src, model, stylingMode);
             if (parsed.ok) return { prompt: src, rewritten: false };
             if (!autoPolish) {
                 insertPromptReviewEvent(Object.assign({}, logCtx, {
@@ -2535,9 +2556,11 @@ async function resolveReviewedPromoPortraitUserPrompt(body, userId) {
     if (!original) return { prompt: '', rewritten: false };
     const autoPolish = await isPromoPortraitPromptAutoPolishEnabled(userId);
     const relaxBlock = !!(userId && await matchdoInternal.isMatchdoInternalUserId(supabase, userId));
+    const stylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
     const reviewed = await reviewPromoPortraitUserPrompt(original, {
         autoPolish: autoPolish,
         relaxBlockRestrictions: relaxBlock,
+        stylingMode: stylingMode,
         userId: userId,
         clientChannel: body && body.client_channel,
         shootMode: 'portrait'
