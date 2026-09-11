@@ -1515,6 +1515,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     } else {
         parts.push(poseLine);
     }
+    parts.push('構圖商用、避免情色或過度挑逗感');
 
     if (cameraBlock) parts.push(cameraBlock);
     parts.push('No text, labels, logos, or watermarks in the image.');
