@@ -120,6 +120,7 @@ const categoryUsageStats = require('./lib/category-usage-stats');
 const platformUsageMonitor = require('./lib/platform-usage-monitor');
 const ugcRetention = require('./lib/ugc-retention');
 const subscriptionExpiry = require('./lib/subscription-expiry');
+const matchdoInternal = require('./lib/matchdo-internal-account');
 const membershipDowngradeNotices = require('./lib/membership-downgrade-notices');
 const ugcAccessLog = require('./lib/ugc-access-log');
 const paypalRest = require('./lib/paypal-rest');
@@ -15878,6 +15879,7 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (matchdoInternal.blockMatchdoInternalSubscriptionCheckout(user, res)) return;
         if (!(await isPaymentCheckoutEnabledForProvider('ecpay', paymentUiLangFromReq(req)))) {
             return res.status(503).json(await checkoutDisabledPayloadForReq(req));
         }
@@ -15995,6 +15997,10 @@ app.post('/api/payment/notify', express.urlencoded({ extended: true }), async (r
         if (order.status === 'paid') {
             return res.send('1|OK');
         }
+        if (order.order_type === 'subscription' && await matchdoInternal.isMatchdoInternalUserId(supabase, order.user_id)) {
+            console.warn('ECPay subscription notify skipped for @matchdo.cc user:', order.user_id, orderId);
+            return res.send('1|OK');
+        }
         // 以下僅在「付款成功」時執行：更新訂單為 paid，再依條件入點／建立年付訂閱
         const paidAt = new Date().toISOString();
         await supabase.from('payment_orders').update({
@@ -16091,6 +16097,10 @@ app.post('/api/payment/notify-period', express.urlencoded({ extended: true }), a
             .eq('order_id', orderId)
             .single();
         if (ordErr || !order || order.order_type !== 'subscription') return res.send('1|OK');
+        if (await matchdoInternal.isMatchdoInternalUserId(supabase, order.user_id)) {
+            console.warn('ECPay notify-period skipped for @matchdo.cc user:', order.user_id, orderId);
+            return res.send('1|OK');
+        }
         const { data: existing } = await supabase
             .from('credit_transactions')
             .select('id')
@@ -16312,6 +16322,24 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
 
 async function processPayPalSubscriptionPayment(order, opts) {
     if (!order || !order.user_id) return { ok: false, reason: 'invalid_order' };
+    if (await matchdoInternal.isMatchdoInternalUserId(supabase, order.user_id)) {
+        const subId = String((opts && opts.subscriptionId) || order.external_id || '').trim();
+        if (subId) {
+            try {
+                const paypalCfg = (await getPaymentConfig()).paypal;
+                if (paypalCfg && paypalCfg.clientId && paypalCfg.clientSecret) {
+                    await paypalRest.cancelPayPalSubscription(
+                        paypalCfg,
+                        subId,
+                        'MatchDO internal account — no recurring billing'
+                    );
+                }
+            } catch (cancelErr) {
+                console.warn('PayPal cancel internal @matchdo.cc subscription:', subId, cancelErr && cancelErr.message);
+            }
+        }
+        return { ok: true, skipped: true, reason: 'internal_account' };
+    }
     opts = opts || {};
     const periodIndex = opts.periodIndex != null ? String(opts.periodIndex) : '1';
     const grant = await paypalSubscriptionFulfill.grantPayPalCredits(supabase, order, {
@@ -16410,6 +16438,7 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (matchdoInternal.blockMatchdoInternalSubscriptionCheckout(user, res)) return;
         if (!(await isPaymentCheckoutEnabledForProvider('paypal', paymentUiLangFromReq(req)))) {
             return res.status(503).json(await checkoutDisabledPayloadForReq(req));
         }
@@ -16485,6 +16514,7 @@ app.post('/api/payment/paypal/subscription-complete', express.json(), async (req
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (matchdoInternal.blockMatchdoInternalSubscriptionCheckout(user, res)) return;
         const subscriptionId = String((req.body && req.body.subscription_id) || (req.body && req.body.subscriptionId) || '').trim();
         if (!subscriptionId) return res.status(400).json({ error: '缺少 subscription_id' });
         const config = await getPaymentConfig();
@@ -22298,6 +22328,8 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
     options = options || {};
     const mode = options.mode === 'extend' ? 'extend' : 'new';
     const syncLevel = options.syncMemberLevel || 'always';
+    const internalUser = await matchdoInternal.isMatchdoInternalUserId(supabase, userId);
+    const autoRenew = !internalUser && options.autoRenew === true;
     const now = new Date();
     const months = Math.max(1, parseInt(plan.duration_months, 10) || 1);
 
@@ -22316,7 +22348,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
             start_date: start.toISOString(),
             end_date: end.toISOString(),
             status: 'active',
-            auto_renew: options.autoRenew === true
+            auto_renew: autoRenew
         });
     } else {
         const { data: active } = await supabase
@@ -22334,10 +22366,12 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
         const end = new Date(base);
         end.setMonth(end.getMonth() + months);
         if (active && active.id) {
-            await supabase.from('user_subscriptions').update({
+            const extendPatch = {
                 end_date: end.toISOString(),
                 status: 'active'
-            }).eq('id', active.id);
+            };
+            if (internalUser) extendPatch.auto_renew = false;
+            await supabase.from('user_subscriptions').update(extendPatch).eq('id', active.id);
         } else {
             await supabase
                 .from('user_subscriptions')
@@ -22350,7 +22384,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
                 start_date: now.toISOString(),
                 end_date: end.toISOString(),
                 status: 'active',
-                auto_renew: options.autoRenew === true
+                auto_renew: autoRenew
             });
         }
     }
@@ -22378,6 +22412,9 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     if (!planKey) return;
     const orderType = order.order_type || '';
     if (orderType !== 'subscription' && orderType !== 'yearly') return;
+    if (orderType === 'subscription' && await matchdoInternal.isMatchdoInternalUserId(supabase, order.user_id)) {
+        return;
+    }
     const { data: plan } = await supabase
         .from('subscription_plans')
         .select('id, name, price, duration_months')
