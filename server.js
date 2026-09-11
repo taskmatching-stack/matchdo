@@ -645,6 +645,70 @@ function resolvePromoPortraitCastFromBody(body) {
     };
 }
 
+const PROMO_PORTRAIT_BLOCK_RETRY_HINT = '衣著、姿勢請依審核規則適當小幅調整，維持商業人像或商品展示語意。';
+
+function isPromoPortraitExternalImageGenBlockedError(err) {
+    if (!err) return false;
+    const msg = String(err.message || err || '').toLowerCase();
+    if (msg.indexOf('image generation blocked') !== -1) return true;
+    if (msg.indexOf('blocked for unspecified') !== -1) return true;
+    if (msg.indexOf('image_safety') !== -1) return true;
+    if (msg.indexOf('image_prohibited_content') !== -1) return true;
+    if (Number(err.status) === 400 && /blocked|safety|prohibited_content|moderation/i.test(msg)) return true;
+    return false;
+}
+
+function appendPromoPortraitBlockRetryHint(text) {
+    const base = String(text || '').trim();
+    return base ? (base + ' ' + PROMO_PORTRAIT_BLOCK_RETRY_HINT) : PROMO_PORTRAIT_BLOCK_RETRY_HINT;
+}
+
+async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt, cameraPrompt, geminiOpts, extra) {
+    try {
+        return await runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt, geminiOpts, extra);
+    } catch (err) {
+        if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
+        console.warn('[promo-portrait] external API block, retry once with policy hint:', err && err.message);
+        const o = extra && typeof extra === 'object' ? extra : {};
+        const pipeline = normalizePromoPortraitMoodPipeline(o.pipeline);
+        const retryUserPrompt = appendPromoPortraitBlockRetryHint(o.userPrompt || '');
+        const retryExtra = Object.assign({}, o, { userPrompt: retryUserPrompt });
+        if (pipeline === 'flux_then_lite') {
+            const fluxRetry = appendPromoPortraitBlockRetryHint(o.fluxPrompt || cameraPrompt);
+            retryExtra.fluxPrompt = fluxRetry;
+            retryExtra.facePrompt = appendPromoPortraitBlockRetryHint(
+                o.facePrompt || buildPromoPortraitMoodFaceRefinePrompt({
+                    userPrompt: retryUserPrompt,
+                    peopleCount: o.peopleCount,
+                    gender: o.gender,
+                    cameraBlock: o.cameraBlock,
+                    stylingMode: o.stylingMode || o.portrait_styling_mode
+                })
+            );
+            return await runPromoPortraitMoodTwoStep(imageRefs, '', fluxRetry, geminiOpts, retryExtra);
+        }
+        const retryDraft = appendPromoPortraitBlockRetryHint(draftPrompt);
+        const retryCamera = appendPromoPortraitBlockRetryHint(cameraPrompt);
+        return await runPromoPortraitMoodTwoStep(imageRefs, retryDraft, retryCamera, geminiOpts, retryExtra);
+    }
+}
+
+async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts) {
+    try {
+        return await generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts);
+    } catch (err) {
+        if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
+        console.warn('[promo-portrait clear] external API block, retry once with policy hint:', err && err.message);
+        return await generatePromoPortraitImage(
+            imageRefs,
+            appendPromoPortraitBlockRetryHint(geminiPrompt),
+            appendPromoPortraitBlockRetryHint(fluxPrompt),
+            geminiOpts,
+            fluxOpts
+        );
+    }
+}
+
 function buildPromoPortraitMoodCastHint(cast) {
     const peopleCount = normalizePromoPortraitPeopleCount(cast && cast.peopleCount);
     const gender = normalizePromoPortraitSubjectGender(cast && cast.gender);
@@ -2672,7 +2736,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodHybridLookPrompt = '';
         try {
             if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
-                const step = await runPromoPortraitMoodTwoStep(
+                const step = await runPromoPortraitMoodTwoStepWithBlockRetry(
                     imageRefs,
                     reverseMood ? '' : finalPrompt,
                     reverseMood ? fluxPrompt : buildPromoPortraitMoodFluxLookPrompt(cameraBlock),
@@ -2720,7 +2784,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     draftH = step.draftHeight;
                 }
             } else {
-                const gen = await generatePromoPortraitImage(
+                const gen = await generatePromoPortraitImageWithBlockRetry(
                     imageRefs,
                     finalPrompt,
                     fluxPrompt,
@@ -3162,7 +3226,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         }
         let step;
         try {
-            step = await runPromoPortraitMoodTwoStep(
+            step = await runPromoPortraitMoodTwoStepWithBlockRetry(
                 imageRefs,
                 reverseMood ? '' : draftPrompt,
                 reverseMood ? draftPrompt : lookPrompt,
@@ -3400,7 +3464,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     let fluxModel = null;
     let imageProvider = 'gemini';
     try {
-        const gen = await generatePromoPortraitImage(
+        const gen = await generatePromoPortraitImageWithBlockRetry(
             imageRefs,
             finalPrompt,
             fluxPrompt,
