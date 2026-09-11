@@ -673,6 +673,26 @@ function promoPortraitGenerateHttpStatus(genErr) {
     return 500;
 }
 
+function markPromoPortraitBlockRetryFailed(err) {
+    markPromoPortraitExternalBlockErrorStatus(err);
+    if (err) err.promoBlockRetried = true;
+    return err;
+}
+
+function promoPortraitBlockedClientPayload(genErr) {
+    if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
+        return { error: (genErr && genErr.message) || '生成失敗，請稍後再試' };
+    }
+    const retried = !!(genErr && genErr.promoBlockRetried);
+    return {
+        error: retried
+            ? '外部生圖審核已自動重試一次仍無法生成。參考圖衣著尺度偏大時，請改用較保守的參考圖、切換「依場景」衣著模式，或補充描述後再試。'
+            : '外部生圖審核未通過，請調整參考圖、衣著模式或描述後再試。',
+        code: 'image_gen_blocked',
+        retried: retried
+    };
+}
+
 function logPromoPortraitApiBlockEvent(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const stage = String(o.stage || 'first').trim();
@@ -832,7 +852,7 @@ async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt,
                     errorMessage: retryErr && retryErr.message
                 });
             }
-            throw markPromoPortraitExternalBlockErrorStatus(retryErr);
+            throw markPromoPortraitBlockRetryFailed(retryErr);
         }
     }
 }
@@ -868,7 +888,8 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
                 rebuilt.fluxPrompt,
                 Object.assign({}, geminiOpts, {
                     generationId: retryGenerationId,
-                    blockRetryClothingAdjust: true
+                    blockRetryClothingAdjust: true,
+                    preferGenerateContent: true
                 }),
                 fluxOpts
             );
@@ -884,7 +905,7 @@ async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt,
                     errorMessage: retryErr && retryErr.message
                 });
             }
-            throw markPromoPortraitExternalBlockErrorStatus(retryErr);
+            throw markPromoPortraitBlockRetryFailed(retryErr);
         }
     }
 }
@@ -1017,29 +1038,10 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
         'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
     );
+    const useGenerateContent = opts.preferGenerateContent === true || styleOpts.blockRetryClothingAdjust;
     let extracted;
-    let apiUsed = 'interactions';
-    try {
-        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, stylingMode, styleOpts);
-        const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
-            model,
-            input,
-            response_format: responseFormat,
-            store: false
-        }));
-        const oi = interaction && interaction.output_image;
-        if (!oi || !oi.data) {
-            throw new Error('Gemini Interactions 未回傳圖片');
-        }
-        const buffer = Buffer.from(String(oi.data), 'base64');
-        if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
-        extracted = { buffer, response_format: responseFormat };
-    } catch (interErr) {
-        if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
-            throw markPromoPortraitExternalBlockErrorStatus(interErr);
-        }
-        console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
-        apiUsed = 'generateContent';
+    let apiUsed = useGenerateContent ? 'generateContent' : 'interactions';
+    if (useGenerateContent) {
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
             contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode, styleOpts) }],
@@ -1047,9 +1049,42 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
         }));
         const hit = await extractLargestGeminiResponseImageBuffer(result);
         if (!hit || !hit.buffer || !hit.buffer.length) {
-            throw interErr;
+            throw new Error('Gemini generateContent 未回傳圖片');
         }
         extracted = { buffer: hit.buffer, response_format: responseFormat };
+    } else {
+        try {
+            const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, stylingMode, styleOpts);
+            const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
+                model,
+                input,
+                response_format: responseFormat,
+                store: false
+            }));
+            const oi = interaction && interaction.output_image;
+            if (!oi || !oi.data) {
+                throw new Error('Gemini Interactions 未回傳圖片');
+            }
+            const buffer = Buffer.from(String(oi.data), 'base64');
+            if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
+            extracted = { buffer, response_format: responseFormat };
+        } catch (interErr) {
+            if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
+                throw markPromoPortraitExternalBlockErrorStatus(interErr);
+            }
+            console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
+            apiUsed = 'generateContent';
+            const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
+                model,
+                contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode, styleOpts) }],
+                config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
+            }));
+            const hit = await extractLargestGeminiResponseImageBuffer(result);
+            if (!hit || !hit.buffer || !hit.buffer.length) {
+                throw interErr;
+            }
+            extracted = { buffer: hit.buffer, response_format: responseFormat };
+        }
     }
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
     let buffer = extracted.buffer;
@@ -1262,7 +1297,8 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             targetWidth: draftDims.width,
             targetHeight: draftDims.height,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId),
-            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true
+            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true,
+            preferGenerateContent: extra && extra.blockRetryClothingAdjust === true
         }
     );
     if (!draft || !draft.buffer || !draft.buffer.length) {
@@ -1411,6 +1447,26 @@ async function generatePromoPortraitImageViaInteractions(model, promptText, imag
     };
 }
 
+async function runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat) {
+    const parts = [{ text: prompt }];
+    refs.forEach(function (r) {
+        parts.push({ inlineData: { mimeType: r.mime || 'image/jpeg', data: r.base64 } });
+    });
+    const trailing = String(opts.trailingText || '').trim();
+    if (trailing) parts.push({ text: trailing });
+    const geminiClient = createStatelessGeminiClient();
+    const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
+    }));
+    const hit = await extractLargestGeminiResponseImageBuffer(result);
+    if (!hit || !hit.buffer || !hit.buffer.length) {
+        throw new Error('Gemini generateContent 未回傳圖片');
+    }
+    return { buffer: hit.buffer, response_format: responseFormat, api: 'generateContent' };
+}
+
 async function generatePromoPortraitImageWithGemini(imageRefs, promptText, geminiOpts) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -1421,35 +1477,26 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     const model = String(opts.model || '').trim() || await getPromoPortraitModelName();
     const refs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
     if (!refs.length) throw new Error('請上傳一張人像參考圖');
+    const useGenerateContent = opts.preferGenerateContent === true || opts.blockRetryClothingAdjust === true;
     let extracted;
-    let apiUsed = 'interactions';
+    let apiUsed = useGenerateContent ? 'generateContent' : 'interactions';
     let responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     try {
-        extracted = await generatePromoPortraitImageViaInteractions(model, prompt, refs, opts);
-        responseFormat = extracted.response_format || responseFormat;
+        if (useGenerateContent) {
+            extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
+        } else {
+            extracted = await generatePromoPortraitImageViaInteractions(model, prompt, refs, opts);
+            responseFormat = extracted.response_format || responseFormat;
+            apiUsed = extracted.api || apiUsed;
+        }
     } catch (interErr) {
         if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
             throw markPromoPortraitExternalBlockErrorStatus(interErr);
         }
+        if (useGenerateContent) throw interErr;
         console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
+        extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
         apiUsed = 'generateContent';
-        const parts = [{ text: prompt }];
-        refs.forEach(function (r) {
-            parts.push({ inlineData: { mimeType: r.mime || 'image/jpeg', data: r.base64 } });
-        });
-        const trailing = String(opts.trailingText || '').trim();
-        if (trailing) parts.push({ text: trailing });
-        const geminiClient = createStatelessGeminiClient();
-        const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
-            model,
-            contents: [{ role: 'user', parts }],
-            config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
-        }));
-        const hit = await extractLargestGeminiResponseImageBuffer(result);
-        if (!hit || !hit.buffer || !hit.buffer.length) {
-            throw interErr;
-        }
-        extracted = { buffer: hit.buffer, response_format: responseFormat };
     }
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
     let buffer = extracted.buffer;
@@ -3561,10 +3608,10 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             );
         } catch (genErr) {
             console.error('promo-camera portrait mood:', genErr);
-            return res.status(promoPortraitGenerateHttpStatus(genErr)).json({
-                success: false,
-                error: genErr.message || '生成失敗，請稍後再試'
-            });
+            return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
+                { success: false },
+                promoPortraitBlockedClientPayload(genErr)
+            ));
         }
 
         let balanceAfter = null;
@@ -3821,10 +3868,10 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     } catch (genErr) {
         console.error('promo-camera portrait:', genErr);
         if (sendJsonImageGenError(res, genErr, { success: false })) return;
-        return res.status(promoPortraitGenerateHttpStatus(genErr)).json({
-            success: false,
-            error: genErr.message || '生成失敗，請稍後再試'
-        });
+        return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
+            { success: false },
+            promoPortraitBlockedClientPayload(genErr)
+        ));
     }
     if (!buffer || !buffer.length) {
         return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
