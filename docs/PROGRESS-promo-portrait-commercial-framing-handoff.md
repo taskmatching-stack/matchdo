@@ -17,6 +17,7 @@ reframe as a clean brand-safe portrait while keeping the same garment.
 （相機參數）
 ```
 
-- 道具句已拿掉；**不要** Gemini 400 自動再送出
+- 道具句已拿掉；**不要**改 prompt 再送、不要自動切依場景
+- 清晰人像：Interactions 若 400，**同一句**改走 generateContent（不是換詞）
 - 有填描述時：商用句在 `Styling and details:` **之前**（不要貼在描述後面）
 - 依場景不要加這段英文 erotic 句（18:45 成功紀錄也沒有）
