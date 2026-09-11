@@ -673,241 +673,30 @@ function promoPortraitGenerateHttpStatus(genErr) {
     return 500;
 }
 
-function markPromoPortraitBlockRetryFailed(err) {
-    markPromoPortraitExternalBlockErrorStatus(err);
-    if (err) err.promoBlockRetried = true;
-    return err;
-}
-
 function promoPortraitBlockedClientPayload(genErr) {
     if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
         return { error: (genErr && genErr.message) || '生成失敗，請稍後再試' };
     }
-    const retried = !!(genErr && genErr.promoBlockRetried);
     return {
-        error: retried
-            ? '外部生圖審核已自動重試一次仍無法生成。參考圖衣著尺度偏大時，請改用較保守的參考圖、切換「依場景」衣著模式，或補充描述後再試。'
-            : '外部生圖審核未通過，請調整參考圖、衣著模式或描述後再試。',
-        code: 'image_gen_blocked',
-        retried: retried
+        error: '外部生圖審核未通過，請調整參考圖、衣著模式或描述後再試。',
+        code: 'image_gen_blocked'
     };
 }
 
 function logPromoPortraitApiBlockEvent(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
-    const stage = String(o.stage || 'first').trim();
+    const stage = String(o.stage || 'blocked').trim();
     const msg = String(o.errorMessage || o.message || 'external_api_blocked').slice(0, 400);
     insertPromptReviewEvent({
         userId: o.userId,
         action: 'api_blocked',
         originalPrompt: String(o.userPrompt || '').slice(0, 4000),
-        rewrittenPrompt: o.retried ? 'clothing_retry' : null,
+        rewrittenPrompt: null,
         reason: ('[' + stage + '] ' + msg).slice(0, 500),
         autoPolish: null,
         clientChannel: o.clientChannel,
         shootMode: o.shootMode || 'portrait'
     });
-}
-
-async function buildPromoPortraitBlockRetryPromptPack(ctx) {
-    const c = ctx && typeof ctx === 'object' ? ctx : {};
-    const origMode = promoPortraitStyling.normalizePortraitStylingMode(c.stylingMode || c.portrait_styling_mode);
-    const originalUserPrompt = String(c.userPrompt || '').trim();
-    const retryUser = promoPortraitStyling.buildPortraitBlockRetryUserPrompt(c.userPrompt, origMode);
-    const common = {
-        themeKey: c.themeKey,
-        themeParts: c.themeParts,
-        sceneParts: c.sceneParts,
-        originalUserPrompt: originalUserPrompt,
-        userPrompt: originalUserPrompt,
-        shotBrief: c.shotBrief,
-        cameraBlock: c.cameraBlock,
-        hasSceneImage: c.hasSceneImage,
-        hasStagingProduct: c.hasStagingProduct,
-        stylingMode: origMode,
-        blockRetryClothingAdjust: true
-    };
-    const pipeline = normalizePromoPortraitMoodPipeline(c.pipeline);
-    const reverseMood = c.reverseMood === true || pipeline === 'flux_then_lite';
-
-    if (c.mode === 'clear') {
-        const geminiPrompt = await buildPromoPortraitFinalPrompt(Object.assign({}, common, {
-            width: c.width,
-            height: c.height,
-            tier: c.tier,
-            minLongEdge: c.minLongEdge
-        }));
-        const fluxPrompt = await buildPromoPortraitFluxPrompt(Object.assign({}, common, {
-            width: c.width,
-            height: c.height,
-            tier: c.tier
-        }));
-        return { stylingMode: origMode, userPrompt: retryUser, geminiPrompt, fluxPrompt };
-    }
-
-    if (reverseMood) {
-        const fluxPrompt = await buildPromoPortraitFluxTextToImagePrompt(Object.assign({}, common, {
-            width: c.width,
-            height: c.height,
-            tier: c.tier,
-            peopleCount: c.peopleCount,
-            gender: c.gender
-        }));
-        const facePrompt = buildPromoPortraitMoodFaceRefinePrompt(Object.assign({}, common, {
-            peopleCount: c.peopleCount,
-            gender: c.gender
-        }));
-        return {
-            stylingMode: origMode,
-            userPrompt: retryUser,
-            draftPrompt: '',
-            cameraPrompt: fluxPrompt,
-            fluxPrompt,
-            facePrompt
-        };
-    }
-
-    const draftW = c.draftWidth || c.width;
-    const draftH = c.draftHeight || c.height;
-    let draftPrompt = await buildPromoPortraitFinalPrompt(Object.assign({}, common, {
-        cameraBlock: '',
-        moodDraft: true,
-        width: draftW,
-        height: draftH,
-        tier: '1k',
-        minLongEdge: 1024
-    }));
-    const cast = c.cast || { peopleCount: c.peopleCount, gender: c.gender };
-    draftPrompt = (String(draftPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(cast)).trim();
-    const lookPrompt = buildPromoPortraitMoodFluxLookPrompt(c.cameraBlock);
-    const facePrompt = buildPromoPortraitMoodFaceRefinePrompt(Object.assign({}, common, {
-        peopleCount: c.peopleCount,
-        gender: c.gender
-    }));
-    return {
-        stylingMode: origMode,
-        userPrompt: retryUser,
-        draftPrompt,
-        cameraPrompt: lookPrompt,
-        fluxPrompt: lookPrompt,
-        facePrompt
-    };
-}
-
-async function runPromoPortraitMoodTwoStepWithBlockRetry(imageRefs, draftPrompt, cameraPrompt, geminiOpts, extra) {
-    try {
-        return await runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt, geminiOpts, extra);
-    } catch (err) {
-        if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
-        const o = extra && typeof extra === 'object' ? extra : {};
-        const ctx = o.retryPromptCtx;
-        if (!ctx) throw markPromoPortraitExternalBlockErrorStatus(err);
-        logPromoPortraitApiBlockEvent({
-            userId: ctx.userId,
-            userPrompt: ctx.userPrompt,
-            clientChannel: ctx.clientChannel,
-            shootMode: ctx.renderMode,
-            stage: 'first',
-            errorMessage: err && err.message
-        });
-        console.warn(
-            '[promo-portrait] block retry: keep stylingMode=',
-            promoPortraitStyling.normalizePortraitStylingMode(ctx.stylingMode || ctx.portrait_styling_mode),
-            ', clothing adjust only, err=',
-            err && err.message
-        );
-        let rebuilt;
-        try {
-            rebuilt = await buildPromoPortraitBlockRetryPromptPack(ctx);
-        } catch (rebuildErr) {
-            console.error('[promo-portrait] block retry rebuild failed:', rebuildErr && rebuildErr.message);
-            throw markPromoPortraitExternalBlockErrorStatus(err);
-        }
-        const pipeline = normalizePromoPortraitMoodPipeline(o.pipeline);
-        const retryGenerationId = newPromoPortraitGenerationId();
-        console.warn('[promo-portrait] block retry: new independent generationId=', retryGenerationId);
-        const retryExtra = Object.assign({}, o, {
-            userPrompt: rebuilt.userPrompt,
-            stylingMode: rebuilt.stylingMode,
-            portrait_styling_mode: rebuilt.stylingMode,
-            blockRetryClothingAdjust: true,
-            facePrompt: rebuilt.facePrompt,
-            fluxPrompt: rebuilt.fluxPrompt,
-            generationId: retryGenerationId
-        });
-        try {
-            if (pipeline === 'flux_then_lite') {
-                return await runPromoPortraitMoodTwoStep(imageRefs, '', rebuilt.cameraPrompt, geminiOpts, retryExtra);
-            }
-            return await runPromoPortraitMoodTwoStep(imageRefs, rebuilt.draftPrompt, rebuilt.cameraPrompt, geminiOpts, retryExtra);
-        } catch (retryErr) {
-            if (isPromoPortraitExternalImageGenBlockedError(retryErr)) {
-                logPromoPortraitApiBlockEvent({
-                    userId: ctx.userId,
-                    userPrompt: ctx.userPrompt,
-                    clientChannel: ctx.clientChannel,
-                    shootMode: ctx.renderMode,
-                    stage: 'retry_failed',
-                    retried: true,
-                    errorMessage: retryErr && retryErr.message
-                });
-            }
-            throw markPromoPortraitBlockRetryFailed(retryErr);
-        }
-    }
-}
-
-async function generatePromoPortraitImageWithBlockRetry(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts, retryPromptCtx) {
-    try {
-        return await generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts);
-    } catch (err) {
-        if (!isPromoPortraitExternalImageGenBlockedError(err)) throw err;
-        if (!retryPromptCtx) throw markPromoPortraitExternalBlockErrorStatus(err);
-        logPromoPortraitApiBlockEvent({
-            userId: retryPromptCtx.userId,
-            userPrompt: retryPromptCtx.userPrompt,
-            clientChannel: retryPromptCtx.clientChannel,
-            shootMode: retryPromptCtx.renderMode,
-            stage: 'first',
-            errorMessage: err && err.message
-        });
-        console.warn('[promo-portrait clear] external API block, retry once with clothing adjust:', err && err.message);
-        let rebuilt;
-        try {
-            rebuilt = await buildPromoPortraitBlockRetryPromptPack(Object.assign({}, retryPromptCtx, { mode: 'clear' }));
-        } catch (rebuildErr) {
-            console.error('[promo-portrait clear] block retry rebuild failed:', rebuildErr && rebuildErr.message);
-            throw markPromoPortraitExternalBlockErrorStatus(err);
-        }
-        const retryGenerationId = newPromoPortraitGenerationId();
-        console.warn('[promo-portrait clear] block retry: new independent generationId=', retryGenerationId);
-        try {
-            return await generatePromoPortraitImage(
-                imageRefs,
-                rebuilt.geminiPrompt,
-                rebuilt.fluxPrompt,
-                Object.assign({}, geminiOpts, {
-                    generationId: retryGenerationId,
-                    blockRetryClothingAdjust: true,
-                    preferGenerateContent: true
-                }),
-                fluxOpts
-            );
-        } catch (retryErr) {
-            if (isPromoPortraitExternalImageGenBlockedError(retryErr)) {
-                logPromoPortraitApiBlockEvent({
-                    userId: retryPromptCtx.userId,
-                    userPrompt: retryPromptCtx.userPrompt,
-                    clientChannel: retryPromptCtx.clientChannel,
-                    shootMode: retryPromptCtx.renderMode,
-                    stage: 'retry_failed',
-                    retried: true,
-                    errorMessage: retryErr && retryErr.message
-                });
-            }
-            throw markPromoPortraitBlockRetryFailed(retryErr);
-        }
-    }
 }
 
 function buildPromoPortraitMoodCastHint(cast) {
@@ -950,15 +739,13 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     }
     const stylingLines = promoPortraitStyling.buildPortraitStylingMoodFaceLines(
         o.stylingMode || o.portrait_styling_mode,
-        origUser,
-        { blockRetryClothingAdjust: o.blockRetryClothingAdjust === true }
+        origUser
     );
     stylingLines.forEach(function (line) { parts.push(line); });
     return parts.join('');
 }
 
-function promoPortraitMoodSwapClothesCaptions(stylingMode, styleOpts) {
-    const o = styleOpts && typeof styleOpts === 'object' ? styleOpts : {};
+function promoPortraitMoodSwapClothesCaptions(stylingMode) {
     return {
         personLabel: '第一張・身份參考（僅臉與身材；不要保留裁切框或背景）',
         sceneLabel: '第二張・場景底圖（沒有人；光、地面與構圖以這張為準）',
@@ -975,8 +762,8 @@ function promoPortraitMoodSwapImagePart(img) {
     };
 }
 
-function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, stylingMode, styleOpts) {
-    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode, styleOpts);
+function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, promptText, stylingMode) {
+    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     /* 圖在前：避免第二次請求時模型只吃文字、略過參考圖 */
     return [
         { type: 'text', text: cap.lead },
@@ -989,7 +776,7 @@ function buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, pr
     ];
 }
 
-function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, promptText, stylingMode, styleOpts) {
+function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, promptText, stylingMode) {
     function inline(img) {
         return {
             inlineData: {
@@ -998,7 +785,7 @@ function buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt
             }
         };
     }
-    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode, styleOpts);
+    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     return [
         { text: cap.lead },
         { text: cap.personLabel },
@@ -1026,65 +813,49 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const generationId = sanitizePromoPortraitGenerationId(opts.generationId);
     const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(opts.stylingMode || opts.portrait_styling_mode);
-    const styleOpts = { blockRetryClothingAdjust: opts.blockRetryClothingAdjust === true };
-    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt(Object.assign({ stylingMode }, styleOpts));
+    const prompt = String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({ stylingMode });
     const model = String(opts.model || '').trim() || await getPromoPortraitMoodLiteModelName();
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     const geminiClient = createStatelessGeminiClient();
     console.log(
         '[promo-portrait mood-swap] model=', model,
         'generationId=', generationId,
-        'attempt=', styleOpts.blockRetryClothingAdjust ? 2 : 1,
         'personBytes=', Buffer.from(String(personRef.base64), 'base64').length,
         'sceneBytes=', Buffer.from(String(sceneRef.base64), 'base64').length
     );
-    const useGenerateContent = opts.preferGenerateContent === true || styleOpts.blockRetryClothingAdjust;
     let extracted;
-    let apiUsed = useGenerateContent ? 'generateContent' : 'interactions';
-    if (useGenerateContent) {
+    let apiUsed = 'interactions';
+    try {
+        const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, stylingMode);
+        const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
+            model,
+            input,
+            response_format: responseFormat,
+            store: false
+        }));
+        const oi = interaction && interaction.output_image;
+        if (!oi || !oi.data) {
+            throw new Error('Gemini Interactions 未回傳圖片');
+        }
+        const buffer = Buffer.from(String(oi.data), 'base64');
+        if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
+        extracted = { buffer, response_format: responseFormat };
+    } catch (interErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(interErr);
+        }
+        console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
+        apiUsed = 'generateContent';
         const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
             model,
-            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode, styleOpts) }],
+            contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode) }],
             config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
         }));
         const hit = await extractLargestGeminiResponseImageBuffer(result);
         if (!hit || !hit.buffer || !hit.buffer.length) {
-            throw new Error('Gemini generateContent 未回傳圖片');
+            throw interErr;
         }
         extracted = { buffer: hit.buffer, response_format: responseFormat };
-    } else {
-        try {
-            const input = buildPromoPortraitMoodLiteSwapInteractionsInput(personRef, sceneRef, prompt, stylingMode, styleOpts);
-            const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
-                model,
-                input,
-                response_format: responseFormat,
-                store: false
-            }));
-            const oi = interaction && interaction.output_image;
-            if (!oi || !oi.data) {
-                throw new Error('Gemini Interactions 未回傳圖片');
-            }
-            const buffer = Buffer.from(String(oi.data), 'base64');
-            if (!buffer.length) throw new Error('Gemini Interactions 圖片為空');
-            extracted = { buffer, response_format: responseFormat };
-        } catch (interErr) {
-            if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
-                throw markPromoPortraitExternalBlockErrorStatus(interErr);
-            }
-            console.warn('[promo-portrait mood-swap] interactions failed, fallback generateContent:', interErr && interErr.message);
-            apiUsed = 'generateContent';
-            const result = await runInGeminiImageQueue(() => geminiClient.models.generateContent({
-                model,
-                contents: [{ role: 'user', parts: buildPromoPortraitMoodLiteSwapGenerateParts(personRef, sceneRef, prompt, stylingMode, styleOpts) }],
-                config: promoSpaceGemini.buildPromoSpaceGeminiGenerateConfig(opts)
-            }));
-            const hit = await extractLargestGeminiResponseImageBuffer(result);
-            if (!hit || !hit.buffer || !hit.buffer.length) {
-                throw interErr;
-            }
-            extracted = { buffer: hit.buffer, response_format: responseFormat };
-        }
     }
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(extracted.buffer);
     let buffer = extracted.buffer;
@@ -1198,7 +969,6 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             targetHeight: lookDims.height,
             userPrompt: userPrompt,
             stylingMode,
-            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
@@ -1296,9 +1066,7 @@ async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt,
             minEdge: 1024,
             targetWidth: draftDims.width,
             targetHeight: draftDims.height,
-            generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId),
-            blockRetryClothingAdjust: extra && extra.blockRetryClothingAdjust === true,
-            preferGenerateContent: extra && extra.blockRetryClothingAdjust === true
+            generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
     if (!draft || !draft.buffer || !draft.buffer.length) {
@@ -1410,7 +1178,7 @@ async function buildPromoPortraitCameraBlock(cameraKeys) {
     };
 }
 
-/** 人像 Gemini Interactions：每次皆無狀態（新 client + store:false），400 重試也是全新事件 */
+/** 人像 Gemini Interactions：每次皆無狀態（新 client + store:false） */
 async function generatePromoPortraitImageViaInteractions(model, promptText, imageRefs, geminiOpts) {
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
@@ -1423,7 +1191,6 @@ async function generatePromoPortraitImageViaInteractions(model, promptText, imag
     console.log(
         '[promo-portrait interactions] model=', model,
         'generationId=', generationId,
-        'attempt=', opts.blockRetryClothingAdjust === true ? 2 : 1,
         'refs=', refs.length
     );
     const interaction = await runInGeminiImageQueue(() => geminiClient.interactions.create({
@@ -1477,23 +1244,17 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     const model = String(opts.model || '').trim() || await getPromoPortraitModelName();
     const refs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
     if (!refs.length) throw new Error('請上傳一張人像參考圖');
-    const useGenerateContent = opts.preferGenerateContent === true || opts.blockRetryClothingAdjust === true;
     let extracted;
-    let apiUsed = useGenerateContent ? 'generateContent' : 'interactions';
+    let apiUsed = 'interactions';
     let responseFormat = promoSpaceGemini.buildPromoSpaceInteractionsResponseFormat(opts);
     try {
-        if (useGenerateContent) {
-            extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
-        } else {
-            extracted = await generatePromoPortraitImageViaInteractions(model, prompt, refs, opts);
-            responseFormat = extracted.response_format || responseFormat;
-            apiUsed = extracted.api || apiUsed;
-        }
+        extracted = await generatePromoPortraitImageViaInteractions(model, prompt, refs, opts);
+        responseFormat = extracted.response_format || responseFormat;
+        apiUsed = extracted.api || apiUsed;
     } catch (interErr) {
         if (isPromoPortraitExternalImageGenBlockedError(interErr)) {
             throw markPromoPortraitExternalBlockErrorStatus(interErr);
         }
-        if (useGenerateContent) throw interErr;
         console.warn('[promo-portrait] interactions failed, fallback generateContent:', interErr && interErr.message);
         extracted = await runPromoPortraitGeminiGenerateContent(model, prompt, refs, opts, responseFormat);
         apiUsed = 'generateContent';
@@ -1718,8 +1479,7 @@ async function buildPromoPortraitFinalPrompt(opts) {
         height: o.height,
         tier: o.tier,
         minLongEdge: o.minLongEdge || portraitMinLongEdgeForTier(o.tier),
-        stylingMode: o.stylingMode || o.portrait_styling_mode,
-        blockRetryClothingAdjust: o.blockRetryClothingAdjust === true
+        stylingMode: o.stylingMode || o.portrait_styling_mode
     });
 }
 
@@ -3026,7 +2786,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodHybridLookPrompt = '';
         try {
             if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
-                const step = await runPromoPortraitMoodTwoStepWithBlockRetry(
+                const step = await runPromoPortraitMoodTwoStep(
                     imageRefs,
                     reverseMood ? '' : finalPrompt,
                     reverseMood ? fluxPrompt : buildPromoPortraitMoodFluxLookPrompt(cameraBlock),
@@ -3049,32 +2809,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         gender: portraitCast.gender,
                         cameraBlock: cameraBlock,
                         stylingMode: portraitStylingMode,
-                        generationId: sanitizePromoPortraitGenerationId(body.client_generation_id),
-                        retryPromptCtx: {
-                            mode: renderCtx.mode,
-                            renderMode: renderCtx.mode,
-                            pipeline: moodPipeline,
-                            reverseMood: reverseMood,
-                            stylingMode: portraitStylingMode,
-                            userId: currentUser && currentUser.id,
-                            clientChannel: clientChannel,
-                            themeKey: themeKey,
-                            themeParts: themeParts,
-                            sceneParts: sceneParts,
-                            userPrompt: userPrompt,
-                            shotBrief: renderCtx.mode === 'mood' ? '' : shotBrief,
-                            cameraBlock: cameraBlock,
-                            hasSceneImage: !!resolvedRefs.hasSceneImage,
-                            hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                            width: w,
-                            height: h,
-                            tier: spaceResTier,
-                            peopleCount: portraitCast.peopleCount,
-                            gender: portraitCast.gender,
-                            cast: portraitCast,
-                            draftWidth: moodDraftDims ? moodDraftDims.width : w,
-                            draftHeight: moodDraftDims ? moodDraftDims.height : h
-                        }
+                        generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     }
                 );
                 buffer = step.look && step.look.buffer;
@@ -3099,7 +2834,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     draftH = step.draftHeight;
                 }
             } else {
-                const gen = await generatePromoPortraitImageWithBlockRetry(
+                const gen = await generatePromoPortraitImage(
                     imageRefs,
                     finalPrompt,
                     fluxPrompt,
@@ -3112,26 +2847,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         aspect_ratio: aspectRatio,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     },
-                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
-                    {
-                        mode: 'clear',
-                        renderMode: renderCtx.mode,
-                        userId: currentUser && currentUser.id,
-                        clientChannel: clientChannel,
-                        stylingMode: portraitStylingMode,
-                        themeKey: themeKey,
-                        themeParts: themeParts,
-                        sceneParts: sceneParts,
-                        userPrompt: userPrompt,
-                        shotBrief: shotBrief,
-                        cameraBlock: cameraBlock,
-                        hasSceneImage: !!resolvedRefs.hasSceneImage,
-                        hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                        width: w,
-                        height: h,
-                        tier: spaceResTier,
-                        minLongEdge: portraitMinLongEdgeForTier(spaceResTier)
-                    }
+                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
                 );
                 buffer = gen && gen.buffer;
                 imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -3563,7 +3279,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         }
         let step;
         try {
-            step = await runPromoPortraitMoodTwoStepWithBlockRetry(
+            step = await runPromoPortraitMoodTwoStep(
                 imageRefs,
                 reverseMood ? '' : draftPrompt,
                 reverseMood ? draftPrompt : lookPrompt,
@@ -3579,34 +3295,19 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     gender: portraitCast.gender,
                     cameraBlock: cameraBlock,
                     stylingMode: portraitStylingMode,
-                    generationId: sanitizePromoPortraitGenerationId(body.client_generation_id),
-                    retryPromptCtx: {
-                        mode: renderCtx.mode,
-                        renderMode: renderCtx.mode,
-                        pipeline: moodPipeline,
-                        reverseMood: reverseMood,
-                        stylingMode: portraitStylingMode,
-                        userId: currentUser && currentUser.id,
-                        clientChannel: clientChannel,
-                        themeKey: themeKey,
-                        themeParts: themeParts,
-                        sceneParts: sceneParts,
-                        userPrompt: userPrompt,
-                        cameraBlock: cameraBlock,
-                        hasSceneImage: !!resolvedRefs.hasSceneImage,
-                        hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                        width: w,
-                        height: h,
-                        tier: spaceResTier,
-                        peopleCount: portraitCast.peopleCount,
-                        gender: portraitCast.gender,
-                        cast: portraitCast,
-                        draftWidth: reverseMood ? w : moodDraftDims.width,
-                        draftHeight: reverseMood ? h : moodDraftDims.height
-                    }
+                    generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                 }
             );
         } catch (genErr) {
+            if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
+                logPromoPortraitApiBlockEvent({
+                    userId: currentUser && currentUser.id,
+                    userPrompt: userPrompt,
+                    clientChannel: clientChannel,
+                    shootMode: renderCtx.mode,
+                    errorMessage: genErr && genErr.message
+                });
+            }
             console.error('promo-camera portrait mood:', genErr);
             return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
                 { success: false },
@@ -3827,7 +3528,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     let fluxModel = null;
     let imageProvider = 'gemini';
     try {
-        const gen = await generatePromoPortraitImageWithBlockRetry(
+        const gen = await generatePromoPortraitImage(
             imageRefs,
             finalPrompt,
             fluxPrompt,
@@ -3840,25 +3541,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 aspect_ratio: aspectRatio,
                 generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
             },
-            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) },
-            {
-                mode: 'clear',
-                renderMode: renderCtx.mode,
-                userId: currentUser && currentUser.id,
-                clientChannel: clientChannel,
-                stylingMode: portraitStylingMode,
-                themeKey: themeKey,
-                themeParts: themeParts,
-                sceneParts: sceneParts,
-                userPrompt: userPrompt,
-                cameraBlock: cameraBlock,
-                hasSceneImage: !!resolvedRefs.hasSceneImage,
-                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                width: w,
-                height: h,
-                tier: spaceResTier,
-                minLongEdge: portraitMinLongEdgeForTier(spaceResTier)
-            }
+            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
         );
         buffer = gen && gen.buffer;
         imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -3866,6 +3549,15 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         fluxModel = (gen && gen.flux_model) || null;
         if (imageProvider === 'flux' && fluxPrompt) finalPrompt = fluxPrompt;
     } catch (genErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
+            logPromoPortraitApiBlockEvent({
+                userId: currentUser && currentUser.id,
+                userPrompt: userPrompt,
+                clientChannel: clientChannel,
+                shootMode: renderCtx.mode,
+                errorMessage: genErr && genErr.message
+            });
+        }
         console.error('promo-camera portrait:', genErr);
         if (sendJsonImageGenError(res, genErr, { success: false })) return;
         return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
