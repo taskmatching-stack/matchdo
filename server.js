@@ -1515,7 +1515,7 @@ async function buildPromoPortraitFluxPrompt(opts) {
     } else {
         parts.push(poseLine);
     }
-    parts.push('生圖原則（必須遵守）：商用生活人像，不要情色感');
+    parts.push('生圖原則（必須遵守）：商用生活人像，***不要情色感***');
 
     if (cameraBlock) parts.push(cameraBlock);
     parts.push('No text, labels, logos, or watermarks in the image.');
