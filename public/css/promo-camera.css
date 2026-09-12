@@ -605,6 +605,10 @@ body.pc-embed-design #promo-camera-app .pc-build-tag {
   border-color: rgba(90, 130, 168, 0.42);
   color: #3d5a73;
 }
+#promo-camera-app .pc-spec-choice-input:disabled + .pc-spec-choice-btn {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 #promo-camera-app .pc-spec-choice-input:checked + .pc-spec-choice-btn.pc-tone-clear {
   border-color: var(--pc-space-setup);
   box-shadow: 0 0 0 1px var(--pc-space-setup);

@@ -342,20 +342,20 @@
               <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment</code> — 例如 grok-imagine-image-2.0、grok-imagine-image、grok-imagine-image-quality</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1" for="promoPortraitExperimentGrokQuality">畫質</label>
+              <label class="form-label small mb-1" for="promoPortraitExperimentGrokQuality">畫質（2.0 <code>quality</code>）</label>
               <select id="promoPortraitExperimentGrokQuality" class="form-select form-select-sm">
-                <option value="auto" selected>auto（官方預設）</option>
-                <option value="low">low</option>
-                <option value="medium">medium</option>
+                <option value="auto">auto — 官方預設（改圖目前多半等於 medium）</option>
+                <option value="medium">medium — 較高畫質（要拉畫質選這個）</option>
+                <option value="low">low — 較低畫質、較省額度</option>
               </select>
-              <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_grok_quality</code> — 僅 2.0 有效</p>
+              <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_grok_quality</code> — 人像實驗每次改圖都會帶此參數。僅 <code>grok-imagine-image-2.0</code> 有效；舊模型會忽略。選好後按下方「儲存 Grok 設定」。</p>
             </div>
             <div class="mb-3">
               <label class="form-label small mb-1" for="xaiApiKeyPortraitExperiment">xAI API 金鑰</label>
               <input type="password" id="xaiApiKeyPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="留空＝不變更" autocomplete="new-password" />
               <p class="form-text small text-muted mb-0" id="xaiApiKeyPortraitExperimentHint"><code>xai_api_key</code></p>
             </div>
-            <p class="form-text small text-muted mb-3">前台實驗模式開關與提示詞仍在上方「商攝導演」卡片；此處只存模型與金鑰。</p>
+            <p class="form-text small text-muted mb-3">前台實驗模式開關與提示詞仍在上方「商攝導演」卡片；此處存<strong>模型、畫質、金鑰</strong>。</p>
             <button type="button" class="btn btn-sm btn-dark" id="btnSaveGrokConfig">儲存 Grok 設定</button>
             <span id="grokConfigDbHint" class="small text-muted ms-2"></span>
           </div>

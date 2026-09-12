@@ -49,6 +49,7 @@
 | 誰享有 | **僅方案三、方案四**（月費 ≥900；`hasPromoCameraPointDiscount`） |
 | 產品 1 MP | 免費／方案二 **20**；方案三／四 **15** |
 | 人像 1／4／16 MP | 免費／方案二 **20／30／50**；方案三／四 **15／25／45** |
+| 人像實驗 1／4 MP | 獨立價（預設 **20／30**），**不套 −5**。後台 `/admin/membership.html` |
 
 表上「約可拍幾張」與上列一致。方案頁文案見 `public/subscription-plans.html` 與 `pricing.*` locales。
 

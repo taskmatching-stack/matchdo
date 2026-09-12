@@ -697,7 +697,7 @@ function promoPortraitBlockedClientPayload(genErr) {
         return { error: sanitizeUserFacingImageGenError((genErr && genErr.message) || '') };
     }
     return Object.assign({
-        error: '外部生圖審核未通過，請調整參考圖的姿勢與構圖，或將衣著設定改為依場景後再試。',
+        error: '外部生圖審核未通過，請調整參考圖的姿勢與構圖，或將衣著設定改為依場景後再試。連續未通過外部審核，網站會限流；若需放寬尺度請使用實驗模式（方案三以上）。',
         code: 'image_gen_blocked'
     }, promoPortraitReviewHelpLinkFields());
 }
@@ -716,6 +716,7 @@ function logPromoPortraitApiBlockEvent(opts) {
         clientChannel: o.clientChannel,
         shootMode: o.shootMode || 'portrait'
     });
+    if (o.userId) recordPromptReviewBlock(o.userId).catch(function () {});
 }
 
 function buildPromoPortraitMoodCastHint(cast) {
@@ -753,7 +754,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         const copyBits = mode === 'reference'
             ? 'copy the person from image 1 only; keep garment style and colors from image 1'
             : 'copy the person from image 1 only (do not keep the original outfit)';
-        parts.push('***Ignore the original pose***, ' + copyBits + '; match perspective to image 2 furniture and scene. ***no erotic tone***.');
+        parts.push('***Ignore the original pose***, ' + copyBits + '; match perspective to image 2 furniture and scene.');
     }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
@@ -908,8 +909,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
-    const noErotic = '***no erotic tone***.';
-    if (cam.indexOf('重新拍攝') !== -1) return (cam + ' ' + noErotic).trim();
+    if (cam.indexOf('重新拍攝') !== -1) return cam.trim();
     return [
         '這不是濾鏡、不是調色疊加。',
         '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
@@ -917,8 +917,7 @@ function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
         '畫面要清晰透亮、對比乾淨，不要整體霧化、柔焦蒙霧、灰霧或低對比發灰。',
         '保留人物與環境細節與邊緣銳度，不要柔糊一片。',
         '不要暗角。No vignette, no heavy haze, no soft focus veil.',
-        cam,
-        noErotic
+        cam
     ].join('');
 }
 
@@ -1138,13 +1137,17 @@ async function getPromoPortraitPointsConfig() {
     const defaults = {
         standard_1mp: 20,
         standard_4mp: 30,
-        standard_16mp: 50
+        standard_16mp: 50,
+        experiment_1mp: 20,
+        experiment_4mp: 30
     };
     try {
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
             'points_promo_camera_portrait_1mp',
             'points_promo_camera_portrait_4mp',
-            'points_promo_camera_portrait_16mp'
+            'points_promo_camera_portrait_16mp',
+            'points_promo_camera_portrait_experiment_1mp',
+            'points_promo_camera_portrait_experiment_4mp'
         ]);
         const obj = {};
         (rows || []).forEach(function (r) { obj[r.key] = r.value; });
@@ -1155,7 +1158,9 @@ async function getPromoPortraitPointsConfig() {
         return {
             standard_1mp: n('points_promo_camera_portrait_1mp', defaults.standard_1mp),
             standard_4mp: n('points_promo_camera_portrait_4mp', defaults.standard_4mp),
-            standard_16mp: n('points_promo_camera_portrait_16mp', defaults.standard_16mp)
+            standard_16mp: n('points_promo_camera_portrait_16mp', defaults.standard_16mp),
+            experiment_1mp: n('points_promo_camera_portrait_experiment_1mp', defaults.experiment_1mp),
+            experiment_4mp: n('points_promo_camera_portrait_experiment_4mp', defaults.experiment_4mp)
         };
     } catch (_) {
         return defaults;
@@ -1170,11 +1175,17 @@ function promoCameraSubscriberFromStandard(standardPoints) {
 }
 
 /**
- * 人像點數（對外一律用 MP）：一般 20／30／50；方案三／四各少 5 點 → 15／25／45
+ * 人像點數（對外一律用 MP）：清晰／氛圍／混合一般 20／30／50；方案三／四各少 5 點 → 15／25／45。
+ * 實驗模式用獨立價（1／4 MP），不套訂閱 −5。
  */
-async function getPointsPromoCameraPortrait(userId, tier) {
+async function getPointsPromoCameraPortrait(userId, tier, renderMode) {
     const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
     const cfg = await getPromoPortraitPointsConfig();
+    const mode = normalizePromoPortraitRenderMode(renderMode);
+    if (mode === 'experiment') {
+        if (t === '1k') return cfg.experiment_1mp;
+        return cfg.experiment_4mp;
+    }
     const isSub = !!(userId && await hasPromoCameraPointDiscount(userId));
     let standard = cfg.standard_4mp;
     if (t === '4k') standard = cfg.standard_16mp;
@@ -2490,12 +2501,11 @@ async function expandPortraitShotBriefsWithGeminiLite(opts) {
     }
 }
 
-/** 人像描述審核：攔截門檻不變；潤飾標準放寬（下游生圖已帶商用構圖／不要情色感）。 */
+/** 人像描述審核：攔截門檻不變；潤飾標準放寬。生圖提示詞不再加「不要情色感」。 */
 const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
     'You review user descriptions before commercial PORTRAIT generation (Gemini and/or FLUX).',
     'Auto-polish may rewrite descriptions, but the bar for rewriting is now HIGHER, not lower for blocking.',
-    'The image pipeline ALREADY adds commercial lifestyle framing and avoids erotic/suggestive composition in the final generation prompt (especially when keeping outfit from a reference upload).',
-    'Therefore: default to ok=true and leave the user text unchanged. Only rewrite when the description would clearly cause those APIs to hard-block generation.',
+    'Default to ok=true and leave the user text unchanged. Only rewrite when the description would clearly cause those APIs to hard-block generation.',
     'When unsure between ok=true and a mild rewrite, ALWAYS choose ok=true with rewritten empty.',
     'Align with those APIs: Gemini forbids sexually explicit images, CSAM, and non-consensual intimate imagery; FLUX Usage Policy forbids sexual/intimate depiction of a real person without consent, CSAM/NCII, and any sexual/obscene/harmful depiction of minors.',
     'Judge ONLY the user description. Ignore system camera, theme, film, or lens wording.',
@@ -2531,7 +2541,7 @@ const PROMO_PORTRAIT_PROMPT_REVIEW_INSTRUCTION = [
 function buildPromoPortraitPromptReviewModeNote(stylingMode) {
     const mode = promoPortraitStyling.normalizePortraitStylingMode(stylingMode);
     if (mode === 'reference') {
-        return 'Outfit styling mode: reference (keep upload garment). Final generation reframes as commercial, non-suggestive portrait—do not auto-polish merely provocative fashion wording.';
+        return 'Outfit styling mode: reference (keep upload garment). Do not auto-polish merely provocative fashion wording.';
     }
     if (mode === 'scene') {
         return 'Outfit styling mode: scene (clothing from theme/scene, not upload).';
@@ -2721,6 +2731,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         return { base64: b64, mime: 'image/jpeg' };
     });
     const renderCtx = await resolvePromoPortraitRenderContext(body);
+    if (!(await assertPromoPortraitExperimentAllowed(currentUser && currentUser.id, renderCtx.mode, res))) return;
     const outDims = await resolvePromoPortraitOutputDims(body, renderCtx.engine);
     const w = outDims.width;
     const h = outDims.height;
@@ -2770,7 +2781,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         Object.assign({}, body, { shoot_mode: 'portrait' })
     );
 
-    const pointsPerShot = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier);
+    const pointsPerShot = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier, renderCtx.mode);
     const totalPointsRequired = pointsPerShot * outputCount;
     if (!isAdmin && totalPointsRequired > 0) {
         const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, totalPointsRequired);
@@ -3306,6 +3317,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         return { base64: b64, mime: 'image/jpeg' };
     });
     const renderCtx = await resolvePromoPortraitRenderContext(body);
+    if (!(await assertPromoPortraitExperimentAllowed(currentUser && currentUser.id, renderCtx.mode, res))) return;
     const outDims = await resolvePromoPortraitOutputDims(body, renderCtx.engine);
     const w = outDims.width;
     const h = outDims.height;
@@ -3355,7 +3367,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         Object.assign({}, body, { shoot_mode: 'portrait' })
     );
 
-    const pointsToDeduct = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier);
+    const pointsToDeduct = await getPointsPromoCameraPortrait(currentUser.id, spaceResTier, renderCtx.mode);
     if (!isAdmin && pointsToDeduct > 0) {
         const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, pointsToDeduct);
         if (!sufficient) {
@@ -4901,6 +4913,26 @@ function isPromoPortraitTwoStepMode(mode) {
 
 function isPromoPortraitFluxExperimentMode(mode) {
     return mode === 'experiment';
+}
+
+const PORTRAIT_EXPERIMENT_PLAN_ERROR = '實驗模式限方案三以上使用';
+
+/** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
+async function canUsePromoPortraitExperiment(userId) {
+    if (!userId) return false;
+    if (await isStaffProfileUserId(userId)) return true;
+    return hasPromoCameraPointDiscount(userId);
+}
+
+async function assertPromoPortraitExperimentAllowed(userId, renderMode, res) {
+    if (normalizePromoPortraitRenderMode(renderMode) !== 'experiment') return true;
+    if (await canUsePromoPortraitExperiment(userId)) return true;
+    res.status(403).json({
+        success: false,
+        error: PORTRAIT_EXPERIMENT_PLAN_ERROR,
+        code: 'portrait_experiment_plan_required'
+    });
+    return false;
 }
 
 /** 實驗模式：清晰那套提示詞前面加 FLUX 優先句（鎖同一個人、換姿勢） */
@@ -14539,7 +14571,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_print_asset_flux', 'points_portfolio_series_create', 'points_portfolio_comparison_create',             'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp',             'points_promo_camera_portrait_1mp', 'points_promo_camera_portrait_4mp', 'points_promo_camera_portrait_16mp', 'points_promo_space_layout_gemini', 'points_promo_space_layout_gemini_4k', 'points_promo_space_eye_level_gemini', 'points_promo_space_eye_level_gemini_4k', 'points_promo_planning_sim', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_material_dual_color_flux', 'points_print_asset_flux', 'points_portfolio_series_create', 'points_portfolio_comparison_create',             'points_promo_image_standard', 'points_promo_image_subscriber', 'points_promo_image_base', 'points_promo_camera_standard', 'points_promo_camera_subscriber', 'points_promo_camera_per_extra_mp',             'points_promo_camera_portrait_1mp', 'points_promo_camera_portrait_4mp', 'points_promo_camera_portrait_16mp', 'points_promo_camera_portrait_experiment_1mp', 'points_promo_camera_portrait_experiment_4mp', 'points_promo_space_layout_gemini', 'points_promo_space_layout_gemini_4k', 'points_promo_space_eye_level_gemini', 'points_promo_space_eye_level_gemini_4k', 'points_promo_planning_sim', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -14581,6 +14613,8 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_promo_camera_portrait_1mp: parseInt(obj.points_promo_camera_portrait_1mp, 10) || 20,
             points_promo_camera_portrait_4mp: parseInt(obj.points_promo_camera_portrait_4mp, 10) || 30,
             points_promo_camera_portrait_16mp: parseInt(obj.points_promo_camera_portrait_16mp, 10) || 50,
+            points_promo_camera_portrait_experiment_1mp: parseInt(obj.points_promo_camera_portrait_experiment_1mp, 10) || 20,
+            points_promo_camera_portrait_experiment_4mp: parseInt(obj.points_promo_camera_portrait_experiment_4mp, 10) || 30,
             points_promo_space_layout_gemini: parseInt(obj.points_promo_space_layout_gemini, 10) || 30,
             points_promo_space_layout_gemini_4k: parseInt(obj.points_promo_space_layout_gemini_4k, 10) || 50,
             points_promo_space_eye_level_gemini: parseInt(obj.points_promo_space_eye_level_gemini, 10) || 30,
@@ -14634,6 +14668,8 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_promo_camera_portrait_1mp !== undefined) await upsert('points_promo_camera_portrait_1mp', body.points_promo_camera_portrait_1mp);
         if (body.points_promo_camera_portrait_4mp !== undefined) await upsert('points_promo_camera_portrait_4mp', body.points_promo_camera_portrait_4mp);
         if (body.points_promo_camera_portrait_16mp !== undefined) await upsert('points_promo_camera_portrait_16mp', body.points_promo_camera_portrait_16mp);
+        if (body.points_promo_camera_portrait_experiment_1mp !== undefined) await upsert('points_promo_camera_portrait_experiment_1mp', body.points_promo_camera_portrait_experiment_1mp);
+        if (body.points_promo_camera_portrait_experiment_4mp !== undefined) await upsert('points_promo_camera_portrait_experiment_4mp', body.points_promo_camera_portrait_experiment_4mp);
         if (body.points_promo_space_layout_gemini !== undefined) await upsert('points_promo_space_layout_gemini', body.points_promo_space_layout_gemini);
         if (body.points_promo_space_layout_gemini_4k !== undefined) await upsert('points_promo_space_layout_gemini_4k', body.points_promo_space_layout_gemini_4k);
         if (body.points_promo_space_eye_level_gemini !== undefined) await upsert('points_promo_space_eye_level_gemini', body.points_promo_space_eye_level_gemini);
@@ -21022,19 +21058,29 @@ app.get('/api/promo-camera/options', async (req, res) => {
 
         const pointsCfg = await getPromoCameraPointsConfig();
         let pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, null);
+        let optionsUserId = null;
         try {
             const authHeader = req.headers.authorization;
             if (authHeader) {
                 const token = authHeader.replace(/^\s*Bearer\s+/i, '');
                 const { data: { user } } = await supabase.auth.getUser(token);
-                if (user) pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, user.id);
+                if (user) {
+                    optionsUserId = user.id;
+                    pointsForUser = await getPointsPromoCameraForResolution(1024, 1024, user.id);
+                }
             }
         } catch (_) {}
 
         const portraitEngine = await getPromoPortraitEngine();
         const clearEng = await getPromoPortraitEngineForRenderMode('clear');
         const moodEng = await getPromoPortraitEngineForRenderMode('mood');
-        const portraitDefaultMode = await getPromoPortraitDefaultRenderMode();
+        const portraitExperimentAllowed = optionsUserId
+            ? await canUsePromoPortraitExperiment(optionsUserId)
+            : false;
+        const portraitDefaultModeRaw = await getPromoPortraitDefaultRenderMode();
+        const portraitDefaultMode = (!portraitExperimentAllowed && portraitDefaultModeRaw === 'experiment')
+            ? 'clear'
+            : portraitDefaultModeRaw;
         const moodPipeline = await getPromoPortraitMoodPipeline();
         const moodMpTiers = moodPipeline === 'flux_then_lite' ? [1, 4, 16] : (moodEng === 'flux' ? [1, 4] : [1, 4, 16]);
 
@@ -21097,13 +21143,16 @@ app.get('/api/promo-camera/options', async (req, res) => {
             points_portrait_1mp: await getPointsPromoCameraPortrait(null, '1k'),
             points_portrait_4mp: await getPointsPromoCameraPortrait(null, '2k'),
             points_portrait_16mp: await getPointsPromoCameraPortrait(null, '4k'),
+            points_portrait_experiment_1mp: await getPointsPromoCameraPortrait(null, '1k', 'experiment'),
+            points_portrait_experiment_4mp: await getPointsPromoCameraPortrait(null, '2k', 'experiment'),
             promo_portrait_engine: portraitEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
+            portrait_experiment_allowed: portraitExperimentAllowed,
             portrait_render_modes: {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
                 hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' },
-                experiment: { engine: 'grok', mp_tiers: [1, 4] }
+                experiment: { engine: 'grok', mp_tiers: [1, 4], allowed: portraitExperimentAllowed }
             },
             portrait_mp_tiers: portraitDefaultMode === 'mood' ? moodMpTiers : (clearEng === 'flux' ? [1, 4] : [1, 4, 16])
         });
@@ -21137,18 +21186,26 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
         const aspectRatioQ = String(req.query.aspect_ratio || '1:1').trim() || '1:1';
         const cfg = await getPromoCameraPointsConfig();
         if (shootMode === 'portrait') {
+            const portraitRenderMode = normalizePromoPortraitRenderMode(
+                req.query.portrait_render_mode || req.query.render_mode
+            );
+            const isExperiment = portraitRenderMode === 'experiment';
+            let billingTier = spaceResTier;
+            if (isExperiment && billingTier === '4k') billingTier = '2k';
             const portraitDims = promoSpaceGemini.resolveSpaceOutputDimensions({
-                tier: spaceResTier,
+                tier: billingTier,
                 aspect_ratio: aspectRatioQ,
                 width: w,
                 height: h
             });
             const portraitCount = normalizePortraitOutputCount(req.query.output_count);
-            const pointsPer = await getPointsPromoCameraPortrait(userId, spaceResTier);
+            const pointsPer = await getPointsPromoCameraPortrait(userId, billingTier, portraitRenderMode);
             const portraitCfg = await getPromoPortraitPointsConfig();
-            const isSubscriber = !!(userId && await hasPromoCameraPointDiscount(userId));
-            const tierKey = spaceResTier === '4k' ? '16mp' : (spaceResTier === '1k' ? '1mp' : '4mp');
-            const standardBase = portraitCfg['standard_' + tierKey];
+            const isSubscriber = !isExperiment && !!(userId && await hasPromoCameraPointDiscount(userId));
+            const tierKey = billingTier === '4k' ? '16mp' : (billingTier === '1k' ? '1mp' : '4mp');
+            const standardBase = isExperiment
+                ? (billingTier === '1k' ? portraitCfg.experiment_1mp : portraitCfg.experiment_4mp)
+                : portraitCfg['standard_' + tierKey];
             return res.json({
                 width: portraitDims.width,
                 height: portraitDims.height,
@@ -21160,12 +21217,13 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
                 points_per_shot: pointsPer,
                 output_count: portraitCount,
                 points_standard_base: standardBase,
-                points_subscriber_base: promoCameraSubscriberFromStandard(standardBase),
+                points_subscriber_base: isExperiment ? standardBase : promoCameraSubscriberFromStandard(standardBase),
                 points_per_extra_mp: cfg.perExtraMp,
                 is_subscriber_pricing: isSubscriber,
-                pricing_mode: 'portrait_gemini_tier',
+                pricing_mode: isExperiment ? 'portrait_experiment_tier' : 'portrait_gemini_tier',
                 shoot_mode: 'portrait',
-                space_resolution_tier: spaceResTier
+                portrait_render_mode: portraitRenderMode || 'clear',
+                space_resolution_tier: billingTier
             });
         }
         if (shootMode === 'space' && spaceOutputType === 'layout_plan') {

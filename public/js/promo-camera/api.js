@@ -40,6 +40,7 @@
     if (opts.aspect_ratio) q += '&aspect_ratio=' + encodeURIComponent(opts.aspect_ratio);
     if (opts.shot_count) q += '&shot_count=' + encodeURIComponent(opts.shot_count);
     if (opts.output_count) q += '&output_count=' + encodeURIComponent(opts.output_count);
+    if (opts.portrait_render_mode) q += '&portrait_render_mode=' + encodeURIComponent(opts.portrait_render_mode);
     return authHeaders(false).then(function (headers) {
       return fetch('/api/promo-camera/points-preview' + q, { headers: headers }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, data: data }; });

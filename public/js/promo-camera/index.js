@@ -964,11 +964,11 @@
     var stylingHint = document.getElementById('pcPortraitStylingHint');
     if (stylingHint) {
       if (mode === 'scene') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；構圖預設商用、避免情色感；忽略原圖姿勢；描述可寫姿勢、表情等。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。若需放寬尺度請用實驗模式（方案三以上）。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；構圖預設商用、避免情色感；忽略原圖姿勢。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。若需放寬尺度請用實驗模式（方案三以上）。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；構圖預設商用、避免情色感；忽略原圖姿勢；描述可調髮型、表情與姿勢。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。若需放寬尺度請用實驗模式（方案三以上）。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -1002,7 +1002,45 @@
     }
   }
 
+  function portraitExperimentAllowed() {
+    var opts = St.get().options || {};
+    return opts.portrait_experiment_allowed === true;
+  }
+
+  function syncPortraitExperimentAccess() {
+    var allowed = portraitExperimentAllowed();
+    var expEl = document.getElementById('pcPortraitRenderExperiment');
+    var hintText = t('promoCamera.renderExperimentPlanHint', '實驗模式限方案三以上');
+    if (expEl) {
+      expEl.disabled = !allowed;
+      expEl.title = allowed ? '' : hintText;
+      var lab = document.querySelector('label[for="pcPortraitRenderExperiment"]');
+      if (lab) {
+        lab.classList.toggle('is-disabled', !allowed);
+        lab.title = allowed ? '' : hintText;
+      }
+    }
+    var hint = document.getElementById('pcPortraitExperimentPlanHint');
+    if (!hint && expEl) {
+      var body = expEl.closest('.pc-spec-body');
+      if (body) {
+        hint = document.createElement('p');
+        hint.id = 'pcPortraitExperimentPlanHint';
+        hint.className = 'form-text small text-muted mb-0 mt-1';
+        body.appendChild(hint);
+      }
+    }
+    if (hint) {
+      hint.textContent = hintText;
+      hint.classList.toggle('d-none', allowed);
+    }
+    if (!allowed && portraitRenderMode() === 'experiment' && St.setPortraitRenderMode) {
+      St.setPortraitRenderMode('clear');
+    }
+  }
+
   function syncPortraitRenderModeUi() {
+    syncPortraitExperimentAccess();
     var mode = portraitRenderMode();
     var clearEl = document.getElementById('pcPortraitRenderClear');
     var moodEl = document.getElementById('pcPortraitRenderMood');
@@ -1102,7 +1140,7 @@
     if (!clearEl || clearEl.getAttribute('data-pc-bound') === '1') return;
     function onChange() {
       var v = 'clear';
-      if (expEl && expEl.checked) v = 'experiment';
+      if (expEl && expEl.checked && !expEl.disabled) v = 'experiment';
       else if (hybridEl && hybridEl.checked) v = 'hybrid';
       else if (moodEl && moodEl.checked) v = 'mood';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
@@ -1151,6 +1189,11 @@
   function portraitPointsForTier(opts, tier) {
     var o = opts || {};
     var t = String(tier || '2k').toLowerCase();
+    var experiment = String(St.get().portraitRenderMode || '').toLowerCase() === 'experiment';
+    if (experiment) {
+      if (t === '1k') return o.points_portrait_experiment_1mp != null ? o.points_portrait_experiment_1mp : 20;
+      return o.points_portrait_experiment_4mp != null ? o.points_portrait_experiment_4mp : 30;
+    }
     if (t === '1k') return o.points_portrait_1mp != null ? o.points_portrait_1mp : 20;
     if (t === '4k') return o.points_portrait_16mp != null ? o.points_portrait_16mp : 50;
     return o.points_portrait_4mp != null ? o.points_portrait_4mp : 30;
@@ -2438,6 +2481,7 @@
       if (isPortraitMode()) {
         previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
         previewOpts.output_count = St.get().outputCount || 1;
+        previewOpts.portrait_render_mode = St.get().portraitRenderMode || 'clear';
         if (St.applySpaceDimensions) {
           St.applySpaceDimensions(St.get().aspectRatio || '1:1', previewOpts.space_resolution_tier);
         }
@@ -2454,7 +2498,7 @@
     Api.pointsPreview(st.width, st.height, previewOpts).then(function (res) {
       if (res.ok && res.data && res.data.points != null) {
         var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
-        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_tier' && res.data.pricing_mode !== 'portrait_gemini_2k'
+        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_tier' && res.data.pricing_mode !== 'portrait_gemini_2k' && res.data.pricing_mode !== 'portrait_experiment_tier'
           ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
           : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
         el.textContent = text + note;

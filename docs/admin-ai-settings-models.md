@@ -59,7 +59,7 @@
 | 後台欄位 | `payment_config.key` | 程式預設 | 用途 |
 |----------|----------------------|----------|------|
 | 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像實驗；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
-| 畫質 | `promo_portrait_experiment_grok_quality` | `auto` | `auto`／`low`／`medium`（僅 2.0 有效） |
+| 畫質 | `promo_portrait_experiment_grok_quality` | `auto` | 後台下拉：`auto`／`medium`／`low`。僅 2.0 有效。改圖時 `auto` 官方目前多半等於 `medium`；要明確拉畫質請存 `medium`。 |
 | xAI API 金鑰 | `xai_api_key` | （無） | 優先環境變數 `XAI_API_KEY`／`GROK_API_KEY`；GET 永不回傳密文 |
 
 預付額度在 [console.x.ai](https://console.x.ai) 儲值（不是 SuperGrok）。平台用量監控可查推論金鑰連線；預付美元需另設 `XAI_MANAGEMENT_API_KEY`。
