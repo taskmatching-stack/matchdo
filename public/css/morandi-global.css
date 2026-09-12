@@ -102,10 +102,10 @@ body {
 .border-primary { border-color: var(--md-primary) !important; }
 .bg-primary { background-color: var(--md-primary) !important; }
 
-a:not(.btn):not(.dropdown-item):not(.nav-link) {
+a:not(.btn):not(.dropdown-item):not(.nav-link):not(.nav-cp-link) {
     color: var(--md-primary);
 }
-a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
+a:not(.btn):not(.dropdown-item):not(.nav-link):not(.nav-cp-link):hover {
     color: var(--md-primary-dark);
 }
 

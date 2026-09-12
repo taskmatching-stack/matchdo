@@ -51,7 +51,7 @@ function matchdoResolvePublicLang() {
         var _m = document.createElement('link');
         _m.id = 'morandi-global-css';
         _m.rel = 'stylesheet';
-        _m.href = '/css/morandi-global.css?v=11';
+        _m.href = '/css/morandi-global.css?v=12';
         document.head.appendChild(_m);
     }
     // nav-cp-menu.css 由 style.css @import 載入（勿在此重複注入）

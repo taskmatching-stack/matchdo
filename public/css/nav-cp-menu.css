@@ -38,13 +38,13 @@
 .nav-cp-menu .nav-cp-link--design {
     padding: 0.55rem 1rem;
     background: #7A8FA3;
-    color: #fff;
+    color: #fff !important;
     font-weight: 600;
 }
 .nav-cp-menu .nav-cp-link--design:hover,
 .nav-cp-menu .nav-cp-link--design:focus {
     background: #657A8E;
-    color: #fff;
+    color: #fff !important;
 }
 .nav-cp-menu .nav-cp-link--design i {
     color: #fff;
