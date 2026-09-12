@@ -474,10 +474,10 @@
       var helpHtml = '';
       var helpHref = String(opts.errorHelpHref || '').trim();
       if (helpHref && /^(https?:\/\/|\/)/i.test(helpHref)) {
-        helpHtml = '<p class="small mb-0 mt-1"><a href="' + escHtml(helpHref) + '" target="_blank" rel="noopener">'
+        helpHtml = '<p class="pc-review-warning-help mb-0 mt-1"><a href="' + escHtml(helpHref) + '" target="_blank" rel="noopener">'
           + escHtml(opts.errorHelpLabel || '查看說明') + '</a></p>';
       }
-      container.innerHTML = '<p class="text-danger small mb-0">' + escHtml(opts.errorText) + '</p>' + helpHtml + noteHtml;
+      container.innerHTML = '<p class="pc-review-warning mb-0">' + escHtml(opts.errorText) + '</p>' + helpHtml + noteHtml;
       return;
     }
     if (opts.loadingText) {

@@ -620,7 +620,7 @@
     })[0];
     if (blockedFail && !isSpaceMode()) {
       var helpP = document.createElement('p');
-      helpP.className = 'small mb-0 mt-2';
+      helpP.className = 'pc-review-warning mb-0 mt-2';
       helpP.appendChild(document.createTextNode((blockedFail.error || '部分張次未通過審核') + ' '));
       var helpA = document.createElement('a');
       helpA.href = portraitReviewHelpHref(blockedFail.help_url);

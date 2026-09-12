@@ -73,6 +73,24 @@
   letter-spacing: 0.04em;
   color: #C4784A;
 }
+#promo-camera-app .pc-review-warning {
+  margin: 0.35rem 0 0.15rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #C4784A;
+}
+#promo-camera-app .pc-review-warning-help {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+#promo-camera-app #pcPortraitStylingHint {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #C4784A;
+}
 #promo-camera-app .pc-result-slot .scene-sim-result-inner img {
   max-width: 100%;
   height: auto;
