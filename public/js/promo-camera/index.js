@@ -1167,7 +1167,7 @@
     var eng = pack && pack.engine
       ? String(pack.engine).toLowerCase()
       : String(opts.promo_portrait_engine || '').toLowerCase();
-    if (eng === 'flux' || mode === 'mood' || mode === 'experiment') return [1, 4];
+    if (eng === 'flux' || eng === 'grok' || mode === 'mood' || mode === 'experiment') return [1, 4];
     if (Array.isArray(opts.portrait_mp_tiers) && opts.portrait_mp_tiers.length) {
       var tiers = opts.portrait_mp_tiers.map(function (n) { return parseInt(n, 10); }).filter(function (n) { return n > 0; });
       if (tiers.length) return tiers;

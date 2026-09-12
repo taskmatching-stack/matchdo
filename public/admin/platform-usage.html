@@ -71,6 +71,7 @@
                   <a class="btn btn-sm btn-outline-secondary" href="https://api.bfl.ai/" target="_blank" rel="noopener">BFL</a>
                   <a class="btn btn-sm btn-outline-secondary" href="https://replicate.com/account/billing" target="_blank" rel="noopener">Replicate</a>
                   <a class="btn btn-sm btn-outline-secondary" href="https://platform.stability.ai/account/credits" target="_blank" rel="noopener">Stability</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="https://console.x.ai" target="_blank" rel="noopener">xAI Grok</a>
                   <a class="btn btn-sm btn-outline-secondary" href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">GCP 帳單</a>
                 </div>
               </div>
@@ -246,6 +247,20 @@
       } else {
         cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Replicate</div><div class="text-muted small">' + esc(rep.error || '—') + '</div></div></div>');
       }
+      var grok = vb.grok || {};
+      var grokSub = [];
+      if (grok.name) grokSub.push(grok.name);
+      if (grok.api_key_blocked) grokSub.push('金鑰已封鎖');
+      if (grok.key_source === 'env') grokSub.push('環境變數');
+      else if (grok.key_source === 'db') grokSub.push('後台金鑰');
+      if (grok.balance_error) grokSub.push(grok.balance_error);
+      if (grok.credits_usd != null && grok.connected && !grok.error) {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Grok 預付</div><div class="stat-num">$' + Number(grok.credits_usd).toFixed(2) + '</div><div class="text-muted" style="font-size:0.7rem">' + esc(grokSub.join(' · ') || 'Management API') + '</div></div></div>');
+      } else if (grok.connected && !grok.error) {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Grok（xAI）</div><div class="small">已連線</div><div class="text-muted" style="font-size:0.7rem">' + esc(grokSub.join(' · ') || '推論金鑰無餘額 API') + '</div></div></div>');
+      } else {
+        cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Grok（xAI）</div><div class="text-muted small">' + esc(grok.error || '—') + '</div></div></div>');
+      }
       document.getElementById('vendorBalanceCards').innerHTML = cards.join('');
     }
     function renderExternalApis(ext) {
@@ -287,6 +302,9 @@
       }
       if (m.flux_promo_generations != null && m.promo_total_generations != null) {
         proxyParts.push('商攝 FLUX：' + m.flux_promo_generations + '／' + m.promo_total_generations + ' 件');
+      }
+      if (m.grok_promo_generations != null && m.promo_total_generations != null) {
+        proxyParts.push('商攝 Grok：' + m.grok_promo_generations + '／' + m.promo_total_generations + ' 件');
       }
       if (m.replicate_upscale != null) {
         proxyParts.push('Replicate 放大扣點：' + m.replicate_upscale + ' 次');
