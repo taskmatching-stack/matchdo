@@ -741,7 +741,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
         const copyBits = mode === 'reference'
             ? '只複製第一張的人物與衣著'
             : '只複製第一張的人物（衣著不跟原圖）';
-        parts.push('***忽略原圖姿勢***，***姿勢依場景***（可站可坐可倚靠），' + copyBits + '；透視與第二張場景、家具一致。***不要情色感***。');
+        parts.push('***忽略原圖姿勢***，' + copyBits + '；透視與第二張場景、家具一致。***不要情色感***。');
     }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
