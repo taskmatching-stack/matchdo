@@ -1708,7 +1708,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             stylingMode: portraitStylingMode
         });
     if (isExperiment) {
-        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt);
+        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt, portraitStylingMode);
     }
     const engine = isMood ? 'flux' : (isExperiment ? 'flux' : renderCtx.engine);
     const experimentPromptUpsampling = isExperiment
@@ -2834,7 +2834,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     stylingMode: portraitStylingMode
                 });
             if (renderCtx.mode === 'experiment') {
-                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt);
+                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
                 finalPrompt = fluxPrompt;
             }
         } catch (promptErr) {
@@ -3612,7 +3612,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             stylingMode: portraitStylingMode
         });
         if (renderCtx.mode === 'experiment') {
-            fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt);
+            fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
             finalPrompt = fluxPrompt;
         }
     } catch (promptErr) {
@@ -4822,14 +4822,16 @@ function isPromoPortraitFluxExperimentMode(mode) {
     return mode === 'experiment';
 }
 
-/** 實驗模式：與清晰同一套 Gemini 提示詞，圖後忽略姿勢併進單一字串給 FLUX */
-function buildPromoPortraitFluxExperimentPrompt(geminiPrompt) {
+/** 實驗模式：清晰那套提示詞前面加 FLUX 優先句（鎖同一個人、換姿勢） */
+function buildPromoPortraitFluxExperimentPrompt(geminiPrompt, stylingMode) {
+    const lead = promoPortraitStyling.buildPortraitFluxExperimentPriorityLead(stylingMode);
     const main = String(geminiPrompt || '').trim();
     const trail = promoPortraitStyling.buildPortraitIgnoreRefPoseTrailingLine();
-    if (!main) return trail;
-    if (!trail) return main;
-    if (main.indexOf(trail) !== -1) return main;
-    return main + ' ' + trail;
+    const parts = [];
+    if (lead) parts.push(lead);
+    if (main) parts.push(main);
+    if (trail && (!main || main.indexOf(trail) === -1)) parts.push(trail);
+    return parts.join(' ');
 }
 
 async function getPromoPortraitDefaultRenderMode() {
