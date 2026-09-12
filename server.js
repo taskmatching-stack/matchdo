@@ -4935,7 +4935,7 @@ async function assertPromoPortraitExperimentAllowed(userId, renderMode, res) {
     return false;
 }
 
-/** 實驗模式：清晰那套提示詞前面加 FLUX 優先句（鎖同一個人、換姿勢） */
+/** 實驗模式：清晰那套提示詞前面加優先句（鎖同一個人、換姿勢）。Grok 常自行加電影暗角，明確禁止。 */
 function buildPromoPortraitFluxExperimentPrompt(geminiPrompt, stylingMode) {
     const lead = promoPortraitStyling.buildPortraitFluxExperimentPriorityLead(stylingMode);
     const main = String(geminiPrompt || '').trim();
@@ -4944,6 +4944,7 @@ function buildPromoPortraitFluxExperimentPrompt(geminiPrompt, stylingMode) {
     if (lead) parts.push(lead);
     if (main) parts.push(main);
     if (trail && (!main || main.indexOf(trail) === -1)) parts.push(trail);
+    parts.push('Even illumination to the edges of the frame. 不要暗角. No vignette, no darkened corners.');
     return parts.join(' ');
 }
 
