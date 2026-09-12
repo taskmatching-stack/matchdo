@@ -784,6 +784,7 @@
     restaurant: 'Dining / F&B',
     retail: 'Retail',
     office: 'Office',
+    stage: 'Stage / event',
     exhibition: 'Exhibition',
     hotel: 'Hotel / B&B',
     clinic: 'Clinic / Beauty'
