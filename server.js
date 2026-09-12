@@ -680,9 +680,19 @@ function promoPortraitReviewHelpLinkFields() {
     };
 }
 
+function sanitizeUserFacingImageGenError(msg) {
+    const s = String(msg || '').trim();
+    if (!s) return '生成失敗，請稍後再試';
+    if (/FLUX|Gemini|Banana|BFL/i.test(s)) {
+        if (/逾時|timeout/i.test(s)) return '生圖逾時，請稍後再試';
+        return '生成失敗，請稍後再試';
+    }
+    return s;
+}
+
 function promoPortraitBlockedClientPayload(genErr) {
     if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
-        return { error: (genErr && genErr.message) || '生成失敗，請稍後再試' };
+        return { error: sanitizeUserFacingImageGenError((genErr && genErr.message) || '') };
     }
     return Object.assign({
         error: '外部生圖審核未通過，請調整參考圖的姿勢與構圖，或將衣著設定改為依場景後再試。',
@@ -1322,7 +1332,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 氛圍第二段、實驗（與清晰同文，須照原文含依原圖衣著）傳 promptUpsampling: false；其餘路徑預設開 */
+    /* 氛圍第二段傳 promptUpsampling: false。實驗由後台「改寫提示詞」決定，未存前預設開。 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -1701,6 +1711,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt);
     }
     const engine = isMood ? 'flux' : (isExperiment ? 'flux' : renderCtx.engine);
+    const experimentPromptUpsampling = isExperiment
+        ? await getPromoPortraitExperimentFluxPromptUpsampling()
+        : false;
     const promptSent = isMood
         ? formatPromoPortraitMoodPromptSent(moodPipeline, reverseMood ? fluxPrompt : geminiPrompt, reverseMood ? facePrompt : fluxPrompt)
         : (isExperiment ? fluxPrompt : (engine === 'flux' ? fluxPrompt : geminiPrompt));
@@ -1741,8 +1754,8 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         space_resolution_tier: outDims.tier,
         flux_request: engine === 'flux'
             ? {
-                prompt_upsampling: false,
-                disable_pup: true,
+                prompt_upsampling: isExperiment ? experimentPromptUpsampling : false,
+                disable_pup: isExperiment ? !experimentPromptUpsampling : true,
                 safety_tolerance: isExperiment
                     ? await getPromoPortraitExperimentFluxSafetyTolerance()
                     : 2,
@@ -1990,7 +2003,7 @@ async function generatePromoSpaceEyeLevelImageWithFlux(layoutImage, promptText, 
         height: fluxSize.height,
         promptUpsampling: false
     });
-    if (!bufferRaw || !bufferRaw.length) throw new Error('FLUX 未回傳圖片');
+    if (!bufferRaw || !bufferRaw.length) throw new Error('生成失敗，請稍後再試');
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(bufferRaw);
     const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
         bufferRaw,
@@ -2913,7 +2926,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         themeKey,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     },
-                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body), promptUpsampling: renderCtx.mode === 'experiment' ? false : undefined, fluxConfigKey: renderCtx.mode === 'experiment' ? 'bfl_flux_model_promo_portrait_experiment' : undefined }
+                    await buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body)
                 );
                 buffer = gen && gen.buffer;
                 imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -3633,7 +3646,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 themeKey,
                 generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
             },
-            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body), promptUpsampling: renderCtx.mode === 'experiment' ? false : undefined, fluxConfigKey: renderCtx.mode === 'experiment' ? 'bfl_flux_model_promo_portrait_experiment' : undefined }
+            await buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body)
         );
         buffer = gen && gen.buffer;
         imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -4856,6 +4869,33 @@ async function getPromoPortraitExperimentFluxSafetyTolerance() {
         }
     } catch (_) {}
     return 2;
+}
+
+async function getPromoPortraitExperimentFluxPromptUpsampling() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_experiment_flux_prompt_upsampling')
+            .maybeSingle();
+        if (row && row.value != null && String(row.value).trim() !== '') {
+            return parsePaymentConfigOnOff(row.value, true);
+        }
+    } catch (_) {}
+    return true;
+}
+
+async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body) {
+    const fo = {
+        safetyTolerance: fluxSafetyTolerance,
+        enginePref: renderCtx.engine,
+        accept_backup: parseAcceptBackup(body)
+    };
+    if (renderCtx && renderCtx.mode === 'experiment') {
+        fo.fluxConfigKey = 'bfl_flux_model_promo_portrait_experiment';
+        fo.promptUpsampling = await getPromoPortraitExperimentFluxPromptUpsampling();
+    }
+    return fo;
 }
 
 async function resolvePromoPortraitFluxSafetyTolerance(mode, promoOpts) {
@@ -14503,6 +14543,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'promo_portrait_default_render_mode',
             'promo_portrait_mood_pipeline',
             'promo_portrait_experiment_flux_safety_tolerance',
+            'promo_portrait_experiment_flux_prompt_upsampling',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -14557,6 +14598,10 @@ app.get('/api/admin/ai-config', async (req, res) => {
                     ? byKey.promo_portrait_experiment_flux_safety_tolerance
                     : 2
             )),
+            promo_portrait_experiment_flux_prompt_upsampling: parsePaymentConfigOnOff(
+                byKey.promo_portrait_experiment_flux_prompt_upsampling,
+                true
+            ),
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -14587,6 +14632,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 promo_portrait_default_render_mode: !!byKey.promo_portrait_default_render_mode,
                 promo_portrait_mood_pipeline: !!byKey.promo_portrait_mood_pipeline,
                 promo_portrait_experiment_flux_safety_tolerance: !!byKey.promo_portrait_experiment_flux_safety_tolerance,
+                promo_portrait_experiment_flux_prompt_upsampling: !!byKey.promo_portrait_experiment_flux_prompt_upsampling,
                 ...bfl.saved_in_db
             }
         });
@@ -14677,6 +14723,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             upserts.push({
                 key: 'promo_portrait_experiment_flux_safety_tolerance',
                 value: String(Math.min(5, clampFluxSafetyTolerance(body.promo_portrait_experiment_flux_safety_tolerance))),
+                updated_at: now
+            });
+        }
+        if (body.promo_portrait_experiment_flux_prompt_upsampling !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_experiment_flux_prompt_upsampling',
+                value: parsePaymentConfigOnOff(body.promo_portrait_experiment_flux_prompt_upsampling, true) ? '1' : '0',
                 updated_at: now
             });
         }
@@ -14781,6 +14834,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             promo_portrait_experiment_flux_safety_tolerance: byKey.promo_portrait_experiment_flux_safety_tolerance != null
                 && String(byKey.promo_portrait_experiment_flux_safety_tolerance).trim() !== ''
                 ? Math.min(5, clampFluxSafetyTolerance(byKey.promo_portrait_experiment_flux_safety_tolerance))
+                : null,
+            promo_portrait_experiment_flux_prompt_upsampling: byKey.promo_portrait_experiment_flux_prompt_upsampling != null
+                ? parsePaymentConfigOnOff(byKey.promo_portrait_experiment_flux_prompt_upsampling, true)
                 : null,
             ...bfl.models
         });
@@ -18715,10 +18771,10 @@ async function pollBflResult(createData, BFL_API_KEY) {
             return Buffer.from(await imageRes.arrayBuffer());
         }
         if (pollData.status === 'Error' || pollData.status === 'Failed') {
-            throw new Error(pollData.message || pollData.error || 'FLUX 生成失敗');
+            throw new Error(pollData.message || pollData.error || '生成失敗，請稍後再試');
         }
     }
-    throw new Error('FLUX 逾時');
+    throw new Error('生圖逾時，請稍後再試');
 }
 
 /** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */

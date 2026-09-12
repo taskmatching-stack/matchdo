@@ -68,7 +68,7 @@
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
 | **規劃模擬** | `gemini_model_promo_planning_sim` | `getPromoPlanningSimModelName()` | `/promo-camera` 空間「規劃模擬」（空間圖＋家具／陳設；預設 Nano Banana 2） |
 | **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
-| **人像攝影・實驗（FLUX）** | `bfl_flux_model_promo_portrait_experiment` + `promo_portrait_experiment_flux_safety_tolerance` | `getPromoPortraitEngineForRenderMode('experiment')` | 與清晰同提示詞、只送 FLUX。臉複製較低。獨立模型槽，不跟氛圍共用。尺度 FLUX.2 官方 **0–5**（預設 2）。未存前程式預設 `flux-2-max` |
+| **人像攝影・實驗（FLUX）** | `bfl_flux_model_promo_portrait_experiment` + `promo_portrait_experiment_flux_safety_tolerance` + `promo_portrait_experiment_flux_prompt_upsampling` | `getPromoPortraitEngineForRenderMode('experiment')` | 與清晰同提示詞、只送 FLUX。臉複製較低。獨立模型槽，不跟氛圍共用。尺度 FLUX.2 官方 **0–5**（預設 2）。改寫提示詞＝BFL `prompt_upsampling`（預設開）。未存前程式預設 `flux-2-max` |
 | **人像攝影・氛圍 Lite** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍兩段的 Lite：現行＝草稿；實驗＝修臉 |
 | **人像描述安全審核** | `gemini_model_promo_portrait_prompt_review` | `getPromoPortraitPromptReviewModelName()` | 後台手填文字模型；空白則沿用翻譯模型 `gemini_model`。不扣點；失敗不生圖 |
 | **人像描述自動潤飾** | `profiles.promo_portrait_prompt_auto_polish` | `isPromoPortraitPromptAutoPolishEnabled()` | 帳號設定；預設開。關閉仍攔截，不略過審查 |

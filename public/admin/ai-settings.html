@@ -82,7 +82,7 @@
             <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。模型更新時改這裡即可，不必改程式。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
-              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／實驗」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。實驗與清晰同一套提示詞，只送 FLUX；模型／尺度在下方實驗區塊，不跟氛圍共用。</p>
+              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／實驗」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。實驗與清晰同一套提示詞，只送 FLUX；模型／尺度／改寫提示詞在下方實驗區塊，不跟氛圍共用。</p>
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="promoPortraitDefaultRenderMode">前台預設模式</label>
@@ -144,14 +144,14 @@
               </div>
               <div class="border rounded p-3 bg-light mt-3">
                 <h6 class="small fw-bold mb-2">實驗模式（與清晰同提示詞，只送 FLUX）</h6>
-                <p class="form-text small text-muted mb-3">前台「實驗模式」：與清晰同一套提示詞，只送 FLUX。臉部複製程度較低。解析度 1／4 MP、點數與人像其他 FLUX 相同。模型與尺度<strong>只給實驗</strong>，不跟氛圍共用。BFL <code>safety_tolerance</code> 對 FLUX.2 官方為 <strong>0–5</strong>（0 最嚴、5 最寬、預設 2）。</p>
+                <p class="form-text small text-muted mb-3">前台「實驗模式」：與清晰同一套提示詞，只送 FLUX。臉部複製程度較低。解析度 1／4 MP、點數與人像其他 FLUX 相同。模型、尺度、改寫提示詞<strong>只給實驗</strong>，不跟氛圍共用。BFL <code>safety_tolerance</code> 對 FLUX.2 官方為 <strong>0–5</strong>（0 最嚴、5 最寬、預設 2）。</p>
                 <div class="row g-3">
-                  <div class="col-md-8">
+                  <div class="col-md-6">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperiment">FLUX 模型</label>
                     <input type="text" id="bflFluxModelPromoPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_experiment</code> — 僅實驗模式</p>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-3">
                     <label class="form-label small mb-1" for="promoPortraitExperimentFluxSafety">FLUX 尺度</label>
                     <select id="promoPortraitExperimentFluxSafety" class="form-select form-select-sm">
                       <option value="0">0（最嚴）</option>
@@ -162,6 +162,14 @@
                       <option value="5">5（最寬，FLUX.2 上限）</option>
                     </select>
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_flux_safety_tolerance</code></p>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small mb-1" for="promoPortraitExperimentFluxPromptUpsampling">改寫提示詞</label>
+                    <select id="promoPortraitExperimentFluxPromptUpsampling" class="form-select form-select-sm">
+                      <option value="1" selected>開（BFL 可改寫後再畫）</option>
+                      <option value="0">關（照原文送）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_flux_prompt_upsampling</code> — 官方 <code>prompt_upsampling</code>。未存前預設開。</p>
                   </div>
                 </div>
               </div>
@@ -480,6 +488,10 @@
       if (!(tol >= 0 && tol <= 5)) tol = 2;
       expFluxSafety.value = String(tol);
     }
+    var expPup = document.getElementById('promoPortraitExperimentFluxPromptUpsampling');
+    if (expPup) {
+      expPup.value = data.promo_portrait_experiment_flux_prompt_upsampling === false ? '0' : '1';
+    }
     if (portrait) {
       var syncEng = (portraitDefaultMode && portraitDefaultMode.value === 'mood')
         ? ((portraitMood && portraitMood.value) || 'flux')
@@ -513,6 +525,7 @@
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
       if (ps.bfl_flux_model_promo_portrait_experiment) pp.push('實驗FLUX');
       if (ps.promo_portrait_experiment_flux_safety_tolerance) pp.push('實驗FLUX尺度');
+      if (ps.promo_portrait_experiment_flux_prompt_upsampling) pp.push('實驗改寫提示詞');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
       if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
@@ -810,6 +823,10 @@
         var el = document.getElementById('promoPortraitExperimentFluxSafety');
         var n = el ? parseInt(el.value, 10) : 2;
         return (n >= 0 && n <= 5) ? n : 2;
+      })(),
+      promo_portrait_experiment_flux_prompt_upsampling: (function () {
+        var el = document.getElementById('promoPortraitExperimentFluxPromptUpsampling');
+        return !(el && el.value === '0');
       })()
     };
     var ptsEl = document.getElementById('aiConfigPointsPromoPlanningSim');
