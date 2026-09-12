@@ -1321,7 +1321,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 現行氛圍第二段會傳 promptUpsampling: false；其餘路徑預設開（曾因關閉可用比例過低） */
+    /* 氛圍第二段、實驗（與清晰同文，須照原文含依原圖衣著）傳 promptUpsampling: false；其餘路徑預設開 */
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -2910,7 +2910,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         themeKey,
                         generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
                     },
-                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
+                    { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body), promptUpsampling: renderCtx.mode === 'experiment' ? false : undefined }
                 );
                 buffer = gen && gen.buffer;
                 imageProvider = (gen && gen.image_provider) || 'gemini';
@@ -3630,7 +3630,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 themeKey,
                 generationId: sanitizePromoPortraitGenerationId(body.client_generation_id)
             },
-            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body) }
+            { safetyTolerance: fluxSafetyTolerance, enginePref: renderCtx.engine, accept_backup: parseAcceptBackup(body), promptUpsampling: renderCtx.mode === 'experiment' ? false : undefined }
         );
         buffer = gen && gen.buffer;
         imageProvider = (gen && gen.image_provider) || 'gemini';

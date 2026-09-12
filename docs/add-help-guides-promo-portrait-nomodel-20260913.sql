@@ -1,4 +1,4 @@
--- 操作介紹：人像生成風格加上實驗模式
+-- 操作介紹：覆寫人像說明，去掉模型名稱（已跑過實驗篇者再跑此則）
 -- 可重複執行。文案避免 ASCII 分號，以免後台 migration 以 ; 切句時被截斷。
 -- 前台／操作介紹不寫模型名稱。
 
@@ -41,5 +41,5 @@ WHERE p.folder_id = f.id
   AND p.slug = 'portrait';
 
 INSERT INTO public.payment_config (key, value, updated_at)
-VALUES ('help_guides_promo_portrait_experiment_20260913', '1', now())
+VALUES ('help_guides_promo_portrait_nomodel_20260913', '1', now())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
