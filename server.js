@@ -739,9 +739,9 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     if (!origUser) {
         const mode = promoPortraitStyling.normalizePortraitStylingMode(o.stylingMode || o.portrait_styling_mode);
         const copyBits = mode === 'reference'
-            ? '只複製第一張的人物；服裝維持第一張款式色系'
-            : '只複製第一張的人物（衣著不跟原圖）';
-        parts.push('***忽略原圖姿勢***，' + copyBits + '；透視與第二張場景、家具一致。***不要情色感***。');
+            ? 'copy the person from image 1 only; keep garment style and colors from image 1'
+            : 'copy the person from image 1 only (do not keep the original outfit)';
+        parts.push('***Ignore the original pose***, ' + copyBits + '; match perspective to image 2 furniture and scene. ***no erotic tone***.');
     }
     const cam = String(o.cameraBlock || '').trim();
     if (cam) {
@@ -896,7 +896,7 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
-    const noErotic = '***不要情色感***。';
+    const noErotic = '***no erotic tone***.';
     if (cam.indexOf('重新拍攝') !== -1) return (cam + ' ' + noErotic).trim();
     return [
         '這不是濾鏡、不是調色疊加。',
@@ -1335,7 +1335,9 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         {
             promptUpsampling: fo.promptUpsampling !== false,
             skipPromptTranslation: true,
-            safetyTolerance: 2
+            safetyTolerance: fo.safetyTolerance != null
+                ? clampFluxSafetyTolerance(fo.safetyTolerance)
+                : 2
         }
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
@@ -1628,6 +1630,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const cameraBlock = camPack.block || '';
     const outDims = await resolvePromoPortraitOutputDims(b, renderCtx.engine);
     const isMood = renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid';
+    const isExperiment = renderCtx.mode === 'experiment';
     const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
     const reverseMood = renderCtx.mode === 'hybrid';
     const cast = resolvePromoPortraitCastFromBody(b);
@@ -1663,7 +1666,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     if (isMood && !reverseMood) {
         geminiPrompt = (String(geminiPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(cast)).trim();
     }
-    const fluxPrompt = isMood
+    let fluxPrompt = isMood
         ? (reverseMood
             ? await buildPromoPortraitFluxTextToImagePrompt({
                 themeKey,
@@ -1693,10 +1696,13 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             tier: outDims.tier,
             stylingMode: portraitStylingMode
         });
-    const engine = isMood ? 'flux' : renderCtx.engine;
+    if (isExperiment) {
+        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt);
+    }
+    const engine = isMood ? 'flux' : (isExperiment ? 'flux' : renderCtx.engine);
     const promptSent = isMood
         ? formatPromoPortraitMoodPromptSent(moodPipeline, reverseMood ? fluxPrompt : geminiPrompt, reverseMood ? facePrompt : fluxPrompt)
-        : (engine === 'flux' ? fluxPrompt : geminiPrompt);
+        : (isExperiment ? fluxPrompt : (engine === 'flux' ? fluxPrompt : geminiPrompt));
     let fluxModel = null;
     if (engine === 'flux') {
         try {
@@ -1734,7 +1740,9 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             ? {
                 prompt_upsampling: false,
                 disable_pup: true,
-                safety_tolerance: 2,
+                safety_tolerance: isExperiment
+                    ? await getPromoPortraitExperimentFluxSafetyTolerance()
+                    : 2,
                 skip_prompt_translation: !reverseMood,
                 text_to_image: !!reverseMood,
                 model: fluxModel,
@@ -2712,7 +2720,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         cameraBrief: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? '' : cameraBrief
     });
 
-    const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+    const fluxSafetyTolerance = await resolvePromoPortraitFluxSafetyTolerance(renderCtx.mode, {
         themeKey,
         sceneKey,
         sourceType,
@@ -2809,6 +2817,10 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     tier: spaceResTier,
                     stylingMode: portraitStylingMode
                 });
+            if (renderCtx.mode === 'experiment') {
+                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt);
+                finalPrompt = fluxPrompt;
+            }
         } catch (promptErr) {
             results.push({
                 shot_index: i + 1,
@@ -3583,11 +3595,15 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             tier: spaceResTier,
             stylingMode: portraitStylingMode
         });
+        if (renderCtx.mode === 'experiment') {
+            fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt);
+            finalPrompt = fluxPrompt;
+        }
     } catch (promptErr) {
         return res.status(400).json({ success: false, error: promptErr.message || '提示詞無效' });
     }
 
-    const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+    const fluxSafetyTolerance = await resolvePromoPortraitFluxSafetyTolerance(renderCtx.mode, {
         themeKey,
         sceneKey,
         sourceType,
@@ -4775,8 +4791,29 @@ function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
     if (s === 'hybrid' || s === 'mix' || s === 'mixed' || s === '混合' || s === '混合模式') return 'hybrid';
+    if (s === 'experiment' || s === 'experimental' || s === 'flux_experiment' || s === 'clear_flux' || s === '實驗' || s === '實驗模式') {
+        return 'experiment';
+    }
     if (s === 'clear' || s === 'sharp' || s === '清晰') return 'clear';
     return '';
+}
+
+function isPromoPortraitTwoStepMode(mode) {
+    return mode === 'mood' || mode === 'hybrid';
+}
+
+function isPromoPortraitFluxExperimentMode(mode) {
+    return mode === 'experiment';
+}
+
+/** 實驗模式：與清晰同一套 Gemini 提示詞，圖後忽略姿勢併進單一字串給 FLUX */
+function buildPromoPortraitFluxExperimentPrompt(geminiPrompt) {
+    const main = String(geminiPrompt || '').trim();
+    const trail = promoPortraitStyling.buildPortraitIgnoreRefPoseTrailingLine();
+    if (!main) return trail;
+    if (!trail) return main;
+    if (main.indexOf(trail) !== -1) return main;
+    return main + ' ' + trail;
 }
 
 async function getPromoPortraitDefaultRenderMode() {
@@ -4790,6 +4827,7 @@ async function getPromoPortraitDefaultRenderMode() {
 }
 
 async function getPromoPortraitEngineForRenderMode(mode) {
+    if (mode === 'experiment') return 'flux';
     if (mode === 'hybrid') return 'gemini';
     const m = mode === 'mood' ? 'mood' : 'clear';
     const key = m === 'mood' ? 'promo_portrait_mood_engine' : 'promo_portrait_clear_engine';
@@ -4803,6 +4841,25 @@ async function getPromoPortraitEngineForRenderMode(mode) {
     return m === 'mood' ? 'flux' : 'gemini';
 }
 
+async function getPromoPortraitExperimentFluxSafetyTolerance() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_experiment_flux_safety_tolerance')
+            .maybeSingle();
+        if (row && row.value != null && String(row.value).trim() !== '') {
+            return Math.min(5, clampFluxSafetyTolerance(row.value));
+        }
+    } catch (_) {}
+    return 2;
+}
+
+async function resolvePromoPortraitFluxSafetyTolerance(mode, promoOpts) {
+    if (mode === 'experiment') return getPromoPortraitExperimentFluxSafetyTolerance();
+    return resolveFluxSafetyToleranceForPromo(promoOpts);
+}
+
 async function resolvePromoPortraitRenderContext(body) {
     const b = body && typeof body === 'object' ? body : {};
     const fromBody = normalizePromoPortraitRenderMode(b.portrait_render_mode || b.render_mode);
@@ -4811,7 +4868,9 @@ async function resolvePromoPortraitRenderContext(body) {
     return {
         mode: mode,
         engine: engine,
-        mp_tiers: mode === 'hybrid' ? [1, 4, 16] : (engine === 'flux' ? [1, 4] : [1, 4, 16])
+        mp_tiers: mode === 'hybrid'
+            ? [1, 4, 16]
+            : ((engine === 'flux' || mode === 'experiment') ? [1, 4] : [1, 4, 16])
     };
 }
 
@@ -14440,6 +14499,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'promo_portrait_prompt_review_enabled',
             'promo_portrait_default_render_mode',
             'promo_portrait_mood_pipeline',
+            'promo_portrait_experiment_flux_safety_tolerance',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -14488,6 +14548,12 @@ app.get('/api/admin/ai-config', async (req, res) => {
             promo_portrait_mood_engine: portraitMoodEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
             promo_portrait_mood_pipeline: portraitMoodPipeline,
+            promo_portrait_experiment_flux_safety_tolerance: Math.min(5, clampFluxSafetyTolerance(
+                byKey.promo_portrait_experiment_flux_safety_tolerance != null
+                    && String(byKey.promo_portrait_experiment_flux_safety_tolerance).trim() !== ''
+                    ? byKey.promo_portrait_experiment_flux_safety_tolerance
+                    : 2
+            )),
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -14517,6 +14583,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 promo_portrait_mood_engine: !!byKey.promo_portrait_mood_engine,
                 promo_portrait_default_render_mode: !!byKey.promo_portrait_default_render_mode,
                 promo_portrait_mood_pipeline: !!byKey.promo_portrait_mood_pipeline,
+                promo_portrait_experiment_flux_safety_tolerance: !!byKey.promo_portrait_experiment_flux_safety_tolerance,
                 ...bfl.saved_in_db
             }
         });
@@ -14591,7 +14658,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             if (!mode) {
                 return res.status(400).json({
                     error: '人像預設模式無效',
-                    hint: '請選 clear、mood 或 hybrid'
+                    hint: '請選 clear、mood、hybrid 或 experiment'
                 });
             }
             upserts.push({ key: 'promo_portrait_default_render_mode', value: mode, updated_at: now });
@@ -14600,6 +14667,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             upserts.push({
                 key: 'promo_portrait_mood_pipeline',
                 value: normalizePromoPortraitMoodPipeline(body.promo_portrait_mood_pipeline),
+                updated_at: now
+            });
+        }
+        if (body.promo_portrait_experiment_flux_safety_tolerance !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_experiment_flux_safety_tolerance',
+                value: String(Math.min(5, clampFluxSafetyTolerance(body.promo_portrait_experiment_flux_safety_tolerance))),
                 updated_at: now
             });
         }
@@ -14700,6 +14774,10 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             promo_portrait_default_render_mode: normalizePromoPortraitRenderMode(byKey.promo_portrait_default_render_mode) || null,
             promo_portrait_mood_pipeline: byKey.promo_portrait_mood_pipeline
                 ? normalizePromoPortraitMoodPipeline(byKey.promo_portrait_mood_pipeline)
+                : null,
+            promo_portrait_experiment_flux_safety_tolerance: byKey.promo_portrait_experiment_flux_safety_tolerance != null
+                && String(byKey.promo_portrait_experiment_flux_safety_tolerance).trim() !== ''
+                ? Math.min(5, clampFluxSafetyTolerance(byKey.promo_portrait_experiment_flux_safety_tolerance))
                 : null,
             ...bfl.models
         });
@@ -20764,7 +20842,8 @@ app.get('/api/promo-camera/options', async (req, res) => {
             portrait_render_modes: {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
-                hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' }
+                hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' },
+                experiment: { engine: 'flux', mp_tiers: [1, 4] }
             },
             portrait_mp_tiers: portraitDefaultMode === 'mood' ? moodMpTiers : (clearEng === 'flux' ? [1, 4] : [1, 4, 16])
         });

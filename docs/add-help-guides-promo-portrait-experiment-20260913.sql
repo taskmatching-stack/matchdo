@@ -1,0 +1,44 @@
+-- 操作介紹：人像生成風格加上實驗模式（FLUX）
+-- 可重複執行。文案避免 ASCII 分號，以免後台 migration 以 ; 切句時被截斷。
+
+UPDATE public.help_guide_pages p
+SET
+    title = '人像生成風格',
+    title_en = 'Portrait render styles',
+    summary = '清晰、氛圍、混合、實驗（FLUX）的差別。實驗臉較不像本人，較少被當成深偽情色擋下。',
+    summary_en = 'Clear, mood, hybrid, and experiment (FLUX). Experiment copies the face less closely, so it is less often blocked as erotic deepfake.',
+    is_published = true,
+    blocks_json = $hg$[
+        {"type":"text","sort":0,"text":"## 這是做什麼\n人像攝影可選**生成風格**（清晰／氛圍／混合／實驗）。同一套主題、場景、攝影參數與衣著模式下，流程與成品質感不同。\n\n總覽：[/help/promo-camera/portrait](/help/promo-camera/portrait)","text_en":"## What this is\nPortrait photography has **render styles** (clear / mood / hybrid / experiment). Theme, scene, camera settings, and outfit mode stay the same. The pipeline and look change.\n\nOverview: [/help/promo-camera/portrait](/help/promo-camera/portrait)"},
+        {"type":"text","sort":1,"text":"## 人像通用生圖原則\n下列原則適用**整個人像模式**：每種生成風格、三種衣著（依原圖／依場景／依描述）、有沒有填描述、含證件／正式主題都一樣。選證件主題時姿勢依該主題（正面正式），不鎖原圖姿勢。\n\n- **忽略原圖姿勢**（不跟上傳圖的姿勢）\n- **不要情色感**（構圖預設商用生活人像）\n- 依原圖：人物與服裝款式色系跟參考圖。依場景／依描述：只跟人物，衣服另依場景或描述\n\n畫面說明不會送給生圖模型。原則是後端寫進提示詞的。","text_en":"## Portrait-wide generation principles\nThese apply to **all of portrait mode**: every render style, every outfit mode (reference / scene / description), with or without a written description, including formal ID. Choosing the ID theme means pose follows that brief (front-facing, formal), not the uploaded pose.\n\n- **Ignore the original pose**\n- **No erotic mood** (commercial lifestyle framing)\n- Reference outfit: person plus garment style and colors from the upload. Scene / description outfit: copy the person only\n\nOn-screen hints are not sent to the image model. The backend writes these into the prompt."},
+        {"type":"text","sort":2,"text":"## 清晰\n- **流程**：Banana Pro 一次出圖。\n- **適合**：要快、要穩、要臉較像參考圖本人。","text_en":"## Clear\n- **Pipeline**: Banana Pro, one image pass.\n- **Best for**: speed, a clear reference, and a closer face match."},
+        {"type":"text","sort":3,"text":"## 氛圍\n- **流程**：草稿（人與場景一起畫）→ 氛圍重拍（統一光影與質感）。\n- **適合**：要商業攝影感、人與場景融合較自然。\n- **管理員**：可對照「草稿繪製」與「氛圍圖」（一般使用者只看成品）。","text_en":"## Mood\n- **Pipeline**: draft (person and scene together) then look restyle (unified light and texture).\n- **Best for**: a commercial still, with the person blended into the scene.\n- **Admins**: can compare draft vs look (everyone else sees the final still)."},
+        {"type":"text","sort":4,"text":"## 混合（BETA）\n- **流程**：文生空景（沒有人）→ 放入人物 → 氛圍重拍。\n- **適合**：想先鎖定空景構圖與光線，再把人融進去。\n- **管理員**：可對照「場景底圖」與「成品」。混合仍在優化，請與氛圍對照挑選。","text_en":"## Hybrid (BETA)\n- **Pipeline**: empty scene, then place the person, then look restyle.\n- **Best for**: locking environment and light first, then integrating the person.\n- **Admins**: can compare empty scene vs final still. Hybrid is still being refined. Compare with mood."},
+        {"type":"text","sort":5,"text":"## 實驗（FLUX）\n- **流程**：與清晰同一套提示詞，一次出圖，但只送 FLUX（不是 Banana Pro）。解析度與點數與目前 FLUX 相同（1／4 MP）。\n- **適合**：清晰常被外部審核擋下時當備援。\n- **臉部複製程度較低**，成品較不像原圖本人，也因此比較不容易被外部審核當成「真人深偽情色」擋下。\n- **不適合**：要高度像本人、證件或認臉。那種請用清晰。","text_en":"## Experiment (FLUX)\n- **Pipeline**: the same prompt as Clear, one image pass, FLUX only (not Banana Pro). Resolution and credits match current FLUX (1 / 4 MP).\n- **Best for**: a fallback when Clear is often blocked by external review.\n- **Face match is looser**, so the result looks less like the uploaded person, and is less often treated as erotic deepfake of a real person.\n- **Not for**: close likeness, ID photos, or face recognition. Use Clear for those."},
+        {"type":"text","sort":6,"text":"## 衣著模式\n- **依原圖**：臉、身材與服裝都跟參考圖（實驗模式臉仍會比較不像）。\n- **依場景**：服裝依主題／場景決定。\n- **依描述**：服裝寫在描述欄（必填）。\n\n衣著本身就是產品（內衣、泳裝等）時，建議：人像參考用較保守的身份照、另傳產品圖、衣著選「依描述」並寫商業目錄語。","text_en":"## Outfit modes\n- **From reference**: face, body, and garment follow the upload (experiment still copies the face less closely).\n- **From scene**: clothing follows theme and scene.\n- **From description**: clothing is written in the prompt (required).\n\nWhen the garment is the product (lingerie, swimwear), prefer a conservative identity photo, a separate product image, outfit from description, and catalog wording."},
+        {"type":"text","sort":7,"text":"## 描述審核與外部擋圖\n人像生成會經過兩道審核。被擋時系統**不會改提示詞再送**，也不會自動改成依場景。\n\n**描述審核（站內）**\n- 帳號可開「描述審核自動改寫」（個人帳號設定），只潤飾**你打的描述**。時裝／脫外套這類商業用語預設不改寫。硬擋與節流規則不變。\n- 頁面若寫「描述未通過安全審核」，就是這一關。\n\n**外部生圖審核**\n- 生圖服務會看參考圖＋場景＋描述整包。頁面出現「外部生圖審核未通過」就是這一關。\n- 同一張參考圖在客廳／戶外常可過、臥室被擋，是外部規則，不是站內又擋一次。\n- 可改：場景改客廳、戶外、棚拍。參考圖改站姿或坐姿。衣著改「依場景」或「依描述」。也可改用**實驗模式**（FLUX，臉較不像本人，較少被當成深偽情色擋下）。內衣／泳裝當產品時，身份照保守、另傳產品圖。\n\n外部規範（英文）：[Google 生成式 AI 禁止用途](https://policies.google.com/terms/generative-ai)、[Gemini 生圖說明](https://ai.google.dev/gemini-api/docs/image-generation)、[Vertex Imagen 責任使用](https://cloud.google.com/vertex-ai/generative-ai/docs/image/responsible-ai-imagen)、[FLUX 使用政策](https://bfl.ai/legal/usage-policy)","text_en":"## Description review and external blocks\nPortrait generation goes through two reviews. A block is **not** retried with a changed prompt and does not auto-switch to scene outfit.\n\n**On-site description review**\n- Account setting “auto-polish descriptions” only rewrites **your typed prompt**. Commercial fashion copy (including removing a coat) is usually left unchanged. Hard blocks and rate limits stay the same.\n- If the page says the description failed safety review, that is this step.\n\n**External image review**\n- The image API reviews the photo + scene + description together. “External image generation review failed” is this step.\n- The same photo may pass in a living room or outdoors and fail in a bedroom. That is the external rule, not a second site-side filter.\n- Try a more public scene, a standing or sitting reference, or outfit mode from scene / description. You can also switch to **Experiment** (FLUX: looser face match, less often blocked as erotic deepfake). If lingerie or swimwear is the product, use a conservative identity photo plus a separate product image.\n\nExternal policies: [Google Generative AI Prohibited Use](https://policies.google.com/terms/generative-ai), [Gemini image generation](https://ai.google.dev/gemini-api/docs/image-generation), [Vertex Imagen responsible AI](https://cloud.google.com/vertex-ai/generative-ai/docs/image/responsible-ai-imagen), [FLUX usage policy](https://bfl.ai/legal/usage-policy)"}
+    ]$hg$::jsonb,
+    updated_at = now()
+FROM public.help_guide_folders f
+WHERE p.folder_id = f.id
+  AND f.slug = 'promo-camera'
+  AND p.slug = 'portrait-modes';
+
+UPDATE public.help_guide_pages p
+SET
+    summary = '商攝導演：人像攝影（清晰／氛圍／混合／實驗）。',
+    summary_en = 'Promo camera: portrait mode (clear / mood / hybrid / experiment).',
+    blocks_json = $hg$[
+        {"type":"text","sort":0,"text":"## 這是做什麼\n人像模式模擬人物在場景中的商業人像／穿戴照，適合服裝、配件上身、形象圖。","text_en":"## What this is\nPortrait mode places a person in a commercial still or wear-shot. Use it for apparel, accessories on-body, and lookbook images."},
+        {"type":"text","sort":1,"text":"## 怎麼操作\n1. `/promo-camera` 切到**人像**。\n2. 上傳人物參考。\n3. 選**拍攝主題**與場景。可選產品圖、場景參考圖。\n4. 選**生成風格**：清晰／氛圍／混合／實驗（詳見 [/help/promo-camera/portrait-modes](/help/promo-camera/portrait-modes)）。實驗是 FLUX，臉較不像本人，較少被當成深偽情色擋下。\n5. 選衣著模式（依原圖／依場景／依描述）。\n6. 看點數後生成。","text_en":"## How to use it\n1. Open `/promo-camera` and choose **Portrait**.\n2. Upload a person reference.\n3. Pick a shoot theme and scene. Optional product or scene photo.\n4. Pick a **render style**: clear / mood / hybrid / experiment (see [/help/promo-camera/portrait-modes](/help/promo-camera/portrait-modes)). Experiment is FLUX: looser face match, less often blocked as erotic deepfake.\n5. Pick outfit mode (from reference / scene / description).\n6. Check credits and generate."},
+        {"type":"text","sort":2,"text":"## 注意\n- 請使用你有權使用的人像。解析度與點數以頁面為準。實驗模式為 1／4 MP。\n- 人像通用原則（忽略原圖姿勢、不要情色感）每種風格與三種衣著都適用，含證件／正式主題。\n- 尺度較大的參考圖可能被外部 API 擋下。不會自動再送。可改參考圖、衣著模式、描述，或改用實驗模式。\n- 要高度像本人或證件請用清晰，不要用實驗。\n- 管理員可查看氛圍「草稿」或混合「場景底圖」對照。","text_en":"## Notes\n- Use photos you have rights to. Resolution and credits follow the page. Experiment is 1 / 4 MP.\n- Portrait-wide principles (ignore original pose, no erotic mood) apply to every style and outfit mode, including formal ID.\n- A revealing reference may be blocked by the image API. There is no auto-retry. Change the photo, outfit mode, or description, or switch to Experiment.\n- For close likeness or ID photos use Clear, not Experiment.\n- Admins can compare mood drafts or hybrid empty scenes."}
+    ]$hg$::jsonb,
+    updated_at = now()
+FROM public.help_guide_folders f
+WHERE p.folder_id = f.id
+  AND f.slug = 'promo-camera'
+  AND p.slug = 'portrait';
+
+INSERT INTO public.payment_config (key, value, updated_at)
+VALUES ('help_guides_promo_portrait_experiment_20260913', '1', now())
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();

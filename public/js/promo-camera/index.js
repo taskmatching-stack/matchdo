@@ -941,7 +941,7 @@
 
   function portraitRenderMode() {
     var m = String(St.get().portraitRenderMode || 'clear').toLowerCase();
-    if (m === 'hybrid' || m === 'mood') return m;
+    if (m === 'hybrid' || m === 'mood' || m === 'experiment') return m;
     return 'clear';
   }
 
@@ -1009,6 +1009,8 @@
     if (clearEl) clearEl.checked = mode === 'clear';
     if (moodEl) moodEl.checked = mode === 'mood';
     if (hybridEl) hybridEl.checked = mode === 'hybrid';
+    var expEl = document.getElementById('pcPortraitRenderExperiment');
+    if (expEl) expEl.checked = mode === 'experiment';
     syncPortraitThemeVisibility();
     syncPortraitMoodCastUi();
   }
@@ -1095,14 +1097,16 @@
     var clearEl = document.getElementById('pcPortraitRenderClear');
     var moodEl = document.getElementById('pcPortraitRenderMood');
     var hybridEl = document.getElementById('pcPortraitRenderHybrid');
+    var expEl = document.getElementById('pcPortraitRenderExperiment');
     if (!clearEl || clearEl.getAttribute('data-pc-bound') === '1') return;
     function onChange() {
       var v = 'clear';
-      if (hybridEl && hybridEl.checked) v = 'hybrid';
+      if (expEl && expEl.checked) v = 'experiment';
+      else if (hybridEl && hybridEl.checked) v = 'hybrid';
       else if (moodEl && moodEl.checked) v = 'mood';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
-      /* 氛圍／混合預設 1MP；清晰維持使用者目前選擇 */
-      if ((v === 'mood' || v === 'hybrid') && St.setSpaceResolutionTier) {
+      /* 氛圍／混合／實驗（FLUX）預設 1MP；清晰維持使用者目前選擇 */
+      if ((v === 'mood' || v === 'hybrid' || v === 'experiment') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
       }
       fillCameraSelects();
@@ -1121,6 +1125,7 @@
     clearEl.addEventListener('change', onChange);
     if (moodEl) moodEl.addEventListener('change', onChange);
     if (hybridEl) hybridEl.addEventListener('change', onChange);
+    if (expEl) expEl.addEventListener('change', onChange);
   }
 
   function syncOutputCountSelects() {
@@ -1161,7 +1166,7 @@
     var eng = pack && pack.engine
       ? String(pack.engine).toLowerCase()
       : String(opts.promo_portrait_engine || '').toLowerCase();
-    if (eng === 'flux' || mode === 'mood') return [1, 4];
+    if (eng === 'flux' || mode === 'mood' || mode === 'experiment') return [1, 4];
     if (Array.isArray(opts.portrait_mp_tiers) && opts.portrait_mp_tiers.length) {
       var tiers = opts.portrait_mp_tiers.map(function (n) { return parseInt(n, 10); }).filter(function (n) { return n > 0; });
       if (tiers.length) return tiers;
@@ -1185,7 +1190,8 @@
     if (want.indexOf(parseInt(cur, 10)) < 0) {
       /* 氛圍預設 1MP（列表第一項）；其餘維持選最高可用檔 */
       var mood = portrait && (portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid');
-      var fallback = mood ? (want[0] || 1) : (want[want.length - 1] || want[0]);
+      var experiment = portrait && portraitRenderMode() === 'experiment';
+      var fallback = (mood || experiment) ? (want[0] || 1) : (want[want.length - 1] || want[0]);
       mpEl.value = String(fallback);
       if (St.setSpaceMegapixels) St.setSpaceMegapixels(mpEl.value);
     }
@@ -1363,9 +1369,9 @@
       var moodAllows16 = Array.isArray(pack.mp_tiers) && pack.mp_tiers.indexOf(16) >= 0;
       /* 氛圍若由 Banana 輸出可 16MP；現行 FLUX 氛圍仍不支援 */
       if (St.get().spaceResolutionTier === '4k' && St.setSpaceResolutionTier) {
-        if ((modeKey === 'mood' || modeKey === 'hybrid') && !moodAllows16) {
+        if ((modeKey === 'mood' || modeKey === 'hybrid' || modeKey === 'experiment') && !moodAllows16) {
           St.setSpaceResolutionTier('1k');
-        } else if (modeKey !== 'mood' && modeKey !== 'hybrid' && portraitEng === 'flux') {
+        } else if (modeKey !== 'mood' && modeKey !== 'hybrid' && modeKey !== 'experiment' && portraitEng === 'flux') {
           St.setSpaceResolutionTier('2k');
         }
       }
@@ -3091,7 +3097,7 @@
       }
       syncPortraitRenderModeUi();
       /* 氛圍模式預設解析度 1MP */
-      if ((portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid') && St.setSpaceResolutionTier) {
+      if ((portraitRenderMode() === 'mood' || portraitRenderMode() === 'hybrid' || portraitRenderMode() === 'experiment') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
       }
       fillSpaceUseTypes();

@@ -188,7 +188,7 @@
         state.themeKey = pickDefaultThemeKey(themes);
       }
       var defMode = String(data.promo_portrait_default_render_mode || '').toLowerCase();
-      if (defMode === 'mood' || defMode === 'clear' || defMode === 'hybrid') {
+      if (defMode === 'mood' || defMode === 'clear' || defMode === 'hybrid' || defMode === 'experiment') {
         state.portraitRenderMode = defMode;
       }
       applyPortraitMoodFilmLookDefault();
@@ -199,6 +199,7 @@
     var m = String(mode || '').toLowerCase();
     if (m === 'hybrid' || m === 'mix' || m === 'mixed') state.portraitRenderMode = 'hybrid';
     else if (m === 'mood') state.portraitRenderMode = 'mood';
+    else if (m === 'experiment' || m === 'experimental' || m === 'clear_flux') state.portraitRenderMode = 'experiment';
     else state.portraitRenderMode = 'clear';
     applyPortraitMoodFilmLookDefault();
   }
@@ -802,7 +803,9 @@
       fluxPayload.aspect_ratio = state.aspectRatio;
       fluxPayload.portrait_render_mode = state.portraitRenderMode === 'hybrid'
         ? 'hybrid'
-        : (state.portraitRenderMode === 'mood' ? 'mood' : 'clear');
+        : (state.portraitRenderMode === 'mood'
+          ? 'mood'
+          : (state.portraitRenderMode === 'experiment' ? 'experiment' : 'clear'));
       if (state.portraitRenderMode === 'mood' || state.portraitRenderMode === 'hybrid') {
         fluxPayload.portrait_people_count = state.portraitPeopleCount >= 1 && state.portraitPeopleCount <= 4
           ? state.portraitPeopleCount

@@ -82,7 +82,7 @@
             <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。模型更新時改這裡即可，不必改程式。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
-              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。</p>
+              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／實驗」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。實驗模式與清晰同一套提示詞，只送 FLUX，模型／解析度／點數沿用下方人像 FLUX 槽。</p>
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="promoPortraitDefaultRenderMode">前台預設模式</label>
@@ -90,6 +90,7 @@
                     <option value="clear" selected>清晰模式</option>
                     <option value="mood">氛圍模式</option>
                     <option value="hybrid">混合模式</option>
+                    <option value="experiment">實驗模式（FLUX）</option>
                   </select>
                   <p class="form-text small text-muted mb-0"><code>promo_portrait_default_render_mode</code></p>
                 </div>
@@ -126,7 +127,7 @@
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型</label>
                     <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍第二段換成像</p>
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 氛圍第二段換成像；實驗模式共用此模型</p>
                   </div>
                 </div>
               </div>
@@ -138,6 +139,24 @@
                     <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortraitPromptReview">審核 · Gemini 文字模型（手填）</label>
                     <input type="text" id="aiConfigGeminiModelPromoPortraitPromptReview" class="form-control form-control-sm font-monospace" list="geminiTextModelSuggestions" placeholder="例如 gemini-3.1-flash-lite" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait_prompt_review</code> — 請填你要用的文字模型；空白則沿用下方「翻譯模型」。勿填生圖模型。</p>
+                  </div>
+                </div>
+              </div>
+              <div class="border rounded p-3 bg-light mt-3">
+                <h6 class="small fw-bold mb-2">實驗模式（與清晰同提示詞，只送 FLUX）</h6>
+                <p class="form-text small text-muted mb-3">前台「實驗模式」：與清晰同一套提示詞，只送 FLUX。臉部複製程度較低，較不像原圖本人，也較不容易被當成深偽情色擋下。解析度 1／4 MP、點數與模型共用上方人像 FLUX 槽。此處設 BFL <code>safety_tolerance</code>。人像目前用 FLUX.2（如 flux-2-max），官方為 <strong>0–5</strong>（0 最嚴、5 最寬、預設 2）。FLUX.1 才是 0–6。</p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="promoPortraitExperimentFluxSafety">FLUX 尺度</label>
+                    <select id="promoPortraitExperimentFluxSafety" class="form-select form-select-sm">
+                      <option value="0">0（最嚴）</option>
+                      <option value="1">1</option>
+                      <option value="2" selected>2（BFL 預設）</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5（最寬，FLUX.2 上限）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_flux_safety_tolerance</code></p>
                   </div>
                 </div>
               </div>
@@ -441,7 +460,7 @@
     }
     if (portraitDefaultMode) {
       var dm = data.promo_portrait_default_render_mode;
-      if (dm !== 'clear' && dm !== 'mood' && dm !== 'hybrid') {
+      if (dm !== 'clear' && dm !== 'mood' && dm !== 'hybrid' && dm !== 'experiment') {
         dm = (data.promo_portrait_engine === 'flux') ? 'mood' : 'clear';
       }
       portraitDefaultMode.value = dm;
@@ -449,6 +468,12 @@
     var moodPipeline = document.getElementById('promoPortraitMoodPipeline');
     if (moodPipeline) {
       moodPipeline.value = data.promo_portrait_mood_pipeline === 'flux_then_lite' ? 'flux_then_lite' : 'lite_then_flux';
+    }
+    var expFluxSafety = document.getElementById('promoPortraitExperimentFluxSafety');
+    if (expFluxSafety) {
+      var tol = parseInt(data.promo_portrait_experiment_flux_safety_tolerance, 10);
+      if (!(tol >= 0 && tol <= 5)) tol = 2;
+      expFluxSafety.value = String(tol);
     }
     if (portrait) {
       var syncEng = (portraitDefaultMode && portraitDefaultMode.value === 'mood')
@@ -481,6 +506,7 @@
       if (ps.gemini_model_promo_portrait_hybrid) pp.push('混合Banana');
       if (ps.gemini_model_promo_portrait_prompt_review) pp.push('人像描述審核');
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
+      if (ps.promo_portrait_experiment_flux_safety_tolerance) pp.push('實驗FLUX尺度');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
       if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
@@ -746,7 +772,7 @@
     var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
     var fPortraitHybrid = document.getElementById('bflFluxModelPromoPortraitHybrid');
     var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
-    var defaultMode = (portraitDefaultMode && (portraitDefaultMode.value === 'mood' || portraitDefaultMode.value === 'hybrid'))
+    var defaultMode = (portraitDefaultMode && (portraitDefaultMode.value === 'mood' || portraitDefaultMode.value === 'hybrid' || portraitDefaultMode.value === 'experiment'))
       ? portraitDefaultMode.value
       : 'clear';
     var clearEng = (portraitClear && portraitClear.value) || 'gemini';
@@ -769,7 +795,12 @@
       gemini_model_promo_planning_sim: (gPlanningSim && gPlanningSim.value.trim()) || 'gemini-3.1-flash-image',
       bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_portrait_hybrid: (fPortraitHybrid && fPortraitHybrid.value.trim()) || 'flux-2-max',
-      bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
+      bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max',
+      promo_portrait_experiment_flux_safety_tolerance: (function () {
+        var el = document.getElementById('promoPortraitExperimentFluxSafety');
+        var n = el ? parseInt(el.value, 10) : 2;
+        return (n >= 0 && n <= 5) ? n : 2;
+      })()
     };
     var ptsEl = document.getElementById('aiConfigPointsPromoPlanningSim');
     var ptsVal = ptsEl ? parseInt(ptsEl.value, 10) : 20;
