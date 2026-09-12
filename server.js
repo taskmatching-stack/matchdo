@@ -18706,6 +18706,7 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_scene_pattern: 'flux-2-pro',
     bfl_flux_model_design_to_physical: 'flux-2-pro',
     bfl_flux_model_promo_image: 'flux-2-pro',
+    bfl_flux_model_promo_camera_product: 'flux-2-pro',
     bfl_flux_model_promo_space_eye_level: 'flux-2-max',
     /* 人像氛圍：官網鎖臉實測為 max；pro 一致性較弱 */
     bfl_flux_model_promo_portrait: 'flux-2-max',
@@ -18745,6 +18746,21 @@ async function getBflFluxModelIdForConfigKey(configKey) {
 
 async function getBflFluxEndpointForConfigKey(configKey) {
     return getBflPlaygroundEndpoint(await getBflFluxModelIdForConfigKey(configKey));
+}
+
+/** 商攝產品攝影：已存獨立槽則用獨立槽，否則沿用設計頁情境圖槽 */
+async function getBflFluxEndpointForPromoCameraProduct() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'bfl_flux_model_promo_camera_product')
+            .maybeSingle();
+        if (row && String(row.value || '').trim()) {
+            return getBflFluxEndpointForConfigKey('bfl_flux_model_promo_camera_product');
+        }
+    } catch (_) {}
+    return getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
 }
 
 function resolveBflFluxModelsFromRows(rows) {
@@ -21169,7 +21185,7 @@ app.post('/api/promo-camera/generate', express.json({ limit: '15mb' }), async (r
             sourceId,
             categoryKeys: body.category_keys || body.categoryKeys
         });
-        const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
+        const endpointUrl = await getBflFluxEndpointForPromoCameraProduct();
         const seed = Math.floor(Math.random() * 2147483647);
         let buffer;
         try {

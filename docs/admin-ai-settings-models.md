@@ -46,6 +46,7 @@
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
 | 寫實化 | `bfl_flux_model_design_to_physical` | `flux-2-pro` | 設計頁／廠商寫實化（獨立槽） |
 | 產品情境圖 | `bfl_flux_model_promo_image` | `flux-2-pro` | 設計頁／廠商「情境圖」TAB |
+| **商攝導演・產品攝影** | `bfl_flux_model_promo_camera_product` | `flux-2-pro` | `/promo-camera` 產品 tab。未存前沿用情境圖槽。固定 FLUX，無 Gemini 切換 |
 | 空間平視（對照 ISO）備援 | `bfl_flux_model_promo_space_eye_level` | **`flux-2-max`** | 商攝導演平視備援／強制 FLUX |
 | 人像攝影備援 | `bfl_flux_model_promo_portrait` | `flux-2-pro` | `/promo-camera` 人像備援／強制 FLUX（與情境圖分開） |
 
