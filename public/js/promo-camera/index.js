@@ -966,11 +966,11 @@
     var stylingHint = document.getElementById('pcPortraitStylingHint');
     if (stylingHint) {
       if (mode === 'scene') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。大尺度產品請選審核友善（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著依場景替換，一般不需擔心審查。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。大尺度產品請選審核友善（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。大尺度產品請選審核友善（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '維持原圖衣著；貼身衣著可能觸發審查。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -1050,6 +1050,25 @@
     }
   }
 
+  function syncPortraitRenderHint() {
+    var hint = document.getElementById('pcPortraitRenderHint');
+    if (!hint) return;
+    var mode = portraitRenderMode();
+    var key = 'promoCamera.renderStyleHintClear';
+    var fallback = '人像還原佳；快速、穩定、像本人。';
+    if (mode === 'mood') {
+      key = 'promoCamera.renderStyleHintMood';
+      fallback = '光影質感佳；人景融合自然。';
+    } else if (mode === 'hybrid') {
+      key = 'promoCamera.renderStyleHintHybrid';
+      fallback = '人像與光影均衡。';
+    } else if (mode === 'experiment') {
+      key = 'promoCamera.renderStyleHintExperiment';
+      fallback = '貼身衣物專用；限方案三／方案四。';
+    }
+    hint.textContent = t(key, fallback);
+  }
+
   function syncPortraitRenderModeUi() {
     syncPortraitExperimentAccess();
     var mode = portraitRenderMode();
@@ -1061,6 +1080,7 @@
     if (hybridEl) hybridEl.checked = mode === 'hybrid';
     var expEl = document.getElementById('pcPortraitRenderExperiment');
     if (expEl) expEl.checked = mode === 'experiment';
+    syncPortraitRenderHint();
     syncPortraitThemeVisibility();
     syncPortraitMoodCastUi();
   }
@@ -1156,6 +1176,7 @@
       else if (moodEl && moodEl.checked) v = 'mood';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
       syncPortraitExperimentAccess();
+      syncPortraitRenderHint();
       /* 氛圍／混合／實驗（FLUX）預設 1MP；清晰維持使用者目前選擇 */
       if ((v === 'mood' || v === 'hybrid' || v === 'experiment') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
@@ -3167,6 +3188,8 @@
 
   function refreshPromoI18n() {
     if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+    syncPortraitRenderHint();
+    syncPortraitStylingUi();
     updatePricingIntro();
     if (St.get().options) {
       fillThemeSceneSelects();
