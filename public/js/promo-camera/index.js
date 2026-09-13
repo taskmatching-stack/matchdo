@@ -968,7 +968,7 @@
       if (mode === 'scene') {
         stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著依場景替換，一般不需擔心審查。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄。');
       } else {
         stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '維持原圖衣著；貼身衣著可能觸發審查。');
       }
@@ -1055,10 +1055,10 @@
     if (!hint) return;
     var mode = portraitRenderMode();
     var key = 'promoCamera.renderStyleHintClear';
-    var fallback = '人像還原佳；快速、穩定、像本人。';
+    var fallback = '人像還原佳、穩定。';
     if (mode === 'mood') {
       key = 'promoCamera.renderStyleHintMood';
-      fallback = '光影質感佳；人景融合自然。';
+      fallback = '光影氛圍感。';
     } else if (mode === 'hybrid') {
       key = 'promoCamera.renderStyleHintHybrid';
       fallback = '人像與光影均衡。';
