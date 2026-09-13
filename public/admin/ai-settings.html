@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini、FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。<strong>只有人像實驗模式</strong>用 Grok，設定在該卡片的「實驗模式」區塊，與 FLUX 無關。</p>
+        <p class="text-muted small mb-3">Gemini、FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。<strong>只有人像寬鬆尺度</strong>用 Grok，設定在該卡片的「寬鬆尺度」區塊，與 FLUX 無關。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2 sticky-top shadow-sm" style="display:none; z-index:1030; top:0;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -79,7 +79,7 @@
         <div class="card mb-3 border-info">
           <div class="card-body">
             <h6 class="card-title">商攝導演・引擎＋模型名稱</h6>
-            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>實驗模式專用 Grok</strong>，模型／畫質／金鑰只在本卡片「實驗模式」區塊，按該區自己的儲存鈕；<strong>不會改到其他 FLUX 槽</strong>。</p>
+            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>寬鬆尺度專用 Grok</strong>，模型／畫質／金鑰只在本卡片「寬鬆尺度」區塊，按該區自己的儲存鈕；<strong>不會改到其他 FLUX 槽</strong>。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">產品攝影 <code class="fw-normal">/promo-camera</code> 產品 tab</h6>
               <p class="form-text small text-muted mb-3">產品攝影固定走 FLUX（沒有 Gemini 切換）。模型<strong>只給商攝產品</strong>，不跟設計頁／廠商「情境圖」共用。未存前仍沿用情境圖槽 <code>bfl_flux_model_promo_image</code>。</p>
@@ -93,7 +93,7 @@
             </div>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
-              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／實驗」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。實驗與清晰同一套提示詞，只送 Grok Imagine；模型、畫質、金鑰就在本區「實驗模式」，不跟氛圍共用。</p>
+              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／寬鬆尺度」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。寬鬆尺度與清晰同一套提示詞，只送 Grok Imagine；模型、畫質、金鑰就在本區「寬鬆尺度」，不跟氛圍共用。</p>
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="promoPortraitDefaultRenderMode">前台預設模式</label>
@@ -101,7 +101,7 @@
                     <option value="clear" selected>清晰模式</option>
                     <option value="mood">氛圍模式</option>
                     <option value="hybrid">混合模式</option>
-                    <option value="experiment">實驗模式（Grok）</option>
+                    <option value="experiment">寬鬆尺度（Grok）</option>
                   </select>
                   <p class="form-text small text-muted mb-0"><code>promo_portrait_default_render_mode</code></p>
                 </div>
@@ -154,8 +154,8 @@
                 </div>
               </div>
               <div class="border rounded p-3 bg-light mt-3" id="grokImagineSettingsCard">
-                <h6 class="small fw-bold mb-2">實驗模式（Grok Imagine）</h6>
-                <p class="form-text small text-muted mb-3">前台「實驗模式」：與清晰同一套提示詞，改送 xAI Grok Imagine 改圖。臉部複製程度較低。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。以後換模型：改下面欄位再按儲存，不必改程式。</p>
+                <h6 class="small fw-bold mb-2">寬鬆尺度（Grok Imagine）</h6>
+                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。與清晰同一套提示詞，改送 xAI Grok Imagine 改圖。臉部複製程度較低。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。以後換模型：改下面欄位再按儲存，不必改程式。</p>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperiment">人像實驗模型</label>
@@ -171,6 +171,11 @@
                     </select>
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_grok_quality</code> — 僅 <code>grok-imagine-image-2.0</code> 有效</p>
                   </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="promoPortraitExperimentPerMinute">每帳號每分鐘生圖次數</label>
+                    <input type="number" id="promoPortraitExperimentPerMinute" class="form-control form-control-sm" min="0" max="60" step="1" value="6" />
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_per_minute</code> — 只限寬鬆尺度。0＝不限。未存前預設 6。管理員／測試員不受限。套圖一次算多張。</p>
+                  </div>
                   <div class="col-12">
                     <label class="form-label small mb-1" for="xaiApiKeyPortraitExperiment">xAI API 金鑰（生圖／推論）</label>
                     <input type="password" id="xaiApiKeyPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="留空＝不變更" autocomplete="new-password" />
@@ -183,7 +188,7 @@
                   </div>
                 </div>
                 <div class="mt-3">
-                  <button type="button" class="btn btn-sm btn-dark" id="btnSaveGrokConfig">儲存實驗模式（模型／畫質／金鑰）</button>
+                  <button type="button" class="btn btn-sm btn-dark" id="btnSaveGrokConfig">儲存寬鬆尺度（模型／畫質／頻率／金鑰）</button>
                   <span id="grokConfigDbHint" class="small text-muted ms-2"></span>
                 </div>
               </div>
@@ -513,6 +518,13 @@
       var gq = String(data.promo_portrait_experiment_grok_quality || 'auto').toLowerCase();
       grokExpQuality.value = (gq === 'low' || gq === 'medium' || gq === 'auto') ? gq : 'auto';
     }
+    var expPerMin = document.getElementById('promoPortraitExperimentPerMinute');
+    if (expPerMin) {
+      var pm = parseInt(data.promo_portrait_experiment_per_minute, 10);
+      if (!Number.isFinite(pm) || pm < 0) pm = 6;
+      if (pm > 60) pm = 60;
+      expPerMin.value = String(pm);
+    }
     var xaiHint = document.getElementById('xaiApiKeyPortraitExperimentHint');
     if (xaiHint) {
       var src = data.xai_api_key_source;
@@ -559,8 +571,9 @@
       if (ps.gemini_model_promo_portrait_hybrid) pp.push('混合Banana');
       if (ps.gemini_model_promo_portrait_prompt_review) pp.push('人像描述審核');
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
-      if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('實驗Grok');
-      if (ps.promo_portrait_experiment_grok_quality) pp.push('實驗Grok畫質');
+      if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('寬鬆Grok');
+      if (ps.promo_portrait_experiment_grok_quality) pp.push('寬鬆Grok畫質');
+      if (ps.promo_portrait_experiment_per_minute) pp.push('寬鬆每分鐘');
       if (ps.xai_api_key) pp.push('xAI金鑰');
       if (ps.xai_management_api_key) pp.push('xAI Management');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
@@ -577,8 +590,9 @@
     if (grokHint && data.saved_in_db) {
       var gs = data.saved_in_db;
       var gp = [];
-      if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('實驗模型');
+      if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('寬鬆模型');
       if (gs.promo_portrait_experiment_grok_quality) gp.push('畫質');
+      if (gs.promo_portrait_experiment_per_minute) gp.push('每分鐘次數');
       if (gs.xai_api_key) gp.push('資料庫金鑰');
       if (gs.xai_management_api_key) gp.push('Management Key');
       grokHint.textContent = gp.length
@@ -954,6 +968,13 @@
         var el = document.getElementById('promoPortraitExperimentGrokQuality');
         var v = el ? String(el.value || 'auto').toLowerCase() : 'auto';
         return (v === 'low' || v === 'medium' || v === 'auto') ? v : 'auto';
+      })(),
+      promo_portrait_experiment_per_minute: (function () {
+        var el = document.getElementById('promoPortraitExperimentPerMinute');
+        var n = parseInt(el && el.value, 10);
+        if (!Number.isFinite(n) || n < 0) n = 6;
+        if (n > 60) n = 60;
+        return n;
       })()
     };
     var xaiEl = document.getElementById('xaiApiKeyPortraitExperiment');
@@ -986,7 +1007,7 @@
       var extra = [];
       if (payload.xai_api_key) extra.push('已更新生圖金鑰');
       if (payload.xai_management_api_key) extra.push('已更新 Management Key');
-      showMsg('Grok 設定已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」' + (extra.length ? '，' + extra.join('，') : ''));
+      showMsg('寬鬆尺度已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，每分鐘「' + payload.promo_portrait_experiment_per_minute + '」' + (extra.length ? '，' + extra.join('，') : ''));
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);

@@ -964,11 +964,11 @@
     var stylingHint = document.getElementById('pcPortraitStylingHint');
     if (stylingHint) {
       if (mode === 'scene') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。若需放寬尺度請用實驗模式（方案三以上）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。大尺度產品請選寬鬆尺度（方案三／方案四）。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。若需放寬尺度請用實驗模式（方案三以上）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。大尺度產品請選寬鬆尺度（方案三／方案四）。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。若需放寬尺度請用實驗模式（方案三以上）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。大尺度產品請選寬鬆尺度（方案三／方案四）。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -1009,8 +1009,11 @@
 
   function syncPortraitExperimentAccess() {
     var allowed = portraitExperimentAllowed();
+    var opts = St.get().options || {};
+    var perMin = parseInt(opts.portrait_experiment_per_minute, 10);
+    if (!Number.isFinite(perMin) || perMin < 0) perMin = 6;
     var expEl = document.getElementById('pcPortraitRenderExperiment');
-    var hintText = t('promoCamera.renderExperimentPlanHint', '實驗模式限方案三以上');
+    var hintText = t('promoCamera.renderExperimentPlanHint', '寬鬆尺度限方案三、方案四會員使用');
     if (expEl) {
       expEl.disabled = !allowed;
       expEl.title = allowed ? '' : hintText;
@@ -1031,8 +1034,14 @@
       }
     }
     if (hint) {
-      hint.textContent = hintText;
-      hint.classList.toggle('d-none', allowed);
+      if (!allowed) {
+        hint.textContent = hintText;
+      } else if (perMin > 0) {
+        hint.textContent = tpl('promoCamera.renderExperimentRateHint', '大尺度產品專用。每帳號每分鐘最多 {n} 次。', { n: perMin });
+      } else {
+        hint.textContent = t('promoCamera.renderExperimentProductHint', '給大尺度產品用。限方案三／方案四。');
+      }
+      hint.classList.remove('d-none');
     }
     if (!allowed && portraitRenderMode() === 'experiment' && St.setPortraitRenderMode) {
       St.setPortraitRenderMode('clear');

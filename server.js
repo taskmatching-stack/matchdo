@@ -692,12 +692,16 @@ function sanitizeUserFacingImageGenError(msg) {
     return s;
 }
 
-function promoPortraitBlockedClientPayload(genErr) {
+function promoPortraitBlockedClientPayload(genErr, renderMode) {
     if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
         return { error: sanitizeUserFacingImageGenError((genErr && genErr.message) || '') };
     }
+    const mode = normalizePromoPortraitRenderMode(renderMode);
+    const error = mode === 'experiment'
+        ? '外部生圖審核未通過。寬鬆尺度仍可能被擋，請換較清楚的身份參考圖或調整描述後再試。每帳號每分鐘有次數上限。系統不會改提示詞再送。'
+        : '外部生圖審核未通過。大尺度產品請改用「寬鬆尺度」（方案三／方案四）。清晰、氛圍、混合不適合這類產品。系統不會改提示詞再送。';
     return Object.assign({
-        error: '外部生圖審核未通過，請調整參考圖的姿勢與構圖，或將衣著設定改為依場景後再試。連續未通過外部審核，網站會限流；若需放寬尺度請使用實驗模式（方案三以上）。',
+        error: error,
         code: 'image_gen_blocked'
     }, promoPortraitReviewHelpLinkFields());
 }
@@ -2805,6 +2809,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
+    if (!(await assertPromoPortraitExperimentRate(currentUser && currentUser.id, renderCtx.mode, outputCount, res))) return;
 
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
@@ -3037,7 +3042,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 });
             }
             var blockedPayload = isPromoPortraitExternalImageGenBlockedError(genErr)
-                ? promoPortraitBlockedClientPayload(genErr)
+                ? promoPortraitBlockedClientPayload(genErr, renderCtx.mode)
                 : null;
             results.push({
                 shot_index: i + 1,
@@ -3381,6 +3386,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
+    if (!(await assertPromoPortraitExperimentRate(currentUser && currentUser.id, renderCtx.mode, outputCount, res))) return;
 
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
@@ -3500,7 +3506,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             console.error('promo-camera portrait mood:', genErr);
             return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
                 { success: false },
-                promoPortraitBlockedClientPayload(genErr)
+                promoPortraitBlockedClientPayload(genErr, renderCtx.mode)
             ));
         }
 
@@ -3759,7 +3765,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         if (sendJsonImageGenError(res, genErr, { success: false })) return;
         return res.status(promoPortraitGenerateHttpStatus(genErr)).json(Object.assign(
             { success: false },
-            promoPortraitBlockedClientPayload(genErr)
+            promoPortraitBlockedClientPayload(genErr, renderCtx.mode)
         ));
     }
     if (!buffer || !buffer.length) {
@@ -4901,7 +4907,7 @@ function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
     if (s === 'hybrid' || s === 'mix' || s === 'mixed' || s === '混合' || s === '混合模式') return 'hybrid';
-    if (s === 'experiment' || s === 'experimental' || s === 'flux_experiment' || s === 'clear_flux' || s === '實驗' || s === '實驗模式') {
+    if (s === 'experiment' || s === 'experimental' || s === 'flux_experiment' || s === 'clear_flux' || s === '實驗' || s === '實驗模式' || s === '寬鬆' || s === '寬鬆尺度') {
         return 'experiment';
     }
     if (s === 'clear' || s === 'sharp' || s === '清晰') return 'clear';
@@ -4916,7 +4922,10 @@ function isPromoPortraitFluxExperimentMode(mode) {
     return mode === 'experiment';
 }
 
-const PORTRAIT_EXPERIMENT_PLAN_ERROR = '實驗模式限方案三以上使用';
+const PORTRAIT_EXPERIMENT_PLAN_ERROR = '寬鬆尺度限方案三、方案四會員使用';
+const PORTRAIT_EXPERIMENT_RATE_MEM = new Map();
+const PORTRAIT_EXPERIMENT_RATE_WINDOW_MS = 60000;
+const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 6;
 
 /** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
 async function canUsePromoPortraitExperiment(userId) {
@@ -4934,6 +4943,90 @@ async function assertPromoPortraitExperimentAllowed(userId, renderMode, res) {
         code: 'portrait_experiment_plan_required'
     });
     return false;
+}
+
+function parsePromoPortraitExperimentPerMinute(raw) {
+    if (raw == null || String(raw).trim() === '') return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
+    const n = parseInt(String(raw).trim(), 10);
+    if (!Number.isFinite(n) || n < 0) return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
+    if (n === 0) return 0;
+    return Math.min(60, Math.max(1, n));
+}
+
+async function getPromoPortraitExperimentPerMinute() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_experiment_per_minute')
+            .maybeSingle();
+        return parsePromoPortraitExperimentPerMinute(row && row.value);
+    } catch (_) {
+        return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
+    }
+}
+
+function countPromoPortraitExperimentMem(userId) {
+    const now = Date.now();
+    const uid = String(userId || '');
+    let arr = PORTRAIT_EXPERIMENT_RATE_MEM.get(uid) || [];
+    arr = arr.filter((t) => now - t < PORTRAIT_EXPERIMENT_RATE_WINDOW_MS);
+    PORTRAIT_EXPERIMENT_RATE_MEM.set(uid, arr);
+    return arr.length;
+}
+
+function recordPromoPortraitExperimentMem(userId, shotCount) {
+    const now = Date.now();
+    const uid = String(userId || '');
+    const n = Math.max(1, parseInt(shotCount, 10) || 1);
+    let arr = PORTRAIT_EXPERIMENT_RATE_MEM.get(uid) || [];
+    arr = arr.filter((t) => now - t < PORTRAIT_EXPERIMENT_RATE_WINDOW_MS);
+    for (let i = 0; i < n; i++) arr.push(now);
+    PORTRAIT_EXPERIMENT_RATE_MEM.set(uid, arr);
+}
+
+async function countPromoPortraitExperimentDbLastMinute(userId) {
+    const since = new Date(Date.now() - PORTRAIT_EXPERIMENT_RATE_WINDOW_MS).toISOString();
+    try {
+        const { data, error } = await supabase
+            .from('product_promo_generations')
+            .select('id, generation_meta_json')
+            .eq('user_id', userId)
+            .eq('generation_mode', 'camera_advanced')
+            .gte('created_at', since)
+            .limit(120);
+        if (error || !data) return 0;
+        return data.filter((row) => {
+            const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
+            return normalizePromoPortraitRenderMode(meta && meta.portrait_render_mode) === 'experiment';
+        }).length;
+    } catch (_) {
+        return 0;
+    }
+}
+
+async function assertPromoPortraitExperimentRate(userId, renderMode, shotCount, res) {
+    if (normalizePromoPortraitRenderMode(renderMode) !== 'experiment') return true;
+    if (!userId) return true;
+    if (await isStaffProfileUserId(userId)) return true;
+    const limit = await getPromoPortraitExperimentPerMinute();
+    if (limit === 0) return true;
+    const shots = Math.max(1, parseInt(shotCount, 10) || 1);
+    const used = Math.max(
+        countPromoPortraitExperimentMem(userId),
+        await countPromoPortraitExperimentDbLastMinute(userId)
+    );
+    if (used + shots > limit) {
+        res.status(429).json({
+            success: false,
+            error: '寬鬆尺度每分鐘最多 ' + limit + ' 次，請稍後再試',
+            code: 'portrait_experiment_rate_limited',
+            per_minute: limit
+        });
+        return false;
+    }
+    recordPromoPortraitExperimentMem(userId, shots);
+    return true;
 }
 
 /** 實驗模式：清晰那套提示詞前面加優先句（鎖同一個人、換姿勢）。Grok 常自行加電影暗角，明確禁止。 */
@@ -14734,6 +14827,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'xai_management_api_key',
             'promo_portrait_experiment_flux_safety_tolerance',
             'promo_portrait_experiment_flux_prompt_upsampling',
+            'promo_portrait_experiment_per_minute',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -14802,6 +14896,9 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 byKey.promo_portrait_experiment_flux_prompt_upsampling,
                 true
             ),
+            promo_portrait_experiment_per_minute: parsePromoPortraitExperimentPerMinute(
+                byKey.promo_portrait_experiment_per_minute
+            ),
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -14837,6 +14934,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 xai_management_api_key: !!byKey.xai_management_api_key,
                 promo_portrait_experiment_flux_safety_tolerance: !!byKey.promo_portrait_experiment_flux_safety_tolerance,
                 promo_portrait_experiment_flux_prompt_upsampling: !!byKey.promo_portrait_experiment_flux_prompt_upsampling,
+                promo_portrait_experiment_per_minute: !!byKey.promo_portrait_experiment_per_minute,
                 ...bfl.saved_in_db
             }
         });
@@ -14970,6 +15068,18 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 updated_at: now
             });
         }
+        if (body.promo_portrait_experiment_per_minute !== undefined) {
+            const rawPm = String(body.promo_portrait_experiment_per_minute).trim();
+            const nPm = parseInt(rawPm, 10);
+            if (!Number.isFinite(nPm) || nPm < 0 || nPm > 60) {
+                return res.status(400).json({ error: '寬鬆尺度每分鐘次數請填 0～60（0＝不限）' });
+            }
+            upserts.push({
+                key: 'promo_portrait_experiment_per_minute',
+                value: String(nPm === 0 ? 0 : Math.min(60, Math.max(1, nPm))),
+                updated_at: now
+            });
+        }
         const engineFields = [
             'vendor_asset_optimize_engine',
             'material_dual_color_engine',
@@ -15080,6 +15190,10 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 : null,
             promo_portrait_experiment_flux_prompt_upsampling: byKey.promo_portrait_experiment_flux_prompt_upsampling != null
                 ? parsePaymentConfigOnOff(byKey.promo_portrait_experiment_flux_prompt_upsampling, true)
+                : null,
+            promo_portrait_experiment_per_minute: byKey.promo_portrait_experiment_per_minute != null
+                && String(byKey.promo_portrait_experiment_per_minute).trim() !== ''
+                ? parsePromoPortraitExperimentPerMinute(byKey.promo_portrait_experiment_per_minute)
                 : null,
             ...bfl.models
         });
@@ -21171,6 +21285,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
             promo_portrait_engine: portraitEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
             portrait_experiment_allowed: portraitExperimentAllowed,
+            portrait_experiment_per_minute: await getPromoPortraitExperimentPerMinute(),
             portrait_render_modes: {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
@@ -31428,7 +31543,7 @@ function adminPromoCameraRecordTitleLabel(itemSource, shootMode) {
 }
 
 function adminPromoPortraitRenderModeLabel(mode) {
-    const map = { clear: '清晰', mood: '氛圍', hybrid: '混合', experiment: '實驗' };
+    const map = { clear: '清晰', mood: '氛圍', hybrid: '混合', experiment: '寬鬆尺度' };
     return map[String(mode || '').trim().toLowerCase()] || '';
 }
 

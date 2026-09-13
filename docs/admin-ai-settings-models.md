@@ -54,12 +54,13 @@
 
 ### 2.1.1 Grok Imagine（xAI）
 
-後台「商攝導演」卡片內的<strong>實驗模式</strong>區塊（與清晰／氛圍同一區）。人像實驗模式專用。
+後台「商攝導演」卡片內的<strong>寬鬆尺度</strong>區塊（前台顯示名；內部 key 仍為 experiment）。人像此模式專用 Grok。
 
 | 後台欄位 | `payment_config.key` | 程式預設 | 用途 |
 |----------|----------------------|----------|------|
-| 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像實驗；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
+| 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像寬鬆尺度；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
 | 畫質 | `promo_portrait_experiment_grok_quality` | `auto` | 後台下拉：`auto`／`medium`／`low`。僅 2.0 有效。改圖時 `auto` 官方目前多半等於 `medium`；要明確拉畫質請存 `medium`。 |
+| 每帳號每分鐘 | `promo_portrait_experiment_per_minute` | `6` | 只限寬鬆尺度。`0`＝不限。可填 1～60。套圖一次算多張。管理員／測試員不受限。 |
 | xAI API 金鑰 | `xai_api_key` | （無） | 優先環境變數 `XAI_API_KEY`／`GROK_API_KEY`；GET 永不回傳密文。**只能生圖，查不到餘額。** |
 | xAI Management API 金鑰 | `xai_management_api_key` | （無） | 優先環境變數 `XAI_MANAGEMENT_API_KEY`；console.x.ai → Settings → Management Keys。平台用量監控查預付美元用；不能拿來生圖。GET 永不回傳密文 |
 
@@ -82,7 +83,7 @@
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
 | **規劃模擬** | `gemini_model_promo_planning_sim` | `getPromoPlanningSimModelName()` | `/promo-camera` 空間「規劃模擬」（空間圖＋家具／陳設；預設 Nano Banana 2） |
 | **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
-| **人像攝影・實驗（Grok Imagine）** | `grok_imagine_model_promo_portrait_experiment` + `promo_portrait_experiment_grok_quality` + `xai_api_key`（或環境變數 `XAI_API_KEY`） | `getPromoPortraitEngineForRenderMode('experiment')` → `grok` | 與清晰同提示詞、只送 xAI Grok Imagine 改圖。臉複製較低。獨立模型槽，不跟氛圍共用。畫質 `auto`／`low`／`medium`（僅 2.0）。未存前程式預設 `grok-imagine-image-2.0`。金鑰優先環境變數。 |
+| **人像攝影・寬鬆尺度（Grok Imagine）** | `grok_imagine_model_promo_portrait_experiment` + `promo_portrait_experiment_grok_quality` + `promo_portrait_experiment_per_minute` + `xai_api_key`（或環境變數 `XAI_API_KEY`） | `getPromoPortraitEngineForRenderMode('experiment')` → `grok` | 給大尺度產品用。與清晰同提示詞、只送 xAI Grok Imagine 改圖。限方案三／四。每帳號每分鐘預設 6（0＝不限）。臉複製較低。獨立模型槽，不跟氛圍共用。畫質 `auto`／`low`／`medium`（僅 2.0）。未存前程式預設 `grok-imagine-image-2.0`。金鑰優先環境變數。 |
 | **人像攝影・氛圍 Lite** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍兩段的 Lite：現行＝草稿；實驗＝修臉 |
 | **人像描述安全審核** | `gemini_model_promo_portrait_prompt_review` | `getPromoPortraitPromptReviewModelName()` | 後台手填文字模型；空白則沿用翻譯模型 `gemini_model`。不扣點；失敗不生圖 |
 | **人像描述自動潤飾** | `profiles.promo_portrait_prompt_auto_polish` | `isPromoPortraitPromptAutoPolishEnabled()` | 帳號設定；預設開。關閉仍攔截，不略過審查 |
