@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini、FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。<strong>只有人像寬鬆尺度</strong>用 Grok，設定在該卡片的「寬鬆尺度」區塊，與 FLUX 無關。</p>
+        <p class="text-muted small mb-3">Gemini、FLUX 皆為<strong>手填 model id</strong>（模型更新時直接改名稱即可）。「重繪引擎切換」只選 auto／gemini／flux；商攝導演請用下方「引擎＋模型名稱」卡片一次設齊。<strong>只有人像審核友善</strong>用 Grok，設定在該卡片的「審核友善」區塊，與 FLUX 無關。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2 sticky-top shadow-sm" style="display:none; z-index:1030; top:0;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -79,7 +79,7 @@
         <div class="card mb-3 border-info">
           <div class="card-body">
             <h6 class="card-title">商攝導演・引擎＋模型名稱</h6>
-            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>寬鬆尺度</strong>（FLUX 空景＋Grok 放人）也在本卡片填，與清晰／氛圍／混合一起按下方<strong>儲存商攝引擎＋模型名稱</strong>。</p>
+            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>審核友善</strong>（FLUX 空景＋Grok 放人）也在本卡片填，與清晰／氛圍／混合一起按下方<strong>儲存商攝引擎＋模型名稱</strong>。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">產品攝影 <code class="fw-normal">/promo-camera</code> 產品 tab</h6>
               <p class="form-text small text-muted mb-3">產品攝影固定走 FLUX（沒有 Gemini 切換）。模型<strong>只給商攝產品</strong>，不跟設計頁／廠商「情境圖」共用。未存前仍沿用情境圖槽 <code>bfl_flux_model_promo_image</code>。</p>
@@ -93,7 +93,7 @@
             </div>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">人像攝影 <code class="fw-normal">/promo-camera</code> 人像 tab</h6>
-              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／寬鬆尺度」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。寬鬆尺度與清晰同一套提示詞，只送 Grok Imagine；模型、畫質、金鑰就在本區「寬鬆尺度」，不跟氛圍共用。</p>
+              <p class="form-text small text-muted mb-3">前台顯示「清晰／氛圍／混合／審核友善」（不顯示模型名稱）。此處各模式分開設定引擎與 model id。審核友善與清晰同一套提示詞，只送 Grok Imagine；模型、畫質、金鑰就在本區「審核友善」，不跟氛圍共用。</p>
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="promoPortraitDefaultRenderMode">前台預設模式</label>
@@ -101,7 +101,7 @@
                     <option value="clear" selected>清晰模式</option>
                     <option value="mood">氛圍模式</option>
                     <option value="hybrid">混合模式</option>
-                    <option value="experiment">寬鬆尺度（Grok）</option>
+                    <option value="experiment">審核友善（Grok）</option>
                   </select>
                   <p class="form-text small text-muted mb-0"><code>promo_portrait_default_render_mode</code></p>
                 </div>
@@ -138,7 +138,7 @@
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortrait">FLUX 模型</label>
                     <input type="text" id="bflFluxModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 僅氛圍第二段換成像，與實驗分開</p>
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait</code> — 僅氛圍第二段換成像，與審核友善分開</p>
                   </div>
                 </div>
               </div>
@@ -154,8 +154,8 @@
                 </div>
               </div>
               <div class="border rounded p-3 bg-light mt-3" id="grokImagineSettingsCard">
-                <h6 class="small fw-bold mb-2">寬鬆尺度（FLUX 空景 → Grok 放人）</h6>
-                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。流程與混合相同——① FLUX 文生空景 ② Grok 將人像融入場景（依所選 MP）。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。</p>
+                <h6 class="small fw-bold mb-2">審核友善（FLUX 空景 → Grok 放人）</h6>
+                <p class="form-text small text-muted mb-3">前台「審核友善」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。流程與混合相同——① FLUX 文生空景 ② Grok 將人像融入場景（依所選 MP）。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。</p>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperiment">空景 · FLUX 模型</label>
@@ -268,7 +268,7 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="btn btn-sm btn-info text-white" id="btnSavePromoCameraModels">儲存商攝引擎＋模型名稱（含寬鬆尺度）</button>
+            <button type="button" class="btn btn-sm btn-info text-white" id="btnSavePromoCameraModels">儲存商攝引擎＋模型名稱（含審核友善）</button>
             <span id="promoCameraModelsDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
@@ -330,7 +330,7 @@
             <p class="form-text small text-muted mb-3">商攝導演（產品／空間平視／人像）的 Gemini 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。</p>
             <div class="border rounded p-3 bg-light mb-3">
               <h6 class="small fw-bold mb-2">Gemini 生圖限流（全站）</h6>
-              <p class="form-text small text-muted mb-3">全站所有 Gemini <strong>生圖</strong>共用（材料組合、印花、圖樣、材料重繪、商攝空間／人像清晰等）。<strong>不是依帳號</strong>，與上方「寬鬆尺度 Grok 全站 RPM／RPS」是另一組。不影響標籤／翻譯。記憶體計數，程序重啟歸零。未存前用程式預設／環境變數。超限時可能改走備援或請稍後再試。</p>
+              <p class="form-text small text-muted mb-3">全站所有 Gemini <strong>生圖</strong>共用（材料組合、印花、圖樣、材料重繪、商攝空間／人像清晰等）。<strong>不是依帳號</strong>，與上方「審核友善 Grok 全站 RPM／RPS」是另一組。不影響標籤／翻譯。記憶體計數，程序重啟歸零。未存前用程式預設／環境變數。超限時可能改走備援或請稍後再試。</p>
               <div class="row g-3">
                 <div class="col-md-4">
                   <label class="form-label small mb-1" for="geminiImageMaxPerMin">全站每分鐘</label>
@@ -402,7 +402,7 @@
               <input type="text" id="bflFluxModelPromoImage" class="form-control form-control-sm" placeholder="flux-2-pro" />
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_image</code> — 設計頁／廠商「情境圖」TAB（獨立槽；商攝產品攝影在上方商攝卡片）</p>
             </div>
-            <p class="form-text small text-muted mb-3">商攝導演（產品／空間平視／人像清晰與氛圍）的 FLUX 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。此卡片<strong>只存 FLUX</strong>，與人像實驗的 Grok 無關。</p>
+            <p class="form-text small text-muted mb-3">商攝導演（產品／空間平視／人像清晰與氛圍）的 FLUX 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。此卡片<strong>只存 FLUX</strong>，與人像審核友善的 Grok 無關。</p>
             <button type="button" class="btn btn-sm btn-success" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
           </div>
@@ -618,11 +618,11 @@
       if (ps.gemini_model_promo_portrait_hybrid) pp.push('混合Banana');
       if (ps.gemini_model_promo_portrait_prompt_review) pp.push('人像描述審核');
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
-      if (ps.bfl_flux_model_promo_portrait_experiment) pp.push('寬鬆FLUX');
-      if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('寬鬆Grok');
-      if (ps.promo_portrait_experiment_grok_quality) pp.push('寬鬆Grok畫質');
-      if (ps.promo_portrait_experiment_per_minute) pp.push('寬鬆每分鐘');
-      if (ps.promo_portrait_experiment_per_second) pp.push('寬鬆每秒');
+      if (ps.bfl_flux_model_promo_portrait_experiment) pp.push('友善FLUX');
+      if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('友善Grok');
+      if (ps.promo_portrait_experiment_grok_quality) pp.push('友善Grok畫質');
+      if (ps.promo_portrait_experiment_per_minute) pp.push('友善每分鐘');
+      if (ps.promo_portrait_experiment_per_second) pp.push('友善每秒');
       if (ps.xai_api_key) pp.push('xAI金鑰');
       if (ps.xai_management_api_key) pp.push('xAI Management');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
@@ -971,7 +971,7 @@
       var xaiMgmtEl = document.getElementById('xaiManagementApiKeyPortraitExperiment');
       if (xaiMgmtEl && payload.xai_management_api_key) xaiMgmtEl.value = '';
       await loadAiConfig();
-      showMsg('商攝已儲存（含寬鬆尺度 FLUX／Grok、規劃模擬 ' + ptsVal + ' 點／次）。請重新整理攝影模擬頁。');
+      showMsg('商攝已儲存（含審核友善 FLUX／Grok、規劃模擬 ' + ptsVal + ' 點／次）。請重新整理攝影模擬頁。');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);

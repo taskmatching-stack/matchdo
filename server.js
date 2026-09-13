@@ -268,7 +268,7 @@ const PORTRAIT_EXPERIMENT_PER_SECOND_MAX = 100;
 const PORTRAIT_EXPERIMENT_BUSY_RATIO = 0.9;
 
 /**
- * Grok Imagine（寬鬆尺度）全站佇列：達官方 RPM／RPS 時排隊等待，不直接 429。
+ * Grok Imagine（審核友善）全站佇列：達官方 RPM／RPS 時排隊等待，不直接 429。
  * 與 Gemini 生圖佇列相同：請求掛著等，輪到再送。
  */
 const _grokImagineWaiters = [];
@@ -815,8 +815,8 @@ function promoPortraitBlockedClientPayload(genErr, renderMode) {
     }
     const mode = normalizePromoPortraitRenderMode(renderMode);
     const error = mode === 'experiment'
-        ? '外部生圖審核未通過。寬鬆尺度仍可能被擋。尺度較大但仍禁止裸露。請換較清楚的身份參考圖或調整描述。系統不會改提示詞再送。'
-        : '外部生圖審核未通過。大尺度產品請改用「寬鬆尺度」（方案三／方案四）。清晰、氛圍、混合不適合這類產品。尺度較大仍禁止裸露。系統不會改提示詞再送。';
+        ? '外部生圖審核未通過。審核友善仍可能被擋。尺度較大但仍禁止裸露。請換較清楚的身份參考圖或調整描述。系統不會改提示詞再送。'
+        : '外部生圖審核未通過。大尺度產品請改用「審核友善」（方案三／方案四）。清晰、氛圍、混合不適合這類產品。尺度較大仍禁止裸露。系統不會改提示詞再送。';
     return Object.assign({
         error: error,
         code: 'image_gen_blocked'
@@ -1047,7 +1047,7 @@ function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
     ].filter(Boolean).join('\n');
 }
 
-/** 寬鬆尺度第二階段：Grok 將人像融入 FLUX 空景（人物在前、場景在後） */
+/** 審核友善第二階段：Grok 將人像融入 FLUX 空景（人物在前、場景在後） */
 async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, promptText, grokOpts) {
     const apiKey = await getXaiApiKey();
     if (!apiKey) {
@@ -1229,7 +1229,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     };
 }
 
-/** 寬鬆尺度兩段：FLUX 1K 空景 → Grok 融入人物（對齊混合流程，第二段換 Grok） */
+/** 審核友善兩段：FLUX 1K 空景 → Grok 融入人物（對齊混合流程，第二段換 Grok） */
 async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, facePrompt, grokOpts, extra) {
     const userOpts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
     const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
@@ -1936,7 +1936,7 @@ function buildPromoPortraitFluxSceneCameraAppend(cameraBlock) {
 }
 
 /**
- * 混合／寬鬆尺度階段一：FLUX 純文生空景（含攝影參數，控制情境光線與成像）。
+ * 混合／審核友善階段一：FLUX 純文生空景（含攝影參數，控制情境光線與成像）。
  */
 async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -2747,7 +2747,7 @@ const PORTRAIT_SHOT_BRIEF_FALLBACKS = [
     'Profile close-up emphasizing hairstyle and styling details, soft rim light.'
 ];
 
-/** 混合／寬鬆空景：每次取不同取景，主題與攝影參數不變也能換構圖（只影響環境，不畫人） */
+/** 混合／審核友善空景：每次取不同取景，主題與攝影參數不變也能換構圖（只影響環境，不畫人） */
 const PORTRAIT_FLUX_SCENE_VARIATION_FALLBACKS = [
     '取景略偏左，前景有輕微景深，主體預留區在畫面右側中景。',
     '略高角度俯看場景一角，地面與牆面交界清楚，主體位在畫面中下。',
@@ -5240,7 +5240,7 @@ function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
     if (s === 'hybrid' || s === 'mix' || s === 'mixed' || s === '混合' || s === '混合模式') return 'hybrid';
-    if (s === 'experiment' || s === 'experimental' || s === 'flux_experiment' || s === 'clear_flux' || s === '實驗' || s === '實驗模式' || s === '寬鬆' || s === '寬鬆尺度') {
+    if (s === 'experiment' || s === 'experimental' || s === 'flux_experiment' || s === 'clear_flux' || s === '實驗' || s === '實驗模式' || s === '寬鬆' || s === '寬鬆尺度' || s === '審核友善') {
         return 'experiment';
     }
     if (s === 'clear' || s === 'sharp' || s === '清晰') return 'clear';
@@ -5255,7 +5255,7 @@ function isPromoPortraitFluxExperimentMode(mode) {
     return mode === 'experiment';
 }
 
-const PORTRAIT_EXPERIMENT_PLAN_ERROR = '寬鬆尺度限方案三、方案四會員使用';
+const PORTRAIT_EXPERIMENT_PLAN_ERROR = '審核友善限方案三、方案四會員使用';
 
 /** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
 async function canUsePromoPortraitExperiment(userId) {
@@ -5370,7 +5370,7 @@ async function getPromoPortraitExperimentBusy() {
     return false;
 }
 
-/** 寬鬆尺度：清晰提示詞 + 優先句（鎖人、姿勢／構圖可較大變化）。Grok 常自行加電影暗角，明確禁止。 */
+/** 審核友善：清晰提示詞 + 優先句（鎖人、姿勢／構圖可較大變化）。Grok 常自行加電影暗角，明確禁止。 */
 function buildPromoPortraitFluxExperimentPrompt(geminiPrompt, stylingMode) {
     const lead = promoPortraitStyling.buildPortraitFluxExperimentPriorityLead(stylingMode);
     const main = String(geminiPrompt || '').trim();
@@ -15501,7 +15501,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             const rawPm = String(body.promo_portrait_experiment_per_minute).trim();
             const nPm = parseInt(rawPm, 10);
             if (!Number.isFinite(nPm) || nPm < 0 || nPm > PORTRAIT_EXPERIMENT_PER_MINUTE_MAX) {
-                return res.status(400).json({ error: '寬鬆尺度全站每分鐘請填 0～' + PORTRAIT_EXPERIMENT_PER_MINUTE_MAX + '（0＝不限）' });
+                return res.status(400).json({ error: '審核友善全站每分鐘請填 0～' + PORTRAIT_EXPERIMENT_PER_MINUTE_MAX + '（0＝不限）' });
             }
             upserts.push({
                 key: 'promo_portrait_experiment_per_minute',
@@ -15513,7 +15513,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             const rawPs = String(body.promo_portrait_experiment_per_second).trim();
             const nPs = parseInt(rawPs, 10);
             if (!Number.isFinite(nPs) || nPs < 0 || nPs > PORTRAIT_EXPERIMENT_PER_SECOND_MAX) {
-                return res.status(400).json({ error: '寬鬆尺度全站每秒請填 0～' + PORTRAIT_EXPERIMENT_PER_SECOND_MAX + '（0＝不限）' });
+                return res.status(400).json({ error: '審核友善全站每秒請填 0～' + PORTRAIT_EXPERIMENT_PER_SECOND_MAX + '（0＝不限）' });
             }
             upserts.push({
                 key: 'promo_portrait_experiment_per_second',
@@ -32031,7 +32031,7 @@ function adminPromoCameraRecordTitleLabel(itemSource, shootMode) {
 }
 
 function adminPromoPortraitRenderModeLabel(mode) {
-    const map = { clear: '清晰', mood: '氛圍', hybrid: '混合', experiment: '寬鬆尺度' };
+    const map = { clear: '清晰', mood: '氛圍', hybrid: '混合', experiment: '審核友善' };
     return map[String(mode || '').trim().toLowerCase()] || '';
 }
 

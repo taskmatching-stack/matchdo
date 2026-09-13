@@ -54,13 +54,13 @@
 
 ### 2.1.1 Grok Imagine（xAI）
 
-後台「商攝導演」卡片內的<strong>寬鬆尺度</strong>區塊（前台顯示名；內部 key 仍為 experiment）。人像此模式專用 Grok。
+後台「商攝導演」卡片內的<strong>審核友善</strong>區塊（前台顯示名；內部 key 仍為 experiment）。人像此模式專用 Grok。
 
 | 後台欄位 | `payment_config.key` | 程式預設 | 用途 |
 |----------|----------------------|----------|------|
-| 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像寬鬆尺度；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
+| 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像審核友善；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
 | 畫質 | `promo_portrait_experiment_grok_quality` | `auto` | 後台下拉：`auto`／`medium`／`low`。僅 2.0 有效。改圖時 `auto` 官方目前多半等於 `medium`；要明確拉畫質請存 `medium`。 |
-| 全站每分鐘（RPM） | `promo_portrait_experiment_per_minute` | `300` | 只限寬鬆尺度。**全站合計**，對齊 xAI Grok Imagine RPM。未存前＝Tier 0（300）。`0`＝不限。可填 1～5000。所有帳號都算進去。**超過排隊；滑動 60 秒視窗過期即重置繼續送，不會卡死**。前台約 90% 才出短提醒。舊值 6（每帳號預設）在尚未存 RPS 時視為未設、改用 300。 |
+| 全站每分鐘（RPM） | `promo_portrait_experiment_per_minute` | `300` | 只限審核友善。**全站合計**，對齊 xAI Grok Imagine RPM。未存前＝Tier 0（300）。`0`＝不限。可填 1～5000。所有帳號都算進去。**超過排隊；滑動 60 秒視窗過期即重置繼續送，不會卡死**。前台約 90% 才出短提醒。舊值 6（每帳號預設）在尚未存 RPS 時視為未設、改用 300。 |
 | 全站每秒（RPS） | `promo_portrait_experiment_per_second` | `6` | 全站合計，對齊官方 RPS。未存前＝Tier 0（6）。`0`＝不限。可填 1～100。超過同樣排隊。 |
 
 官方階層（累計儲值解鎖；請填目前階層，建議略低於官方當緩衝）：
@@ -94,7 +94,7 @@
 | **空間攝影・平視（對照 ISO）** | `gemini_model_promo_space_eye_level` | `getPromoSpaceEyeLevelModelName()` | `/promo-camera` 空間 `eye_level` |
 | **規劃模擬** | `gemini_model_promo_planning_sim` | `getPromoPlanningSimModelName()` | `/promo-camera` 空間「規劃模擬」（空間圖＋家具／陳設；預設 Nano Banana 2） |
 | **人像攝影・清晰** | `gemini_model_promo_portrait` | `getPromoPortraitModelName()` | `/promo-camera` 人像清晰模式（Nano Banana Pro） |
-| **人像攝影・寬鬆尺度（Grok Imagine）** | `grok_imagine_model_promo_portrait_experiment` + `promo_portrait_experiment_grok_quality` + `promo_portrait_experiment_per_minute` + `promo_portrait_experiment_per_second` + `xai_api_key`（或環境變數 `XAI_API_KEY`） | `getPromoPortraitEngineForRenderMode('experiment')` → `grok` | 給大尺度產品用。與清晰同提示詞、只送 xAI Grok Imagine 改圖。限方案三／四。全站 RPM／RPS 預設 Tier 0（300／6）。臉複製較低。獨立模型槽，不跟氛圍共用。畫質 `auto`／`low`／`medium`（僅 2.0）。未存前程式預設 `grok-imagine-image-2.0`。金鑰優先環境變數。 |
+| **人像攝影・審核友善（Grok Imagine）** | `grok_imagine_model_promo_portrait_experiment` + `promo_portrait_experiment_grok_quality` + `promo_portrait_experiment_per_minute` + `promo_portrait_experiment_per_second` + `xai_api_key`（或環境變數 `XAI_API_KEY`） | `getPromoPortraitEngineForRenderMode('experiment')` → `grok` | 給大尺度產品用。與清晰同提示詞、只送 xAI Grok Imagine 改圖。限方案三／四。全站 RPM／RPS 預設 Tier 0（300／6）。臉複製較低。獨立模型槽，不跟氛圍共用。畫質 `auto`／`low`／`medium`（僅 2.0）。未存前程式預設 `grok-imagine-image-2.0`。金鑰優先環境變數。 |
 | **人像攝影・氛圍 Lite** | `gemini_model_promo_portrait_mood` | `getPromoPortraitMoodLiteModelName()` | 氛圍兩段的 Lite：現行＝草稿；實驗＝修臉 |
 | **人像描述安全審核** | `gemini_model_promo_portrait_prompt_review` | `getPromoPortraitPromptReviewModelName()` | 後台手填文字模型；空白則沿用翻譯模型 `gemini_model`。不扣點；失敗不生圖 |
 | **人像描述自動潤飾** | `profiles.promo_portrait_prompt_auto_polish` | `isPromoPortraitPromptAutoPolishEnabled()` | 帳號設定；預設開。關閉仍攔截，不略過審查 |
@@ -144,7 +144,7 @@ FLUX 並行排隊見 `docs/PLAN-flux-bfl-queue-and-vendor-gemini-redraw.md`。
 
 ### 2.3 Gemini 生圖限流（全站，後台可改）
 
-`/admin/ai-settings.html`「Gemini 模型設定」卡片。全站 Gemini **生圖**共用，**不是依帳號**。不影響標籤／翻譯。與寬鬆尺度 Grok 全站 RPM／RPS 是另一組。記憶體計數，程序重啟歸零。優先序：後台 DB → env → 程式預設。
+`/admin/ai-settings.html`「Gemini 模型設定」卡片。全站 Gemini **生圖**共用，**不是依帳號**。不影響標籤／翻譯。與審核友善 Grok 全站 RPM／RPS 是另一組。記憶體計數，程序重啟歸零。優先序：後台 DB → env → 程式預設。
 
 | 後台欄位 | `payment_config.key` | 程式預設 | 說明 |
 |----------|----------------------|----------|------|

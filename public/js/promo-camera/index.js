@@ -966,11 +966,11 @@
     var stylingHint = document.getElementById('pcPortraitStylingHint');
     if (stylingHint) {
       if (mode === 'scene') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。大尺度產品請選寬鬆尺度（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintScene', '衣著由拍攝主題與場景決定；忽略原圖姿勢；描述可寫姿勢、表情等。大尺度產品請選審核友善（方案三／方案四）。');
       } else if (mode === 'prompt') {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。大尺度產品請選寬鬆尺度（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄（必填）；忽略原圖姿勢。大尺度產品請選審核友善（方案三／方案四）。');
       } else {
-        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。大尺度產品請選寬鬆尺度（方案三／方案四）。');
+        stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '服裝維持參考圖；忽略原圖姿勢；描述可調髮型、表情與姿勢。大尺度產品請選審核友善（方案三／方案四）。');
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -1013,7 +1013,7 @@
     var allowed = portraitExperimentAllowed();
     var opts = St.get().options || {};
     var expEl = document.getElementById('pcPortraitRenderExperiment');
-    var hintText = t('promoCamera.renderExperimentPlanHint', '寬鬆尺度限方案三、方案四會員使用');
+    var hintText = t('promoCamera.renderExperimentPlanHint', '審核友善限方案三、方案四會員使用');
     if (expEl) {
       expEl.disabled = !allowed;
       expEl.title = allowed ? '' : hintText;
@@ -2480,7 +2480,7 @@
       if (portraitRenderMode() === 'experiment') {
         var ex1 = o.points_portrait_experiment_1mp != null ? o.points_portrait_experiment_1mp : 20;
         var ex4 = o.points_portrait_experiment_4mp != null ? o.points_portrait_experiment_4mp : 30;
-        return tpl('promoCamera.pricingHintPortraitExperiment', '寬鬆尺度每張 {pts1} 點（1MP）／{pts4} 點（4MP）', { pts1: ex1, pts4: ex4 });
+        return tpl('promoCamera.pricingHintPortraitExperiment', '審核友善每張 {pts1} 點（1MP）／{pts4} 點（4MP）', { pts1: ex1, pts4: ex4 });
       }
       var p1 = o.points_portrait_1mp != null ? o.points_portrait_1mp : 20;
       var p4 = o.points_portrait_4mp != null ? o.points_portrait_4mp : 30;
