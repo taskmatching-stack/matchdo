@@ -1882,16 +1882,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             stylingMode: portraitStylingMode
         });
     if (isExperiment) {
-        fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
-            themeKey,
-            themeParts,
-            sceneParts,
-            userPrompt,
-            cameraBlock,
-            hasSceneImage,
-            hasStagingProduct,
-            stylingMode: portraitStylingMode
-        });
+        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt, portraitStylingMode);
     }
     const engine = isMood ? 'flux' : (isExperiment ? 'grok' : renderCtx.engine);
     const promptSent = isMood
@@ -3018,17 +3009,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     stylingMode: portraitStylingMode
                 });
             if (renderCtx.mode === 'experiment') {
-                fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
-                    themeKey,
-                    themeParts,
-                    sceneParts,
-                    userPrompt,
-                    shotBrief,
-                    cameraBlock,
-                    hasSceneImage: !!resolvedRefs.hasSceneImage,
-                    hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                    stylingMode: portraitStylingMode
-                });
+                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
                 finalPrompt = fluxPrompt;
             }
         } catch (promptErr) {
@@ -3809,16 +3790,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             stylingMode: portraitStylingMode
         });
         if (renderCtx.mode === 'experiment') {
-            fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
-                themeKey,
-                themeParts,
-                sceneParts,
-                userPrompt,
-                cameraBlock,
-                hasSceneImage: !!resolvedRefs.hasSceneImage,
-                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
-                stylingMode: portraitStylingMode
-            });
+            fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
             finalPrompt = fluxPrompt;
         }
     } catch (promptErr) {
