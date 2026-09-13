@@ -1017,8 +1017,8 @@ function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
     const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     return [
         cap.lead,
-        cap.personLabel,
-        cap.sceneLabel,
+        '<IMAGE_0> ' + String(cap.personLabel || '').replace(/^第一張[・·]?\s*/, ''),
+        '<IMAGE_1> ' + String(cap.sceneLabel || '').replace(/^第二張[・·]?\s*/, ''),
         String(promptText || '').trim(),
         cap.closing
     ].filter(Boolean).join('\n');
