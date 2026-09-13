@@ -830,8 +830,9 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
             ? '在第二張場景裡重繪這位' + zhPerson + '的完整人物：臉、頭髮、肩頸、身材都跟第一張，但不要保留第一張的裁切範圍或矩形邊界。'
             : '在第二張裡重繪正好' + zhNum + '位' + zhPerson + '的完整人物，面孔與體型依第一張，位置對齊第二張預留的主體區。',
         '第二張的場景、構圖、地面與家具全部保留，不要改場景、不要平移背景；第二張不得殘留多餘肢體或人形碎片。',
-        '人物必須完全採用第二張的光影：主光方向、受光面、陰影邊緣、色溫、對比、環境反光都跟場景一致；不要保留上傳圖自己的棚拍光或邊緣光。',
-        '人物與場景的接觸點（地面、沙發、椅面、床沿等）要有正確接觸陰影與環境反射；髮絲、肩線、下擺與背景自然過渡，禁止貼紙、拼貼、矩形貼圖。',
+        '【姿勢融入】姿勢必須符合第二張場景的透視、地面高度、家具與預留主體區：站姿、坐姿或動作要自然落在場景裡；不要沿用第一張參考圖的肢體角度、站姿或裁切構圖。',
+        '【光影融入】人物必須完全採用第二張的光影：主光方向、受光面、投影陰影長度與邊緣軟硬、色溫、對比、環境反光與景深都跟場景一致；不要保留上傳圖自己的棚拍光、邊緣光或獨立打光。',
+        '【邊緣融入】邊緣過渡要依照第二張場景的成像條件：景深虛化、空氣感、環境色溢、逆光勾邊、明暗交界等都跟場景同一套；髮絲、肩線、衣袖、下擺與背景的過渡不得與場景的銳利度或氛圍矛盾。人物與場景接觸點（地面、沙發、椅面、床沿等）要有正確接觸陰影與環境反射；禁止硬邊、描邊、與場景無關的光暈、貼紙、拼貼、矩形貼圖。',
         '人物膚色與服裝色調要跟第二張場景同一套色彩分級，不要比場景更亮或更霧。',
         '成品只能是一張連續的實拍照，像同一台相機同一瞬間拍下的單張照片。'
     ];
@@ -976,7 +977,8 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
             opts.targetHeight || opts.height,
             {
                 tier: opts.tier || opts.space_resolution_tier,
-                aspect_ratio: opts.aspectRatio || opts.aspect_ratio
+                aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
+                allowUpscale: opts.allowUpscale
             }
         );
     }
@@ -1016,14 +1018,12 @@ function promoPortraitMoodCompareLabels(pipeline) {
 
 function formatPromoPortraitMoodPromptSent(pipeline, stage1, stage2, stage3) {
     if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
-        let out = '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・放入人物】\n' + String(stage2 || '');
-        if (stage3) out += '\n\n【階段三・氛圍重拍】\n' + String(stage3);
-        return out;
+        return '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・融入人物】\n' + String(stage2 || '');
     }
     return '【階段一・草稿】\n' + String(stage1 || '') + '\n\n【階段二・氛圍圖】\n' + String(stage2 || '');
 }
 
-/** 實驗管線：FLUX 文生已打光、留人位、沒有人的場景 → Gemini 放入上傳人物並以所選 MP 輸出 */
+/** 混合管線（兩段）：FLUX 1K 空景 → Gemini 依使用者 MP 將人像融入場景 */
 async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts, extra) {
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
@@ -1077,6 +1077,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
             minEdge: Math.max(lookDims.width, lookDims.height),
             targetWidth: lookDims.width,
             targetHeight: lookDims.height,
+            allowUpscale: false,
             userPrompt: userPrompt,
             stylingMode,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
@@ -1085,51 +1086,21 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     if (!face || !face.buffer || !face.buffer.length) {
         throw new Error('放入人物與輸出失敗，請稍後再試');
     }
-    let lookOut = face;
-    let lookProvider = 'gemini';
-    let hybridLookPrompt = '';
-    const cameraBlock = extra && extra.cameraBlock != null ? String(extra.cameraBlock).trim() : '';
-    if (cameraBlock) {
-        hybridLookPrompt = buildPromoPortraitMoodFluxLookPrompt(cameraBlock);
-        if (hybridLookPrompt) {
-            try {
-                const harmonized = await generatePromoPortraitImageWithFlux(
-                    [jpegImageRefFromBuffer(face.buffer)],
-                    hybridLookPrompt,
-                    {
-                        tier: userTier,
-                        aspectRatio: userAspect,
-                        aspect_ratio: userAspect,
-                        minEdge: Math.max(lookDims.width, lookDims.height),
-                        targetWidth: lookDims.width,
-                        targetHeight: lookDims.height
-                    },
-                    { promptUpsampling: false }
-                );
-                if (harmonized && harmonized.buffer && harmonized.buffer.length) {
-                    lookOut = harmonized;
-                    lookProvider = 'flux';
-                }
-            } catch (lookErr) {
-                console.warn('[promo-portrait hybrid] FLUX look pass failed, using Lite swap:', lookErr && lookErr.message);
-            }
-        }
-    }
+    const faceMeasured = await promoSpaceGemini.measurePromoSpaceImageDimensions(face.buffer);
     const draftW = scene.width || scene.gemini_native_width || lookDims.width;
     const draftH = scene.height || scene.gemini_native_height || lookDims.height;
     return {
         pipeline: 'flux_then_lite',
         draft: scene,
-        look: lookOut,
+        look: face,
         swapPrompt,
-        hybridLookPrompt: hybridLookPrompt || null,
         liteModel,
         draftProvider: 'flux',
-        lookProvider: lookProvider,
+        lookProvider: 'gemini',
         draftWidth: draftW,
         draftHeight: draftH,
-        lookWidth: lookDims.width,
-        lookHeight: lookDims.height
+        lookWidth: faceMeasured.width || lookDims.width,
+        lookHeight: faceMeasured.height || lookDims.height
     };
 }
 
@@ -1397,7 +1368,8 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
             opts.targetHeight || opts.height,
             {
                 tier: opts.tier || opts.space_resolution_tier,
-                aspect_ratio: opts.aspectRatio || opts.aspect_ratio
+                aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
+                allowUpscale: opts.allowUpscale
             }
         );
     }
@@ -1422,7 +1394,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
     const targetW = opts.targetWidth || opts.width || 2048;
     const targetH = opts.targetHeight || opts.height || 2048;
-    /* 官網實測：BFL 原生 1024 邊；交付尺寸仍依使用者 MP 後處理放大 */
+    /* 官網實測：BFL 原生 1024 邊；人像 FLUX 禁止插值硬放大（allowUpscale: false） */
     const fluxSize = clampBflFluxOutputSize(targetW, targetH, 1024);
     const fluxConfigKey = String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait';
     const endpointUrl = await getBflFluxEndpointForConfigKey(fluxConfigKey);
@@ -1461,7 +1433,8 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
             aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
             use_source_ratio: !!(opts.useSourceRatio || opts.use_source_ratio),
             source_width: opts.sourceWidth || opts.source_width,
-            source_height: opts.sourceHeight || opts.source_height
+            source_height: opts.sourceHeight || opts.source_height,
+            allowUpscale: false
         }
     );
     return {
@@ -1476,7 +1449,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     };
 }
 
-/** 人像混合管線：FLUX 純文生圖（不帶參考圖）；最長邊 1024，最終 MP 由 Banana 輸出 */
+/** 人像混合管線：FLUX 純文生圖（不帶參考圖）；最長邊 1024，僅作 1K 場景底圖 */
 async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts, fluxConfigKey) {
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -3035,7 +3008,6 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodDraftProvider = 'gemini';
         let moodLookProvider = 'flux';
         let moodSwapPromptUsed = '';
-        let moodHybridLookPrompt = '';
         try {
             if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
                 const step = await runPromoPortraitMoodTwoStep(
@@ -3073,12 +3045,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 usedGeminiModel = step.liteModel;
                 usedFluxModel = (step.look && step.look.flux_model) || (step.draft && step.draft.flux_model) || null;
                 moodDraftProvider = step.draftProvider || 'gemini';
-                moodLookProvider = step.lookProvider || 'flux';
+                moodLookProvider = step.lookProvider || 'gemini';
                 finalPrompt = reverseMood
-                    ? (step.hybridLookPrompt || moodFacePrompt)
+                    ? (step.swapPrompt || moodFacePrompt)
                     : fluxPrompt;
                 moodSwapPromptUsed = reverseMood ? (step.swapPrompt || moodFacePrompt) : '';
-                moodHybridLookPrompt = reverseMood ? (step.hybridLookPrompt || '') : '';
                 if (step.lookWidth && step.lookHeight) {
                     shotW = step.lookWidth;
                     shotH = step.lookHeight;
@@ -3341,8 +3312,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 ? formatPromoPortraitMoodPromptSent(
                     moodPipeline,
                     reverseMood ? fluxPrompt : (draftPromptUsed || ''),
-                    reverseMood ? moodSwapPromptUsed : (fluxPrompt || ''),
-                    reverseMood ? moodHybridLookPrompt : ''
+                    reverseMood ? moodSwapPromptUsed : (fluxPrompt || '')
                 )
                 : finalPrompt
         });
@@ -3623,8 +3593,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         const lookH = step.lookHeight || h;
         const draftW = step.draftWidth || lookW;
         const draftH = step.draftHeight || lookH;
-        if (reverseMood && step.hybridLookPrompt) {
-            lookPrompt = step.hybridLookPrompt;
+        if (reverseMood && step.swapPrompt) {
+            lookPrompt = step.swapPrompt;
         }
         const baseRow = {
             user_id: currentUser.id,
@@ -3747,8 +3717,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             prompt_sent: formatPromoPortraitMoodPromptSent(
                 moodPipeline,
                 draftPrompt,
-                reverseMood ? (step.swapPrompt || moodFacePrompt) : lookPrompt,
-                reverseMood ? (step.hybridLookPrompt || '') : ''
+                reverseMood ? (step.swapPrompt || moodFacePrompt) : lookPrompt
             ),
             gemini_prompt: reverseMood ? (step.swapPrompt || moodFacePrompt) : draftPrompt,
             flux_prompt: reverseMood ? draftPrompt : lookPrompt,

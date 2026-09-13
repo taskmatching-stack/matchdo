@@ -1272,7 +1272,7 @@
   "promoCamera.renderMoodShort": "Mood",
   "promoCamera.renderHybridShort": "Hybrid",
   "promoCamera.renderExperimentShort": "Looser",
-  "promoCamera.renderStyleHint": "Clear: strong face fidelity; fast and stable when you need likeness. Mood: strong light and mood; commercial still, person blended into the scene. Hybrid: balanced face and light; when you want both composition and mood. Looser scale: close-fit apparel; lingerie, swimwear (nudity not allowed). Plan 3 / Plan 4 only.",
+  "promoCamera.renderStyleHint": "Clear: strong face fidelity; fast and stable when you need likeness. Mood: strong light and mood; commercial still, person blended into the scene. Hybrid: two steps — ① FLUX empty scene ② Gemini blends the person into the scene at your chosen MP. Looser scale: close-fit apparel; lingerie, swimwear (nudity not allowed). Plan 3 / Plan 4 only.",
   "promoCamera.renderExperimentPlanHint": "Looser scale is for Plan 3 and Plan 4 members",
   "promoCamera.renderExperimentBusyHint": "A bit busy right now. This may take a moment.",
   "promoCamera.renderExperimentProductHint": "Close-fit apparel (nudity still not allowed). Plan 3 / Plan 4 only.",
