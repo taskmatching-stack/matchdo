@@ -154,11 +154,16 @@
                 </div>
               </div>
               <div class="border rounded p-3 bg-light mt-3" id="grokImagineSettingsCard">
-                <h6 class="small fw-bold mb-2">寬鬆尺度（Grok Imagine）</h6>
-                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。與清晰同一套提示詞，改送 xAI Grok Imagine 改圖。臉部複製程度較低。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。以後換模型：改下面欄位再按儲存，不必改程式。</p>
+                <h6 class="small fw-bold mb-2">寬鬆尺度（FLUX 空景 → Grok 放人）</h6>
+                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。流程與混合相同——① FLUX 文生空景 ② Grok 將人像融入場景（依所選 MP）。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。</p>
                 <div class="row g-3">
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperiment">人像實驗模型</label>
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperiment">空景 · FLUX 模型</label>
+                    <input type="text" id="bflFluxModelPromoPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_experiment</code></p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperiment">放入人物 · Grok 模型</label>
                     <input type="text" id="grokImagineModelPromoPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="grok-imagine-image-2.0" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment</code> — 手填，例如 grok-imagine-image-2.0、grok-imagine-image、grok-imagine-image-quality</p>
                   </div>
@@ -636,7 +641,8 @@
     if (grokHint && data.saved_in_db) {
       var gs = data.saved_in_db;
       var gp = [];
-      if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('寬鬆模型');
+      if (gs.bfl_flux_model_promo_portrait_experiment) gp.push('寬鬆FLUX');
+      if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('寬鬆Grok');
       if (gs.promo_portrait_experiment_grok_quality) gp.push('畫質');
       if (gs.promo_portrait_experiment_per_minute) gp.push('全站RPM');
       if (gs.promo_portrait_experiment_per_second) gp.push('全站RPS');
@@ -697,6 +703,8 @@
     if (data.bfl_flux_model_promo_portrait != null && portraitFlux) portraitFlux.value = data.bfl_flux_model_promo_portrait;
     var portraitHybridFlux = document.getElementById('bflFluxModelPromoPortraitHybrid');
     if (data.bfl_flux_model_promo_portrait_hybrid != null && portraitHybridFlux) portraitHybridFlux.value = data.bfl_flux_model_promo_portrait_hybrid;
+    var portraitExperimentFlux = document.getElementById('bflFluxModelPromoPortraitExperiment');
+    if (data.bfl_flux_model_promo_portrait_experiment != null && portraitExperimentFlux) portraitExperimentFlux.value = data.bfl_flux_model_promo_portrait_experiment;
     var hint = document.getElementById('bflFluxConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -1019,6 +1027,10 @@
 
   function collectGrokConfigPayload() {
     var payload = {
+      bfl_flux_model_promo_portrait_experiment: (function () {
+        var el = document.getElementById('bflFluxModelPromoPortraitExperiment');
+        return (el && el.value.trim()) || 'flux-2-max';
+      })(),
       grok_imagine_model_promo_portrait_experiment: (function () {
         var el = document.getElementById('grokImagineModelPromoPortraitExperiment');
         return (el && el.value.trim()) || 'grok-imagine-image-2.0';
@@ -1073,7 +1085,7 @@
       var extra = [];
       if (payload.xai_api_key) extra.push('已更新生圖金鑰');
       if (payload.xai_management_api_key) extra.push('已更新 Management Key');
-      showMsg('寬鬆尺度已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，全站 RPM「' + payload.promo_portrait_experiment_per_minute + '」，RPS「' + payload.promo_portrait_experiment_per_second + '」' + (extra.length ? '，' + extra.join('，') : ''));
+      showMsg('寬鬆尺度已儲存：FLUX「' + payload.bfl_flux_model_promo_portrait_experiment + '」，Grok「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，全站 RPM「' + payload.promo_portrait_experiment_per_minute + '」，RPS「' + payload.promo_portrait_experiment_per_second + '」' + (extra.length ? '，' + extra.join('，') : ''));
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);

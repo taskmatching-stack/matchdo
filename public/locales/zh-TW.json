@@ -1315,7 +1315,7 @@
   "promoCamera.renderMoodShort": "氛圍",
   "promoCamera.renderHybridShort": "混合",
   "promoCamera.renderExperimentShort": "寬鬆",
-  "promoCamera.renderStyleHint": "清晰：人像還原度佳；要快、要穩、要像本人。氛圍：光影質感佳；商業攝影感、人景融合自然。混合：兩段——① FLUX 文生空景 ② Gemini 將人像融入場景（依所選 MP）。寬鬆尺度：貼身衣物專用；內衣、泳裝等（仍禁止裸露）。限方案三／方案四。",
+  "promoCamera.renderStyleHint": "清晰：人像還原度佳；要快、要穩、要像本人。氛圍：光影質感佳；商業攝影感、人景融合自然。混合：兩段——① FLUX 文生空景 ② Gemini 將人像融入場景（依所選 MP）。寬鬆尺度：兩段——① FLUX 文生空景 ② Grok 將人像融入場景（依所選 MP）；貼身衣物專用，內衣、泳裝等（仍禁止裸露）。限方案三／方案四。",
   "promoCamera.renderExperimentPlanHint": "寬鬆尺度限方案三、方案四會員使用",
   "promoCamera.renderExperimentBusyHint": "目前較忙，可能需稍候",
   "promoCamera.renderExperimentProductHint": "給大尺度產品用（仍禁止裸露）。限方案三／方案四。",

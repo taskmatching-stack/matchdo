@@ -698,7 +698,27 @@ async function persistPromoPortraitGeneration(opts) {
 function normalizePromoPortraitMoodPipeline(raw) {
     const s = String(raw || '').trim().toLowerCase().replace(/-/g, '_');
     if (s === 'flux_then_lite' || s === 'reverse') return 'flux_then_lite';
+    if (s === 'flux_then_grok') return 'flux_then_grok';
     return 'lite_then_flux';
+}
+
+function isPromoPortraitFluxFirstIntegrate(renderMode) {
+    const m = normalizePromoPortraitRenderMode(renderMode);
+    return m === 'hybrid' || m === 'experiment';
+}
+
+function promoPortraitIntegratePipeline(renderMode) {
+    const m = normalizePromoPortraitRenderMode(renderMode);
+    if (m === 'hybrid') return 'flux_then_lite';
+    if (m === 'experiment') return 'flux_then_grok';
+    return 'lite_then_flux';
+}
+
+function promoPortraitFluxIntegrateConfigKey(renderMode) {
+    const m = normalizePromoPortraitRenderMode(renderMode);
+    if (m === 'hybrid') return 'bfl_flux_model_promo_portrait_hybrid';
+    if (m === 'experiment') return 'bfl_flux_model_promo_portrait_experiment';
+    return '';
 }
 
 async function getPromoPortraitMoodPipeline() {
@@ -993,6 +1013,87 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
+function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
+    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
+    return [
+        cap.lead,
+        cap.personLabel,
+        cap.sceneLabel,
+        String(promptText || '').trim(),
+        cap.closing
+    ].filter(Boolean).join('\n');
+}
+
+/** 寬鬆尺度第二階段：Grok 將人像融入 FLUX 空景（人物在前、場景在後） */
+async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, promptText, grokOpts) {
+    const apiKey = await getXaiApiKey();
+    if (!apiKey) {
+        const err = new Error('情境圖服務暫未設定，請稍後再試');
+        err.status = 503;
+        throw err;
+    }
+    if (!personRef || !personRef.base64) {
+        const err = new Error('請上傳一張人像參考圖');
+        err.status = 400;
+        throw err;
+    }
+    if (!sceneRef || !sceneRef.base64) {
+        throw new Error('場景底圖生成失敗，請稍後再試');
+    }
+    const opts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
+    const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(opts.stylingMode || opts.portrait_styling_mode);
+    const prompt = buildPromoPortraitExperimentGrokSwapPrompt(
+        String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({ stylingMode }),
+        stylingMode
+    );
+    const model = String(opts.grokModel || '').trim() || await getPromoPortraitExperimentGrokModel();
+    const quality = opts.grokQuality || await getPromoPortraitExperimentGrokQuality();
+    let extracted;
+    try {
+        extracted = await runInGrokImagineQueue(function () {
+            return xaiImagine.editImageWithGrokImagine({
+                apiKey: apiKey,
+                model: model,
+                prompt: prompt,
+                images: [personRef, sceneRef],
+                aspectRatio: opts.aspectRatio || opts.aspect_ratio,
+                resolution: opts.tier || opts.space_resolution_tier,
+                quality: quality
+            });
+        });
+    } catch (genErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(genErr);
+        }
+        throw genErr;
+    }
+    const rawBuffer = extracted && extracted.buffer;
+    if (!rawBuffer || !rawBuffer.length) throw new Error('放入人物與輸出失敗，請稍後再試');
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
+    let buffer = rawBuffer;
+    if (!opts.skipResize) {
+        buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+            rawBuffer,
+            opts.targetWidth || opts.width,
+            opts.targetHeight || opts.height,
+            {
+                tier: opts.tier || opts.space_resolution_tier,
+                aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
+                allowUpscale: opts.allowUpscale
+            }
+        );
+    }
+    return {
+        buffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: { engine: 'grok', model: extracted.model },
+        api: 'xai',
+        image_provider: 'grok',
+        grok_model: extracted.model
+    };
+}
+
 /** 現行氛圍第二段 FLUX：重拍＋完整後台光學／底片 fragment。不要暗角。Lite 草稿不走這裡。 */
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
@@ -1010,15 +1111,18 @@ function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
 }
 
 function promoPortraitMoodCompareLabels(pipeline) {
-    if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
+    const p = normalizePromoPortraitMoodPipeline(pipeline);
+    if (p === 'flux_then_lite' || p === 'flux_then_grok') {
         return { ref: '場景底圖', result: '成品' };
     }
     return { ref: '草稿繪製', result: '氛圍圖' };
 }
 
 function formatPromoPortraitMoodPromptSent(pipeline, stage1, stage2, stage3) {
-    if (normalizePromoPortraitMoodPipeline(pipeline) === 'flux_then_lite') {
-        return '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・融入人物】\n' + String(stage2 || '');
+    const p = normalizePromoPortraitMoodPipeline(pipeline);
+    if (p === 'flux_then_lite' || p === 'flux_then_grok') {
+        const stage2Label = p === 'flux_then_grok' ? '融入人物（Grok）' : '融入人物';
+        return '【階段一・文生場景】\n' + String(stage1 || '') + '\n\n【階段二・' + stage2Label + '】\n' + String(stage2 || '');
     }
     return '【階段一・草稿】\n' + String(stage1 || '') + '\n\n【階段二・氛圍圖】\n' + String(stage2 || '');
 }
@@ -1104,9 +1208,106 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     };
 }
 
+/** 寬鬆尺度兩段：FLUX 1K 空景 → Grok 融入人物（對齊混合流程，第二段換 Grok） */
+async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, facePrompt, grokOpts, extra) {
+    const userOpts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
+    const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
+    const userTier = promoSpaceGemini.normalizeSpaceResolutionTier(
+        userOpts.tier || userOpts.space_resolution_tier || '1k'
+    );
+    const lookDims = promoSpaceGemini.resolveSpaceOutputDimensions({
+        tier: userTier,
+        aspect_ratio: userAspect
+    });
+    const scenePrompt = String(fluxPrompt || '').trim();
+    if (!scenePrompt) {
+        const err = new Error('請先選擇攝影參數');
+        err.status = 400;
+        throw err;
+    }
+    const fluxKey = (extra && extra.fluxConfigKey) || promoPortraitFluxIntegrateConfigKey('experiment');
+    const scene = await generatePromoPortraitFluxTextToImage(scenePrompt, {
+        aspectRatio: userAspect,
+        aspect_ratio: userAspect
+    }, fluxKey || 'bfl_flux_model_promo_portrait_experiment');
+    if (!scene || !scene.buffer || !scene.buffer.length) {
+        throw new Error('場景底圖生成失敗，請稍後再試');
+    }
+    const grokModel = (extra && extra.grokModel) || await getPromoPortraitExperimentGrokModel();
+    const grokQuality = (extra && extra.grokQuality) || await getPromoPortraitExperimentGrokQuality();
+    const portraitRefs = (Array.isArray(imageRefs) ? imageRefs : []).filter(function (r) { return r && r.base64; });
+    if (!portraitRefs.length) {
+        const err = new Error('請上傳一張人像參考圖');
+        err.status = 400;
+        throw err;
+    }
+    const userPrompt = extra && extra.userPrompt != null ? String(extra.userPrompt).trim() : '';
+    const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(
+        (extra && (extra.stylingMode || extra.portrait_styling_mode)) || 'reference'
+    );
+    const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
+        userPrompt: userPrompt,
+        peopleCount: extra && extra.peopleCount,
+        gender: extra && extra.gender,
+        cameraBlock: extra && extra.cameraBlock,
+        stylingMode
+    });
+    const face = await generatePromoPortraitExperimentGrokSwap(
+        portraitRefs[0],
+        jpegImageRefFromBuffer(scene.buffer),
+        swapPrompt,
+        {
+            grokModel: grokModel,
+            grokQuality: grokQuality,
+            tier: userTier,
+            aspectRatio: userAspect,
+            aspect_ratio: userAspect,
+            targetWidth: lookDims.width,
+            targetHeight: lookDims.height,
+            allowUpscale: false,
+            stylingMode,
+            generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
+        }
+    );
+    if (!face || !face.buffer || !face.buffer.length) {
+        throw new Error('放入人物與輸出失敗，請稍後再試');
+    }
+    const faceMeasured = await promoSpaceGemini.measurePromoSpaceImageDimensions(face.buffer);
+    const draftW = scene.width || scene.gemini_native_width || lookDims.width;
+    const draftH = scene.height || scene.gemini_native_height || lookDims.height;
+    return {
+        pipeline: 'flux_then_grok',
+        draft: scene,
+        look: face,
+        swapPrompt,
+        grokModel,
+        draftProvider: 'flux',
+        lookProvider: 'grok',
+        draftWidth: draftW,
+        draftHeight: draftH,
+        lookWidth: faceMeasured.width || lookDims.width,
+        lookHeight: faceMeasured.height || lookDims.height
+    };
+}
+
 /** 氛圍兩段：預設 Lite 1K → FLUX 輸出 MP；實驗可改 FLUX → Lite 修臉 */
 async function runPromoPortraitMoodTwoStep(imageRefs, draftPrompt, cameraPrompt, geminiOpts, extra) {
     const pipeline = normalizePromoPortraitMoodPipeline(extra && extra.pipeline);
+    if (pipeline === 'flux_then_grok') {
+        return runPromoPortraitExperimentFluxThenGrok(
+            imageRefs,
+            (extra && extra.fluxPrompt) || cameraPrompt,
+            (extra && extra.facePrompt) || buildPromoPortraitMoodFaceRefinePrompt({
+                userPrompt: extra && extra.userPrompt,
+                peopleCount: extra && extra.peopleCount,
+                gender: extra && extra.gender,
+                cameraBlock: extra && extra.cameraBlock,
+                stylingMode: extra && (extra.stylingMode || extra.portrait_styling_mode)
+            }),
+            geminiOpts,
+            extra
+        );
+    }
     if (pipeline === 'flux_then_lite') {
         return runPromoPortraitMoodFluxThenLite(
             imageRefs,
@@ -1789,13 +1990,14 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const outDims = await resolvePromoPortraitOutputDims(b, renderCtx.engine);
     const isMood = renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid';
     const isExperiment = renderCtx.mode === 'experiment';
-    const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
-    const reverseMood = renderCtx.mode === 'hybrid';
+    const isTwoStep = isMood || isExperiment;
+    const reverseIntegrate = isPromoPortraitFluxFirstIntegrate(renderCtx.mode);
+    const integratePipeline = reverseIntegrate ? promoPortraitIntegratePipeline(renderCtx.mode) : 'lite_then_flux';
     const cast = resolvePromoPortraitCastFromBody(b);
-    const moodDraftDims = isMood && !reverseMood
+    const moodDraftDims = isMood && !reverseIntegrate
         ? promoSpaceGemini.resolveSpaceOutputDimensions({ tier: '1k', aspect_ratio: outDims.aspectRatio || '1:1' })
         : outDims;
-    const facePrompt = reverseMood
+    const facePrompt = reverseIntegrate
         ? buildPromoPortraitMoodFaceRefinePrompt({
             userPrompt,
             peopleCount: cast.peopleCount,
@@ -1804,28 +2006,30 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             stylingMode: portraitStylingMode
         })
         : '';
-    let geminiPrompt = reverseMood
+    let geminiPrompt = reverseIntegrate && !isExperiment
         ? facePrompt
-        : await buildPromoPortraitFinalPrompt({
-            themeKey,
-            themeParts,
-            sceneParts,
-            userPrompt,
-            cameraBlock: isMood ? '' : cameraBlock,
-            moodDraft: isMood && !reverseMood,
-            hasSceneImage,
-            hasStagingProduct,
-            width: moodDraftDims.width,
-            height: moodDraftDims.height,
-            tier: isMood ? '1k' : outDims.tier,
-            minLongEdge: isMood ? 1024 : portraitMinLongEdgeForTier(outDims.tier),
-            stylingMode: portraitStylingMode
-        });
-    if (isMood && !reverseMood) {
+        : (reverseIntegrate && isExperiment
+            ? null
+            : await buildPromoPortraitFinalPrompt({
+                themeKey,
+                themeParts,
+                sceneParts,
+                userPrompt,
+                cameraBlock: isTwoStep ? '' : cameraBlock,
+                moodDraft: isMood && !reverseIntegrate,
+                hasSceneImage,
+                hasStagingProduct,
+                width: moodDraftDims.width,
+                height: moodDraftDims.height,
+                tier: isTwoStep && !reverseIntegrate ? '1k' : outDims.tier,
+                minLongEdge: isTwoStep && !reverseIntegrate ? 1024 : portraitMinLongEdgeForTier(outDims.tier),
+                stylingMode: portraitStylingMode
+            }));
+    if (isMood && !reverseIntegrate) {
         geminiPrompt = (String(geminiPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(cast)).trim();
     }
-    let fluxPrompt = isMood
-        ? (reverseMood
+    let fluxPrompt = isTwoStep
+        ? (reverseIntegrate
             ? await buildPromoPortraitFluxTextToImagePrompt({
                 themeKey,
                 themeParts,
@@ -1854,23 +2058,26 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             tier: outDims.tier,
             stylingMode: portraitStylingMode
         });
-    if (isExperiment) {
-        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt, portraitStylingMode);
-    }
-    const engine = isMood ? 'flux' : (isExperiment ? 'grok' : renderCtx.engine);
-    const promptSent = isMood
-        ? formatPromoPortraitMoodPromptSent(moodPipeline, reverseMood ? fluxPrompt : geminiPrompt, reverseMood ? facePrompt : fluxPrompt)
-        : (isExperiment ? fluxPrompt : (engine === 'flux' ? fluxPrompt : geminiPrompt));
+    const engine = isTwoStep ? (isExperiment ? 'grok' : 'flux') : renderCtx.engine;
+    const promptSent = isTwoStep
+        ? formatPromoPortraitMoodPromptSent(integratePipeline, reverseIntegrate ? fluxPrompt : geminiPrompt, reverseIntegrate ? facePrompt : fluxPrompt)
+        : (engine === 'flux' ? fluxPrompt : geminiPrompt);
     let fluxModel = null;
     let grokModel = null;
-    if (engine === 'flux') {
+    if (isTwoStep && reverseIntegrate) {
+        try {
+            fluxModel = await getBflFluxModelIdForConfigKey(promoPortraitFluxIntegrateConfigKey(renderCtx.mode));
+        } catch (_) {
+            fluxModel = null;
+        }
+    } else if (engine === 'flux') {
         try {
             fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
         } catch (_) {
             fluxModel = null;
         }
     }
-    if (engine === 'grok') {
+    if (engine === 'grok' || isExperiment) {
         try {
             grokModel = await getPromoPortraitExperimentGrokModel();
         } catch (_) {
@@ -1888,12 +2095,13 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     return {
         render_mode: renderCtx.mode || null,
         portrait_styling_mode: portraitStylingMode,
-        engine: isMood ? 'mood_two_step' : engine,
-        mood_pipeline_kind: isMood ? moodPipeline : null,
+        engine: isTwoStep ? 'mood_two_step' : engine,
+        mood_pipeline_kind: isTwoStep ? integratePipeline : null,
         prompt_sent: promptSent,
         gemini_prompt: geminiPrompt,
         flux_prompt: fluxPrompt,
         gemini_model: isMood ? liteModel : null,
+        grok_prompt: isExperiment ? facePrompt : null,
         theme_key: themeKey,
         scene_key: sceneKey || null,
         has_scene_image: hasSceneImage,
@@ -1903,17 +2111,17 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         height: outDims.height,
         space_resolution_tier: outDims.tier,
         grok_model: grokModel,
-        flux_request: engine === 'flux'
+        flux_request: (isTwoStep && reverseIntegrate) || engine === 'flux'
             ? {
                 prompt_upsampling: false,
                 disable_pup: true,
                 safety_tolerance: 2,
-                skip_prompt_translation: !reverseMood,
-                text_to_image: !!reverseMood,
+                skip_prompt_translation: !reverseIntegrate,
+                text_to_image: !!reverseIntegrate,
                 model: fluxModel,
                 bfl_max_edge: 1024,
                 output_format: 'jpeg',
-                prompt_only_camera: isMood && !reverseMood
+                prompt_only_camera: isMood && !reverseIntegrate
             }
             : null
     };
@@ -2865,6 +3073,12 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
+    if (renderCtx.mode === 'experiment') {
+        const xaiKey = await getXaiApiKey();
+        if (!xaiKey || !process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+        }
+    }
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
@@ -2874,6 +3088,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     const cameraBlock = camPack.block || '';
     const cameraResolved = camPack.resolved || {};
     const cameraBrief = cameraBlock;
+    const reverseIntegrate = isPromoPortraitFluxFirstIntegrate(renderCtx.mode);
+    const integratePipeline = reverseIntegrate ? promoPortraitIntegratePipeline(renderCtx.mode) : 'lite_then_flux';
 
     const shotBriefs = await expandPortraitShotBriefsWithGeminiLite({
         count: outputCount,
@@ -2881,7 +3097,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         themeKey,
         themeLabel: themeParts.name || themeKey,
         sceneLabel: sceneParts.name || '',
-        cameraBrief: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? '' : cameraBrief
+        cameraBrief: (renderCtx.mode === 'mood' || reverseIntegrate) ? '' : cameraBrief
     });
 
     const fluxSafetyTolerance = await resolvePromoPortraitFluxSafetyTolerance(renderCtx.mode, {
@@ -2902,10 +3118,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         ? crypto.randomUUID()
         : ('pc-batch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9));
     const geminiModel = await getPromoPortraitModelName();
-    const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
-    const reverseMood = renderCtx.mode === 'hybrid';
     const portraitCast = resolvePromoPortraitCastFromBody(body);
-    const moodFacePrompt = reverseMood
+    const integrateFacePrompt = reverseIntegrate
         ? buildPromoPortraitMoodFaceRefinePrompt({
             userPrompt,
             peopleCount: portraitCast.peopleCount,
@@ -2914,7 +3128,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             stylingMode: portraitStylingMode
         })
         : '';
-    const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
+    const moodLabels = promoPortraitMoodCompareLabels(integratePipeline);
 
     const results = [];
     let balanceAfter = null;
@@ -2922,14 +3136,14 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
 
     for (let i = 0; i < outputCount; i++) {
         const shotBrief = shotBriefs[i] || fallbackPortraitShotBriefs(outputCount)[i];
-        const moodDraftDims = (renderCtx.mode === 'mood' && !reverseMood)
+        const moodDraftDims = (renderCtx.mode === 'mood' && !reverseIntegrate)
             ? promoSpaceGemini.resolveSpaceOutputDimensions({ tier: '1k', aspect_ratio: aspectRatio })
             : null;
         let finalPrompt;
         let fluxPrompt;
         try {
-            finalPrompt = reverseMood
-                ? moodFacePrompt
+            finalPrompt = reverseIntegrate
+                ? integrateFacePrompt
                     : await buildPromoPortraitFinalPrompt({
                     themeKey,
                     themeParts,
@@ -2946,11 +3160,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     minLongEdge: moodDraftDims ? 1024 : portraitMinLongEdgeForTier(spaceResTier),
                     stylingMode: portraitStylingMode
                 });
-            if (renderCtx.mode === 'mood' && !reverseMood) {
+            if (renderCtx.mode === 'mood' && !reverseIntegrate) {
                 finalPrompt = (String(finalPrompt || '') + ' ' + buildPromoPortraitMoodCastHint(portraitCast)).trim();
             }
-            fluxPrompt = (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')
-                ? (reverseMood
+            fluxPrompt = (renderCtx.mode === 'mood' || reverseIntegrate)
+                ? (reverseIntegrate
                     ? await buildPromoPortraitFluxTextToImagePrompt({
                         themeKey,
                         themeParts,
@@ -2981,10 +3195,6 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     tier: spaceResTier,
                     stylingMode: portraitStylingMode
                 });
-            if (renderCtx.mode === 'experiment') {
-                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
-                finalPrompt = fluxPrompt;
-            }
         } catch (promptErr) {
             results.push({
                 shot_index: i + 1,
@@ -3009,11 +3219,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodLookProvider = 'flux';
         let moodSwapPromptUsed = '';
         try {
-            if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
+            if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') {
                 const step = await runPromoPortraitMoodTwoStep(
                     imageRefs,
-                    reverseMood ? '' : finalPrompt,
-                    reverseMood ? fluxPrompt : buildPromoPortraitMoodFluxLookPrompt(cameraBlock),
+                    reverseIntegrate ? '' : finalPrompt,
+                    reverseIntegrate ? fluxPrompt : buildPromoPortraitMoodFluxLookPrompt(cameraBlock),
                     {
                         tier: spaceResTier,
                         aspectRatio,
@@ -3024,12 +3234,14 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         themeKey
                     },
                     {
-                        pipeline: moodPipeline,
+                        pipeline: integratePipeline,
                         fluxPrompt: fluxPrompt,
-                        facePrompt: moodFacePrompt,
+                        facePrompt: integrateFacePrompt,
                         userPrompt: userPrompt,
-                        liteModelName: reverseMood ? await getPromoPortraitHybridLiteModelName() : undefined,
-                        fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
+                        liteModelName: renderCtx.mode === 'hybrid' ? await getPromoPortraitHybridLiteModelName() : undefined,
+                        grokModel: renderCtx.mode === 'experiment' ? await getPromoPortraitExperimentGrokModel() : undefined,
+                        grokQuality: renderCtx.mode === 'experiment' ? await getPromoPortraitExperimentGrokQuality() : undefined,
+                        fluxConfigKey: reverseIntegrate ? promoPortraitFluxIntegrateConfigKey(renderCtx.mode) : undefined,
                         peopleCount: portraitCast.peopleCount,
                         gender: portraitCast.gender,
                         cameraBlock: cameraBlock,
@@ -3040,16 +3252,17 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 );
                 buffer = step.look && step.look.buffer;
                 draftBuffer = step.draft && step.draft.buffer;
-                draftPromptUsed = reverseMood ? fluxPrompt : finalPrompt;
+                draftPromptUsed = reverseIntegrate ? fluxPrompt : finalPrompt;
                 imageProvider = 'mood_two_step';
                 usedGeminiModel = step.liteModel;
                 usedFluxModel = (step.look && step.look.flux_model) || (step.draft && step.draft.flux_model) || null;
+                usedGrokModel = step.grokModel || (step.look && step.look.grok_model) || null;
                 moodDraftProvider = step.draftProvider || 'gemini';
                 moodLookProvider = step.lookProvider || 'gemini';
-                finalPrompt = reverseMood
-                    ? (step.swapPrompt || moodFacePrompt)
+                finalPrompt = reverseIntegrate
+                    ? (step.swapPrompt || integrateFacePrompt)
                     : fluxPrompt;
-                moodSwapPromptUsed = reverseMood ? (step.swapPrompt || moodFacePrompt) : '';
+                moodSwapPromptUsed = reverseIntegrate ? (step.swapPrompt || integrateFacePrompt) : '';
                 if (step.lookWidth && step.lookHeight) {
                     shotW = step.lookWidth;
                     shotH = step.lookHeight;
@@ -3193,11 +3406,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 grok_model: usedGrokModel || null,
                 portrait_render_mode: renderCtx.mode || null,
                 portrait_styling_mode: portraitStylingMode,
-                mood_pipeline: renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid',
-                mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
-                portrait_people_count: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? portraitCast.peopleCount : null,
-                portrait_subject_gender: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? portraitCast.gender : null,
-                mood_stage: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? 'look' : null,
+                mood_pipeline: renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment',
+                mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
+                portrait_people_count: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? portraitCast.peopleCount : null,
+                portrait_subject_gender: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? portraitCast.gender : null,
+                mood_stage: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? 'look' : null,
                 space_resolution_tier: spaceResTier
             });
             const promoInsertBase = {
@@ -3265,14 +3478,14 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         portrait_render_mode: renderCtx.mode || 'mood',
                         mood_stage: 'draft',
                         mood_pipeline: true,
-                        mood_pipeline_kind: moodPipeline,
+                        mood_pipeline_kind: integratePipeline,
                         look_generation_id: generationId || null,
                         portrait_batch_id: batchId,
                         portrait_batch_index: i + 1,
                         image_provider: moodDraftProvider,
                         gemini_model: moodDraftProvider === 'gemini' ? usedGeminiModel : null,
                         flux_model: moodDraftProvider === 'flux' ? usedFluxModel : null,
-                        space_resolution_tier: reverseMood ? spaceResTier : '1k'
+                        space_resolution_tier: reverseIntegrate ? spaceResTier : '1k'
                     }),
                     completed_at: new Date().toISOString(),
                     show_on_homepage: false,
@@ -3304,15 +3517,15 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             megapixels: promoImageMegapixelsFromResolution(Math.min(shotW, 2048), Math.min(shotH, 2048)),
             camera_params: cameraParamsSnapshot,
             image_provider: imageProvider,
-            mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
-            compare_ref_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')) ? moodLabels.ref : undefined,
-            compare_result_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')) ? moodLabels.result : undefined,
+            mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
+            compare_ref_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment')) ? moodLabels.ref : undefined,
+            compare_result_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment')) ? moodLabels.result : undefined,
             final_prompt: finalPrompt,
-            prompt_sent: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid')
+            prompt_sent: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment')
                 ? formatPromoPortraitMoodPromptSent(
-                    moodPipeline,
-                    reverseMood ? fluxPrompt : (draftPromptUsed || ''),
-                    reverseMood ? moodSwapPromptUsed : (fluxPrompt || '')
+                    integratePipeline,
+                    reverseIntegrate ? fluxPrompt : (draftPromptUsed || ''),
+                    reverseIntegrate ? moodSwapPromptUsed : (fluxPrompt || '')
                 )
                 : finalPrompt
         });
@@ -3350,7 +3563,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
         portrait_render_mode: renderCtx.mode || null,
-        mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') ? moodPipeline : null,
+        mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
         image_provider: first.image_provider || 'gemini',
         space_resolution_tier: spaceResTier,
         camera_params: first.camera_params || null
@@ -3437,6 +3650,12 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if (!providers.ok) {
         return res.status(503).json({ success: false, error: providers.error });
     }
+    if (renderCtx.mode === 'experiment') {
+        const xaiKey = await getXaiApiKey();
+        if (!xaiKey || !process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
+        }
+    }
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
@@ -3462,11 +3681,11 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         themeKey
     };
 
-    if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') {
-        const moodPipeline = renderCtx.mode === 'hybrid' ? 'flux_then_lite' : 'lite_then_flux';
-        const reverseMood = renderCtx.mode === 'hybrid';
+    if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') {
+        const reverseIntegrate = isPromoPortraitFluxFirstIntegrate(renderCtx.mode);
+        const integratePipeline = reverseIntegrate ? promoPortraitIntegratePipeline(renderCtx.mode) : 'lite_then_flux';
         const portraitCast = resolvePromoPortraitCastFromBody(body);
-        const moodFacePrompt = reverseMood
+        const integrateFacePrompt = reverseIntegrate
             ? buildPromoPortraitMoodFaceRefinePrompt({
                 userPrompt,
                 peopleCount: portraitCast.peopleCount,
@@ -3475,8 +3694,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 stylingMode: portraitStylingMode
             })
             : '';
-        const moodLabels = promoPortraitMoodCompareLabels(moodPipeline);
-        const moodDraftDims = reverseMood
+        const moodLabels = promoPortraitMoodCompareLabels(integratePipeline);
+        const moodDraftDims = reverseIntegrate
             ? null
             : promoSpaceGemini.resolveSpaceOutputDimensions({
                 tier: '1k',
@@ -3485,7 +3704,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         let draftPrompt;
         let lookPrompt;
         try {
-            if (reverseMood) {
+            if (reverseIntegrate) {
                 draftPrompt = await buildPromoPortraitFluxTextToImagePrompt({
                     themeKey,
                     themeParts,
@@ -3500,7 +3719,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender
                 });
-                lookPrompt = moodFacePrompt;
+                lookPrompt = integrateFacePrompt;
             } else {
                 draftPrompt = await buildPromoPortraitFinalPrompt({
                     themeKey,
@@ -3527,16 +3746,18 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         try {
             step = await runPromoPortraitMoodTwoStep(
                 imageRefs,
-                reverseMood ? '' : draftPrompt,
-                reverseMood ? draftPrompt : lookPrompt,
+                reverseIntegrate ? '' : draftPrompt,
+                reverseIntegrate ? draftPrompt : lookPrompt,
                 geminiOpts,
                 {
-                    pipeline: moodPipeline,
-                    fluxPrompt: reverseMood ? draftPrompt : lookPrompt,
-                    facePrompt: moodFacePrompt,
+                    pipeline: integratePipeline,
+                    fluxPrompt: reverseIntegrate ? draftPrompt : lookPrompt,
+                    facePrompt: integrateFacePrompt,
                     userPrompt: userPrompt,
-                    liteModelName: reverseMood ? await getPromoPortraitHybridLiteModelName() : undefined,
-                    fluxConfigKey: reverseMood ? 'bfl_flux_model_promo_portrait_hybrid' : undefined,
+                    liteModelName: renderCtx.mode === 'hybrid' ? await getPromoPortraitHybridLiteModelName() : undefined,
+                    grokModel: renderCtx.mode === 'experiment' ? await getPromoPortraitExperimentGrokModel() : undefined,
+                    grokQuality: renderCtx.mode === 'experiment' ? await getPromoPortraitExperimentGrokQuality() : undefined,
+                    fluxConfigKey: reverseIntegrate ? promoPortraitFluxIntegrateConfigKey(renderCtx.mode) : undefined,
                     peopleCount: portraitCast.peopleCount,
                     gender: portraitCast.gender,
                     cameraBlock: cameraBlock,
@@ -3593,7 +3814,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         const lookH = step.lookHeight || h;
         const draftW = step.draftWidth || lookW;
         const draftH = step.draftHeight || lookH;
-        if (reverseMood && step.swapPrompt) {
+        if (reverseIntegrate && step.swapPrompt) {
             lookPrompt = step.swapPrompt;
         }
         const baseRow = {
@@ -3637,7 +3858,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'draft',
                     mood_pipeline: true,
-                    mood_pipeline_kind: moodPipeline,
+                    mood_pipeline_kind: integratePipeline,
                     reference_count: refBases.length,
                     aspect_ratio: aspectRatio,
                     theme_key: themeKey || null,
@@ -3649,7 +3870,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     image_provider: step.draftProvider || 'gemini',
                     gemini_model: (step.draftProvider || 'gemini') === 'gemini' ? step.liteModel : null,
                     flux_model: (step.draftProvider || 'gemini') === 'flux' ? (step.draft && step.draft.flux_model) : null,
-                    space_resolution_tier: reverseMood ? spaceResTier : '1k'
+                    space_resolution_tier: reverseIntegrate ? spaceResTier : '1k'
                 })
             })
         })
@@ -3668,7 +3889,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'look',
                     mood_pipeline: true,
-                    mood_pipeline_kind: moodPipeline,
+                    mood_pipeline_kind: integratePipeline,
                     draft_generation_id: draftSaved.id || null,
                     reference_count: refBases.length,
                     aspect_ratio: aspectRatio,
@@ -3680,6 +3901,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     scene_image: !!resolvedRefs.hasSceneImage,
                     image_provider: step.lookProvider || 'flux',
                     gemini_model: step.liteModel,
+                    grok_model: step.grokModel || (step.look && step.look.grok_model) || null,
                     flux_model: (step.look && step.look.flux_model) || (step.draft && step.draft.flux_model) || null,
                     space_resolution_tier: spaceResTier
                 })
@@ -3692,7 +3914,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         return res.json({
             success: true,
             mood_pipeline: true,
-            mood_pipeline_kind: moodPipeline,
+            mood_pipeline_kind: integratePipeline,
             id: lookSaved.id,
             draft_id: isAdmin ? (draftSaved.id || null) : null,
             saved_to_library: !!lookSaved.id,
@@ -3715,12 +3937,13 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             camera_params: cameraParamsSnapshot,
             final_prompt: lookPrompt,
             prompt_sent: formatPromoPortraitMoodPromptSent(
-                moodPipeline,
+                integratePipeline,
                 draftPrompt,
-                reverseMood ? (step.swapPrompt || moodFacePrompt) : lookPrompt
+                reverseIntegrate ? (step.swapPrompt || integrateFacePrompt) : lookPrompt
             ),
-            gemini_prompt: reverseMood ? (step.swapPrompt || moodFacePrompt) : draftPrompt,
-            flux_prompt: reverseMood ? draftPrompt : lookPrompt,
+            gemini_prompt: reverseIntegrate && renderCtx.mode === 'hybrid' ? (step.swapPrompt || integrateFacePrompt) : (reverseIntegrate ? null : draftPrompt),
+            grok_prompt: renderCtx.mode === 'experiment' ? (step.swapPrompt || integrateFacePrompt) : undefined,
+            flux_prompt: reverseIntegrate ? draftPrompt : lookPrompt,
             compare_ref_url: isAdmin && draftData
                 ? (draftSaved.resultImageUrl || ('data:image/jpeg;base64,' + draftData))
                 : undefined,
@@ -5247,6 +5470,7 @@ async function resolvePromoPortraitRenderContext(body) {
     return {
         mode: mode,
         engine: engine,
+        pipeline: mode === 'hybrid' ? 'flux_then_lite' : (mode === 'experiment' ? 'flux_then_grok' : null),
         mp_tiers: mode === 'hybrid'
             ? [1, 4, 16]
             : ((engine === 'flux' || engine === 'grok' || mode === 'experiment') ? [1, 4] : [1, 4, 16])
@@ -21498,7 +21722,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
                 hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' },
-                experiment: { engine: 'grok', mp_tiers: [1, 4], allowed: portraitExperimentAllowed }
+                experiment: { engine: 'grok', mp_tiers: [1, 4], pipeline: 'flux_then_grok', allowed: portraitExperimentAllowed }
             },
             portrait_mp_tiers: portraitDefaultMode === 'mood' ? moodMpTiers : (clearEng === 'flux' ? [1, 4] : [1, 4, 16])
         });
