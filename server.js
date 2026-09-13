@@ -5121,15 +5121,17 @@ async function getPromoPortraitExperimentBusy() {
     return false;
 }
 
-/** 實驗模式：清晰那套提示詞前面加優先句（鎖同一個人、換姿勢）。Grok 常自行加電影暗角，明確禁止。 */
+/** 寬鬆尺度：清晰提示詞 + 優先句（鎖人、姿勢／構圖可較大變化）。Grok 常自行加電影暗角，明確禁止。 */
 function buildPromoPortraitFluxExperimentPrompt(geminiPrompt, stylingMode) {
     const lead = promoPortraitStyling.buildPortraitFluxExperimentPriorityLead(stylingMode);
     const main = String(geminiPrompt || '').trim();
     const trail = promoPortraitStyling.buildPortraitIgnoreRefPoseTrailingLine();
+    const composition = promoPortraitStyling.buildPortraitFluxExperimentCompositionLine();
     const parts = [];
     if (lead) parts.push(lead);
     if (main) parts.push(main);
     if (trail && (!main || main.indexOf(trail) === -1)) parts.push(trail);
+    if (composition) parts.push(composition);
     parts.push('Even illumination to the edges of the frame. 不要暗角. No vignette, no darkened corners.');
     return parts.join(' ');
 }
