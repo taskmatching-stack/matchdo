@@ -195,15 +195,17 @@ function runInGeminiQueue(fn) {
  * Gemini「生圖」專用佇列（材料組合／印花／廠商材料・版型重繪／商攝空間與人像）。
  * 與 runInGeminiQueue 隔離，避免生圖卡住標籤／翻譯。
  * 有上限並行：同一分鐘多人點生成時不該串成一條長隊。
- * env: GEMINI_IMAGE_MAX_CONCURRENT（預設 8；上限 16）
+ * env: GEMINI_IMAGE_MAX_CONCURRENT（預設 8；上限 16）。後台可覆寫 payment_config.gemini_image_max_concurrent。
  */
-const GEMINI_IMAGE_MAX_CONCURRENT = Math.max(1, Math.min(16, parseInt(process.env.GEMINI_IMAGE_MAX_CONCURRENT, 10) || 8));
+function getGeminiImageMaxConcurrent() {
+    return getDualColorGeminiImageLimits().maxConcurrent;
+}
 let _geminiImageActiveCount = 0;
 const _geminiImageWaitQueue = [];
 function runInGeminiImageQueue(fn) {
     return new Promise((resolve, reject) => {
         const start = () => {
-            if (_geminiImageActiveCount >= GEMINI_IMAGE_MAX_CONCURRENT) {
+            if (_geminiImageActiveCount >= getGeminiImageMaxConcurrent()) {
                 _geminiImageWaitQueue.push(start);
                 return;
             }
@@ -251,6 +253,86 @@ function runInBflQueue(fn) {
         };
         start();
     });
+}
+
+function sleepMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+}
+
+/**
+ * Grok Imagine（寬鬆尺度）全站佇列：達官方 RPM／RPS 時排隊等待，不直接 429。
+ * 與 Gemini 生圖佇列相同：請求掛著等，輪到再送。
+ */
+const _grokImagineWaiters = [];
+let _grokImaginePumping = false;
+let _grokImagineLimitCache = { at: 0, rpm: 300, rps: 6 };
+
+async function getGrokImagineQueueLimits() {
+    const now = Date.now();
+    if (now - _grokImagineLimitCache.at < 5000) return _grokImagineLimitCache;
+    const rpm = await getPromoPortraitExperimentPerMinute();
+    const rps = await getPromoPortraitExperimentPerSecond();
+    _grokImagineLimitCache = { at: now, rpm: rpm, rps: rps };
+    return _grokImagineLimitCache;
+}
+
+function grokImagineOldestInWindowMs(windowMs) {
+    const now = Date.now();
+    const cutoff = now - windowMs;
+    for (let i = 0; i < PORTRAIT_EXPERIMENT_RATE_MEM.length; i++) {
+        if (PORTRAIT_EXPERIMENT_RATE_MEM[i] >= cutoff) return PORTRAIT_EXPERIMENT_RATE_MEM[i];
+    }
+    return now;
+}
+
+function grokImagineWindowWaitMs(windowMs, limit) {
+    if (!(limit > 0) || !(windowMs > 0)) return 0;
+    const now = Date.now();
+    prunePromoPortraitExperimentMem(now);
+    if (countPromoPortraitExperimentMem(windowMs) < limit) return 0;
+    const oldest = grokImagineOldestInWindowMs(windowMs);
+    const remain = windowMs - (now - oldest) + 5;
+    if (!Number.isFinite(remain) || remain <= 0) {
+        prunePromoPortraitExperimentMem(Date.now());
+        return 0;
+    }
+    return Math.min(windowMs, remain);
+}
+
+async function grokImagineStartWaitMs() {
+    const lim = await getGrokImagineQueueLimits();
+    const rpsWait = grokImagineWindowWaitMs(1000, lim.rps);
+    if (rpsWait > 0) return rpsWait;
+    return grokImagineWindowWaitMs(PORTRAIT_EXPERIMENT_RATE_WINDOW_MS, lim.rpm);
+}
+
+function runInGrokImagineQueue(fn) {
+    return new Promise((resolve, reject) => {
+        _grokImagineWaiters.push({ fn: fn, resolve: resolve, reject: reject });
+        pumpGrokImagineQueue();
+    });
+}
+
+async function pumpGrokImagineQueue() {
+    if (_grokImaginePumping) return;
+    _grokImaginePumping = true;
+    try {
+        while (_grokImagineWaiters.length) {
+            const waitMs = await grokImagineStartWaitMs();
+            if (waitMs > 0) {
+                await sleepMs(Math.min(Math.max(20, waitMs), 250));
+                continue;
+            }
+            const job = _grokImagineWaiters.shift();
+            recordPromoPortraitExperimentMem(1);
+            Promise.resolve()
+                .then(() => job.fn())
+                .then(job.resolve, job.reject);
+        }
+    } finally {
+        _grokImaginePumping = false;
+        if (_grokImagineWaiters.length) pumpGrokImagineQueue();
+    }
 }
 
 // 將 prompt 翻譯成英文（可關閉：.env 設 ENABLE_PROMPT_TRANSLATION=false 則不翻譯，直接送原文）
@@ -698,8 +780,8 @@ function promoPortraitBlockedClientPayload(genErr, renderMode) {
     }
     const mode = normalizePromoPortraitRenderMode(renderMode);
     const error = mode === 'experiment'
-        ? '外部生圖審核未通過。寬鬆尺度仍可能被擋，請換較清楚的身份參考圖或調整描述後再試。每帳號每分鐘有次數上限。系統不會改提示詞再送。'
-        : '外部生圖審核未通過。大尺度產品請改用「寬鬆尺度」（方案三／方案四）。清晰、氛圍、混合不適合這類產品。系統不會改提示詞再送。';
+        ? '外部生圖審核未通過。寬鬆尺度仍可能被擋。尺度較大但仍禁止裸露。請換較清楚的身份參考圖或調整描述。系統不會改提示詞再送。'
+        : '外部生圖審核未通過。大尺度產品請改用「寬鬆尺度」（方案三／方案四）。清晰、氛圍、混合不適合這類產品。尺度較大仍禁止裸露。系統不會改提示詞再送。';
     return Object.assign({
         error: error,
         code: 'image_gen_blocked'
@@ -1489,7 +1571,7 @@ async function generatePromoPortraitImageWithGrok(imageRefs, promptText, geminiO
     const quality = go.grokQuality || await getPromoPortraitExperimentGrokQuality();
     let extracted;
     try {
-        extracted = await xaiImagine.editImageWithGrokImagine({
+        extracted = await runInGrokImagineQueue(() => xaiImagine.editImageWithGrokImagine({
             apiKey: apiKey,
             model: model,
             prompt: prompt,
@@ -1497,7 +1579,7 @@ async function generatePromoPortraitImageWithGrok(imageRefs, promptText, geminiO
             aspectRatio: opts.aspectRatio || opts.aspect_ratio,
             resolution: opts.tier || opts.space_resolution_tier,
             quality: quality
-        });
+        }));
     } catch (genErr) {
         if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
             throw markPromoPortraitExternalBlockErrorStatus(genErr);
@@ -2809,8 +2891,6 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
-    if (!(await assertPromoPortraitExperimentRate(currentUser && currentUser.id, renderCtx.mode, outputCount, res))) return;
-
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
     const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
@@ -3386,8 +3466,6 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
     if ((renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid') && (!process.env.GEMINI_API_KEY || !process.env.BFL_API_KEY)) {
         return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
     }
-    if (!(await assertPromoPortraitExperimentRate(currentUser && currentUser.id, renderCtx.mode, outputCount, res))) return;
-
     const themeParts = await loadPromoTemplatePartsByKey(themeKey);
     const sceneParts = sceneKey ? await loadPromoTemplatePartsByKey(sceneKey) : { name: '', prompt: '', composition: '' };
     const camPack = await buildPromoPortraitCameraBlock(cameraKeys);
@@ -4923,9 +5001,12 @@ function isPromoPortraitFluxExperimentMode(mode) {
 }
 
 const PORTRAIT_EXPERIMENT_PLAN_ERROR = '寬鬆尺度限方案三、方案四會員使用';
-const PORTRAIT_EXPERIMENT_RATE_MEM = new Map();
+const PORTRAIT_EXPERIMENT_RATE_MEM = [];
 const PORTRAIT_EXPERIMENT_RATE_WINDOW_MS = 60000;
-const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 6;
+const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 300;
+const PORTRAIT_EXPERIMENT_PER_MINUTE_MAX = 5000;
+const PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT = 6;
+const PORTRAIT_EXPERIMENT_BUSY_RATIO = 0.9;
 
 /** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
 async function canUsePromoPortraitExperiment(userId) {
@@ -4950,83 +5031,94 @@ function parsePromoPortraitExperimentPerMinute(raw) {
     const n = parseInt(String(raw).trim(), 10);
     if (!Number.isFinite(n) || n < 0) return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
     if (n === 0) return 0;
-    return Math.min(60, Math.max(1, n));
+    return Math.min(PORTRAIT_EXPERIMENT_PER_MINUTE_MAX, Math.max(1, n));
+}
+
+function parsePromoPortraitExperimentPerSecond(raw) {
+    if (raw == null || String(raw).trim() === '') return PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT;
+    const n = parseInt(String(raw).trim(), 10);
+    if (!Number.isFinite(n) || n < 0) return PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT;
+    if (n === 0) return 0;
+    return Math.min(PORTRAIT_EXPERIMENT_PER_SECOND_MAX, Math.max(1, n));
+}
+
+function effectivePromoPortraitExperimentPerMinute(rawPm, rawPs) {
+    const hasPs = rawPs != null && String(rawPs).trim() !== '';
+    if (!hasPs && String(rawPm == null ? '' : rawPm).trim() === '6') {
+        return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
+    }
+    return parsePromoPortraitExperimentPerMinute(rawPm);
 }
 
 async function getPromoPortraitExperimentPerMinute() {
     try {
-        const { data: row } = await supabase
+        const { data: rows } = await supabase
             .from('payment_config')
-            .select('value')
-            .eq('key', 'promo_portrait_experiment_per_minute')
-            .maybeSingle();
-        return parsePromoPortraitExperimentPerMinute(row && row.value);
+            .select('key, value')
+            .in('key', ['promo_portrait_experiment_per_minute', 'promo_portrait_experiment_per_second']);
+        const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value; return o; }, {});
+        return effectivePromoPortraitExperimentPerMinute(
+            byKey.promo_portrait_experiment_per_minute,
+            byKey.promo_portrait_experiment_per_second
+        );
     } catch (_) {
         return PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT;
     }
 }
 
-function countPromoPortraitExperimentMem(userId) {
-    const now = Date.now();
-    const uid = String(userId || '');
-    let arr = PORTRAIT_EXPERIMENT_RATE_MEM.get(uid) || [];
-    arr = arr.filter((t) => now - t < PORTRAIT_EXPERIMENT_RATE_WINDOW_MS);
-    PORTRAIT_EXPERIMENT_RATE_MEM.set(uid, arr);
-    return arr.length;
-}
-
-function recordPromoPortraitExperimentMem(userId, shotCount) {
-    const now = Date.now();
-    const uid = String(userId || '');
-    const n = Math.max(1, parseInt(shotCount, 10) || 1);
-    let arr = PORTRAIT_EXPERIMENT_RATE_MEM.get(uid) || [];
-    arr = arr.filter((t) => now - t < PORTRAIT_EXPERIMENT_RATE_WINDOW_MS);
-    for (let i = 0; i < n; i++) arr.push(now);
-    PORTRAIT_EXPERIMENT_RATE_MEM.set(uid, arr);
-}
-
-async function countPromoPortraitExperimentDbLastMinute(userId) {
-    const since = new Date(Date.now() - PORTRAIT_EXPERIMENT_RATE_WINDOW_MS).toISOString();
+async function getPromoPortraitExperimentPerSecond() {
     try {
-        const { data, error } = await supabase
-            .from('product_promo_generations')
-            .select('id, generation_meta_json')
-            .eq('user_id', userId)
-            .eq('generation_mode', 'camera_advanced')
-            .gte('created_at', since)
-            .limit(120);
-        if (error || !data) return 0;
-        return data.filter((row) => {
-            const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
-            return normalizePromoPortraitRenderMode(meta && meta.portrait_render_mode) === 'experiment';
-        }).length;
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_experiment_per_second')
+            .maybeSingle();
+        return parsePromoPortraitExperimentPerSecond(row && row.value);
     } catch (_) {
-        return 0;
+        return PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT;
     }
 }
 
-async function assertPromoPortraitExperimentRate(userId, renderMode, shotCount, res) {
-    if (normalizePromoPortraitRenderMode(renderMode) !== 'experiment') return true;
-    if (!userId) return true;
-    if (await isStaffProfileUserId(userId)) return true;
-    const limit = await getPromoPortraitExperimentPerMinute();
-    if (limit === 0) return true;
-    const shots = Math.max(1, parseInt(shotCount, 10) || 1);
-    const used = Math.max(
-        countPromoPortraitExperimentMem(userId),
-        await countPromoPortraitExperimentDbLastMinute(userId)
-    );
-    if (used + shots > limit) {
-        res.status(429).json({
-            success: false,
-            error: '寬鬆尺度每分鐘最多 ' + limit + ' 次，請稍後再試',
-            code: 'portrait_experiment_rate_limited',
-            per_minute: limit
-        });
-        return false;
+function prunePromoPortraitExperimentMem(now) {
+    const cutoff = now - PORTRAIT_EXPERIMENT_RATE_WINDOW_MS;
+    while (PORTRAIT_EXPERIMENT_RATE_MEM.length && PORTRAIT_EXPERIMENT_RATE_MEM[0] < cutoff) {
+        PORTRAIT_EXPERIMENT_RATE_MEM.shift();
     }
-    recordPromoPortraitExperimentMem(userId, shots);
-    return true;
+}
+
+function countPromoPortraitExperimentMem(windowMs) {
+    const now = Date.now();
+    prunePromoPortraitExperimentMem(now);
+    const cutoff = now - windowMs;
+    let n = 0;
+    for (let i = PORTRAIT_EXPERIMENT_RATE_MEM.length - 1; i >= 0; i--) {
+        if (PORTRAIT_EXPERIMENT_RATE_MEM[i] < cutoff) break;
+        n += 1;
+    }
+    return n;
+}
+
+function recordPromoPortraitExperimentMem(shotCount) {
+    const now = Date.now();
+    prunePromoPortraitExperimentMem(now);
+    const n = Math.max(1, parseInt(shotCount, 10) || 1);
+    for (let i = 0; i < n; i++) PORTRAIT_EXPERIMENT_RATE_MEM.push(now);
+}
+
+function promoPortraitExperimentNearLimit(used, limit) {
+    if (!(limit > 0)) return false;
+    return used >= Math.max(1, Math.ceil(limit * PORTRAIT_EXPERIMENT_BUSY_RATIO));
+}
+
+async function getPromoPortraitExperimentBusy() {
+    const lim = await getGrokImagineQueueLimits();
+    prunePromoPortraitExperimentMem(Date.now());
+    if (promoPortraitExperimentNearLimit(
+        countPromoPortraitExperimentMem(PORTRAIT_EXPERIMENT_RATE_WINDOW_MS),
+        lim.rpm
+    )) return true;
+    if (promoPortraitExperimentNearLimit(countPromoPortraitExperimentMem(1000), lim.rps)) return true;
+    return false;
 }
 
 /** 實驗模式：清晰那套提示詞前面加優先句（鎖同一個人、換姿勢）。Grok 常自行加電影暗角，明確禁止。 */
@@ -9335,9 +9427,18 @@ async function optimizeMaterialDualColorWithFlux(fileBuffer, mainMaterial, accen
 /**
  * Gemini「生圖」軟上限（全站生圖共用；不影響標籤／翻譯）。
  * 記憶體計數，重啟歸零。10 分鐘上限對齊官方 T2 $200／10min：Pro 4K 輸出 $0.24，700 張 ≈ $168，略低於滿額。
- * env 優先 MATERIAL_DUAL_COLOR_GEMINI_*，相容舊名 GEMINI_IMAGE_*。
+ * 優先序：後台 payment_config → env（MATERIAL_DUAL_COLOR_GEMINI_*／GEMINI_IMAGE_*）→ 程式預設。
  */
 const DUAL_COLOR_GEMINI_USAGE_TS = [];
+const GEMINI_IMAGE_LIMIT_DEFAULTS = Object.freeze({
+    minIntervalMs: 0,
+    maxPerMin: 70,
+    maxPer10Min: 700,
+    maxPerDay: 0,
+    maxConcurrent: 8
+});
+let _geminiImageLimitsDb = undefined;
+let _geminiImageLimitsLoading = false;
 function envIntPrefer(...keysAndDefault) {
     const def = keysAndDefault[keysAndDefault.length - 1];
     const keys = keysAndDefault.slice(0, -1);
@@ -9350,13 +9451,60 @@ function envIntPrefer(...keysAndDefault) {
     }
     return def;
 }
-function getDualColorGeminiImageLimits() {
+function parseOptionalIntInRange(raw, min, max) {
+    if (raw == null || String(raw).trim() === '') return null;
+    const n = parseInt(String(raw).trim(), 10);
+    if (!Number.isFinite(n) || n < min || n > max) return null;
+    return n;
+}
+function envGeminiImageLimits() {
     return {
-        minIntervalMs: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS', 'GEMINI_IMAGE_MIN_INTERVAL_MS', 0)),
-        maxPerMin: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN', 'GEMINI_IMAGE_MAX_PER_MIN', 70)),
-        maxPer10Min: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN', 'GEMINI_IMAGE_MAX_PER_10MIN', 700)),
-        maxPerDay: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY', 'GEMINI_IMAGE_MAX_PER_DAY', 0))
+        minIntervalMs: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MIN_INTERVAL_MS', 'GEMINI_IMAGE_MIN_INTERVAL_MS', GEMINI_IMAGE_LIMIT_DEFAULTS.minIntervalMs)),
+        maxPerMin: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_MIN', 'GEMINI_IMAGE_MAX_PER_MIN', GEMINI_IMAGE_LIMIT_DEFAULTS.maxPerMin)),
+        maxPer10Min: Math.max(1, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_10MIN', 'GEMINI_IMAGE_MAX_PER_10MIN', GEMINI_IMAGE_LIMIT_DEFAULTS.maxPer10Min)),
+        maxPerDay: Math.max(0, envIntPrefer('MATERIAL_DUAL_COLOR_GEMINI_MAX_PER_DAY', 'GEMINI_IMAGE_MAX_PER_DAY', GEMINI_IMAGE_LIMIT_DEFAULTS.maxPerDay)),
+        maxConcurrent: Math.max(1, Math.min(16, envIntPrefer('GEMINI_IMAGE_MAX_CONCURRENT', GEMINI_IMAGE_LIMIT_DEFAULTS.maxConcurrent)))
     };
+}
+function getDualColorGeminiImageLimits() {
+    if (_geminiImageLimitsDb === undefined) scheduleGeminiImageLimitsLoad();
+    const env = envGeminiImageLimits();
+    const db = _geminiImageLimitsDb || {};
+    return {
+        minIntervalMs: db.minIntervalMs != null ? db.minIntervalMs : env.minIntervalMs,
+        maxPerMin: db.maxPerMin != null ? db.maxPerMin : env.maxPerMin,
+        maxPer10Min: db.maxPer10Min != null ? db.maxPer10Min : env.maxPer10Min,
+        maxPerDay: db.maxPerDay != null ? db.maxPerDay : env.maxPerDay,
+        maxConcurrent: db.maxConcurrent != null ? db.maxConcurrent : env.maxConcurrent
+    };
+}
+function scheduleGeminiImageLimitsLoad() {
+    if (_geminiImageLimitsLoading) return;
+    _geminiImageLimitsLoading = true;
+    loadGeminiImageLimitsFromDb().finally(() => {
+        _geminiImageLimitsLoading = false;
+    });
+}
+async function loadGeminiImageLimitsFromDb() {
+    try {
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
+            'gemini_image_min_interval_ms',
+            'gemini_image_max_per_min',
+            'gemini_image_max_per_10min',
+            'gemini_image_max_per_day',
+            'gemini_image_max_concurrent'
+        ]);
+        const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value; return o; }, {});
+        _geminiImageLimitsDb = {
+            minIntervalMs: parseOptionalIntInRange(byKey.gemini_image_min_interval_ms, 0, 60000),
+            maxPerMin: parseOptionalIntInRange(byKey.gemini_image_max_per_min, 1, 2000),
+            maxPer10Min: parseOptionalIntInRange(byKey.gemini_image_max_per_10min, 1, 10000),
+            maxPerDay: parseOptionalIntInRange(byKey.gemini_image_max_per_day, 0, 100000),
+            maxConcurrent: parseOptionalIntInRange(byKey.gemini_image_max_concurrent, 1, 16)
+        };
+    } catch (_) {
+        if (_geminiImageLimitsDb === undefined) _geminiImageLimitsDb = {};
+    }
 }
 function pruneDualColorGeminiUsage(now) {
     const dayMs = 24 * 60 * 60 * 1000;
@@ -14828,6 +14976,12 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'promo_portrait_experiment_flux_safety_tolerance',
             'promo_portrait_experiment_flux_prompt_upsampling',
             'promo_portrait_experiment_per_minute',
+            'promo_portrait_experiment_per_second',
+            'gemini_image_min_interval_ms',
+            'gemini_image_max_per_min',
+            'gemini_image_max_per_10min',
+            'gemini_image_max_per_day',
+            'gemini_image_max_concurrent',
             ...engineKeys,
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
@@ -14848,6 +15002,14 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const xaiMgmtKeySource = await getXaiManagementApiKeySource();
         const grokExperimentModel = await getPromoPortraitExperimentGrokModel();
         const grokExperimentQuality = await getPromoPortraitExperimentGrokQuality();
+        _geminiImageLimitsDb = {
+            minIntervalMs: parseOptionalIntInRange(byKey.gemini_image_min_interval_ms, 0, 60000),
+            maxPerMin: parseOptionalIntInRange(byKey.gemini_image_max_per_min, 1, 2000),
+            maxPer10Min: parseOptionalIntInRange(byKey.gemini_image_max_per_10min, 1, 10000),
+            maxPerDay: parseOptionalIntInRange(byKey.gemini_image_max_per_day, 0, 100000),
+            maxConcurrent: parseOptionalIntInRange(byKey.gemini_image_max_concurrent, 1, 16)
+        };
+        const geminiImageLim = getDualColorGeminiImageLimits();
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
@@ -14896,9 +15058,18 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 byKey.promo_portrait_experiment_flux_prompt_upsampling,
                 true
             ),
-            promo_portrait_experiment_per_minute: parsePromoPortraitExperimentPerMinute(
-                byKey.promo_portrait_experiment_per_minute
+            promo_portrait_experiment_per_minute: effectivePromoPortraitExperimentPerMinute(
+                byKey.promo_portrait_experiment_per_minute,
+                byKey.promo_portrait_experiment_per_second
             ),
+            promo_portrait_experiment_per_second: parsePromoPortraitExperimentPerSecond(
+                byKey.promo_portrait_experiment_per_second
+            ),
+            gemini_image_min_interval_ms: geminiImageLim.minIntervalMs,
+            gemini_image_max_per_min: geminiImageLim.maxPerMin,
+            gemini_image_max_per_10min: geminiImageLim.maxPer10Min,
+            gemini_image_max_per_day: geminiImageLim.maxPerDay,
+            gemini_image_max_concurrent: geminiImageLim.maxConcurrent,
             ...bfl.models,
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
@@ -14935,6 +15106,12 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 promo_portrait_experiment_flux_safety_tolerance: !!byKey.promo_portrait_experiment_flux_safety_tolerance,
                 promo_portrait_experiment_flux_prompt_upsampling: !!byKey.promo_portrait_experiment_flux_prompt_upsampling,
                 promo_portrait_experiment_per_minute: !!byKey.promo_portrait_experiment_per_minute,
+                promo_portrait_experiment_per_second: !!byKey.promo_portrait_experiment_per_second,
+                gemini_image_min_interval_ms: !!byKey.gemini_image_min_interval_ms,
+                gemini_image_max_per_min: !!byKey.gemini_image_max_per_min,
+                gemini_image_max_per_10min: !!byKey.gemini_image_max_per_10min,
+                gemini_image_max_per_day: !!byKey.gemini_image_max_per_day,
+                gemini_image_max_concurrent: !!byKey.gemini_image_max_concurrent,
                 ...bfl.saved_in_db
             }
         });
@@ -15071,14 +15248,42 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.promo_portrait_experiment_per_minute !== undefined) {
             const rawPm = String(body.promo_portrait_experiment_per_minute).trim();
             const nPm = parseInt(rawPm, 10);
-            if (!Number.isFinite(nPm) || nPm < 0 || nPm > 60) {
-                return res.status(400).json({ error: '寬鬆尺度每分鐘次數請填 0～60（0＝不限）' });
+            if (!Number.isFinite(nPm) || nPm < 0 || nPm > PORTRAIT_EXPERIMENT_PER_MINUTE_MAX) {
+                return res.status(400).json({ error: '寬鬆尺度全站每分鐘請填 0～' + PORTRAIT_EXPERIMENT_PER_MINUTE_MAX + '（0＝不限）' });
             }
             upserts.push({
                 key: 'promo_portrait_experiment_per_minute',
-                value: String(nPm === 0 ? 0 : Math.min(60, Math.max(1, nPm))),
+                value: String(nPm === 0 ? 0 : Math.min(PORTRAIT_EXPERIMENT_PER_MINUTE_MAX, Math.max(1, nPm))),
                 updated_at: now
             });
+        }
+        if (body.promo_portrait_experiment_per_second !== undefined) {
+            const rawPs = String(body.promo_portrait_experiment_per_second).trim();
+            const nPs = parseInt(rawPs, 10);
+            if (!Number.isFinite(nPs) || nPs < 0 || nPs > PORTRAIT_EXPERIMENT_PER_SECOND_MAX) {
+                return res.status(400).json({ error: '寬鬆尺度全站每秒請填 0～' + PORTRAIT_EXPERIMENT_PER_SECOND_MAX + '（0＝不限）' });
+            }
+            upserts.push({
+                key: 'promo_portrait_experiment_per_second',
+                value: String(nPs === 0 ? 0 : Math.min(PORTRAIT_EXPERIMENT_PER_SECOND_MAX, Math.max(1, nPs))),
+                updated_at: now
+            });
+        }
+        const geminiImageLimitFields = [
+            { key: 'gemini_image_min_interval_ms', min: 0, max: 60000, label: 'Gemini 生圖最短間隔（毫秒）請填 0～60000' },
+            { key: 'gemini_image_max_per_min', min: 1, max: 2000, label: 'Gemini 全站每分鐘請填 1～2000' },
+            { key: 'gemini_image_max_per_10min', min: 1, max: 10000, label: 'Gemini 全站每 10 分鐘請填 1～10000' },
+            { key: 'gemini_image_max_per_day', min: 0, max: 100000, label: 'Gemini 全站每天請填 0～100000（0＝不限）' },
+            { key: 'gemini_image_max_concurrent', min: 1, max: 16, label: 'Gemini 生圖並行請填 1～16' }
+        ];
+        for (let gi = 0; gi < geminiImageLimitFields.length; gi++) {
+            const spec = geminiImageLimitFields[gi];
+            if (body[spec.key] === undefined) continue;
+            const nGi = parseInt(String(body[spec.key]).trim(), 10);
+            if (!Number.isFinite(nGi) || nGi < spec.min || nGi > spec.max) {
+                return res.status(400).json({ error: spec.label });
+            }
+            upserts.push({ key: spec.key, value: String(nGi), updated_at: now });
         }
         const engineFields = [
             'vendor_asset_optimize_engine',
@@ -15123,6 +15328,8 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 hint: error.code === '42P01' ? '請在 Supabase 執行 docs/payment-config-schema.sql' : undefined
             });
         }
+        await loadGeminiImageLimitsFromDb();
+        _grokImagineLimitCache.at = 0;
         const keys = [...new Set(upserts.map((u) => u.key))];
         const { data: rows, error: readErr } = await supabase.from('payment_config').select('key, value').in('key', keys);
         if (readErr) {
@@ -15193,7 +15400,29 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 : null,
             promo_portrait_experiment_per_minute: byKey.promo_portrait_experiment_per_minute != null
                 && String(byKey.promo_portrait_experiment_per_minute).trim() !== ''
-                ? parsePromoPortraitExperimentPerMinute(byKey.promo_portrait_experiment_per_minute)
+                ? effectivePromoPortraitExperimentPerMinute(
+                    byKey.promo_portrait_experiment_per_minute,
+                    byKey.promo_portrait_experiment_per_second
+                )
+                : null,
+            promo_portrait_experiment_per_second: byKey.promo_portrait_experiment_per_second != null
+                && String(byKey.promo_portrait_experiment_per_second).trim() !== ''
+                ? parsePromoPortraitExperimentPerSecond(byKey.promo_portrait_experiment_per_second)
+                : null,
+            gemini_image_min_interval_ms: byKey.gemini_image_min_interval_ms != null
+                ? parseOptionalIntInRange(byKey.gemini_image_min_interval_ms, 0, 60000)
+                : null,
+            gemini_image_max_per_min: byKey.gemini_image_max_per_min != null
+                ? parseOptionalIntInRange(byKey.gemini_image_max_per_min, 1, 2000)
+                : null,
+            gemini_image_max_per_10min: byKey.gemini_image_max_per_10min != null
+                ? parseOptionalIntInRange(byKey.gemini_image_max_per_10min, 1, 10000)
+                : null,
+            gemini_image_max_per_day: byKey.gemini_image_max_per_day != null
+                ? parseOptionalIntInRange(byKey.gemini_image_max_per_day, 0, 100000)
+                : null,
+            gemini_image_max_concurrent: byKey.gemini_image_max_concurrent != null
+                ? parseOptionalIntInRange(byKey.gemini_image_max_concurrent, 1, 16)
                 : null,
             ...bfl.models
         });
@@ -21285,7 +21514,11 @@ app.get('/api/promo-camera/options', async (req, res) => {
             promo_portrait_engine: portraitEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
             portrait_experiment_allowed: portraitExperimentAllowed,
+            portrait_experiment_busy: portraitExperimentAllowed
+                ? await getPromoPortraitExperimentBusy()
+                : false,
             portrait_experiment_per_minute: await getPromoPortraitExperimentPerMinute(),
+            portrait_experiment_per_second: await getPromoPortraitExperimentPerSecond(),
             portrait_render_modes: {
                 clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
@@ -21361,7 +21594,10 @@ app.get('/api/promo-camera/points-preview', async (req, res) => {
                 pricing_mode: isExperiment ? 'portrait_experiment_tier' : 'portrait_gemini_tier',
                 shoot_mode: 'portrait',
                 portrait_render_mode: portraitRenderMode || 'clear',
-                space_resolution_tier: billingTier
+                space_resolution_tier: billingTier,
+                portrait_experiment_busy: isExperiment
+                    ? await getPromoPortraitExperimentBusy()
+                    : false
             });
         }
         if (shootMode === 'space' && spaceOutputType === 'layout_plan') {

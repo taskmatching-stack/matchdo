@@ -1010,8 +1010,6 @@
   function syncPortraitExperimentAccess() {
     var allowed = portraitExperimentAllowed();
     var opts = St.get().options || {};
-    var perMin = parseInt(opts.portrait_experiment_per_minute, 10);
-    if (!Number.isFinite(perMin) || perMin < 0) perMin = 6;
     var expEl = document.getElementById('pcPortraitRenderExperiment');
     var hintText = t('promoCamera.renderExperimentPlanHint', '寬鬆尺度限方案三、方案四會員使用');
     if (expEl) {
@@ -1036,12 +1034,14 @@
     if (hint) {
       if (!allowed) {
         hint.textContent = hintText;
-      } else if (perMin > 0) {
-        hint.textContent = tpl('promoCamera.renderExperimentRateHint', '大尺度產品專用。每帳號每分鐘最多 {n} 次。', { n: perMin });
+        hint.classList.remove('d-none');
+      } else if (opts.portrait_experiment_busy === true) {
+        hint.textContent = t('promoCamera.renderExperimentBusyHint', '目前較忙，可能需稍候');
+        hint.classList.remove('d-none');
       } else {
-        hint.textContent = t('promoCamera.renderExperimentProductHint', '給大尺度產品用。限方案三／方案四。');
+        hint.textContent = '';
+        hint.classList.add('d-none');
       }
-      hint.classList.remove('d-none');
     }
     if (!allowed && portraitRenderMode() === 'experiment' && St.setPortraitRenderMode) {
       St.setPortraitRenderMode('clear');
@@ -1153,6 +1153,7 @@
       else if (hybridEl && hybridEl.checked) v = 'hybrid';
       else if (moodEl && moodEl.checked) v = 'mood';
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
+      syncPortraitExperimentAccess();
       /* 氛圍／混合／實驗（FLUX）預設 1MP；清晰維持使用者目前選擇 */
       if ((v === 'mood' || v === 'hybrid' || v === 'experiment') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
@@ -2511,6 +2512,11 @@
           ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
           : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
         el.textContent = text + note;
+      }
+      if (isPortraitMode() && res.ok && res.data && res.data.portrait_experiment_busy != null) {
+        var opt = St.get().options || {};
+        opt.portrait_experiment_busy = res.data.portrait_experiment_busy === true;
+        syncPortraitExperimentAccess();
       }
     });
   }

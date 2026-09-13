@@ -155,7 +155,7 @@
               </div>
               <div class="border rounded p-3 bg-light mt-3" id="grokImagineSettingsCard">
                 <h6 class="small fw-bold mb-2">寬鬆尺度（Grok Imagine）</h6>
-                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。與清晰同一套提示詞，改送 xAI Grok Imagine 改圖。臉部複製程度較低。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。以後換模型：改下面欄位再按儲存，不必改程式。</p>
+                <p class="form-text small text-muted mb-3">前台「寬鬆尺度」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。與清晰同一套提示詞，改送 xAI Grok Imagine 改圖。臉部複製程度較低。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。以後換模型：改下面欄位再按儲存，不必改程式。</p>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperiment">人像實驗模型</label>
@@ -172,9 +172,17 @@
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_grok_quality</code> — 僅 <code>grok-imagine-image-2.0</code> 有效</p>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="promoPortraitExperimentPerMinute">每帳號每分鐘生圖次數</label>
-                    <input type="number" id="promoPortraitExperimentPerMinute" class="form-control form-control-sm" min="0" max="60" step="1" value="6" />
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_per_minute</code> — 只限寬鬆尺度。0＝不限。未存前預設 6。管理員／測試員不受限。套圖一次算多張。</p>
+                    <label class="form-label small mb-1" for="promoPortraitExperimentPerMinute">全站每分鐘（RPM）</label>
+                    <input type="number" id="promoPortraitExperimentPerMinute" class="form-control form-control-sm" min="0" max="5000" step="1" value="300" />
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_per_minute</code> — <strong>全站合計</strong>，對齊 xAI Grok Imagine RPM。0＝不限。未存前預設 300（Tier 0）。所有帳號（含管理員）都算進去。套圖一次算多張。<strong>超過會排隊，等滑動視窗過期後自動繼續</strong>（每分鐘／每秒會重置，不會卡死）。前台約 90% 才出「目前較忙」短提醒。</p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="promoPortraitExperimentPerSecond">全站每秒（RPS）</label>
+                    <input type="number" id="promoPortraitExperimentPerSecond" class="form-control form-control-sm" min="0" max="100" step="1" value="6" />
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_per_second</code> — 全站合計，對齊官方 RPS。0＝不限。未存前預設 6（Tier 0）。超過同樣排隊，不直接拒絕。</p>
+                  </div>
+                  <div class="col-12">
+                    <p class="form-text small text-muted mb-0">Grok Imagine 官方階層（累計儲值解鎖）：Tier 0 $0 → 300 RPM／6 RPS；Tier 1 $50 → 600／12；Tier 2 $250 → 1,200／25；Tier 3 $1,000 → 2,400／50；Tier 4 $5,000 → 4,800／100。請填<strong>你目前階層</strong>，建議略低於官方當緩衝。</p>
                   </div>
                   <div class="col-12">
                     <label class="form-label small mb-1" for="xaiApiKeyPortraitExperiment">xAI API 金鑰（生圖／推論）</label>
@@ -319,7 +327,38 @@
               <p class="form-text small text-muted mb-0"><code>/pattern-extract/</code> 圖樣提取（<code>gemini_model_pattern_extract</code>）。預設 gemini-3.1-flash-lite-image；滿額可 fallback FLUX（<code>bfl_flux_model_scene_pattern</code>）。</p>
             </div>
             <p class="form-text small text-muted mb-3">商攝導演（產品／空間平視／人像）的 Gemini 模型名稱請在上方「商攝導演・引擎＋模型名稱」卡片設定。</p>
-            <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
+            <div class="border rounded p-3 bg-light mb-3">
+              <h6 class="small fw-bold mb-2">Gemini 生圖限流（全站）</h6>
+              <p class="form-text small text-muted mb-3">全站所有 Gemini <strong>生圖</strong>共用（材料組合、印花、圖樣、材料重繪、商攝空間／人像清晰等）。<strong>不是依帳號</strong>，與上方「寬鬆尺度 Grok 全站 RPM／RPS」是另一組。不影響標籤／翻譯。記憶體計數，程序重啟歸零。未存前用程式預設／環境變數。超限時可能改走備援或請稍後再試。</p>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="geminiImageMaxPerMin">全站每分鐘</label>
+                  <input type="number" id="geminiImageMaxPerMin" class="form-control form-control-sm" min="1" max="2000" step="1" value="70" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_image_max_per_min</code> — 預設 70</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="geminiImageMaxPer10Min">全站每 10 分鐘</label>
+                  <input type="number" id="geminiImageMaxPer10Min" class="form-control form-control-sm" min="1" max="10000" step="1" value="700" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_image_max_per_10min</code> — 預設 700</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="geminiImageMaxPerDay">全站每天（0＝不限）</label>
+                  <input type="number" id="geminiImageMaxPerDay" class="form-control form-control-sm" min="0" max="100000" step="1" value="0" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_image_max_per_day</code> — 預設 0</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="geminiImageMaxConcurrent">同時進行張數</label>
+                  <input type="number" id="geminiImageMaxConcurrent" class="form-control form-control-sm" min="1" max="16" step="1" value="8" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_image_max_concurrent</code> — 預設 8，上限 16</p>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="geminiImageMinIntervalMs">最短間隔（毫秒）</label>
+                  <input type="number" id="geminiImageMinIntervalMs" class="form-control form-control-sm" min="0" max="60000" step="100" value="0" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_image_min_interval_ms</code> — 0＝不另加間隔</p>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型與限流</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
@@ -521,9 +560,16 @@
     var expPerMin = document.getElementById('promoPortraitExperimentPerMinute');
     if (expPerMin) {
       var pm = parseInt(data.promo_portrait_experiment_per_minute, 10);
-      if (!Number.isFinite(pm) || pm < 0) pm = 6;
-      if (pm > 60) pm = 60;
+      if (!Number.isFinite(pm) || pm < 0) pm = 300;
+      if (pm > 5000) pm = 5000;
       expPerMin.value = String(pm);
+    }
+    var expPerSec = document.getElementById('promoPortraitExperimentPerSecond');
+    if (expPerSec) {
+      var ps = parseInt(data.promo_portrait_experiment_per_second, 10);
+      if (!Number.isFinite(ps) || ps < 0) ps = 6;
+      if (ps > 100) ps = 100;
+      expPerSec.value = String(ps);
     }
     var xaiHint = document.getElementById('xaiApiKeyPortraitExperimentHint');
     if (xaiHint) {
@@ -592,7 +638,8 @@
       var gp = [];
       if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('寬鬆模型');
       if (gs.promo_portrait_experiment_grok_quality) gp.push('畫質');
-      if (gs.promo_portrait_experiment_per_minute) gp.push('每分鐘次數');
+      if (gs.promo_portrait_experiment_per_minute) gp.push('全站RPM');
+      if (gs.promo_portrait_experiment_per_second) gp.push('全站RPS');
       if (gs.xai_api_key) gp.push('資料庫金鑰');
       if (gs.xai_management_api_key) gp.push('Management Key');
       grokHint.textContent = gp.length
@@ -698,6 +745,17 @@
     if (data.gemini_model_promo_portrait_mood != null && inpPortraitMood) inpPortraitMood.value = data.gemini_model_promo_portrait_mood;
     if (data.gemini_model_promo_portrait_hybrid != null && inpPortraitHybrid) inpPortraitHybrid.value = data.gemini_model_promo_portrait_hybrid;
     setPortraitPromptReviewModelInputs(data.gemini_model_promo_portrait_prompt_review || '');
+    function fillNum(id, val, fallback) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var n = parseInt(val, 10);
+      el.value = String(Number.isFinite(n) ? n : fallback);
+    }
+    fillNum('geminiImageMaxPerMin', data.gemini_image_max_per_min, 70);
+    fillNum('geminiImageMaxPer10Min', data.gemini_image_max_per_10min, 700);
+    fillNum('geminiImageMaxPerDay', data.gemini_image_max_per_day, 0);
+    fillNum('geminiImageMaxConcurrent', data.gemini_image_max_concurrent, 8);
+    fillNum('geminiImageMinIntervalMs', data.gemini_image_min_interval_ms, 0);
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
@@ -709,6 +767,7 @@
       if (s.gemini_model_material_combo_flash) parts.push('組合Flash');
       if (s.gemini_model_print_asset) parts.push('印花');
       if (s.gemini_model_pattern_extract) parts.push('圖樣提取');
+      if (s.gemini_image_max_per_min || s.gemini_image_max_per_10min || s.gemini_image_max_per_day || s.gemini_image_max_concurrent || s.gemini_image_min_interval_ms) parts.push('生圖限流');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyEngineConfigToForm(data);
@@ -972,8 +1031,15 @@
       promo_portrait_experiment_per_minute: (function () {
         var el = document.getElementById('promoPortraitExperimentPerMinute');
         var n = parseInt(el && el.value, 10);
+        if (!Number.isFinite(n) || n < 0) n = 300;
+        if (n > 5000) n = 5000;
+        return n;
+      })(),
+      promo_portrait_experiment_per_second: (function () {
+        var el = document.getElementById('promoPortraitExperimentPerSecond');
+        var n = parseInt(el && el.value, 10);
         if (!Number.isFinite(n) || n < 0) n = 6;
-        if (n > 60) n = 60;
+        if (n > 100) n = 100;
         return n;
       })()
     };
@@ -1007,7 +1073,7 @@
       var extra = [];
       if (payload.xai_api_key) extra.push('已更新生圖金鑰');
       if (payload.xai_management_api_key) extra.push('已更新 Management Key');
-      showMsg('寬鬆尺度已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，每分鐘「' + payload.promo_portrait_experiment_per_minute + '」' + (extra.length ? '，' + extra.join('，') : ''));
+      showMsg('寬鬆尺度已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，全站 RPM「' + payload.promo_portrait_experiment_per_minute + '」，RPS「' + payload.promo_portrait_experiment_per_second + '」' + (extra.length ? '，' + extra.join('，') : ''));
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
@@ -1060,7 +1126,27 @@
       gemini_model_material_combo_flash: (inpComboFlash && inpComboFlash.value.trim()) || 'gemini-3.1-flash-image',
       gemini_model_print_asset: (inpPrint && inpPrint.value.trim()) || 'gemini-3.1-flash-lite-image',
       gemini_model_pattern_extract: (inpPattern && inpPattern.value.trim()) || 'gemini-3.1-flash-lite-image',
-      gemini_model_promo_portrait_prompt_review: getPortraitPromptReviewModelInput()
+      gemini_model_promo_portrait_prompt_review: getPortraitPromptReviewModelInput(),
+      gemini_image_max_per_min: (function () {
+        var n = parseInt((document.getElementById('geminiImageMaxPerMin') || {}).value, 10);
+        return Number.isFinite(n) ? n : 70;
+      })(),
+      gemini_image_max_per_10min: (function () {
+        var n = parseInt((document.getElementById('geminiImageMaxPer10Min') || {}).value, 10);
+        return Number.isFinite(n) ? n : 700;
+      })(),
+      gemini_image_max_per_day: (function () {
+        var n = parseInt((document.getElementById('geminiImageMaxPerDay') || {}).value, 10);
+        return Number.isFinite(n) ? n : 0;
+      })(),
+      gemini_image_max_concurrent: (function () {
+        var n = parseInt((document.getElementById('geminiImageMaxConcurrent') || {}).value, 10);
+        return Number.isFinite(n) ? n : 8;
+      })(),
+      gemini_image_min_interval_ms: (function () {
+        var n = parseInt((document.getElementById('geminiImageMinIntervalMs') || {}).value, 10);
+        return Number.isFinite(n) ? n : 0;
+      })()
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -1074,7 +1160,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存 Gemini 模型（翻譯／讀圖／標籤／材料等）');
+      showMsg('已儲存 Gemini 模型與全站生圖限流');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
