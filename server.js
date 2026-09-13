@@ -1180,13 +1180,24 @@ function promoPortraitGrokifyExperimentSwapPrompt(text) {
         .replace(/\bimage\s*2\b/gi, '<IMAGE_0>');
 }
 
+function buildPromoPortraitExperimentGrokFaceRefinePrompt(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    return buildPromoPortraitMoodFaceRefinePrompt(Object.assign({}, o, {
+        cameraBlock: promoPortraitStyling.sanitizePromoCameraBlockForGrok(o.cameraBlock)
+    }));
+}
+
 function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
     const cap = promoPortraitStyling.buildPortraitGrokSwapCaptions(stylingMode);
+    const body = promoPortraitStyling.sanitizePromoCameraBlockForGrok(
+        promoPortraitGrokifyExperimentSwapPrompt(String(promptText || '').trim())
+    );
     return [
         cap.lead,
         '<IMAGE_0> ' + cap.sceneLabel,
         '<IMAGE_1> ' + cap.personLabel,
-        promoPortraitGrokifyExperimentSwapPrompt(String(promptText || '').trim()),
+        body,
+        promoPortraitStyling.buildPortraitGrokOpticsNegativeGuard(),
         cap.closing
     ].filter(Boolean).join('\n');
 }
@@ -1210,7 +1221,14 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
     const opts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
     const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(opts.stylingMode || opts.portrait_styling_mode);
     const prompt = buildPromoPortraitExperimentGrokSwapPrompt(
-        String(promptText || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({ stylingMode }),
+        String(promptText || '').trim() || buildPromoPortraitExperimentGrokFaceRefinePrompt({
+            stylingMode: stylingMode,
+            cameraBlock: opts.cameraBlock,
+            userPrompt: opts.userPrompt,
+            peopleCount: opts.peopleCount,
+            gender: opts.gender,
+            portrait_styling_mode: opts.portrait_styling_mode
+        }),
         stylingMode
     );
     const model = String(opts.grokModel || '').trim() || await getPromoPortraitExperimentGrokModel();
@@ -1412,7 +1430,7 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
     const stylingMode = promoPortraitStyling.normalizePortraitStylingMode(
         (extra && (extra.stylingMode || extra.portrait_styling_mode)) || 'reference'
     );
-    const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitMoodFaceRefinePrompt({
+    const swapPrompt = String(facePrompt || '').trim() || buildPromoPortraitExperimentGrokFaceRefinePrompt({
         userPrompt: userPrompt,
         peopleCount: extra && extra.peopleCount,
         gender: extra && extra.gender,
@@ -1433,6 +1451,10 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
             targetHeight: lookDims.height,
             allowUpscale: false,
             stylingMode,
+            cameraBlock: extra && extra.cameraBlock,
+            userPrompt: userPrompt,
+            peopleCount: extra && extra.peopleCount,
+            gender: extra && extra.gender,
             generationId: sanitizePromoPortraitGenerationId(extra && extra.generationId)
         }
     );
