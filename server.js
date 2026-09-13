@@ -1903,8 +1903,19 @@ async function buildPromoPortraitFluxPrompt(opts) {
     return parts.filter(Boolean).join(' ');
 }
 
+/** 空景 FLUX：攝影參數只約束成像／光線／色調，禁止畫出器材本體 */
+function buildPromoPortraitFluxSceneCameraAppend(cameraBlock) {
+    const cam = String(cameraBlock || '').trim();
+    if (!cam) return '';
+    return [
+        '空景的透視、景深、色調、光比與底片質感依下列攝影成像條件呈現（只影響環境怎麼被拍出來，不要因此畫出相機、鏡頭、機身、三腳架或任何器材）：',
+        cam,
+        'No camera body, no lens hardware, no tripod, no filming equipment in frame.'
+    ].join(' ');
+}
+
 /**
- * 混合模式階段一：FLUX 純文生空景。不送鏡頭 fragment（那些句子會讓模型畫出相機／鏡頭本體）。
+ * 混合／寬鬆尺度階段一：FLUX 純文生空景（含攝影參數，控制情境光線與成像）。
  */
 async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
@@ -1912,6 +1923,7 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     const scene = o.sceneParts || { name: '', prompt: '', composition: '' };
     const themeKey = String(o.themeKey || '').trim();
     const user = String(o.userPrompt || '').trim();
+    const cameraAppend = buildPromoPortraitFluxSceneCameraAppend(o.cameraBlock);
     const isFormalId = themeKey === 'portrait_formal_id';
     const peopleCount = normalizePromoPortraitPeopleCount(o.peopleCount);
     const parts = [];
@@ -1938,6 +1950,7 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     if (envBits.length) {
         parts.push('環境與光線（只取場景，忽略其中任何人物或服裝，不要畫出來）：' + envBits.join(' '));
     }
+    if (cameraAppend) parts.push(cameraAppend);
 
     if (isFormalId) {
         parts.push('證件用光：正面柔光、背景乾淨。畫面中央留空，只畫環境。');
