@@ -125,7 +125,7 @@
     var expEl = document.getElementById('pcPortraitRenderExperiment');
     var renderLabel = t('promoCamera.renderClearShort', '清晰');
     if (expEl && expEl.checked) renderLabel = t('promoCamera.renderExperimentShort', '寬鬆');
-    else if (hybridEl && hybridEl.checked) renderLabel = t('promoCamera.renderHybridShort', '混合') + ' BETA';
+    else if (hybridEl && hybridEl.checked) renderLabel = t('promoCamera.renderHybridShort', '混合');
     else if (moodEl && moodEl.checked) renderLabel = t('promoCamera.renderMoodShort', '氛圍');
     if ((moodEl && moodEl.checked) || (hybridEl && hybridEl.checked)) {
       var peopleLab = textOfSelect('pcPortraitPeopleCount');
