@@ -259,6 +259,14 @@ function sleepMs(ms) {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
+const PORTRAIT_EXPERIMENT_RATE_MEM = [];
+const PORTRAIT_EXPERIMENT_RATE_WINDOW_MS = 60000;
+const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 300;
+const PORTRAIT_EXPERIMENT_PER_MINUTE_MAX = 5000;
+const PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT = 6;
+const PORTRAIT_EXPERIMENT_PER_SECOND_MAX = 100;
+const PORTRAIT_EXPERIMENT_BUSY_RATIO = 0.9;
+
 /**
  * Grok Imagine（寬鬆尺度）全站佇列：達官方 RPM／RPS 時排隊等待，不直接 429。
  * 與 Gemini 生圖佇列相同：請求掛著等，輪到再送。
@@ -1062,7 +1070,6 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
         stylingMode
     );
     const model = String(opts.grokModel || '').trim() || await getPromoPortraitExperimentGrokModel();
-    const quality = opts.grokQuality || await getPromoPortraitExperimentGrokQuality();
     let extracted;
     try {
         extracted = await runInGrokImagineQueue(function () {
@@ -1072,8 +1079,7 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
                 prompt: prompt,
                 images: [personRef, sceneRef],
                 aspectRatio: opts.aspectRatio || opts.aspect_ratio,
-                resolution: opts.tier || opts.space_resolution_tier,
-                quality: quality
+                resolution: opts.tier || opts.space_resolution_tier
             });
         });
     } catch (genErr) {
@@ -5225,13 +5231,6 @@ function isPromoPortraitFluxExperimentMode(mode) {
 }
 
 const PORTRAIT_EXPERIMENT_PLAN_ERROR = '寬鬆尺度限方案三、方案四會員使用';
-const PORTRAIT_EXPERIMENT_RATE_MEM = [];
-const PORTRAIT_EXPERIMENT_RATE_WINDOW_MS = 60000;
-const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 300;
-const PORTRAIT_EXPERIMENT_PER_MINUTE_MAX = 5000;
-const PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT = 6;
-const PORTRAIT_EXPERIMENT_PER_SECOND_MAX = 100;
-const PORTRAIT_EXPERIMENT_BUSY_RATIO = 0.9;
 
 /** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
 async function canUsePromoPortraitExperiment(userId) {

@@ -79,7 +79,7 @@
         <div class="card mb-3 border-info">
           <div class="card-body">
             <h6 class="card-title">商攝導演・引擎＋模型名稱</h6>
-            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>寬鬆尺度專用 Grok</strong>，模型／畫質／金鑰只在本卡片「寬鬆尺度」區塊，按該區自己的儲存鈕；<strong>不會改到其他 FLUX 槽</strong>。</p>
+            <p class="form-text small text-muted mb-3">不只切換引擎：下方可<strong>手填 Gemini／FLUX 的 model id</strong>（例 <code>gemini-3-pro-image</code>、<code>flux-2-pro</code>）。人像<strong>寬鬆尺度</strong>（FLUX 空景＋Grok 放人）也在本卡片填，與清晰／氛圍／混合一起按下方<strong>儲存商攝引擎＋模型名稱</strong>。</p>
             <div class="border rounded p-3 mb-3 bg-white">
               <h6 class="small fw-bold mb-2">產品攝影 <code class="fw-normal">/promo-camera</code> 產品 tab</h6>
               <p class="form-text small text-muted mb-3">產品攝影固定走 FLUX（沒有 Gemini 切換）。模型<strong>只給商攝產品</strong>，不跟設計頁／廠商「情境圖」共用。未存前仍沿用情境圖槽 <code>bfl_flux_model_promo_image</code>。</p>
@@ -200,10 +200,6 @@
                     <p class="form-text small text-muted mb-0" id="xaiManagementApiKeyPortraitExperimentHint"><code>xai_management_api_key</code> — 在 <a href="https://console.x.ai" target="_blank" rel="noopener">console.x.ai</a> → Settings → Management Keys 建立。或設 Cloud Run <code>XAI_MANAGEMENT_API_KEY</code>（環境變數優先）。平台用量監控用這個查預付餘額，不能拿來生圖。</p>
                   </div>
                 </div>
-                <div class="mt-3">
-                  <button type="button" class="btn btn-sm btn-dark" id="btnSaveGrokConfig">儲存寬鬆尺度（模型／畫質／頻率／金鑰）</button>
-                  <span id="grokConfigDbHint" class="small text-muted ms-2"></span>
-                </div>
               </div>
               <div class="border rounded p-3 bg-light mt-3">
                 <h6 class="small fw-bold mb-2">混合模式（FLUX 空景 → Banana 放人）</h6>
@@ -272,7 +268,7 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="btn btn-sm btn-info text-white" id="btnSavePromoCameraModels">儲存商攝引擎＋模型名稱</button>
+            <button type="button" class="btn btn-sm btn-info text-white" id="btnSavePromoCameraModels">儲存商攝引擎＋模型名稱（含寬鬆尺度）</button>
             <span id="promoCameraModelsDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
@@ -622,9 +618,11 @@
       if (ps.gemini_model_promo_portrait_hybrid) pp.push('混合Banana');
       if (ps.gemini_model_promo_portrait_prompt_review) pp.push('人像描述審核');
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
+      if (ps.bfl_flux_model_promo_portrait_experiment) pp.push('寬鬆FLUX');
       if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('寬鬆Grok');
       if (ps.promo_portrait_experiment_grok_quality) pp.push('寬鬆Grok畫質');
       if (ps.promo_portrait_experiment_per_minute) pp.push('寬鬆每分鐘');
+      if (ps.promo_portrait_experiment_per_second) pp.push('寬鬆每秒');
       if (ps.xai_api_key) pp.push('xAI金鑰');
       if (ps.xai_management_api_key) pp.push('xAI Management');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
@@ -636,23 +634,6 @@
       promoHint.textContent = pp.length
         ? '（已從資料庫載入：' + pp.join('、') + '）'
         : '（尚未寫入 DB；目前為程式預設）';
-    }
-    var grokHint = document.getElementById('grokConfigDbHint');
-    if (grokHint && data.saved_in_db) {
-      var gs = data.saved_in_db;
-      var gp = [];
-      if (gs.bfl_flux_model_promo_portrait_experiment) gp.push('寬鬆FLUX');
-      if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('寬鬆Grok');
-      if (gs.promo_portrait_experiment_grok_quality) gp.push('畫質');
-      if (gs.promo_portrait_experiment_per_minute) gp.push('全站RPM');
-      if (gs.promo_portrait_experiment_per_second) gp.push('全站RPS');
-      if (gs.xai_api_key) gp.push('資料庫金鑰');
-      if (gs.xai_management_api_key) gp.push('Management Key');
-      grokHint.textContent = gp.length
-        ? '（已從資料庫載入：' + gp.join('、') + '）'
-        : (data.xai_api_key_source === 'env'
-          ? '（模型尚未寫入 DB；金鑰來自環境變數）'
-          : '（尚未寫入 DB；目前為程式預設）');
     }
   }
 
@@ -961,6 +942,7 @@
       bfl_flux_model_promo_portrait_hybrid: (fPortraitHybrid && fPortraitHybrid.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
     };
+    Object.assign(payload, collectGrokConfigPayload());
     var ptsEl = document.getElementById('aiConfigPointsPromoPlanningSim');
     var ptsVal = ptsEl ? parseInt(ptsEl.value, 10) : 20;
     if (!Number.isFinite(ptsVal) || ptsVal < 0) ptsVal = 20;
@@ -984,8 +966,12 @@
         await loadAiConfig();
         return;
       }
+      var xaiEl = document.getElementById('xaiApiKeyPortraitExperiment');
+      if (xaiEl && payload.xai_api_key) xaiEl.value = '';
+      var xaiMgmtEl = document.getElementById('xaiManagementApiKeyPortraitExperiment');
+      if (xaiMgmtEl && payload.xai_management_api_key) xaiMgmtEl.value = '';
       await loadAiConfig();
-      showMsg('商攝已儲存（含規劃模擬 ' + ptsVal + ' 點／次）。請重新整理攝影模擬頁。');
+      showMsg('商攝已儲存（含寬鬆尺度 FLUX／Grok、規劃模擬 ' + ptsVal + ' 點／次）。請重新整理攝影模擬頁。');
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
@@ -1062,36 +1048,6 @@
     var xaiMgmtVal = xaiMgmtEl ? String(xaiMgmtEl.value || '').trim() : '';
     if (xaiMgmtVal) payload.xai_management_api_key = xaiMgmtVal;
     return payload;
-  }
-
-  async function saveGrokConfig() {
-    var headers = await getAuthHeaders();
-    if (!headers.Authorization) { showMsg('請先登入', true); return; }
-    var payload = collectGrokConfigPayload();
-    var btn = document.getElementById('btnSaveGrokConfig');
-    if (btn) btn.disabled = true;
-    try {
-      var res = await fetch('/api/admin/ai-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
-      var data = await res.json();
-      if (!res.ok) {
-        showMsg(data.error || '儲存失敗', true);
-        return;
-      }
-      await loadAiConfig();
-      var xaiEl = document.getElementById('xaiApiKeyPortraitExperiment');
-      if (xaiEl) xaiEl.value = '';
-      var xaiMgmtEl = document.getElementById('xaiManagementApiKeyPortraitExperiment');
-      if (xaiMgmtEl) xaiMgmtEl.value = '';
-      var extra = [];
-      if (payload.xai_api_key) extra.push('已更新生圖金鑰');
-      if (payload.xai_management_api_key) extra.push('已更新 Management Key');
-      showMsg('寬鬆尺度已儲存：FLUX「' + payload.bfl_flux_model_promo_portrait_experiment + '」，Grok「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」，全站 RPM「' + payload.promo_portrait_experiment_per_minute + '」，RPS「' + payload.promo_portrait_experiment_per_second + '」' + (extra.length ? '，' + extra.join('，') : ''));
-      flashSaveButton(btn, '已儲存 ✓');
-    } catch (e) {
-      showMsg('儲存失敗：' + (e.message || ''), true);
-    } finally {
-      if (btn) btn.disabled = false;
-    }
   }
 
   async function loadAiConfig() {
@@ -1289,7 +1245,6 @@
     document.getElementById('btnSaveEngineConfig')?.addEventListener('click', saveEngineConfig);
     document.getElementById('btnSavePromoCameraModels')?.addEventListener('click', savePromoCameraModels);
     document.getElementById('btnSaveBflFluxConfig')?.addEventListener('click', saveBflFluxConfig);
-    document.getElementById('btnSaveGrokConfig')?.addEventListener('click', saveGrokConfig);
     document.getElementById('btnSaveGeneratedImageSemanticsPrompt')?.addEventListener('click', saveGeneratedImageSemanticsPrompt);
     document.getElementById('btnResetGeneratedImageSemanticsPrompt')?.addEventListener('click', resetGeneratedImageSemanticsPrompt);
     document.getElementById('btnSavePrototypeTaggingPrompt')?.addEventListener('click', savePrototypeTaggingPrompt);
