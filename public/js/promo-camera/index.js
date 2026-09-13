@@ -516,6 +516,7 @@
             : t('promoCamera.spaceLockResultIso', '空間鎖定圖'))))
     });
     Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+    if (data && data.points_deducted != null) applyPointsDeductedToDisplay(data.points_deducted);
     appendPromptSentUnderResult(el, data);
     fillPromptSentPanel(data);
     if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
@@ -633,8 +634,9 @@
     if (data.points_deducted != null) {
       var pts = document.createElement('p');
       pts.className = 'small text-muted mt-2 mb-0';
-      pts.textContent = '已扣除 ' + data.points_deducted + ' 點';
+      pts.textContent = tpl('promoCamera.pointsDeducted', '已扣除 {points} 點', { points: data.points_deducted });
       inner.appendChild(pts);
+      applyPointsDeductedToDisplay(data.points_deducted);
     }
     el.appendChild(inner);
   }
@@ -1165,6 +1167,7 @@
       refreshSpaceMpSelectLabels();
       syncSpaceResolutionControls();
       updateSpaceDimsHint();
+      updatePricingIntro();
       updatePoints();
       if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
         window.PromoCameraSpecSummary.refresh();
@@ -1546,6 +1549,8 @@
     updateLcd();
     applyShootModeUi();
     renderMessages();
+    updatePricingIntro();
+    updatePoints();
     if (!opts || !opts.skipHistory) {
       var next = urlForShootMode(m);
       var cur = window.location.pathname + window.location.search + window.location.hash;
@@ -2457,23 +2462,77 @@
     updatePoints();
   }
 
+  var pointsPreviewSeq = 0;
+
+  function pricingHintForCurrentMode(opts) {
+    var o = opts || {};
+    if (isSpaceMode()) {
+      if (isSpaceEyeLevel()) {
+        var e2 = o.points_space_eye_level != null ? o.points_space_eye_level : 30;
+        var e4 = o.points_space_eye_level_4k != null ? o.points_space_eye_level_4k : 50;
+        return tpl('promoCamera.pricingHintSpaceEye', '平視套圖每張 {pts2k} 點（2K／4MP）／{pts4k} 點（4K／16MP）', { pts2k: e2, pts4k: e4 });
+      }
+      var l2 = o.points_space_layout != null ? o.points_space_layout : 30;
+      var l4 = o.points_space_layout_4k != null ? o.points_space_layout_4k : 50;
+      return tpl('promoCamera.pricingHintSpaceLayout', '空間配置每張 {pts2k} 點（2K）／{pts4k} 點（4K）', { pts2k: l2, pts4k: l4 });
+    }
+    if (isPortraitMode()) {
+      if (portraitRenderMode() === 'experiment') {
+        var ex1 = o.points_portrait_experiment_1mp != null ? o.points_portrait_experiment_1mp : 20;
+        var ex4 = o.points_portrait_experiment_4mp != null ? o.points_portrait_experiment_4mp : 30;
+        return tpl('promoCamera.pricingHintPortraitExperiment', '寬鬆尺度每張 {pts1} 點（1MP）／{pts4} 點（4MP）', { pts1: ex1, pts4: ex4 });
+      }
+      var p1 = o.points_portrait_1mp != null ? o.points_portrait_1mp : 20;
+      var p4 = o.points_portrait_4mp != null ? o.points_portrait_4mp : 30;
+      var p16 = o.points_portrait_16mp != null ? o.points_portrait_16mp : 50;
+      return tpl('promoCamera.pricingHintPortrait', '人像每張 {pts1} 點（1MP）／{pts4} 點（4MP）／{pts16} 點（16MP）', { pts1: p1, pts4: p4, pts16: p16 });
+    }
+    if (Promo.formatPromoCameraPricingHint) return Promo.formatPromoCameraPricingHint(o);
+    return '';
+  }
+
+  function formatPointsPreviewLabel(data) {
+    if (!data || data.points == null) return '';
+    var note = data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
+    var text;
+    if (data.megapixels && data.pricing_mode === 'mp_tiered') {
+      text = tpl('promoCamera.pointsChargeMp', '本次 {points} 點（{mp} MP）', { points: data.points, mp: data.megapixels });
+    } else if (data.output_count > 1 && data.points_per_shot != null) {
+      text = tpl('promoCamera.pointsChargeMulti', '本次 {points} 點（{count} 張 × {per} 點）', {
+        points: data.points,
+        count: data.output_count,
+        per: data.points_per_shot
+      });
+    } else {
+      text = tpl('promoCamera.pointsCharge', '本次 {points} 點', { points: data.points });
+    }
+    return text + note;
+  }
+
+  function applyPointsDeductedToDisplay(points) {
+    var el = document.getElementById('pcPointsDisplay');
+    if (!el || points == null) return;
+    el.textContent = tpl('promoCamera.pointsDeducted', '已扣除 {points} 點', { points: points });
+  }
+
   function updatePricingIntro() {
     var el = document.getElementById('pcPricingIntro');
     var opts = St.get().options;
-    if (!el || !opts || !Promo.formatPromoCameraPricingHint) return;
+    if (!el || !opts) return;
     var suffix = apiLang() === 'en' ? '.' : '。';
     var introFallback = apiLang() === 'en'
       ? 'Upload or pick <strong>one</strong> product reference, then tune camera parameters for output quality.'
       : '上傳或從數位資產選擇<strong>一張</strong>產品參考圖，搭配右側參數模擬輸出畫質。';
     el.innerHTML = t('promoCamera.introPrefix', introFallback) +
-      Promo.formatPromoCameraPricingHint(opts) + suffix;
+      pricingHintForCurrentMode(opts) + suffix;
   }
 
   function updatePoints() {
-    var st = St.get();
     var el = document.getElementById('pcPointsDisplay');
     if (!el) return;
-    var opts = st.options || {};
+    var seq = ++pointsPreviewSeq;
+    el.textContent = t('promoCamera.pointsLoading', '點數計算中…');
+    var st = St.get();
     var previewOpts = {
       shoot_mode: isSpaceMode() ? 'space' : (isPortraitMode() ? 'portrait' : 'product')
     };
@@ -2481,43 +2540,36 @@
       previewOpts.space_output_type = St.get().spaceOutputType || 'layout_plan';
       previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
       previewOpts.aspect_ratio = St.get().aspectRatio || '1:1';
-      var spacePts = spacePointsForTier(opts, previewOpts.space_output_type, previewOpts.space_resolution_tier);
-      el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: spacePts });
-    } else {
-      var localEst = Promo.estimatePromoCameraPointsLocal
-        ? Promo.estimatePromoCameraPointsLocal(st.width, st.height, opts)
-        : Promo.estimatePointsLocal(st.width, st.height, opts.points_standard, opts.points_per_extra_mp);
-      var portraitMul = isPortraitMode() ? Math.max(1, parseInt(St.get().outputCount, 10) || 1) : 1;
-      if (isPortraitMode()) {
-        previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
+      if (isSpaceEyeLevel()) {
         previewOpts.output_count = St.get().outputCount || 1;
-        previewOpts.portrait_render_mode = St.get().portraitRenderMode || 'clear';
-        if (St.applySpaceDimensions) {
-          St.applySpaceDimensions(St.get().aspectRatio || '1:1', previewOpts.space_resolution_tier);
-        }
-        st = St.get();
-        previewOpts.width = st.width;
-        previewOpts.height = st.height;
-        previewOpts.aspect_ratio = st.aspectRatio;
-        var portraitBase = portraitPointsForTier(opts, St.get().spaceResolutionTier || '2k');
-        el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: portraitBase * portraitMul });
-      } else {
-        el.textContent = tpl('promoCamera.pointsEst', '預估 {points} 點', { points: localEst * portraitMul });
       }
+    } else if (isPortraitMode()) {
+      previewOpts.space_resolution_tier = St.get().spaceResolutionTier || '2k';
+      previewOpts.output_count = St.get().outputCount || 1;
+      previewOpts.portrait_render_mode = St.get().portraitRenderMode || 'clear';
+      if (St.applySpaceDimensions) {
+        St.applySpaceDimensions(St.get().aspectRatio || '1:1', previewOpts.space_resolution_tier);
+      }
+      st = St.get();
+      previewOpts.width = st.width;
+      previewOpts.height = st.height;
+      previewOpts.aspect_ratio = st.aspectRatio;
     }
     Api.pointsPreview(st.width, st.height, previewOpts).then(function (res) {
+      if (seq !== pointsPreviewSeq) return;
       if (res.ok && res.data && res.data.points != null) {
-        var note = res.data.is_subscriber_pricing ? t('promoCamera.pointsSubscriber', '（訂閱價）') : '';
-        var text = res.data.megapixels && res.data.pricing_mode !== 'space_layout_fixed' && res.data.pricing_mode !== 'space_eye_level_fixed' && res.data.pricing_mode !== 'portrait_gemini_tier' && res.data.pricing_mode !== 'portrait_gemini_2k' && res.data.pricing_mode !== 'portrait_experiment_tier'
-          ? tpl('promoCamera.pointsEstMp', '預估 {points} 點（{mp} MP）', { points: res.data.points, mp: res.data.megapixels })
-          : tpl('promoCamera.pointsEst', '預估 {points} 點', { points: res.data.points });
-        el.textContent = text + note;
+        el.textContent = formatPointsPreviewLabel(res.data);
+      } else {
+        el.textContent = t('promoCamera.pointsUnavailable', '點數暫無法預覽');
       }
       if (isPortraitMode() && res.ok && res.data && res.data.portrait_experiment_busy != null) {
         var opt = St.get().options || {};
         opt.portrait_experiment_busy = res.data.portrait_experiment_busy === true;
         syncPortraitExperimentAccess();
       }
+    }).catch(function () {
+      if (seq !== pointsPreviewSeq) return;
+      el.textContent = t('promoCamera.pointsUnavailable', '點數暫無法預覽');
     });
   }
 

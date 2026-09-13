@@ -1569,17 +1569,21 @@ async function generatePromoPortraitImageWithGrok(imageRefs, promptText, geminiO
     if (!refs.length) throw new Error('請上傳一張人像參考圖');
     const model = String(go.grokModel || '').trim() || await getPromoPortraitExperimentGrokModel();
     const quality = go.grokQuality || await getPromoPortraitExperimentGrokQuality();
+    const ordered = xaiImagine.orderGrokExperimentImageRefs(refs);
+    const grokCallOpts = {
+        apiKey: apiKey,
+        model: model,
+        prompt: prompt,
+        aspectRatio: opts.aspectRatio || opts.aspect_ratio,
+        resolution: opts.tier || opts.space_resolution_tier,
+        quality: quality,
+        images: ordered
+    };
     let extracted;
     try {
-        extracted = await runInGrokImagineQueue(() => xaiImagine.editImageWithGrokImagine({
-            apiKey: apiKey,
-            model: model,
-            prompt: prompt,
-            images: refs,
-            aspectRatio: opts.aspectRatio || opts.aspect_ratio,
-            resolution: opts.tier || opts.space_resolution_tier,
-            quality: quality
-        }));
+        extracted = await runInGrokImagineQueue(function () {
+            return xaiImagine.editImageWithGrokImagine(grokCallOpts);
+        });
     } catch (genErr) {
         if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
             throw markPromoPortraitExternalBlockErrorStatus(genErr);
@@ -1878,7 +1882,16 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             stylingMode: portraitStylingMode
         });
     if (isExperiment) {
-        fluxPrompt = buildPromoPortraitFluxExperimentPrompt(geminiPrompt, portraitStylingMode);
+        fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
+            themeKey,
+            themeParts,
+            sceneParts,
+            userPrompt,
+            cameraBlock,
+            hasSceneImage,
+            hasStagingProduct,
+            stylingMode: portraitStylingMode
+        });
     }
     const engine = isMood ? 'flux' : (isExperiment ? 'grok' : renderCtx.engine);
     const promptSent = isMood
@@ -3005,7 +3018,17 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     stylingMode: portraitStylingMode
                 });
             if (renderCtx.mode === 'experiment') {
-                fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
+                fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
+                    themeKey,
+                    themeParts,
+                    sceneParts,
+                    userPrompt,
+                    shotBrief,
+                    cameraBlock,
+                    hasSceneImage: !!resolvedRefs.hasSceneImage,
+                    hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+                    stylingMode: portraitStylingMode
+                });
                 finalPrompt = fluxPrompt;
             }
         } catch (promptErr) {
@@ -3786,7 +3809,16 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             stylingMode: portraitStylingMode
         });
         if (renderCtx.mode === 'experiment') {
-            fluxPrompt = buildPromoPortraitFluxExperimentPrompt(finalPrompt, portraitStylingMode);
+            fluxPrompt = promoPortraitStyling.buildPromoPortraitExperimentGrokPrompt({
+                themeKey,
+                themeParts,
+                sceneParts,
+                userPrompt,
+                cameraBlock,
+                hasSceneImage: !!resolvedRefs.hasSceneImage,
+                hasStagingProduct: !!resolvedRefs.hasStagingProduct,
+                stylingMode: portraitStylingMode
+            });
             finalPrompt = fluxPrompt;
         }
     } catch (promptErr) {
