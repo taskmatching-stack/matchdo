@@ -40,6 +40,8 @@
             else if (t === '產品設計') a.textContent = 'Product Design';
             else if (t === '訂製產品') a.textContent = 'Custom Products';
             else if (t === '聯絡我們') a.textContent = 'Contact Us';
+            else if (t === '關於我們') a.textContent = 'About us';
+            else if (t === '使用說明') a.textContent = 'Help';
         });
     }
 
