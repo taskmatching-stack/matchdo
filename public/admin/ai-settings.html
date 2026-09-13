@@ -137,6 +137,19 @@
                     <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — Gemini 400 或 auto 備援</p>
                   </div>
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="promoPortraitClearFluxSafety">Safety tolerance</label>
+                    <input type="number" id="promoPortraitClearFluxSafety" class="form-control form-control-sm" min="0" max="5" step="1" value="5" />
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code> — 0–5，預設 5</p>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">提示詞改寫（Prompt upsampling）</label>
+                    <select id="promoPortraitClearFluxPromptUpsampling" class="form-select form-select-sm">
+                      <option value="0" selected>關閉（false，照原文）</option>
+                      <option value="1">開啟（true）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code></p>
+                  </div>
                 </div>
               </div>
               <div class="border rounded p-3 bg-light">
@@ -541,6 +554,16 @@
     if (clearFluxBackup) {
       clearFluxBackup.value = (data.promo_portrait_clear_flux_backup === false || data.promo_portrait_clear_flux_backup === '0') ? '0' : '1';
     }
+    var clearFluxSafety = document.getElementById('promoPortraitClearFluxSafety');
+    if (clearFluxSafety) {
+      var clearTol = parseInt(data.promo_portrait_clear_flux_safety_tolerance, 10);
+      if (!(clearTol >= 0 && clearTol <= 5)) clearTol = 5;
+      clearFluxSafety.value = String(clearTol);
+    }
+    var clearFluxPup = document.getElementById('promoPortraitClearFluxPromptUpsampling');
+    if (clearFluxPup) {
+      clearFluxPup.value = data.promo_portrait_clear_flux_prompt_upsampling === true ? '1' : '0';
+    }
     if (portraitClear) {
       portraitClear.value = data.promo_portrait_clear_engine
         || ((data.promo_portrait_engine && data.promo_portrait_engine !== 'flux') ? data.promo_portrait_engine : 'gemini');
@@ -941,6 +964,8 @@
     var fPortraitHybrid = document.getElementById('bflFluxModelPromoPortraitHybrid');
     var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
     var clearFluxBackup = document.getElementById('promoPortraitClearFluxBackup');
+    var clearFluxSafety = document.getElementById('promoPortraitClearFluxSafety');
+    var clearFluxPup = document.getElementById('promoPortraitClearFluxPromptUpsampling');
     var defaultMode = (portraitDefaultMode && (portraitDefaultMode.value === 'mood' || portraitDefaultMode.value === 'hybrid' || portraitDefaultMode.value === 'experiment'))
       ? portraitDefaultMode.value
       : 'clear';
@@ -951,6 +976,12 @@
     var payload = {
       promo_portrait_default_render_mode: defaultMode,
       promo_portrait_clear_flux_backup: !(clearFluxBackup && clearFluxBackup.value === '0'),
+      promo_portrait_clear_flux_safety_tolerance: (function () {
+        var n = clearFluxSafety ? parseInt(clearFluxSafety.value, 10) : 5;
+        if (!(n >= 0 && n <= 5)) n = 5;
+        return n;
+      })(),
+      promo_portrait_clear_flux_prompt_upsampling: !!(clearFluxPup && clearFluxPup.value === '1'),
       promo_portrait_clear_engine: clearEng,
       promo_portrait_mood_engine: moodEng,
       promo_portrait_mood_pipeline: 'lite_then_flux',

@@ -5482,6 +5482,34 @@ async function getPromoPortraitClearFluxBackupEnabled() {
     return true;
 }
 
+async function getPromoPortraitClearFluxSafetyTolerance() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_clear_flux_safety_tolerance')
+            .maybeSingle();
+        if (row && row.value != null && String(row.value).trim() !== '') {
+            return Math.min(5, clampFluxSafetyTolerance(row.value));
+        }
+    } catch (_) {}
+    return 5;
+}
+
+async function getPromoPortraitClearFluxPromptUpsampling() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'promo_portrait_clear_flux_prompt_upsampling')
+            .maybeSingle();
+        if (row && row.value != null && String(row.value).trim() !== '') {
+            return parsePaymentConfigOnOff(row.value, false);
+        }
+    } catch (_) {}
+    return false;
+}
+
 function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
@@ -5693,6 +5721,8 @@ async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, b
     };
     if (renderCtx && renderCtx.mode === 'clear') {
         fo.fluxConfigKey = PORTRAIT_CLEAR_FLUX_CONFIG_KEY;
+        fo.safetyTolerance = await getPromoPortraitClearFluxSafetyTolerance();
+        fo.promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
     }
     if (renderCtx && renderCtx.mode === 'experiment') {
         fo.enginePref = 'grok';
@@ -15471,6 +15501,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'promo_portrait_prompt_review_enabled',
             'promo_portrait_default_render_mode',
             'promo_portrait_clear_flux_backup',
+            'promo_portrait_clear_flux_safety_tolerance',
+            'promo_portrait_clear_flux_prompt_upsampling',
             'promo_portrait_mood_pipeline',
             'grok_imagine_model_promo_portrait_experiment',
             'promo_portrait_experiment_grok_quality',
@@ -15545,6 +15577,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             promo_portrait_mood_engine: portraitMoodEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
             promo_portrait_clear_flux_backup: await getPromoPortraitClearFluxBackupEnabled(),
+            promo_portrait_clear_flux_safety_tolerance: await getPromoPortraitClearFluxSafetyTolerance(),
+            promo_portrait_clear_flux_prompt_upsampling: await getPromoPortraitClearFluxPromptUpsampling(),
             promo_portrait_mood_pipeline: portraitMoodPipeline,
             grok_imagine_model_promo_portrait_experiment: grokExperimentModel,
             promo_portrait_experiment_grok_quality: grokExperimentQuality,
@@ -15699,6 +15733,20 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             upserts.push({
                 key: 'promo_portrait_clear_flux_backup',
                 value: parsePaymentConfigOnOff(body.promo_portrait_clear_flux_backup, true) ? '1' : '0',
+                updated_at: now
+            });
+        }
+        if (body.promo_portrait_clear_flux_safety_tolerance !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_clear_flux_safety_tolerance',
+                value: String(Math.min(5, clampFluxSafetyTolerance(body.promo_portrait_clear_flux_safety_tolerance))),
+                updated_at: now
+            });
+        }
+        if (body.promo_portrait_clear_flux_prompt_upsampling !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_clear_flux_prompt_upsampling',
+                value: parsePaymentConfigOnOff(body.promo_portrait_clear_flux_prompt_upsampling, false) ? '1' : '0',
                 updated_at: now
             });
         }
@@ -15895,6 +15943,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             promo_portrait_default_render_mode: normalizePromoPortraitRenderMode(byKey.promo_portrait_default_render_mode) || null,
             promo_portrait_clear_flux_backup: byKey.promo_portrait_clear_flux_backup != null
                 ? parsePaymentConfigOnOff(byKey.promo_portrait_clear_flux_backup, true)
+                : null,
+            promo_portrait_clear_flux_safety_tolerance: byKey.promo_portrait_clear_flux_safety_tolerance != null
+                && String(byKey.promo_portrait_clear_flux_safety_tolerance).trim() !== ''
+                ? Math.min(5, clampFluxSafetyTolerance(byKey.promo_portrait_clear_flux_safety_tolerance))
+                : null,
+            promo_portrait_clear_flux_prompt_upsampling: byKey.promo_portrait_clear_flux_prompt_upsampling != null
+                ? parsePaymentConfigOnOff(byKey.promo_portrait_clear_flux_prompt_upsampling, false)
                 : null,
             promo_portrait_mood_pipeline: byKey.promo_portrait_mood_pipeline
                 ? normalizePromoPortraitMoodPipeline(byKey.promo_portrait_mood_pipeline)

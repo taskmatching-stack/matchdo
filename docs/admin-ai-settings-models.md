@@ -51,6 +51,8 @@
 | 人像・氛圍第二段 FLUX | `bfl_flux_model_promo_portrait` | `flux-2-max` | 氛圍模式第二段換成像 |
 | 人像・清晰 FLUX 備援 | `bfl_flux_model_promo_portrait_clear` | `flux-2-pro` | 清晰模式：Gemini 400 或 auto 滿額時自動備援 |
 | 人像・清晰備援開關 | `promo_portrait_clear_flux_backup` | `1`（開） | 關閉時清晰模式不自動改 FLUX；前台仍不顯示引擎 |
+| 人像・清晰 FLUX safety | `promo_portrait_clear_flux_safety_tolerance` | `5` | 清晰備援／全程 FLUX 的 BFL safety_tolerance（0–5） |
+| 人像・清晰 FLUX 改寫 | `promo_portrait_clear_flux_prompt_upsampling` | `0`（關） | 清晰 FLUX 是否 prompt upsampling（提示詞改寫） |
 
 可選 model id 與 Playground 相同（`flux-2-pro`、`flux-2-max` 等），亦支援**後台手填**新型號（`flux-2-*` → `POST /v1/{id}`），無需改程式或下拉枚舉。
 
