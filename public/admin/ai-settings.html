@@ -108,7 +108,16 @@
               </div>
               <div class="border rounded p-3 mb-3 bg-light">
                 <h6 class="small fw-bold mb-2">清晰模式</h6>
+                <p class="form-text small text-muted mb-3">預設走 Gemini。備援開啟時：Gemini 外部審核回 400 會<strong>自動改走 FLUX</strong>（前台無感）。引擎選 <code>auto</code> 另含滿額／429 備援；選 <code>flux</code> 則全程 FLUX。</p>
                 <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="promoPortraitClearFluxBackup">FLUX 備援</label>
+                    <select id="promoPortraitClearFluxBackup" class="form-select form-select-sm">
+                      <option value="1" selected>開啟（Gemini 失敗自動改 FLUX）</option>
+                      <option value="0">關閉</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_backup</code></p>
+                  </div>
                   <div class="col-md-4">
                     <label class="form-label small mb-1" for="enginePromoPortraitClear">引擎</label>
                     <select id="enginePromoPortraitClear" class="form-select form-select-sm">
@@ -118,10 +127,15 @@
                     </select>
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code>（預設 gemini）</p>
                   </div>
-                  <div class="col-md-8">
+                  <div class="col-md-6">
                     <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
                     <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 清晰模式用</p>
+                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 清晰主通道</p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitClear">FLUX 備援模型</label>
+                    <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — Gemini 400 或 auto 備援</p>
                   </div>
                 </div>
               </div>
@@ -523,6 +537,10 @@
     if (print && data.print_asset_engine) print.value = data.print_asset_engine;
     if (pattern && data.pattern_extract_engine) pattern.value = data.pattern_extract_engine;
     if (spaceEye && data.promo_space_eye_level_engine) spaceEye.value = data.promo_space_eye_level_engine;
+    var clearFluxBackup = document.getElementById('promoPortraitClearFluxBackup');
+    if (clearFluxBackup) {
+      clearFluxBackup.value = (data.promo_portrait_clear_flux_backup === false || data.promo_portrait_clear_flux_backup === '0') ? '0' : '1';
+    }
     if (portraitClear) {
       portraitClear.value = data.promo_portrait_clear_engine
         || ((data.promo_portrait_engine && data.promo_portrait_engine !== 'flux') ? data.promo_portrait_engine : 'gemini');
@@ -618,6 +636,7 @@
       if (ps.gemini_model_promo_portrait_hybrid) pp.push('混合Banana');
       if (ps.gemini_model_promo_portrait_prompt_review) pp.push('人像描述審核');
       if (ps.bfl_flux_model_promo_portrait) pp.push('氛圍FLUX');
+      if (ps.bfl_flux_model_promo_portrait_clear) pp.push('清晰FLUX備援');
       if (ps.bfl_flux_model_promo_portrait_experiment) pp.push('友善FLUX');
       if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('友善Grok');
       if (ps.promo_portrait_experiment_grok_quality) pp.push('友善Grok畫質');
@@ -682,6 +701,10 @@
     }
     if (data.bfl_flux_model_promo_space_eye_level != null && spaceEyeFlux) spaceEyeFlux.value = data.bfl_flux_model_promo_space_eye_level;
     if (data.bfl_flux_model_promo_portrait != null && portraitFlux) portraitFlux.value = data.bfl_flux_model_promo_portrait;
+    var portraitClearFlux = document.getElementById('bflFluxModelPromoPortraitClear');
+    if (data.bfl_flux_model_promo_portrait_clear != null && portraitClearFlux) {
+      portraitClearFlux.value = data.bfl_flux_model_promo_portrait_clear;
+    }
     var portraitHybridFlux = document.getElementById('bflFluxModelPromoPortraitHybrid');
     if (data.bfl_flux_model_promo_portrait_hybrid != null && portraitHybridFlux) portraitHybridFlux.value = data.bfl_flux_model_promo_portrait_hybrid;
     var portraitExperimentFlux = document.getElementById('bflFluxModelPromoPortraitExperiment');
@@ -914,8 +937,10 @@
     var gPlanningSim = document.getElementById('aiConfigGeminiModelPromoPlanningSim');
     var fProduct = document.getElementById('bflFluxModelPromoCameraProduct');
     var fPortrait = document.getElementById('bflFluxModelPromoPortrait');
+    var fPortraitClear = document.getElementById('bflFluxModelPromoPortraitClear');
     var fPortraitHybrid = document.getElementById('bflFluxModelPromoPortraitHybrid');
     var fSpaceEye = document.getElementById('bflFluxModelPromoSpaceEyeLevel');
+    var clearFluxBackup = document.getElementById('promoPortraitClearFluxBackup');
     var defaultMode = (portraitDefaultMode && (portraitDefaultMode.value === 'mood' || portraitDefaultMode.value === 'hybrid' || portraitDefaultMode.value === 'experiment'))
       ? portraitDefaultMode.value
       : 'clear';
@@ -925,6 +950,7 @@
     if (portrait) portrait.value = legacyEng;
     var payload = {
       promo_portrait_default_render_mode: defaultMode,
+      promo_portrait_clear_flux_backup: !(clearFluxBackup && clearFluxBackup.value === '0'),
       promo_portrait_clear_engine: clearEng,
       promo_portrait_mood_engine: moodEng,
       promo_portrait_mood_pipeline: 'lite_then_flux',
@@ -939,6 +965,7 @@
       gemini_model_promo_planning_sim: (gPlanningSim && gPlanningSim.value.trim()) || 'gemini-3.1-flash-image',
       bfl_flux_model_promo_camera_product: (fProduct && fProduct.value.trim()) || 'flux-2-pro',
       bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
+      bfl_flux_model_promo_portrait_clear: (fPortraitClear && fPortraitClear.value.trim()) || 'flux-2-pro',
       bfl_flux_model_promo_portrait_hybrid: (fPortraitHybrid && fPortraitHybrid.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
     };

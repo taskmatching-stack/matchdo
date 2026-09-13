@@ -21,25 +21,31 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">描述審核紀錄</h4>
-        <p class="text-muted small mb-3">描述審核（潤飾／擋下）與 Gemini 外部生圖 safety 400（API 阻擋）分開列出。描述通過且未改寫的不記錄。</p>
+        <p class="text-muted small mb-3">描述審核（潤飾／擋下）與外部生圖 safety 400 分開列出。<strong>API 備援成功</strong>＝Gemini 被擋但 FLUX 已出圖，會連結生圖紀錄與參考圖。外部 API 不會指明是哪張參考圖觸發擋下。</p>
 
         <div class="row g-2 mb-3">
-          <div class="col-6 col-md-4">
+          <div class="col-6 col-md-3">
             <div class="card stat-card"><div class="card-body py-2 px-3">
               <div class="text-muted small">潤飾</div>
               <div class="stat-num text-primary" id="sumPolished">—</div>
             </div></div>
           </div>
-          <div class="col-6 col-md-4">
+          <div class="col-6 col-md-3">
             <div class="card stat-card"><div class="card-body py-2 px-3">
               <div class="text-muted small">描述擋下</div>
               <div class="stat-num text-danger" id="sumBlocked">—</div>
             </div></div>
           </div>
-          <div class="col-6 col-md-4">
+          <div class="col-6 col-md-3">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">API 阻擋</div>
+              <div class="text-muted small">API 阻擋（未出圖）</div>
               <div class="stat-num text-warning" id="sumApiBlocked">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">API 備援成功</div>
+              <div class="stat-num text-info" id="sumApiBlockedFallback">—</div>
             </div></div>
           </div>
         </div>
@@ -53,7 +59,8 @@
                   <option value="all">全部</option>
                   <option value="polished">潤飾</option>
                   <option value="blocked">描述擋下</option>
-                  <option value="api_blocked">API 阻擋（Gemini 400）</option>
+                  <option value="api_blocked">API 阻擋（未出圖）</option>
+                  <option value="api_blocked_fallback">API 備援成功（Gemini→FLUX）</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -154,7 +161,19 @@
     function actionBadge(action) {
       if (action === 'blocked') return '<span class="badge bg-danger">描述擋下</span>';
       if (action === 'api_blocked') return '<span class="badge bg-warning text-dark">API 阻擋</span>';
+      if (action === 'api_blocked_fallback') return '<span class="badge bg-info text-dark">API 備援成功</span>';
       return '<span class="badge bg-primary">潤飾</span>';
+    }
+
+    function renderReferenceImagesHtml(refs) {
+      if (!refs || !refs.length) return '<p class="text-muted mb-0">—</p>';
+      return refs.map(function (r, idx) {
+        var u = (r && (r.url || r.image_url)) || '';
+        if (!u) return '';
+        var label = (r && r.label) ? esc(r.label) : ((r && r.role === 'scene') ? '場景參考' : ((r && (r.role === 'product' || r.role === 'staging_product')) ? '產品／道具參考' : ((r && (r.role === 'portrait' || r.role === 'primary')) ? '人像參考' : ('參考圖 #' + (idx + 1)))));
+        return '<div class="mb-2"><img src="' + esc(u) + '" class="rounded border me-2" style="width:72px;height:72px;object-fit:cover" alt="">' +
+          '<a href="' + esc(u) + '" target="_blank" rel="noopener" class="small">' + label + '</a></div>';
+      }).join('') || '<p class="text-muted mb-0">—</p>';
     }
 
     function renderRows() {
@@ -181,16 +200,21 @@
     function openDetail(idx) {
       var row = items[idx];
       if (!row) return;
+      var recordLink = row.promo_record_id
+        ? '<a href="/admin/generation-records.html?q=' + encodeURIComponent(row.promo_record_id) + '">' + esc(row.promo_record_id) + '</a>'
+        : '—';
       document.getElementById('detailBody').innerHTML =
         '<dl class="row mb-0">' +
         '<dt class="col-sm-3">類型</dt><dd class="col-sm-9">' + actionBadge(row.action) + '</dd>' +
         '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(fmtTime(row.created_at)) + '</dd>' +
         '<dt class="col-sm-3">帳號</dt><dd class="col-sm-9">' + esc(row.user_email || row.user_id || '—') + '</dd>' +
+        '<dt class="col-sm-3">生圖紀錄</dt><dd class="col-sm-9">' + recordLink + '</dd>' +
         '<dt class="col-sm-3">自動潤飾開關</dt><dd class="col-sm-9">' + (row.auto_polish ? '開' : (row.auto_polish === false ? '關' : '—')) + '</dd>' +
         '<dt class="col-sm-3">通道</dt><dd class="col-sm-9">' + esc(row.client_channel || '—') + '</dd>' +
         '<dt class="col-sm-3">原因</dt><dd class="col-sm-9">' + esc(row.reason || '—') + '</dd>' +
         '<dt class="col-sm-3">原始描述</dt><dd class="col-sm-9"><pre class="bg-light p-2 rounded small mb-0" style="white-space:pre-wrap">' + esc(row.original_prompt || '—') + '</pre></dd>' +
         '<dt class="col-sm-3">潤飾後</dt><dd class="col-sm-9"><pre class="bg-light p-2 rounded small mb-0" style="white-space:pre-wrap">' + esc(row.rewritten_prompt || '—') + '</pre></dd>' +
+        '<dt class="col-sm-3">參考圖</dt><dd class="col-sm-9">' + renderReferenceImagesHtml(row.reference_image_urls) + '</dd>' +
         '</dl>';
       if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
       detailModal.show();
@@ -225,6 +249,7 @@
       document.getElementById('sumPolished').textContent = String(sum.polished != null ? sum.polished : '—');
       document.getElementById('sumBlocked').textContent = String(sum.blocked != null ? sum.blocked : '—');
       document.getElementById('sumApiBlocked').textContent = String(sum.api_blocked != null ? sum.api_blocked : '—');
+      document.getElementById('sumApiBlockedFallback').textContent = String(sum.api_blocked_fallback != null ? sum.api_blocked_fallback : '—');
       document.getElementById('pageInfo').textContent = '第 ' + (page + 1) + ' 頁' + (data.total != null ? '（共 ' + data.total + ' 筆）' : '');
       document.getElementById('btnPrev').disabled = page <= 0;
       document.getElementById('btnNext').disabled = !hasMore;

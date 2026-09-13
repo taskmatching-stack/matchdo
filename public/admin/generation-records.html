@@ -647,6 +647,16 @@
           if (row.portrait_render_mode_label) {
             html += '<dt class="col-sm-3">生成風格</dt><dd class="col-sm-9">' + esc(row.portrait_render_mode_label) + '</dd>';
           }
+          if (row.fallback_reason === 'gemini_400_blocked') {
+            html += '<dt class="col-sm-3">生圖引擎</dt><dd class="col-sm-9"><span class="badge bg-info text-dark">Gemini 被擋 → FLUX 備援</span>';
+            if (row.image_provider) html += ' <span class="text-muted small">（實際 ' + esc(row.image_provider) + '）</span>';
+            html += '</dd>';
+            if (row.gemini_blocked_message) {
+              html += '<dt class="col-sm-3">Gemini 阻擋訊息</dt><dd class="col-sm-9"><span class="small">' + esc(row.gemini_blocked_message) + '</span></dd>';
+            }
+          } else if (row.image_provider) {
+            html += '<dt class="col-sm-3">生圖引擎</dt><dd class="col-sm-9">' + esc(row.image_provider) + '</dd>';
+          }
           if (row.space_output_type) {
             html += '<dt class="col-sm-3">空間輸出</dt><dd class="col-sm-9">' + esc(row.space_output_type) + '</dd>';
           }

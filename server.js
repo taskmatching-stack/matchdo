@@ -823,6 +823,106 @@ function promoPortraitBlockedClientPayload(genErr, renderMode) {
     }, promoPortraitReviewHelpLinkFields());
 }
 
+function buildPromoPortraitLabeledReferenceImages(resolvedRefs, refUrls, enriched) {
+    const refs = resolvedRefs && typeof resolvedRefs === 'object' ? resolvedRefs : {};
+    const out = [];
+    const seen = {};
+    function push(url, role, label) {
+        const u = String(url || '').trim();
+        if (!u || seen[u]) return;
+        seen[u] = true;
+        out.push({
+            url: u,
+            role: String(role || 'reference').slice(0, 40),
+            label: String(label || role || '參考圖').slice(0, 80)
+        });
+    }
+    const meta = enriched && enriched.meta && typeof enriched.meta === 'object' ? enriched.meta : {};
+    const primary = (enriched && enriched.primaryUrl) || (Array.isArray(refUrls) && refUrls[0]) || '';
+    const sceneUrl = meta.scene_image_url || (refs.hasSceneImage && refs.sceneImageUrl) || '';
+    const productUrl = meta.staging_product_url || (refs.hasStagingProduct && refs.stagingProductUrl) || '';
+    if (primary) push(primary, 'portrait', '人像參考');
+    if (sceneUrl) push(sceneUrl, 'scene', '場景參考');
+    if (productUrl) push(productUrl, 'product', '產品／道具參考');
+    const metaRefs = Array.isArray(meta.reference_images) ? meta.reference_images : [];
+    metaRefs.forEach(function (r) {
+        if (!r) return;
+        push(
+            r.url || r.image_url,
+            r.role || r.type || 'reference',
+            r.label || r.role || '參考圖'
+        );
+    });
+    return out.slice(0, 12);
+}
+
+function normalizePromoPortraitAuditReferenceUrls(refUrls, enriched, resolvedRefs) {
+    if (resolvedRefs) {
+        return buildPromoPortraitLabeledReferenceImages(resolvedRefs, refUrls, enriched);
+    }
+    const out = [];
+    const seen = {};
+    function push(url, role, label) {
+        const u = String(url || '').trim();
+        if (!u || seen[u]) return;
+        seen[u] = true;
+        out.push({
+            url: u,
+            role: String(role || 'reference').slice(0, 40),
+            label: String(label || role || '參考圖').slice(0, 80)
+        });
+    }
+    const meta = enriched && enriched.meta && typeof enriched.meta === 'object' ? enriched.meta : {};
+    if (enriched && enriched.primaryUrl) push(enriched.primaryUrl, 'portrait', '人像參考');
+    const refs = Array.isArray(meta.reference_images) ? meta.reference_images : [];
+    refs.forEach(function (r) {
+        if (!r) return;
+        push(r.url || r.image_url, r.role || r.type || 'reference', r.label || r.role || '參考圖');
+    });
+    (Array.isArray(refUrls) ? refUrls : []).forEach(function (u, idx) {
+        push(u, idx === 0 ? 'portrait' : 'reference', idx === 0 ? '人像參考' : '參考圖');
+    });
+    return out.slice(0, 12);
+}
+
+function stripPortraitGenerateSecretsForClient(payload, isAdmin) {
+    if (isAdmin || !payload || typeof payload !== 'object') return payload;
+    const secretKeys = [
+        'fallback_reason',
+        'image_provider',
+        'gemini_model',
+        'flux_model',
+        'grok_model',
+        'mood_pipeline_kind',
+        'primary_image_provider',
+        'gemini_blocked_message'
+    ];
+    const o = Object.assign({}, payload);
+    secretKeys.forEach(function (k) { delete o[k]; });
+    if (Array.isArray(o.results)) {
+        o.results = o.results.map(function (item) {
+            if (!item || typeof item !== 'object') return item;
+            const r = Object.assign({}, item);
+            secretKeys.forEach(function (k) { delete r[k]; });
+            return r;
+        });
+    }
+    return o;
+}
+
+function buildPromoPortraitFallbackMeta(gen) {
+    const fallbackReason = gen && gen.fallback_reason ? String(gen.fallback_reason) : '';
+    if (!fallbackReason) return {};
+    const meta = {
+        fallback_reason: fallbackReason,
+        primary_image_provider: 'gemini'
+    };
+    if (gen.gemini_blocked_message) {
+        meta.gemini_blocked_message = String(gen.gemini_blocked_message).slice(0, 500);
+    }
+    return meta;
+}
+
 function logPromoPortraitApiBlockEvent(opts) {
     const o = opts && typeof opts === 'object' ? opts : {};
     const stage = String(o.stage || 'blocked').trim();
@@ -835,9 +935,44 @@ function logPromoPortraitApiBlockEvent(opts) {
         reason: ('[' + stage + '] ' + msg).slice(0, 500),
         autoPolish: null,
         clientChannel: o.clientChannel,
-        shootMode: o.shootMode || 'portrait'
+        shootMode: o.shootMode || 'portrait',
+        referenceImageUrls: o.referenceImageUrls,
+        promoRecordId: o.promoRecordId || null
     });
     if (o.userId) recordPromptReviewBlock(o.userId).catch(function () {});
+}
+
+function logPromoPortraitApiFallbackEvent(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const msg = String(o.errorMessage || o.message || '').slice(0, 400);
+    insertPromptReviewEvent({
+        userId: o.userId,
+        action: 'api_blocked_fallback',
+        originalPrompt: String(o.userPrompt || '').slice(0, 4000),
+        rewrittenPrompt: null,
+        reason: ('Gemini 400 → FLUX 備援成功' + (msg ? '：' + msg : '')).slice(0, 500),
+        autoPolish: null,
+        clientChannel: o.clientChannel,
+        shootMode: o.shootMode || 'portrait',
+        referenceImageUrls: o.referenceImageUrls,
+        promoRecordId: o.promoRecordId || null
+    });
+}
+
+function finalizePromoPortraitFallbackAudit(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const gen = o.gen;
+    if (!gen || String(gen.fallback_reason || '') !== 'gemini_400_blocked') return;
+    if (!o.promoRecordId) return;
+    logPromoPortraitApiFallbackEvent({
+        userId: o.userId,
+        userPrompt: o.userPrompt,
+        clientChannel: o.clientChannel,
+        shootMode: o.shootMode || 'portrait',
+        errorMessage: gen.gemini_blocked_message,
+        referenceImageUrls: normalizePromoPortraitAuditReferenceUrls(o.refUrls, o.enriched, o.resolvedRefs),
+        promoRecordId: o.promoRecordId
+    });
 }
 
 function buildPromoPortraitMoodCastHint(cast) {
@@ -1036,18 +1171,27 @@ function promoPortraitGrokifyMultiImagePrompt(text) {
         .replace(/\bimage\s*2\b/gi, '<IMAGE_1>');
 }
 
+/** Grok 放人：場景＝IMAGE_0、人像＝IMAGE_1（與 Gemini 混合圖序相反） */
+function promoPortraitGrokifyExperimentSwapPrompt(text) {
+    return String(text || '')
+        .replace(/第一張/g, '<IMAGE_1>')
+        .replace(/第二張/g, '<IMAGE_0>')
+        .replace(/\bimage\s*1\b/gi, '<IMAGE_1>')
+        .replace(/\bimage\s*2\b/gi, '<IMAGE_0>');
+}
+
 function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
-    const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
+    const cap = promoPortraitStyling.buildPortraitGrokSwapCaptions(stylingMode);
     return [
         cap.lead,
-        '<IMAGE_0> ' + String(cap.personLabel || '').replace(/^第一張[・·]?\s*/, ''),
-        '<IMAGE_1> ' + String(cap.sceneLabel || '').replace(/^第二張[・·]?\s*/, ''),
-        promoPortraitGrokifyMultiImagePrompt(String(promptText || '').trim()),
+        '<IMAGE_0> ' + cap.sceneLabel,
+        '<IMAGE_1> ' + cap.personLabel,
+        promoPortraitGrokifyExperimentSwapPrompt(String(promptText || '').trim()),
         cap.closing
     ].filter(Boolean).join('\n');
 }
 
-/** 審核友善第二階段：Grok 將人像融入 FLUX 空景（人物在前、場景在後） */
+/** 審核友善第二階段：Grok 將人像融入 FLUX 空景（場景底圖在前、人像參考在後） */
 async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, promptText, grokOpts) {
     const apiKey = await getXaiApiKey();
     if (!apiKey) {
@@ -1070,6 +1214,7 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
         stylingMode
     );
     const model = String(opts.grokModel || '').trim() || await getPromoPortraitExperimentGrokModel();
+    const quality = opts.grokQuality || await getPromoPortraitExperimentGrokQuality();
     let extracted;
     try {
         extracted = await runInGrokImagineQueue(function () {
@@ -1077,9 +1222,10 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
                 apiKey: apiKey,
                 model: model,
                 prompt: prompt,
-                images: [personRef, sceneRef],
+                images: [sceneRef, personRef],
                 aspectRatio: opts.aspectRatio || opts.aspect_ratio,
-                resolution: opts.tier || opts.space_resolution_tier
+                resolution: opts.tier || opts.space_resolution_tier,
+                quality: quality
             });
         });
     } catch (genErr) {
@@ -1715,9 +1861,28 @@ async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts, flux
     };
 }
 
+const PORTRAIT_CLEAR_FLUX_CONFIG_KEY = 'bfl_flux_model_promo_portrait_clear';
+
+function isPromoPortraitClearRenderMode(renderMode) {
+    return normalizePromoPortraitRenderMode(renderMode) === 'clear';
+}
+
+function portraitClearFluxConfigKey(fluxOpts) {
+    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
+    return String(fo.fluxConfigKey || '').trim() || PORTRAIT_CLEAR_FLUX_CONFIG_KEY;
+}
+
+async function generatePromoPortraitClearFluxBackup(imageRefs, fluxPrompt, geminiOpts, fluxOpts, reason) {
+    const fluxFo = Object.assign({}, fluxOpts || {});
+    fluxFo.fluxConfigKey = portraitClearFluxConfigKey(fluxFo);
+    const result = await generatePromoPortraitImageWithFlux(imageRefs, fluxPrompt, geminiOpts, fluxFo);
+    if (reason) result.fallback_reason = reason;
+    return result;
+}
+
 /**
  * 人像：依清晰／氛圍模式解析引擎（後台可調）；未指定則用全域預設。
- * fluxOpts.enginePref 可覆寫。
+ * fluxOpts.enginePref 可覆寫。清晰模式：Gemini 外部審核 400 時自動改走 FLUX 備援（後台 bfl_flux_model_promo_portrait_clear）。
  */
 async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts) {
     const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
@@ -1732,19 +1897,50 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const forceGemini = pref === 'gemini';
     const hasGemini = !!process.env.GEMINI_API_KEY;
     const hasFlux = !!process.env.BFL_API_KEY;
+    const isClear = isPromoPortraitClearRenderMode(fo.renderMode);
+    const clearBackupOn = isClear ? await getPromoPortraitClearFluxBackupEnabled() : false;
+    const fluxPromptText = fluxPrompt || geminiPrompt;
 
-    const gated = await runGeminiImageWithBackupGate(
-        forceFlux,
-        forceGemini,
-        parseAcceptBackup(fo),
-        () => generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts)
-    );
-    if (gated.used) return gated.result;
+    const runFluxPath = async function(reason, geminiBlockMsg) {
+        if (!hasFlux) {
+            throw new Error('情境圖服務暫未設定，請稍後再試');
+        }
+        let result;
+        if (isClear) {
+            result = await generatePromoPortraitClearFluxBackup(imageRefs, fluxPromptText, geminiOpts, fo, reason);
+        } else {
+            result = await generatePromoPortraitImageWithFlux(imageRefs, fluxPromptText, geminiOpts, fo);
+            if (reason) result.fallback_reason = reason;
+        }
+        if (geminiBlockMsg) {
+            result.gemini_blocked_message = String(geminiBlockMsg).slice(0, 500);
+        }
+        return result;
+    };
 
-    if (!hasFlux) {
-        throw new Error('情境圖服務暫未設定，請稍後再試');
+    if (forceFlux || !hasGemini) {
+        return runFluxPath(forceFlux ? null : 'no_gemini_key');
     }
-    return generatePromoPortraitImageWithFlux(imageRefs, fluxPrompt || geminiPrompt, geminiOpts, fluxOpts);
+
+    try {
+        const gated = await runGeminiImageWithBackupGate(
+            forceFlux,
+            forceGemini,
+            parseAcceptBackup(fo),
+            () => generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts)
+        );
+        if (gated.used) return gated.result;
+        if (isClear && !clearBackupOn) {
+            throwUnlessAcceptBackup(parseAcceptBackup(fo), true, checkDualColorGeminiQuota());
+        }
+        return runFluxPath('quota_or_429');
+    } catch (err) {
+        if (isClear && clearBackupOn && isPromoPortraitExternalImageGenBlockedError(err) && hasFlux) {
+            console.warn('[promo-portrait clear] Gemini blocked (400), FLUX backup:', err && err.message);
+            return runFluxPath('gemini_400_blocked', err && err.message);
+        }
+        throw err;
+    }
 }
 
 async function generatePromoPortraitImageWithGrok(imageRefs, promptText, geminiOpts, grokOpts) {
@@ -2110,7 +2306,10 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         }
     } else if (engine === 'flux') {
         try {
-            fluxModel = await getBflFluxModelIdForConfigKey('bfl_flux_model_promo_portrait');
+            const fluxKey = renderCtx.mode === 'clear'
+                ? PORTRAIT_CLEAR_FLUX_CONFIG_KEY
+                : 'bfl_flux_model_promo_portrait';
+            fluxModel = await getBflFluxModelIdForConfigKey(fluxKey);
         } catch (_) {
             fluxModel = null;
         }
@@ -2910,7 +3109,7 @@ function withTimeoutMs(promise, ms, label) {
 
 function insertPromptReviewEvent(row) {
     const action = row && row.action;
-    if (action !== 'polished' && action !== 'blocked' && action !== 'api_blocked') return;
+    if (action !== 'polished' && action !== 'blocked' && action !== 'api_blocked' && action !== 'api_blocked_fallback') return;
     Promise.resolve().then(async function () {
         const payload = {
             user_id: row.userId || null,
@@ -2922,6 +3121,11 @@ function insertPromptReviewEvent(row) {
             client_channel: row.clientChannel ? String(row.clientChannel).slice(0, 40) : null,
             shoot_mode: row.shootMode ? String(row.shootMode).slice(0, 40) : 'portrait'
         };
+        if (row.promoRecordId) payload.promo_record_id = row.promoRecordId;
+        if (row.referenceImageUrls != null) {
+            const refs = Array.isArray(row.referenceImageUrls) ? row.referenceImageUrls : [];
+            payload.reference_image_urls = refs.slice(0, 12);
+        }
         const { error } = await supabase.from('prompt_review_events').insert(payload);
         if (error && error.code !== '42P01') {
             console.warn('insertPromptReviewEvent:', error.message);
@@ -3277,6 +3481,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         let moodDraftProvider = 'gemini';
         let moodLookProvider = 'flux';
         let moodSwapPromptUsed = '';
+        let portraitGenResult = null;
         try {
             if (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') {
                 const step = await runPromoPortraitMoodTwoStep(
@@ -3347,6 +3552,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     },
                     await buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body)
                 );
+                portraitGenResult = gen;
                 buffer = gen && gen.buffer;
                 imageProvider = (gen && gen.image_provider) || 'gemini';
                 usedGeminiModel = (gen && gen.gemini_model) || usedGeminiModel;
@@ -3365,7 +3571,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     userPrompt: userPrompt,
                     clientChannel: clientChannel,
                     shootMode: renderCtx.mode,
-                    errorMessage: genErr && genErr.message
+                    errorMessage: genErr && genErr.message,
+                    referenceImageUrls: normalizePromoPortraitAuditReferenceUrls(refUrls, batchPortraitRefsEnriched, resolvedRefs)
                 });
             }
             var blockedPayload = isPromoPortraitExternalImageGenBlockedError(genErr)
@@ -3459,6 +3666,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 portrait_prompt_expanded: true,
                 staging_product: !!resolvedRefs.hasStagingProduct,
                 scene_image: !!resolvedRefs.hasSceneImage,
+                reference_images: buildPromoPortraitLabeledReferenceImages(resolvedRefs, refUrls, batchPortraitRefsEnriched),
                 image_provider: imageProvider,
                 gemini_model: usedGeminiModel || null,
                 flux_model: usedFluxModel || null,
@@ -3471,7 +3679,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 portrait_subject_gender: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? portraitCast.gender : null,
                 mood_stage: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? 'look' : null,
                 space_resolution_tier: spaceResTier
-            });
+            }, buildPromoPortraitFallbackMeta(portraitGenResult));
             const promoInsertBase = {
                 user_id: currentUser.id,
                 source_type: sourceType,
@@ -3505,6 +3713,18 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             generationId = ins.id;
             if (!generationId) {
                 librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫';
+            } else {
+                finalizePromoPortraitFallbackAudit({
+                    gen: portraitGenResult,
+                    userId: currentUser && currentUser.id,
+                    userPrompt: userPrompt,
+                    clientChannel: clientChannel,
+                    shootMode: renderCtx.mode,
+                    refUrls: refUrls,
+                    enriched: batchPortraitRefsEnriched,
+                    resolvedRefs: resolvedRefs,
+                    promoRecordId: generationId
+                });
             }
         }
 
@@ -3602,7 +3822,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
     }
 
     const first = okResults[0];
-    return res.json({
+    return res.json(stripPortraitGenerateSecretsForClient({
         success: true,
         batch: true,
         batch_id: batchId,
@@ -3626,7 +3846,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         image_provider: first.image_provider || 'gemini',
         space_resolution_tier: spaceResTier,
         camera_params: first.camera_params || null
-    });
+    }, isAdmin));
 }
 
 async function handlePromoCameraPortraitGenerate(req, res, ctx) {
@@ -3832,7 +4052,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                     userPrompt: userPrompt,
                     clientChannel: clientChannel,
                     shootMode: renderCtx.mode,
-                    errorMessage: genErr && genErr.message
+                    errorMessage: genErr && genErr.message,
+                    referenceImageUrls: normalizePromoPortraitAuditReferenceUrls(refUrls, moodPortraitRefsEnriched, resolvedRefs)
                 });
             }
             console.error('promo-camera portrait mood:', genErr);
@@ -4084,6 +4305,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         fluxModel = (gen && gen.flux_model) || null;
         grokModel = (gen && gen.grok_model) || null;
         if ((imageProvider === 'flux' || imageProvider === 'grok') && fluxPrompt) finalPrompt = fluxPrompt;
+        var portraitGenResultSingle = gen;
     } catch (genErr) {
         if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
             logPromoPortraitApiBlockEvent({
@@ -4091,7 +4313,8 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 userPrompt: userPrompt,
                 clientChannel: clientChannel,
                 shootMode: renderCtx.mode,
-                errorMessage: genErr && genErr.message
+                errorMessage: genErr && genErr.message,
+                referenceImageUrls: normalizePromoPortraitAuditReferenceUrls(refUrls, moodPortraitRefsEnriched, resolvedRefs)
             });
         }
         console.error('promo-camera portrait:', genErr);
@@ -4140,7 +4363,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
 
     let generationId = null;
     let librarySaveWarning = null;
-    const portraitMetaBase = {
+    const portraitMetaBase = Object.assign({
         shoot_mode: 'portrait',
         reference_count: refBases.length,
         aspect_ratio: aspectRatio,
@@ -4150,7 +4373,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         client_channel: clientChannel,
         staging_product: !!resolvedRefs.hasStagingProduct,
         scene_image: !!resolvedRefs.hasSceneImage,
-        reference_images: promoExtraReferenceImagesFromUrls(refUrls),
+        reference_images: buildPromoPortraitLabeledReferenceImages(resolvedRefs, refUrls, moodPortraitRefsEnriched),
         image_provider: imageProvider,
         gemini_model: imageProvider === 'gemini' ? (geminiModel || await getPromoPortraitModelName()) : null,
         flux_model: imageProvider === 'flux' ? fluxModel : null,
@@ -4158,7 +4381,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         space_resolution_tier: spaceResTier,
         portrait_render_mode: renderCtx.mode || null,
         portrait_styling_mode: portraitStylingMode
-    };
+    }, buildPromoPortraitFallbackMeta(portraitGenResultSingle));
     const portraitEnriched = await enrichPromoGenerationMetaWithPersistedRefs(
         currentUser.id,
         portraitMetaBase,
@@ -4202,10 +4425,22 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         generationId = ins.id;
         if (!generationId) {
             librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
+        } else {
+            finalizePromoPortraitFallbackAudit({
+                gen: portraitGenResultSingle,
+                userId: currentUser && currentUser.id,
+                userPrompt: userPrompt,
+                clientChannel: clientChannel,
+                shootMode: renderCtx.mode,
+                refUrls: refUrls,
+                enriched: portraitEnriched,
+                resolvedRefs: resolvedRefs,
+                promoRecordId: generationId
+            });
         }
     }
 
-    return res.json({
+    return res.json(stripPortraitGenerateSecretsForClient({
         success: true,
         id: generationId,
         saved_to_library: !!generationId,
@@ -4221,11 +4456,12 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
         image_provider: imageProvider,
+        fallback_reason: portraitGenResultSingle && portraitGenResultSingle.fallback_reason || null,
         space_resolution_tier: spaceResTier,
         camera_params: cameraParamsSnapshot,
         final_prompt: finalPrompt,
         prompt_sent: finalPrompt
-    });
+    }, isAdmin));
 }
 
 async function handlePromoCameraSpaceEyeLevelGenerate(req, res, ctx) {
@@ -5236,6 +5472,16 @@ async function getPromoPortraitEngine() {
     return normalizeOptimizeEnginePref(process.env.PROMO_PORTRAIT_ENGINE || 'gemini');
 }
 
+async function getPromoPortraitClearFluxBackupEnabled() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'promo_portrait_clear_flux_backup').maybeSingle();
+        if (row && row.value != null && String(row.value).trim() !== '') {
+            return parsePaymentConfigOnOff(row.value, true);
+        }
+    } catch (_) {}
+    return true;
+}
+
 function normalizePromoPortraitRenderMode(raw) {
     const s = String(raw || '').trim().toLowerCase();
     if (s === 'mood' || s === 'atmosphere' || s === '氛围' || s === '氛圍') return 'mood';
@@ -5442,8 +5688,12 @@ async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, b
     const fo = {
         safetyTolerance: fluxSafetyTolerance,
         enginePref: renderCtx.engine,
-        accept_backup: parseAcceptBackup(body)
+        accept_backup: parseAcceptBackup(body),
+        renderMode: renderCtx && renderCtx.mode
     };
+    if (renderCtx && renderCtx.mode === 'clear') {
+        fo.fluxConfigKey = PORTRAIT_CLEAR_FLUX_CONFIG_KEY;
+    }
     if (renderCtx && renderCtx.mode === 'experiment') {
         fo.enginePref = 'grok';
         fo.grokModel = await getPromoPortraitExperimentGrokModel();
@@ -15220,6 +15470,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'gemini_model_promo_portrait_prompt_review',
             'promo_portrait_prompt_review_enabled',
             'promo_portrait_default_render_mode',
+            'promo_portrait_clear_flux_backup',
             'promo_portrait_mood_pipeline',
             'grok_imagine_model_promo_portrait_experiment',
             'promo_portrait_experiment_grok_quality',
@@ -15293,6 +15544,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             promo_portrait_clear_engine: portraitClearEngine,
             promo_portrait_mood_engine: portraitMoodEngine,
             promo_portrait_default_render_mode: portraitDefaultMode,
+            promo_portrait_clear_flux_backup: await getPromoPortraitClearFluxBackupEnabled(),
             promo_portrait_mood_pipeline: portraitMoodPipeline,
             grok_imagine_model_promo_portrait_experiment: grokExperimentModel,
             promo_portrait_experiment_grok_quality: grokExperimentQuality,
@@ -15442,6 +15694,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 });
             }
             upserts.push({ key: 'promo_portrait_default_render_mode', value: mode, updated_at: now });
+        }
+        if (body.promo_portrait_clear_flux_backup !== undefined) {
+            upserts.push({
+                key: 'promo_portrait_clear_flux_backup',
+                value: parsePaymentConfigOnOff(body.promo_portrait_clear_flux_backup, true) ? '1' : '0',
+                updated_at: now
+            });
         }
         if (body.promo_portrait_mood_pipeline !== undefined) {
             upserts.push({
@@ -15634,6 +15893,9 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 ? normalizeOptimizeEnginePref(byKey.promo_portrait_mood_engine)
                 : null,
             promo_portrait_default_render_mode: normalizePromoPortraitRenderMode(byKey.promo_portrait_default_render_mode) || null,
+            promo_portrait_clear_flux_backup: byKey.promo_portrait_clear_flux_backup != null
+                ? parsePaymentConfigOnOff(byKey.promo_portrait_clear_flux_backup, true)
+                : null,
             promo_portrait_mood_pipeline: byKey.promo_portrait_mood_pipeline
                 ? normalizePromoPortraitMoodPipeline(byKey.promo_portrait_mood_pipeline)
                 : null,
@@ -19546,6 +19808,7 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_promo_space_eye_level: 'flux-2-max',
     /* 人像氛圍：官網鎖臉實測為 max；pro 一致性較弱 */
     bfl_flux_model_promo_portrait: 'flux-2-max',
+    bfl_flux_model_promo_portrait_clear: 'flux-2-pro',
     bfl_flux_model_promo_portrait_experiment: 'flux-2-max',
     bfl_flux_model_promo_portrait_hybrid: 'flux-2-max'
 };
@@ -31877,6 +32140,10 @@ async function listAdminGenerationRecords(opts) {
                     shoot_mode_label: shootMode ? adminPromoCameraShootModeLabel(shootMode) : null,
                     portrait_render_mode: portraitRenderMode || null,
                     portrait_render_mode_label: portraitRenderLabel || null,
+                    image_provider: meta.image_provider || null,
+                    fallback_reason: meta.fallback_reason || null,
+                    primary_image_provider: meta.primary_image_provider || null,
+                    gemini_blocked_message: meta.gemini_blocked_message || null,
                     client_channel: row.client_channel || null,
                     created_at: row.created_at || row.completed_at,
                     ai_generated_image_url: row.result_image_url,
@@ -34673,7 +34940,7 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
 
         function applyFilters(qb) {
             let qy = qb;
-            if (action === 'polished' || action === 'blocked' || action === 'api_blocked') {
+            if (action === 'polished' || action === 'blocked' || action === 'api_blocked' || action === 'api_blocked_fallback') {
                 qy = qy.eq('action', action);
             }
             if (from) qy = qy.gte('created_at', from + 'T00:00:00.000Z');
@@ -34725,6 +34992,8 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
                 auto_polish: r.auto_polish,
                 client_channel: r.client_channel || '',
                 shoot_mode: r.shoot_mode || '',
+                reference_image_urls: r.reference_image_urls || null,
+                promo_record_id: r.promo_record_id || null,
                 created_at: r.created_at
             };
         });
@@ -34732,6 +35001,7 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
         let polished = 0;
         let blocked = 0;
         let apiBlocked = 0;
+        let apiBlockedFallback = 0;
         const sumPolished = applyFilters(
             supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'polished')
         );
@@ -34741,19 +35011,29 @@ app.get('/api/admin/prompt-review-events', async (req, res) => {
         const sumApiBlocked = applyFilters(
             supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'api_blocked')
         );
-        const [pRes, bRes, aRes] = await Promise.all([sumPolished, sumBlocked, sumApiBlocked]);
+        const sumApiBlockedFallback = applyFilters(
+            supabase.from('prompt_review_events').select('id', { count: 'exact', head: true }).eq('action', 'api_blocked_fallback')
+        );
+        const [pRes, bRes, aRes, afRes] = await Promise.all([sumPolished, sumBlocked, sumApiBlocked, sumApiBlockedFallback]);
         if (!pRes.error) polished = pRes.count || 0;
         if (!bRes.error) blocked = bRes.count || 0;
         if (!aRes.error) apiBlocked = aRes.count || 0;
-        if (action === 'polished') { polished = count || 0; blocked = 0; apiBlocked = 0; }
-        if (action === 'blocked') { blocked = count || 0; polished = 0; apiBlocked = 0; }
-        if (action === 'api_blocked') { apiBlocked = count || 0; polished = 0; blocked = 0; }
+        if (!afRes.error) apiBlockedFallback = afRes.count || 0;
+        if (action === 'polished') { polished = count || 0; blocked = 0; apiBlocked = 0; apiBlockedFallback = 0; }
+        if (action === 'blocked') { blocked = count || 0; polished = 0; apiBlocked = 0; apiBlockedFallback = 0; }
+        if (action === 'api_blocked') { apiBlocked = count || 0; polished = 0; blocked = 0; apiBlockedFallback = 0; }
+        if (action === 'api_blocked_fallback') { apiBlockedFallback = count || 0; polished = 0; blocked = 0; apiBlocked = 0; }
 
         return res.json({
             items: items,
             total: count || 0,
             has_more: offset + items.length < (count || 0),
-            summary: { polished: polished, blocked: blocked, api_blocked: apiBlocked }
+            summary: {
+                polished: polished,
+                blocked: blocked,
+                api_blocked: apiBlocked,
+                api_blocked_fallback: apiBlockedFallback
+            }
         });
     } catch (e) {
         console.error('GET /api/admin/prompt-review-events:', e);

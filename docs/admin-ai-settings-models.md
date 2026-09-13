@@ -48,7 +48,9 @@
 | 產品情境圖 | `bfl_flux_model_promo_image` | `flux-2-pro` | 設計頁／廠商「情境圖」TAB |
 | **商攝導演・產品攝影** | `bfl_flux_model_promo_camera_product` | `flux-2-pro` | `/promo-camera` 產品 tab。未存前沿用情境圖槽。固定 FLUX，無 Gemini 切換 |
 | 空間平視（對照 ISO）備援 | `bfl_flux_model_promo_space_eye_level` | **`flux-2-max`** | 商攝導演平視備援／強制 FLUX |
-| 人像攝影備援 | `bfl_flux_model_promo_portrait` | `flux-2-pro` | `/promo-camera` 人像備援／強制 FLUX（與情境圖分開） |
+| 人像・氛圍第二段 FLUX | `bfl_flux_model_promo_portrait` | `flux-2-max` | 氛圍模式第二段換成像 |
+| 人像・清晰 FLUX 備援 | `bfl_flux_model_promo_portrait_clear` | `flux-2-pro` | 清晰模式：Gemini 400 或 auto 滿額時自動備援 |
+| 人像・清晰備援開關 | `promo_portrait_clear_flux_backup` | `1`（開） | 關閉時清晰模式不自動改 FLUX；前台仍不顯示引擎 |
 
 可選 model id 與 Playground 相同（`flux-2-pro`、`flux-2-max` 等），亦支援**後台手填**新型號（`flux-2-*` → `POST /v1/{id}`），無需改程式或下拉枚舉。
 
