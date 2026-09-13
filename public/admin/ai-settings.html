@@ -172,9 +172,14 @@
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_grok_quality</code> — 僅 <code>grok-imagine-image-2.0</code> 有效</p>
                   </div>
                   <div class="col-12">
-                    <label class="form-label small mb-1" for="xaiApiKeyPortraitExperiment">xAI API 金鑰</label>
+                    <label class="form-label small mb-1" for="xaiApiKeyPortraitExperiment">xAI API 金鑰（生圖／推論）</label>
                     <input type="password" id="xaiApiKeyPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="留空＝不變更" autocomplete="new-password" />
-                    <p class="form-text small text-muted mb-0" id="xaiApiKeyPortraitExperimentHint"><code>xai_api_key</code> — 可貼在這裡；或設 Cloud Run 環境變數 <code>XAI_API_KEY</code>／<code>GROK_API_KEY</code>（環境變數優先）。頁面不會顯示已存密文。</p>
+                    <p class="form-text small text-muted mb-0" id="xaiApiKeyPortraitExperimentHint"><code>xai_api_key</code> — 可貼在這裡；或設 Cloud Run 環境變數 <code>XAI_API_KEY</code>／<code>GROK_API_KEY</code>（環境變數優先）。頁面不會顯示已存密文。此金鑰<strong>查不到餘額</strong>。</p>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small mb-1" for="xaiManagementApiKeyPortraitExperiment">xAI Management API 金鑰（查預付美元）</label>
+                    <input type="password" id="xaiManagementApiKeyPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="留空＝不變更" autocomplete="new-password" />
+                    <p class="form-text small text-muted mb-0" id="xaiManagementApiKeyPortraitExperimentHint"><code>xai_management_api_key</code> — 在 <a href="https://console.x.ai" target="_blank" rel="noopener">console.x.ai</a> → Settings → Management Keys 建立。或設 Cloud Run <code>XAI_MANAGEMENT_API_KEY</code>（環境變數優先）。平台用量監控用這個查預付餘額，不能拿來生圖。</p>
                   </div>
                 </div>
                 <div class="mt-3">
@@ -511,9 +516,16 @@
     var xaiHint = document.getElementById('xaiApiKeyPortraitExperimentHint');
     if (xaiHint) {
       var src = data.xai_api_key_source;
-      if (src === 'env') xaiHint.textContent = '已從 Cloud Run／環境變數 XAI_API_KEY 讀取（此欄留空即可）';
-      else if (data.xai_api_key_set) xaiHint.textContent = '資料庫已存金鑰；留空＝不變更，填新值＝覆寫';
-      else xaiHint.textContent = '尚未設定。可填金鑰存進資料庫，或在 Cloud Run 設 XAI_API_KEY';
+      if (src === 'env') xaiHint.textContent = '已從 Cloud Run／環境變數 XAI_API_KEY 讀取（此欄留空即可）。此金鑰查不到餘額。';
+      else if (data.xai_api_key_set) xaiHint.textContent = '資料庫已存生圖金鑰；留空＝不變更，填新值＝覆寫。此金鑰查不到餘額。';
+      else xaiHint.textContent = '尚未設定生圖金鑰。可填金鑰存進資料庫，或在 Cloud Run 設 XAI_API_KEY。此金鑰查不到餘額。';
+    }
+    var xaiMgmtHint = document.getElementById('xaiManagementApiKeyPortraitExperimentHint');
+    if (xaiMgmtHint) {
+      var msrc = data.xai_management_api_key_source;
+      if (msrc === 'env') xaiMgmtHint.textContent = '已從 Cloud Run／環境變數 XAI_MANAGEMENT_API_KEY 讀取（此欄留空即可）';
+      else if (data.xai_management_api_key_set) xaiMgmtHint.textContent = '資料庫已存 Management Key；留空＝不變更，填新值＝覆寫。平台用量監控用這個查預付美元。';
+      else xaiMgmtHint.textContent = '尚未設定。請到 console.x.ai → Settings → Management Keys 建立後貼上，或設 Cloud Run XAI_MANAGEMENT_API_KEY。';
     }
     if (portrait) {
       var syncEng = (portraitDefaultMode && portraitDefaultMode.value === 'mood')
@@ -550,6 +562,7 @@
       if (ps.grok_imagine_model_promo_portrait_experiment) pp.push('實驗Grok');
       if (ps.promo_portrait_experiment_grok_quality) pp.push('實驗Grok畫質');
       if (ps.xai_api_key) pp.push('xAI金鑰');
+      if (ps.xai_management_api_key) pp.push('xAI Management');
       if (ps.bfl_flux_model_promo_portrait_hybrid) pp.push('混合FLUX');
       if (ps.promo_space_eye_level_engine) pp.push('平視引擎');
       if (ps.gemini_model_promo_space_eye_level) pp.push('平視Gemini');
@@ -567,6 +580,7 @@
       if (gs.grok_imagine_model_promo_portrait_experiment) gp.push('實驗模型');
       if (gs.promo_portrait_experiment_grok_quality) gp.push('畫質');
       if (gs.xai_api_key) gp.push('資料庫金鑰');
+      if (gs.xai_management_api_key) gp.push('Management Key');
       grokHint.textContent = gp.length
         ? '（已從資料庫載入：' + gp.join('、') + '）'
         : (data.xai_api_key_source === 'env'
@@ -945,6 +959,9 @@
     var xaiEl = document.getElementById('xaiApiKeyPortraitExperiment');
     var xaiVal = xaiEl ? String(xaiEl.value || '').trim() : '';
     if (xaiVal) payload.xai_api_key = xaiVal;
+    var xaiMgmtEl = document.getElementById('xaiManagementApiKeyPortraitExperiment');
+    var xaiMgmtVal = xaiMgmtEl ? String(xaiMgmtEl.value || '').trim() : '';
+    if (xaiMgmtVal) payload.xai_management_api_key = xaiMgmtVal;
     return payload;
   }
 
@@ -964,7 +981,12 @@
       await loadAiConfig();
       var xaiEl = document.getElementById('xaiApiKeyPortraitExperiment');
       if (xaiEl) xaiEl.value = '';
-      showMsg('Grok 設定已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」' + (payload.xai_api_key ? '，已更新金鑰' : ''));
+      var xaiMgmtEl = document.getElementById('xaiManagementApiKeyPortraitExperiment');
+      if (xaiMgmtEl) xaiMgmtEl.value = '';
+      var extra = [];
+      if (payload.xai_api_key) extra.push('已更新生圖金鑰');
+      if (payload.xai_management_api_key) extra.push('已更新 Management Key');
+      showMsg('Grok 設定已儲存：模型「' + payload.grok_imagine_model_promo_portrait_experiment + '」，畫質「' + payload.promo_portrait_experiment_grok_quality + '」' + (extra.length ? '，' + extra.join('，') : ''));
       flashSaveButton(btn, '已儲存 ✓');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);

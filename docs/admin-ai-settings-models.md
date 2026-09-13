@@ -60,9 +60,10 @@
 |----------|----------------------|----------|------|
 | 人像實驗模型 | `grok_imagine_model_promo_portrait_experiment` | `grok-imagine-image-2.0` | `/promo-camera` 人像實驗；`getPromoPortraitEngineForRenderMode('experiment')` → `grok` |
 | 畫質 | `promo_portrait_experiment_grok_quality` | `auto` | 後台下拉：`auto`／`medium`／`low`。僅 2.0 有效。改圖時 `auto` 官方目前多半等於 `medium`；要明確拉畫質請存 `medium`。 |
-| xAI API 金鑰 | `xai_api_key` | （無） | 優先環境變數 `XAI_API_KEY`／`GROK_API_KEY`；GET 永不回傳密文 |
+| xAI API 金鑰 | `xai_api_key` | （無） | 優先環境變數 `XAI_API_KEY`／`GROK_API_KEY`；GET 永不回傳密文。**只能生圖，查不到餘額。** |
+| xAI Management API 金鑰 | `xai_management_api_key` | （無） | 優先環境變數 `XAI_MANAGEMENT_API_KEY`；console.x.ai → Settings → Management Keys。平台用量監控查預付美元用；不能拿來生圖。GET 永不回傳密文 |
 
-預付額度在 [console.x.ai](https://console.x.ai) 儲值（不是 SuperGrok）。平台用量監控可查推論金鑰連線；預付美元需另設 `XAI_MANAGEMENT_API_KEY`。
+預付額度在 [console.x.ai](https://console.x.ai) 儲值（不是 SuperGrok）。平台用量監控：推論金鑰查連線；預付美元需 Management Key。
 
 ### 2.2 Gemini 模型（分開設定、互不覆寫）
 

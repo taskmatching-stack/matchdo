@@ -251,8 +251,10 @@
       var grokSub = [];
       if (grok.name) grokSub.push(grok.name);
       if (grok.api_key_blocked) grokSub.push('金鑰已封鎖');
-      if (grok.key_source === 'env') grokSub.push('環境變數');
-      else if (grok.key_source === 'db') grokSub.push('後台金鑰');
+      if (grok.key_source === 'env') grokSub.push('推論金鑰：環境變數');
+      else if (grok.key_source === 'db') grokSub.push('推論金鑰：後台');
+      if (grok.management_key_source === 'env') grokSub.push('Management：環境變數');
+      else if (grok.management_key_source === 'db') grokSub.push('Management：後台');
       if (grok.balance_error) grokSub.push(grok.balance_error);
       if (grok.credits_usd != null && grok.connected && !grok.error) {
         cards.push('<div class="col-md-4"><div class="border rounded p-2 h-100"><div class="fw-semibold small">Grok 預付</div><div class="stat-num">$' + Number(grok.credits_usd).toFixed(2) + '</div><div class="text-muted" style="font-size:0.7rem">' + esc(grokSub.join(' · ') || 'Management API') + '</div></div></div>');

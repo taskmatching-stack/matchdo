@@ -644,6 +644,9 @@
           if (row.shoot_mode_label) {
             html += '<dt class="col-sm-3">攝影模式</dt><dd class="col-sm-9">' + esc(row.shoot_mode_label) + '</dd>';
           }
+          if (row.portrait_render_mode_label) {
+            html += '<dt class="col-sm-3">生成風格</dt><dd class="col-sm-9">' + esc(row.portrait_render_mode_label) + '</dd>';
+          }
           if (row.space_output_type) {
             html += '<dt class="col-sm-3">空間輸出</dt><dd class="col-sm-9">' + esc(row.space_output_type) + '</dd>';
           }

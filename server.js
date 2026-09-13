@@ -3202,7 +3202,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                     credit_transaction_id: null,
                     generation_meta_json: Object.assign({}, batchPortraitRefsEnriched.meta, {
                         shoot_mode: 'portrait',
-                        portrait_render_mode: 'mood',
+                        portrait_render_mode: renderCtx.mode || 'mood',
                         mood_stage: 'draft',
                         mood_pipeline: true,
                         mood_pipeline_kind: moodPipeline,
@@ -3575,7 +3575,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 show_on_homepage: false,
                 generation_meta_json: Object.assign({}, moodPortraitRefsEnriched.meta, {
                     shoot_mode: 'portrait',
-                    portrait_render_mode: 'mood',
+                    portrait_render_mode: renderCtx.mode || 'mood',
                     portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'draft',
                     mood_pipeline: true,
@@ -3606,7 +3606,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
                 show_on_homepage: promoShowOnHomepage,
                 generation_meta_json: Object.assign({}, moodPortraitRefsEnriched.meta, {
                     shoot_mode: 'portrait',
-                    portrait_render_mode: 'mood',
+                    portrait_render_mode: renderCtx.mode || 'mood',
                     portrait_styling_mode: portraitStylingMode,
                     mood_stage: 'look',
                     mood_pipeline: true,
@@ -3651,7 +3651,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             reference_count: refBases.length,
             generation_mode: 'camera_advanced',
             shoot_mode: 'portrait',
-            portrait_render_mode: 'mood',
+            portrait_render_mode: renderCtx.mode || 'mood',
             image_provider: 'mood_two_step',
             space_resolution_tier: spaceResTier,
             camera_params: cameraParamsSnapshot,
@@ -3817,6 +3817,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         flux_model: imageProvider === 'flux' ? fluxModel : null,
         grok_model: imageProvider === 'grok' ? grokModel : null,
         space_resolution_tier: spaceResTier,
+        portrait_render_mode: renderCtx.mode || null,
         portrait_styling_mode: portraitStylingMode
     };
     const portraitEnriched = await enrichPromoGenerationMetaWithPersistedRefs(
@@ -5031,6 +5032,15 @@ async function getXaiApiKeySource() {
     if (String(process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim()) return 'env';
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'xai_api_key').maybeSingle();
+        if (row && String(row.value || '').trim()) return 'db';
+    } catch (_) {}
+    return '';
+}
+
+async function getXaiManagementApiKeySource() {
+    if (String(process.env.XAI_MANAGEMENT_API_KEY || process.env.XAI_MANAGEMENT_KEY || '').trim()) return 'env';
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'xai_management_api_key').maybeSingle();
         if (row && String(row.value || '').trim()) return 'db';
     } catch (_) {}
     return '';
@@ -14721,6 +14731,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'grok_imagine_model_promo_portrait_experiment',
             'promo_portrait_experiment_grok_quality',
             'xai_api_key',
+            'xai_management_api_key',
             'promo_portrait_experiment_flux_safety_tolerance',
             'promo_portrait_experiment_flux_prompt_upsampling',
             ...engineKeys,
@@ -14740,6 +14751,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const portraitDefaultMode = await getPromoPortraitDefaultRenderMode();
         const portraitMoodPipeline = await getPromoPortraitMoodPipeline();
         const xaiKeySource = await getXaiApiKeySource();
+        const xaiMgmtKeySource = await getXaiManagementApiKeySource();
         const grokExperimentModel = await getPromoPortraitExperimentGrokModel();
         const grokExperimentQuality = await getPromoPortraitExperimentGrokQuality();
         res.json({
@@ -14778,6 +14790,8 @@ app.get('/api/admin/ai-config', async (req, res) => {
             promo_portrait_experiment_grok_quality: grokExperimentQuality,
             xai_api_key_set: !!xaiKeySource,
             xai_api_key_source: xaiKeySource || null,
+            xai_management_api_key_set: !!xaiMgmtKeySource,
+            xai_management_api_key_source: xaiMgmtKeySource || null,
             promo_portrait_experiment_flux_safety_tolerance: Math.min(5, clampFluxSafetyTolerance(
                 byKey.promo_portrait_experiment_flux_safety_tolerance != null
                     && String(byKey.promo_portrait_experiment_flux_safety_tolerance).trim() !== ''
@@ -14820,6 +14834,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 grok_imagine_model_promo_portrait_experiment: !!byKey.grok_imagine_model_promo_portrait_experiment,
                 promo_portrait_experiment_grok_quality: !!byKey.promo_portrait_experiment_grok_quality,
                 xai_api_key: !!byKey.xai_api_key,
+                xai_management_api_key: !!byKey.xai_management_api_key,
                 promo_portrait_experiment_flux_safety_tolerance: !!byKey.promo_portrait_experiment_flux_safety_tolerance,
                 promo_portrait_experiment_flux_prompt_upsampling: !!byKey.promo_portrait_experiment_flux_prompt_upsampling,
                 ...bfl.saved_in_db
@@ -14933,6 +14948,12 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             const keyVal = String(body.xai_api_key || '').trim();
             if (keyVal) {
                 upserts.push({ key: 'xai_api_key', value: keyVal, updated_at: now });
+            }
+        }
+        if (body.xai_management_api_key !== undefined) {
+            const mgmtVal = String(body.xai_management_api_key || '').trim();
+            if (mgmtVal) {
+                upserts.push({ key: 'xai_management_api_key', value: mgmtVal, updated_at: now });
             }
         }
         if (body.promo_portrait_experiment_flux_safety_tolerance !== undefined) {
@@ -15052,6 +15073,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 ? xaiImagine.normalizeGrokImagineQuality(byKey.promo_portrait_experiment_grok_quality)
                 : null,
             xai_api_key_set: !!(byKey.xai_api_key && String(byKey.xai_api_key).trim()),
+            xai_management_api_key_set: !!(byKey.xai_management_api_key && String(byKey.xai_management_api_key).trim()),
             promo_portrait_experiment_flux_safety_tolerance: byKey.promo_portrait_experiment_flux_safety_tolerance != null
                 && String(byKey.promo_portrait_experiment_flux_safety_tolerance).trim() !== ''
                 ? Math.min(5, clampFluxSafetyTolerance(byKey.promo_portrait_experiment_flux_safety_tolerance))
@@ -31239,7 +31261,9 @@ async function listAdminGenerationRecords(opts) {
                 if (sceneLabel) titleParts.push(sceneLabel);
                 const cameraSummary = formatAdminPromoCameraParamsSummary(row.camera_params);
                 const meta = parsePromoGenerationMetaJson(row.generation_meta_json);
-                const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url, cameraSummary, adminPromoCameraShootModeLabel(shootMode)].join(' ').toLowerCase();
+                const portraitRenderMode = provenanceResume.resolvePortraitRenderModeFromMeta(meta);
+                const portraitRenderLabel = shootMode === 'portrait' ? adminPromoPortraitRenderModeLabel(portraitRenderMode) : '';
+                const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url, cameraSummary, adminPromoCameraShootModeLabel(shootMode), portraitRenderLabel].join(' ').toLowerCase();
                 if (qText && !hay.includes(qText)) return;
                 merged.push({
                     id: row.id,
@@ -31248,6 +31272,8 @@ async function listAdminGenerationRecords(opts) {
                     shoot_mode: shootMode,
                     space_output_type: meta.space_output_type || null,
                     shoot_mode_label: shootMode ? adminPromoCameraShootModeLabel(shootMode) : null,
+                    portrait_render_mode: portraitRenderMode || null,
+                    portrait_render_mode_label: portraitRenderLabel || null,
                     client_channel: row.client_channel || null,
                     created_at: row.created_at || row.completed_at,
                     ai_generated_image_url: row.result_image_url,
@@ -31399,6 +31425,11 @@ function adminPromoCameraRecordTitleLabel(itemSource, shootMode) {
     if (itemSource === 'promo_camera_app') return '商攝・' + modeLabel + ' App';
     if (itemSource === 'promo_camera_web') return '商攝・' + modeLabel + ' 網站';
     return '產品情境圖';
+}
+
+function adminPromoPortraitRenderModeLabel(mode) {
+    const map = { clear: '清晰', mood: '氛圍', hybrid: '混合', experiment: '實驗' };
+    return map[String(mode || '').trim().toLowerCase()] || '';
 }
 
 function adminPromoCameraShootModeLabel(shootMode) {
