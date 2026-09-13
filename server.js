@@ -318,7 +318,14 @@ async function pumpGrokImagineQueue() {
     _grokImaginePumping = true;
     try {
         while (_grokImagineWaiters.length) {
-            const waitMs = await grokImagineStartWaitMs();
+            let waitMs = 0;
+            try {
+                waitMs = await grokImagineStartWaitMs();
+            } catch (limErr) {
+                const job = _grokImagineWaiters.shift();
+                if (job) job.reject(limErr);
+                continue;
+            }
             if (waitMs > 0) {
                 await sleepMs(Math.min(Math.max(20, waitMs), 250));
                 continue;
@@ -1013,13 +1020,21 @@ async function generatePromoPortraitMoodLiteSwap(personRef, sceneRef, promptText
     };
 }
 
+function promoPortraitGrokifyMultiImagePrompt(text) {
+    return String(text || '')
+        .replace(/第一張/g, '<IMAGE_0>')
+        .replace(/第二張/g, '<IMAGE_1>')
+        .replace(/\bimage\s*1\b/gi, '<IMAGE_0>')
+        .replace(/\bimage\s*2\b/gi, '<IMAGE_1>');
+}
+
 function buildPromoPortraitExperimentGrokSwapPrompt(promptText, stylingMode) {
     const cap = promoPortraitMoodSwapClothesCaptions(stylingMode);
     return [
         cap.lead,
         '<IMAGE_0> ' + String(cap.personLabel || '').replace(/^第一張[・·]?\s*/, ''),
         '<IMAGE_1> ' + String(cap.sceneLabel || '').replace(/^第二張[・·]?\s*/, ''),
-        String(promptText || '').trim(),
+        promoPortraitGrokifyMultiImagePrompt(String(promptText || '').trim()),
         cap.closing
     ].filter(Boolean).join('\n');
 }
@@ -5215,6 +5230,7 @@ const PORTRAIT_EXPERIMENT_RATE_WINDOW_MS = 60000;
 const PORTRAIT_EXPERIMENT_PER_MINUTE_DEFAULT = 300;
 const PORTRAIT_EXPERIMENT_PER_MINUTE_MAX = 5000;
 const PORTRAIT_EXPERIMENT_PER_SECOND_DEFAULT = 6;
+const PORTRAIT_EXPERIMENT_PER_SECOND_MAX = 100;
 const PORTRAIT_EXPERIMENT_BUSY_RATIO = 0.9;
 
 /** 人像實驗：方案三／四，以及管理員、測試員。免費與方案二不可用。 */
