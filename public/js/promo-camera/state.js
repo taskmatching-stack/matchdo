@@ -53,7 +53,7 @@
     themeKey: '',
     sceneKey: '',
     portraitRenderMode: 'clear',
-    portraitStylingMode: 'reference',
+    portraitStylingMode: 'scene',
     portraitPeopleCount: 1,
     portraitSubjectGender: 'female',
     aspectRatio: '1:1',

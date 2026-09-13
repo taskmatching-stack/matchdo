@@ -949,9 +949,9 @@
   }
 
   function portraitStylingMode() {
-    var m = String(St.get().portraitStylingMode || 'reference').toLowerCase();
-    if (m === 'scene' || m === 'prompt') return m;
-    return 'reference';
+    var m = String(St.get().portraitStylingMode || 'scene').toLowerCase();
+    if (m === 'reference' || m === 'prompt') return m;
+    return 'scene';
   }
 
   function syncPortraitStylingUi() {
@@ -1127,9 +1127,9 @@
     var promptEl = document.getElementById('pcPortraitStylingPrompt');
     if (!refEl || refEl.getAttribute('data-pc-bound') === '1') return;
     function onChange() {
-      var v = 'reference';
+      var v = 'scene';
       if (promptEl && promptEl.checked) v = 'prompt';
-      else if (sceneEl && sceneEl.checked) v = 'scene';
+      else if (refEl && refEl.checked) v = 'reference';
       if (St.setPortraitStylingMode) St.setPortraitStylingMode(v);
       syncPortraitStylingUi();
       updateGenerateBtn();
