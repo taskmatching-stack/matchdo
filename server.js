@@ -1989,6 +1989,10 @@ async function buildPromoPortraitFluxTextToImagePrompt(opts) {
     if (user) {
         parts.push('環境與氛圍補充（不要因此畫出人，也不要畫服裝或假人）：' + user);
     }
+    const sceneVariation = pickPromoPortraitFluxSceneVariationHint(o.variationIndex);
+    if (sceneVariation) {
+        parts.push('本次空景構圖變化（只改取景與佈景，不可畫人）：' + sceneVariation);
+    }
     parts.push('No people, no person, no mannequin, no human silhouette, no face.');
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.filter(Boolean).join(' ');
@@ -2743,6 +2747,27 @@ const PORTRAIT_SHOT_BRIEF_FALLBACKS = [
     'Profile close-up emphasizing hairstyle and styling details, soft rim light.'
 ];
 
+/** 混合／寬鬆空景：每次取不同取景，主題與攝影參數不變也能換構圖（只影響環境，不畫人） */
+const PORTRAIT_FLUX_SCENE_VARIATION_FALLBACKS = [
+    '取景略偏左，前景有輕微景深，主體預留區在畫面右側中景。',
+    '略高角度俯看場景一角，地面與牆面交界清楚，主體位在畫面中下。',
+    '視角較低略仰，突出空間高度，主體預留在中景偏左。',
+    '從房間另一角落望向窗側，窗光在畫面一側，預留站或坐區在反對側中景。',
+    '構圖偏廣，環境道具與家具分布完整，主體區在三分法交點附近。',
+    '構圖稍緊，背景簡化但仍有層次，主體區占畫面中央略偏下。',
+    '景深較淺，前景有少量虛化元素，中景留給主體，後景環境仍可辨識。',
+    '對角線構圖，視線由前景導向深處，主體預留在中景靠窗或靠牆一側。'
+];
+
+function pickPromoPortraitFluxSceneVariationHint(variationIndex) {
+    const list = PORTRAIT_FLUX_SCENE_VARIATION_FALLBACKS;
+    if (!list.length) return '';
+    if (variationIndex != null && Number.isFinite(Number(variationIndex))) {
+        return list[((Number(variationIndex) % list.length) + list.length) % list.length];
+    }
+    return list[Math.floor(Math.random() * list.length)];
+}
+
 function fallbackPortraitShotBriefs(count) {
     const n = normalizePortraitOutputCount(count);
     const out = [];
@@ -3204,8 +3229,8 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                         themeParts,
                         sceneParts,
                         userPrompt,
-                        shotBrief,
                         cameraBlock,
+                        variationIndex: i,
                         hasSceneImage: !!resolvedRefs.hasSceneImage,
                         hasStagingProduct: !!resolvedRefs.hasStagingProduct,
                         width: w,
