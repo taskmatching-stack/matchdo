@@ -1341,16 +1341,29 @@ async function getPromoPortraitStage3Enabled(renderMode) {
     return false;
 }
 
-/** 1K 成品 → 使用者 MP：2k＝2×（4MP）、4k＝4×（16MP）。FLUX 原生最長邊約 1024～2048，不能直接出 16MP。 */
-function promoPortraitUpscaleScaleForUserTier(tier) {
-    const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
-    if (t === '4k') return 4;
-    if (t === '2k') return 2;
+/** 工作圖 → 使用者 MP。Real-ESRGAN 輸入最長邊會縮到 ≤1440，16MP 須 4× 再裁到目標。 */
+function promoPortraitUpscaleScaleFromWorkToUser(workTier, userTier) {
+    const work = promoSpaceGemini.normalizeSpaceResolutionTier(workTier);
+    const user = promoSpaceGemini.normalizeSpaceResolutionTier(userTier);
+    if (user === work) return 0;
+    if (user === '4k') return 4;
+    if (work === '1k' && user === '2k') return 2;
     return 0;
 }
 
 /**
- * 混合／審核友善：有第三階段光影時，放人前都走 1K；關閉時第二段仍依使用者 MP。
+ * 工作檔＝min(使用者選擇, FLUX 上限 2k)。選 1MP 絕不到 2048。
+ * 無第三階段：第二段直接出使用者 MP（Gemini 可 16MP）。
+ */
+function promoPortraitHybridWorkTier(userTier, stage3On) {
+    const user = promoSpaceGemini.normalizeSpaceResolutionTier(userTier);
+    if (!stage3On) return user;
+    if (user === '4k') return '2k';
+    return user;
+}
+
+/**
+ * 混合／審核友善工作尺寸：以使用者選擇為主，有光影融合時再把 16MP 工作圖壓在 FLUX 上限。
  */
 async function resolvePromoPortraitHybridWorkSize(userOpts, renderMode) {
     const opts = userOpts && typeof userOpts === 'object' ? userOpts : {};
@@ -1359,7 +1372,7 @@ async function resolvePromoPortraitHybridWorkSize(userOpts, renderMode) {
         opts.tier || opts.space_resolution_tier || '1k'
     );
     const stage3On = await getPromoPortraitStage3Enabled(renderMode);
-    const workTier = stage3On ? '1k' : userTier;
+    const workTier = promoPortraitHybridWorkTier(userTier, stage3On);
     const lookDims = promoSpaceGemini.resolveSpaceOutputDimensions({
         tier: workTier,
         aspect_ratio: userAspect
@@ -1377,7 +1390,8 @@ async function upscalePromoPortraitAfterStage3(buffer, extra) {
     const tier = promoSpaceGemini.normalizeSpaceResolutionTier(
         o.targetTier || o.tier || o.space_resolution_tier
     );
-    const scale = promoPortraitUpscaleScaleForUserTier(tier);
+    const workTier = promoSpaceGemini.normalizeSpaceResolutionTier(o.workTier || '1k');
+    const scale = promoPortraitUpscaleScaleFromWorkToUser(workTier, tier);
     if (!scale || !buffer || !buffer.length) return null;
     const token = getReplicateApiToken();
     if (!token) {
@@ -1457,7 +1471,7 @@ async function generatePromoPortraitStage3Lighting(lookBuffer, renderMode, extra
     const fluxModel = await getBflFluxModelIdForConfigKey(configKey);
     const prompt = buildPromoPortraitStage3LightingPrompt(extra && extra.cameraBlock);
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(lookBuffer);
-    const fluxSize = clampBflFluxOutputSize(native.width || 1024, native.height || 1024, 1024);
+    const fluxSize = clampBflFluxOutputSize(native.width || 1024, native.height || 1024, 2048);
     const safetyTolerance = normalizePromoPortraitRenderMode(renderMode) === 'experiment'
         ? await getPromoPortraitExperimentFluxSafetyTolerance()
         : 2;
@@ -1526,7 +1540,7 @@ async function applyPromoPortraitStage3LightingIfEnabled(step, renderMode, extra
     return step;
 }
 
-/** 混合管線：FLUX 1K 空景 → Gemini 放人；有第三階段時放人也 1K，光影後再放大到使用者 MP */
+/** 混合管線：FLUX 空景 → Gemini 放人。工作圖不超過使用者 MP；16MP 時工作圖為 FLUX 上限 2K */
 async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts, extra) {
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const work = await resolvePromoPortraitHybridWorkSize(userOpts, 'hybrid');
@@ -1541,7 +1555,8 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
     }
     const scene = await generatePromoPortraitFluxTextToImage(scenePrompt, {
         aspectRatio: userAspect,
-        aspect_ratio: userAspect
+        aspect_ratio: userAspect,
+        tier: work.workTier
     }, (extra && (extra.fluxConfigKey || extra.fluxConfigKey)) || 'bfl_flux_model_promo_portrait_hybrid');
     if (!scene || !scene.buffer || !scene.buffer.length) {
         throw new Error('場景底圖生成失敗，請稍後再試');
@@ -1602,12 +1617,13 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         lookHeight: faceMeasured.height || lookDims.height
     }, 'hybrid', Object.assign({}, extra || {}, {
         targetTier: userTier,
+        workTier: work.workTier,
         aspectRatio: userAspect,
         aspect_ratio: userAspect
     }));
 }
 
-/** 審核友善：FLUX 1K 空景 → Grok 放人；有第三階段時放人也 1K，光影後再放大到使用者 MP */
+/** 審核友善：FLUX 空景 → Grok 放人。工作圖不超過使用者 MP；16MP 時工作圖為 FLUX 上限 2K */
 async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, facePrompt, grokOpts, extra) {
     const userOpts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
     const work = await resolvePromoPortraitHybridWorkSize(userOpts, 'experiment');
@@ -1623,7 +1639,8 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
     const fluxKey = (extra && extra.fluxConfigKey) || promoPortraitFluxIntegrateConfigKey('experiment');
     const scene = await generatePromoPortraitFluxTextToImage(scenePrompt, {
         aspectRatio: userAspect,
-        aspect_ratio: userAspect
+        aspect_ratio: userAspect,
+        tier: work.workTier
     }, fluxKey || 'bfl_flux_model_promo_portrait_experiment');
     if (!scene || !scene.buffer || !scene.buffer.length) {
         throw new Error('場景底圖生成失敗，請稍後再試');
@@ -1688,6 +1705,7 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
         lookHeight: faceMeasured.height || lookDims.height
     }, 'experiment', Object.assign({}, extra || {}, {
         targetTier: userTier,
+        workTier: work.workTier,
         aspectRatio: userAspect,
         aspect_ratio: userAspect
     }));
@@ -2179,7 +2197,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     };
 }
 
-/** 人像混合管線：FLUX 純文生圖（不帶參考圖）；最長邊 1024，僅作 1K 場景底圖 */
+/** 人像混合／審核友善：FLUX 純文生空景；尺寸依工作檔（1K 或 FLUX 上限 2K） */
 async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts, fluxConfigKey) {
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
@@ -2188,11 +2206,12 @@ async function generatePromoPortraitFluxTextToImage(promptText, geminiOpts, flux
     if (!prompt) throw new Error('人像提示詞為空');
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
     const aspect = String(opts.aspectRatio || opts.aspect_ratio || '1:1').trim() || '1:1';
+    const sceneTier = promoSpaceGemini.normalizeSpaceResolutionTier(opts.tier || opts.space_resolution_tier || '1k');
     const sceneDims = promoSpaceGemini.resolveSpaceOutputDimensions({
-        tier: '1k',
+        tier: sceneTier,
         aspect_ratio: aspect
     });
-    const fluxSize = clampBflFluxOutputSize(sceneDims.width, sceneDims.height, 1024);
+    const fluxSize = clampBflFluxOutputSize(sceneDims.width, sceneDims.height, 2048);
     const configKey = String(fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait_hybrid';
     const endpointUrl = await getBflFluxEndpointForConfigKey(configKey);
     const fluxModel = await getBflFluxModelIdForConfigKey(configKey);
