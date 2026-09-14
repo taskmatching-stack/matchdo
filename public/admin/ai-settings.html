@@ -195,6 +195,19 @@
                     <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment</code> — 手填，例如 grok-imagine-image-2.0、grok-imagine-image、grok-imagine-image-quality</p>
                   </div>
                   <div class="col-md-6">
+                    <label class="form-label small mb-1" for="promoPortraitExperimentStage3Enabled">第三階段・光影融合</label>
+                    <select id="promoPortraitExperimentStage3Enabled" class="form-select form-select-sm">
+                      <option value="0" selected>關閉（維持兩段）</option>
+                      <option value="1">開啟（放人後再套攝影參數）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_stage3_enabled</code> — 只吃第二段成品，<strong>不再送人像參考圖</strong></p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperimentStage3">第三階段 · FLUX 模型</label>
+                    <input type="text" id="bflFluxModelPromoPortraitExperimentStage3" class="form-control form-control-sm font-monospace" placeholder="flux-2-klein-9b" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_experiment_stage3</code> — 可填 <code>flux-2-klein-9b</code>／<code>flux-2-pro</code>／<code>flux-2-max</code></p>
+                  </div>
+                  <div class="col-md-6">
                     <label class="form-label small mb-1" for="promoPortraitExperimentGrokQuality">畫質（2.0 <code>quality</code>）</label>
                     <select id="promoPortraitExperimentGrokQuality" class="form-select form-select-sm">
                       <option value="auto">auto — 官方預設（改圖目前多半等於 medium）</option>
@@ -241,6 +254,19 @@
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortraitHybrid">空景 · FLUX 模型</label>
                     <input type="text" id="bflFluxModelPromoPortraitHybrid" class="form-control form-control-sm font-monospace" placeholder="flux-2-max" autocomplete="off" />
                     <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_hybrid</code></p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="promoPortraitHybridStage3Enabled">第三階段・光影融合</label>
+                    <select id="promoPortraitHybridStage3Enabled" class="form-select form-select-sm">
+                      <option value="0" selected>關閉（維持兩段）</option>
+                      <option value="1">開啟（放人後再套攝影參數）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_hybrid_stage3_enabled</code> — 只吃第二段成品，<strong>不再送人像參考圖</strong></p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitHybridStage3">第三階段 · FLUX 模型</label>
+                    <input type="text" id="bflFluxModelPromoPortraitHybridStage3" class="form-control form-control-sm font-monospace" placeholder="flux-2-klein-9b" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_hybrid_stage3</code> — 可填 <code>flux-2-klein-9b</code>／<code>flux-2-pro</code>／<code>flux-2-max</code></p>
                   </div>
                 </div>
               </div>
@@ -599,6 +625,14 @@
       var gq = String(data.promo_portrait_experiment_grok_quality || 'auto').toLowerCase();
       grokExpQuality.value = (gq === 'low' || gq === 'medium' || gq === 'auto') ? gq : 'auto';
     }
+    var hybridStage3On = document.getElementById('promoPortraitHybridStage3Enabled');
+    if (hybridStage3On) {
+      hybridStage3On.value = (data.promo_portrait_hybrid_stage3_enabled === true || data.promo_portrait_hybrid_stage3_enabled === '1') ? '1' : '0';
+    }
+    var experimentStage3On = document.getElementById('promoPortraitExperimentStage3Enabled');
+    if (experimentStage3On) {
+      experimentStage3On.value = (data.promo_portrait_experiment_stage3_enabled === true || data.promo_portrait_experiment_stage3_enabled === '1') ? '1' : '0';
+    }
     var expPerMin = document.getElementById('promoPortraitExperimentPerMinute');
     if (expPerMin) {
       var pm = parseInt(data.promo_portrait_experiment_per_minute, 10);
@@ -732,6 +766,14 @@
     if (data.bfl_flux_model_promo_portrait_hybrid != null && portraitHybridFlux) portraitHybridFlux.value = data.bfl_flux_model_promo_portrait_hybrid;
     var portraitExperimentFlux = document.getElementById('bflFluxModelPromoPortraitExperiment');
     if (data.bfl_flux_model_promo_portrait_experiment != null && portraitExperimentFlux) portraitExperimentFlux.value = data.bfl_flux_model_promo_portrait_experiment;
+    var hybridStage3Flux = document.getElementById('bflFluxModelPromoPortraitHybridStage3');
+    if (data.bfl_flux_model_promo_portrait_hybrid_stage3 != null && hybridStage3Flux) {
+      hybridStage3Flux.value = data.bfl_flux_model_promo_portrait_hybrid_stage3;
+    }
+    var experimentStage3Flux = document.getElementById('bflFluxModelPromoPortraitExperimentStage3');
+    if (data.bfl_flux_model_promo_portrait_experiment_stage3 != null && experimentStage3Flux) {
+      experimentStage3Flux.value = data.bfl_flux_model_promo_portrait_experiment_stage3;
+    }
     var hint = document.getElementById('bflFluxConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -998,6 +1040,14 @@
       bfl_flux_model_promo_portrait: (fPortrait && fPortrait.value.trim()) || 'flux-2-max',
       bfl_flux_model_promo_portrait_clear: (fPortraitClear && fPortraitClear.value.trim()) || 'flux-2-pro',
       bfl_flux_model_promo_portrait_hybrid: (fPortraitHybrid && fPortraitHybrid.value.trim()) || 'flux-2-max',
+      bfl_flux_model_promo_portrait_hybrid_stage3: (function () {
+        var el = document.getElementById('bflFluxModelPromoPortraitHybridStage3');
+        return (el && el.value.trim()) || 'flux-2-klein-9b';
+      })(),
+      promo_portrait_hybrid_stage3_enabled: (function () {
+        var el = document.getElementById('promoPortraitHybridStage3Enabled');
+        return !!(el && el.value === '1');
+      })(),
       bfl_flux_model_promo_space_eye_level: (fSpaceEye && fSpaceEye.value.trim()) || 'flux-2-max'
     };
     Object.assign(payload, collectGrokConfigPayload());
@@ -1074,6 +1124,14 @@
       bfl_flux_model_promo_portrait_experiment: (function () {
         var el = document.getElementById('bflFluxModelPromoPortraitExperiment');
         return (el && el.value.trim()) || 'flux-2-max';
+      })(),
+      bfl_flux_model_promo_portrait_experiment_stage3: (function () {
+        var el = document.getElementById('bflFluxModelPromoPortraitExperimentStage3');
+        return (el && el.value.trim()) || 'flux-2-klein-9b';
+      })(),
+      promo_portrait_experiment_stage3_enabled: (function () {
+        var el = document.getElementById('promoPortraitExperimentStage3Enabled');
+        return !!(el && el.value === '1');
       })(),
       grok_imagine_model_promo_portrait_experiment: (function () {
         var el = document.getElementById('grokImagineModelPromoPortraitExperiment');
