@@ -1341,6 +1341,90 @@ async function getPromoPortraitStage3Enabled(renderMode) {
     return false;
 }
 
+/** 1K 成品 → 使用者 MP：2k＝2×（4MP）、4k＝4×（16MP）。FLUX 原生最長邊約 1024～2048，不能直接出 16MP。 */
+function promoPortraitUpscaleScaleForUserTier(tier) {
+    const t = promoSpaceGemini.normalizeSpaceResolutionTier(tier);
+    if (t === '4k') return 4;
+    if (t === '2k') return 2;
+    return 0;
+}
+
+/**
+ * 混合／審核友善：有第三階段光影時，放人前都走 1K；關閉時第二段仍依使用者 MP。
+ */
+async function resolvePromoPortraitHybridWorkSize(userOpts, renderMode) {
+    const opts = userOpts && typeof userOpts === 'object' ? userOpts : {};
+    const userAspect = String(opts.aspectRatio || opts.aspect_ratio || '1:1').trim() || '1:1';
+    const userTier = promoSpaceGemini.normalizeSpaceResolutionTier(
+        opts.tier || opts.space_resolution_tier || '1k'
+    );
+    const stage3On = await getPromoPortraitStage3Enabled(renderMode);
+    const workTier = stage3On ? '1k' : userTier;
+    const lookDims = promoSpaceGemini.resolveSpaceOutputDimensions({
+        tier: workTier,
+        aspect_ratio: userAspect
+    });
+    return { userAspect: userAspect, userTier: userTier, stage3On: stage3On, workTier: workTier, lookDims: lookDims };
+}
+
+/**
+ * 光影融合後放大到使用者 MP。
+ * 材料頁 vendorMaterialUpscale 輸出帽 1MP，不能當 16MP；
+ * 這裡用 AI 編輯區同一條 Real-ESRGAN（stabilityFastUpscale，帽 16MP）。
+ */
+async function upscalePromoPortraitAfterStage3(buffer, extra) {
+    const o = extra && typeof extra === 'object' ? extra : {};
+    const tier = promoSpaceGemini.normalizeSpaceResolutionTier(
+        o.targetTier || o.tier || o.space_resolution_tier
+    );
+    const scale = promoPortraitUpscaleScaleForUserTier(tier);
+    if (!scale || !buffer || !buffer.length) return null;
+    const token = getReplicateApiToken();
+    if (!token) {
+        const err = new Error(replicateTokenMissingMessage() + '，無法放大至所選解析度');
+        err.status = 503;
+        throw err;
+    }
+    const aspect = String(o.aspectRatio || o.aspect_ratio || '1:1').trim() || '1:1';
+    const target = promoSpaceGemini.resolveSpaceOutputDimensions({
+        tier: tier,
+        aspect_ratio: aspect
+    });
+    const upscaled = await stabilityFastUpscale(buffer, 'image/jpeg', token, {
+        scale: scale,
+        maxOutputMp: AI_EDIT_MAX_OUTPUT_MP
+    });
+    if (!upscaled || !upscaled.buffer || !upscaled.buffer.length) {
+        throw new Error('解析度放大失敗，請稍後再試');
+    }
+    const fitted = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+        upscaled.buffer,
+        target.width,
+        target.height,
+        {
+            tier: tier,
+            aspect_ratio: aspect,
+            allowUpscale: false
+        }
+    );
+    const measured = await promoSpaceGemini.measurePromoSpaceImageDimensions(fitted);
+    return {
+        buffer: fitted,
+        width: measured.width || upscaled.width || target.width,
+        height: measured.height || upscaled.height || target.height,
+        scale: scale
+    };
+}
+
+function promoPortraitOutputMegapixels(width, height) {
+    const w = Math.max(1, parseInt(width, 10) || 0);
+    const h = Math.max(1, parseInt(height, 10) || 0);
+    const mp = (w * h) / (1024 * 1024);
+    if (mp >= 10) return 16;
+    if (mp >= 2.5) return 4;
+    return 1;
+}
+
 function buildPromoPortraitStage3LightingPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     const parts = [
@@ -1373,7 +1457,7 @@ async function generatePromoPortraitStage3Lighting(lookBuffer, renderMode, extra
     const fluxModel = await getBflFluxModelIdForConfigKey(configKey);
     const prompt = buildPromoPortraitStage3LightingPrompt(extra && extra.cameraBlock);
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(lookBuffer);
-    const fluxSize = clampBflFluxOutputSize(native.width || 1024, native.height || 1024, 2048);
+    const fluxSize = clampBflFluxOutputSize(native.width || 1024, native.height || 1024, 1024);
     const safetyTolerance = normalizePromoPortraitRenderMode(renderMode) === 'experiment'
         ? await getPromoPortraitExperimentFluxSafetyTolerance()
         : 2;
@@ -1419,29 +1503,36 @@ async function applyPromoPortraitStage3LightingIfEnabled(step, renderMode, extra
     if (!step || !step.look || !step.look.buffer) return step;
     if (!(await getPromoPortraitStage3Enabled(renderMode))) return step;
     const lit = await generatePromoPortraitStage3Lighting(step.look.buffer, renderMode, extra);
+    let buffer = lit.buffer;
+    let width = lit.width;
+    let height = lit.height;
+    const up = await upscalePromoPortraitAfterStage3(buffer, extra);
+    if (up) {
+        buffer = up.buffer;
+        width = up.width;
+        height = up.height;
+        step.upscaleScale = up.scale;
+        step.upscaleProvider = 'real-esrgan';
+    }
     step.look = Object.assign({}, step.look, {
-        buffer: lit.buffer,
+        buffer: buffer,
         flux_model: lit.flux_model,
         flux_config_key: lit.flux_config_key
     });
     step.lightingPrompt = lit.prompt;
     step.stage3Model = lit.flux_model;
-    step.lookWidth = lit.width;
-    step.lookHeight = lit.height;
+    step.lookWidth = width;
+    step.lookHeight = height;
     return step;
 }
 
-/** 混合管線（兩段）：FLUX 1K 空景 → Gemini 依使用者 MP 將人像融入場景 */
+/** 混合管線：FLUX 1K 空景 → Gemini 放人；有第三階段時放人也 1K，光影後再放大到使用者 MP */
 async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePrompt, geminiOpts, extra) {
     const userOpts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
-    const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
-    const userTier = promoSpaceGemini.normalizeSpaceResolutionTier(
-        userOpts.tier || userOpts.space_resolution_tier || '1k'
-    );
-    const lookDims = promoSpaceGemini.resolveSpaceOutputDimensions({
-        tier: userTier,
-        aspect_ratio: userAspect
-    });
+    const work = await resolvePromoPortraitHybridWorkSize(userOpts, 'hybrid');
+    const userAspect = work.userAspect;
+    const userTier = work.userTier;
+    const lookDims = work.lookDims;
     const scenePrompt = String(fluxPrompt || '').trim();
     if (!scenePrompt) {
         const err = new Error('請先選擇攝影參數');
@@ -1479,7 +1570,7 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         swapPrompt,
         {
             model: liteModel,
-            tier: userTier,
+            tier: work.workTier,
             aspectRatio: userAspect,
             aspect_ratio: userAspect,
             minEdge: Math.max(lookDims.width, lookDims.height),
@@ -1509,20 +1600,20 @@ async function runPromoPortraitMoodFluxThenLite(imageRefs, fluxPrompt, facePromp
         draftHeight: draftH,
         lookWidth: faceMeasured.width || lookDims.width,
         lookHeight: faceMeasured.height || lookDims.height
-    }, 'hybrid', extra);
+    }, 'hybrid', Object.assign({}, extra || {}, {
+        targetTier: userTier,
+        aspectRatio: userAspect,
+        aspect_ratio: userAspect
+    }));
 }
 
-/** 審核友善兩段：FLUX 1K 空景 → Grok 融入人物（對齊混合流程，第二段換 Grok） */
+/** 審核友善：FLUX 1K 空景 → Grok 放人；有第三階段時放人也 1K，光影後再放大到使用者 MP */
 async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, facePrompt, grokOpts, extra) {
     const userOpts = grokOpts && typeof grokOpts === 'object' ? grokOpts : {};
-    const userAspect = String(userOpts.aspectRatio || userOpts.aspect_ratio || '1:1').trim() || '1:1';
-    const userTier = promoSpaceGemini.normalizeSpaceResolutionTier(
-        userOpts.tier || userOpts.space_resolution_tier || '1k'
-    );
-    const lookDims = promoSpaceGemini.resolveSpaceOutputDimensions({
-        tier: userTier,
-        aspect_ratio: userAspect
-    });
+    const work = await resolvePromoPortraitHybridWorkSize(userOpts, 'experiment');
+    const userAspect = work.userAspect;
+    const userTier = work.userTier;
+    const lookDims = work.lookDims;
     const scenePrompt = String(fluxPrompt || '').trim();
     if (!scenePrompt) {
         const err = new Error('請先選擇攝影參數');
@@ -1563,7 +1654,7 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
         {
             grokModel: grokModel,
             grokQuality: grokQuality,
-            tier: userTier,
+            tier: work.workTier,
             aspectRatio: userAspect,
             aspect_ratio: userAspect,
             targetWidth: lookDims.width,
@@ -1595,7 +1686,11 @@ async function runPromoPortraitExperimentFluxThenGrok(imageRefs, fluxPrompt, fac
         draftHeight: draftH,
         lookWidth: faceMeasured.width || lookDims.width,
         lookHeight: faceMeasured.height || lookDims.height
-    }, 'experiment', extra);
+    }, 'experiment', Object.assign({}, extra || {}, {
+        targetTier: userTier,
+        aspectRatio: userAspect,
+        aspect_ratio: userAspect
+    }));
 }
 
 /** 氛圍兩段：預設 Lite 1K → FLUX 輸出 MP；實驗可改 FLUX → Lite 修臉 */
@@ -3985,7 +4080,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 aspect_ratio: aspectRatio,
                 width: shotW,
                 height: shotH,
-                megapixels: promoImageMegapixelsFromResolution(Math.min(shotW, 2048), Math.min(shotH, 2048)),
+                megapixels: promoPortraitOutputMegapixels(shotW, shotH),
                 scene_template_key: themeKey || null,
                 scene_key: sceneKey || null,
                 user_prompt: userPrompt || null,
@@ -4090,7 +4185,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             shot_brief: shotBrief,
             width: shotW,
             height: shotH,
-            megapixels: promoImageMegapixelsFromResolution(Math.min(shotW, 2048), Math.min(shotH, 2048)),
+            megapixels: promoPortraitOutputMegapixels(shotW, shotH),
             camera_params: cameraParamsSnapshot,
             image_provider: imageProvider,
             mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
@@ -4403,7 +4498,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             aspect_ratio: aspectRatio,
             width: lookW,
             height: lookH,
-            megapixels: promoImageMegapixelsFromResolution(Math.min(lookW, 2048), Math.min(lookH, 2048)),
+            megapixels: promoPortraitOutputMegapixels(lookW, lookH),
             scene_template_key: themeKey || null,
             scene_key: sceneKey || null,
             user_prompt: userPrompt || null,
@@ -4505,7 +4600,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
             balance: balanceAfter,
             width: lookW,
             height: lookH,
-            megapixels: promoImageMegapixelsFromResolution(Math.min(lookW, 2048), Math.min(lookH, 2048)),
+            megapixels: promoPortraitOutputMegapixels(lookW, lookH),
             reference_count: refBases.length,
             generation_mode: 'camera_advanced',
             shoot_mode: 'portrait',
