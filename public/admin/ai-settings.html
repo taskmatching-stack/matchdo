@@ -108,47 +108,58 @@
               </div>
               <div class="border rounded p-3 mb-3 bg-light">
                 <h6 class="small fw-bold mb-2">清晰模式</h6>
-                <p class="form-text small text-muted mb-3">預設走 Gemini。備援開啟時：Gemini 外部審核回 400 會<strong>自動改走 FLUX</strong>（前台無感）。引擎選 <code>auto</code> 另含滿額／429 備援；選 <code>flux</code> 則全程 FLUX。</p>
-                <div class="row g-3">
-                  <div class="col-md-4">
-                    <label class="form-label small mb-1" for="promoPortraitClearFluxBackup">FLUX 備援</label>
-                    <select id="promoPortraitClearFluxBackup" class="form-select form-select-sm">
-                      <option value="1" selected>開啟（Gemini 失敗自動改 FLUX）</option>
-                      <option value="0">關閉</option>
-                    </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_backup</code></p>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label small mb-1" for="enginePromoPortraitClear">引擎</label>
+                <p class="form-text small text-muted mb-2">先選走哪條路，再填<strong>那一條</strong>的模型。Gemini 欄與 FLUX 欄是兩套，不會互相覆蓋。</p>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="enginePromoPortraitClear">走哪條路</label>
                     <select id="enginePromoPortraitClear" class="form-select form-select-sm">
-                      <option value="gemini" selected>gemini</option>
-                      <option value="auto">auto（Gemini → FLUX 備援）</option>
-                      <option value="flux">flux</option>
+                      <option value="gemini" selected>只用 Gemini（審核失敗會報錯，不改 FLUX）</option>
+                      <option value="auto">先 Gemini，失敗可改 FLUX</option>
+                      <option value="flux">只用 FLUX</option>
                     </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code>（預設 gemini）</p>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code>（預設只用 Gemini）</p>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型名稱</label>
-                    <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code> — 清晰主通道</p>
+                  <div class="col-md-6 d-flex align-items-end">
+                    <p class="small mb-2" id="clearPortraitEngineHint">現在只走 Gemini。FLUX 區不會被呼叫。</p>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitClear">FLUX 備援模型</label>
-                    <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — Gemini 400 或 auto 備援</p>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label small mb-1" for="promoPortraitClearFluxSafety">Safety tolerance</label>
-                    <input type="number" id="promoPortraitClearFluxSafety" class="form-control form-control-sm" min="0" max="5" step="1" value="5" />
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code> — 0–5，預設 5</p>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">自動改寫提示詞（FLUX.2 [pro] · <code>disable_pup</code>）</label>
-                    <select id="promoPortraitClearFluxPromptUpsampling" class="form-select form-select-sm">
-                      <option value="0" selected>關閉改寫（送 <code>disable_pup: true</code>，照原文）</option>
-                      <option value="1">開啟改寫（送 <code>disable_pup: false</code>，API 預設）</option>
-                    </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code> — 對照 <a href="https://docs.bfl.ai/api-reference/models/generate-or-edit-an-image-with-flux2-%5Bpro%5D" target="_blank" rel="noopener">BFL 官方 flux-2-pro</a>：<strong>沒有</strong> <code>prompt_upsampling</code> 欄位，僅 <code>disable_pup</code>。僅清晰 FLUX／Gemini 400 備援；Gemini 主通道不受此項影響。</p>
+                </div>
+                <div class="border rounded p-3 mb-3 bg-white" id="clearPortraitGeminiPanel">
+                  <h6 class="small fw-bold mb-2">Gemini 模型</h6>
+                  <p class="form-text small text-muted mb-2">「只用 Gemini」或「先 Gemini」時用這裡。</p>
+                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型 id</label>
+                  <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code></p>
+                </div>
+                <div class="border rounded p-3 bg-white" id="clearPortraitFluxPanel">
+                  <h6 class="small fw-bold mb-2">FLUX 模型與備援</h6>
+                  <p class="form-text small text-muted mb-2">「只用 FLUX」時用這裡當主通道。「先 Gemini，失敗可改 FLUX」且備援開啟時，才拿這裡當備援。選「只用 Gemini」時下面<strong>不會被呼叫</strong>，可先填著備用。</p>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxBackup">失敗時要不要改走 FLUX</label>
+                      <select id="promoPortraitClearFluxBackup" class="form-select form-select-sm">
+                        <option value="1" selected>要（僅「先 Gemini，失敗可改 FLUX」時有效）</option>
+                        <option value="0">不要（失敗就報錯）</option>
+                      </select>
+                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_backup</code></p>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small mb-1" for="bflFluxModelPromoPortraitClear">FLUX 模型 id</label>
+                      <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                      <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — 例如 flux-2-pro、flux-2-max</p>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxSafety">FLUX Safety tolerance</label>
+                      <input type="number" id="promoPortraitClearFluxSafety" class="form-control form-control-sm" min="0" max="5" step="1" value="5" />
+                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code> — 0–5，預設 5。不影響 Gemini。</p>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">FLUX 是否自動改寫提示詞</label>
+                      <select id="promoPortraitClearFluxPromptUpsampling" class="form-select form-select-sm">
+                        <option value="0" selected>不改寫（照原文）</option>
+                        <option value="1">讓 API 改寫</option>
+                      </select>
+                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code> — 只影響 FLUX（<code>disable_pup</code>）。不影響 Gemini。</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -561,6 +572,19 @@
       btn.classList.remove('btn-success');
     }, 2200);
   }
+  function syncClearPortraitEngineUi() {
+    var eng = document.getElementById('enginePromoPortraitClear');
+    var gemPanel = document.getElementById('clearPortraitGeminiPanel');
+    var fluxPanel = document.getElementById('clearPortraitFluxPanel');
+    var hint = document.getElementById('clearPortraitEngineHint');
+    var v = eng ? String(eng.value || 'gemini') : 'gemini';
+    if (gemPanel) gemPanel.classList.toggle('opacity-50', v === 'flux');
+    if (fluxPanel) fluxPanel.classList.toggle('opacity-50', v === 'gemini');
+    if (!hint) return;
+    if (v === 'gemini') hint.textContent = '現在只走 Gemini。下面 FLUX 區不會被呼叫。';
+    else if (v === 'flux') hint.textContent = '現在只走 FLUX。上面 Gemini 模型不會被呼叫。';
+    else hint.textContent = '先走 Gemini；備援選「要」時，審核失敗或滿額才改 FLUX。';
+  }
   function applyEngineConfigToForm(data) {
     var vendor = document.getElementById('engineVendorAsset');
     var combo = document.getElementById('engineMaterialCombo');
@@ -667,6 +691,7 @@
         : ((portraitClear && portraitClear.value) || 'gemini');
       portrait.value = syncEng;
     }
+    syncClearPortraitEngineUi();
     var hint = document.getElementById('engineConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -1369,6 +1394,11 @@
     document.getElementById('btnSaveSceneSimPrompt')?.addEventListener('click', saveSceneSimPrompt);
     document.getElementById('btnSavePatternExtractPrompt')?.addEventListener('click', savePatternExtractPrompt);
     document.getElementById('btnSavePatternExtractSeamlessPrompt')?.addEventListener('click', savePatternExtractSeamlessPrompt);
+    var clearEngSel = document.getElementById('enginePromoPortraitClear');
+    if (clearEngSel) {
+      clearEngSel.addEventListener('change', syncClearPortraitEngineUi);
+      syncClearPortraitEngineUi();
+    }
   });
 })();
   </script>

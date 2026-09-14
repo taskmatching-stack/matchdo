@@ -2263,7 +2263,8 @@ async function generatePromoPortraitClearFluxBackup(imageRefs, fluxPrompt, gemin
 
 /**
  * 人像：依清晰／氛圍模式解析引擎（後台可調）；未指定則用全域預設。
- * fluxOpts.enginePref 可覆寫。清晰模式：Gemini 外部審核 400 時自動改走 FLUX 備援（後台 bfl_flux_model_promo_portrait_clear）。
+ * 清晰：gemini＝只走 Gemini（審核失敗回前台，不改 FLUX）；
+ * auto＝Gemini，備援開啟時 400／滿額才改 FLUX；flux＝全程 FLUX。
  */
 async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, geminiOpts, fluxOpts) {
     const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
@@ -2280,6 +2281,8 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const hasFlux = !!process.env.BFL_API_KEY;
     const isClear = isPromoPortraitClearRenderMode(fo.renderMode);
     const clearBackupOn = isClear ? await getPromoPortraitClearFluxBackupEnabled() : false;
+    /* 備援只在引擎 auto：選 gemini 時不可無聲改走 FLUX */
+    const allowClearFluxBackup = isClear && pref === 'auto' && clearBackupOn;
     /* 清晰 FLUX：與官網 playground 相同，送 buildPromoPortraitFinalPrompt 全文 */
     const fluxPromptText = isClear ? geminiPrompt : (fluxPrompt || geminiPrompt);
 
@@ -2312,12 +2315,12 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
             () => generatePromoPortraitImageWithGemini(imageRefs, geminiPrompt, geminiOpts)
         );
         if (gated.used) return gated.result;
-        if (isClear && !clearBackupOn) {
+        if (forceGemini || !allowClearFluxBackup) {
             throwUnlessAcceptBackup(parseAcceptBackup(fo), true, checkDualColorGeminiQuota());
         }
         return runFluxPath('quota_or_429');
     } catch (err) {
-        if (isClear && clearBackupOn && isPromoPortraitExternalImageGenBlockedError(err) && hasFlux) {
+        if (allowClearFluxBackup && isPromoPortraitExternalImageGenBlockedError(err) && hasFlux) {
             console.warn('[promo-portrait clear] Gemini blocked (400), FLUX backup:', err && err.message);
             return runFluxPath('gemini_400_blocked', err && err.message);
         }
