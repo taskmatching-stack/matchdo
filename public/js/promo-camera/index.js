@@ -979,7 +979,7 @@
       if (mode === 'scene') {
         promptLabel.textContent = t('promoCamera.portraitDescScene', '描述（姿勢、表情等）');
       } else if (mode === 'prompt') {
-        promptLabel.textContent = t('promoCamera.portraitDescPrompt', '描述（服裝、髮型等，必填）');
+        promptLabel.textContent = t('promoCamera.portraitDescPrompt', '描述（服裝、髮型等）');
       } else {
         promptLabel.textContent = t('promoCamera.portraitDescReference', '描述（髮型、表情、姿勢；衣著維持參考圖）');
       }

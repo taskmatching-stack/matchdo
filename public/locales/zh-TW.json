@@ -1340,7 +1340,7 @@
   "promoCamera.portraitStylingHintPrompt": "服裝、髮型等請寫在描述欄。",
   "promoCamera.portraitDescReference": "描述（髮型、表情、姿勢；衣著維持參考圖）",
   "promoCamera.portraitDescScene": "描述（姿勢、表情等）",
-  "promoCamera.portraitDescPrompt": "描述（服裝、髮型等，必填）",
+  "promoCamera.portraitDescPrompt": "描述（服裝、髮型等）",
   "promoCamera.portraitPlaceholderReference": "例：俐落短髮、自然妝感（不改衣服）",
   "promoCamera.portraitPlaceholderScene": "例：側身回眸、自然微笑",
   "promoCamera.portraitStylingShortReference": "原圖衣著",

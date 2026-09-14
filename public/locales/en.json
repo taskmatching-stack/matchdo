@@ -1297,7 +1297,7 @@
   "promoCamera.portraitStylingHintPrompt": "Describe clothing and hairstyle in the prompt.",
   "promoCamera.portraitDescReference": "Description (hair, expression, pose; outfit from reference)",
   "promoCamera.portraitDescScene": "Description (pose, expression, etc.)",
-  "promoCamera.portraitDescPrompt": "Description (clothing, hairstyle, etc., required)",
+  "promoCamera.portraitDescPrompt": "Description (clothing, hairstyle, etc.)",
   "promoCamera.portraitPlaceholderReference": "e.g. short hair, natural makeup (keep outfit)",
   "promoCamera.portraitPlaceholderScene": "e.g. looking over shoulder, natural smile",
   "promoCamera.portraitStylingShortReference": "Reference",
