@@ -1792,10 +1792,12 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         : (String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait');
     const endpointUrl = await getBflFluxEndpointForConfigKey(fluxConfigKey);
     const fluxModel = await getBflFluxModelIdForConfigKey(fluxConfigKey);
-    const bases = (Array.isArray(imageRefs) ? imageRefs : [])
+    const refList = isClearFlux ? (Array.isArray(imageRefs) ? imageRefs : []).slice(0, 1) : (Array.isArray(imageRefs) ? imageRefs : []);
+    const bases = refList
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
+    const bflOutputFormat = isClearFlux ? 'png' : 'jpeg';
     let promptUpsampling = false;
     if (fo.promptUpsampling === true || fo.promptUpsampling === false) {
         promptUpsampling = fo.promptUpsampling;
@@ -1813,7 +1815,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         fluxSize.width,
         fluxSize.height,
         seed,
-        'jpeg',
+        bflOutputFormat,
         process.env.BFL_API_KEY,
         {
             promptUpsampling: promptUpsampling,
@@ -1823,22 +1825,29 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
-    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
-        rawBuffer,
-        targetW,
-        targetH,
-        {
-            tier: opts.tier || opts.space_resolution_tier,
-            aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
-            use_source_ratio: !!(opts.useSourceRatio || opts.use_source_ratio),
-            source_width: opts.sourceWidth || opts.source_width,
-            source_height: opts.sourceHeight || opts.source_height,
-            allowUpscale: false
-        }
-    );
+    const buffer = isClearFlux
+        ? rawBuffer
+        : await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+            rawBuffer,
+            targetW,
+            targetH,
+            {
+                tier: opts.tier || opts.space_resolution_tier,
+                aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
+                use_source_ratio: !!(opts.useSourceRatio || opts.use_source_ratio),
+                source_width: opts.sourceWidth || opts.source_width,
+                source_height: opts.sourceHeight || opts.source_height,
+                allowUpscale: false
+            }
+        );
     const fluxRequest = {
         config_key: fluxConfigKey,
         model: fluxModel,
+        width: fluxSize.width,
+        height: fluxSize.height,
+        output_format: bflOutputFormat,
+        input_image_count: bases.length,
+        seed: seed,
         safety_tolerance: safetyTolerance,
         prompt_rewrite_on: promptUpsampling,
         skip_prompt_translation: true,
@@ -1862,6 +1871,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         flux_config_key: fluxConfigKey,
         flux_request: fluxRequest,
         prompt_sent: prompt,
+        output_format: bflOutputFormat,
         seed: seed
     };
 }
@@ -1948,8 +1958,8 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const hasFlux = !!process.env.BFL_API_KEY;
     const isClear = isPromoPortraitClearRenderMode(fo.renderMode);
     const clearBackupOn = isClear ? await getPromoPortraitClearFluxBackupEnabled() : false;
-    /* 清晰：FLUX 與 Gemini 共用 finalPrompt（含衣著 reference/scene/prompt）；氛圍仍用短版 fluxPrompt */
-    const fluxPromptText = isClear ? (geminiPrompt || fluxPrompt) : (fluxPrompt || geminiPrompt);
+    /* 清晰 FLUX：與官網 playground 相同，送 buildPromoPortraitFinalPrompt 全文 */
+    const fluxPromptText = isClear ? geminiPrompt : (fluxPrompt || geminiPrompt);
 
     const runFluxPath = async function(reason, geminiBlockMsg) {
         if (!hasFlux) {
@@ -3705,10 +3715,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             totalDeducted += pointsPerShot;
         }
 
-        const imageData = buffer.toString('base64');
-        let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+        const portraitOutputFormat = portraitGenResult && portraitGenResult.output_format;
+        const imageData = promoResultImageDataUrl(buffer, portraitOutputFormat);
+        let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer, portraitOutputFormat);
         if (!resultImageUrl) {
-            resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+            resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer, portraitOutputFormat);
         }
 
         const cameraParamsSnapshot = { keys: cameraKeys, resolved: cameraResolved };
@@ -3853,7 +3864,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             draft_id: draftGenerationId,
             saved_to_library: !!generationId,
             library_warning: librarySaveWarning,
-            imageData: `data:image/jpeg;base64,${imageData}`,
+            imageData: imageData,
             image_url: resultImageUrl,
             draft_imageData: draftImageData,
             draft_image_url: draftImageUrl,
@@ -4400,10 +4411,11 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
     }
 
-    const imageData = buffer.toString('base64');
-    let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+    const portraitOutputFormat = portraitGenResultSingle && portraitGenResultSingle.output_format;
+    const imageData = promoResultImageDataUrl(buffer, portraitOutputFormat);
+    let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer, portraitOutputFormat);
     if (!resultImageUrl) {
-        resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+        resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer, portraitOutputFormat);
     }
 
     let balanceAfter = null;
@@ -4518,7 +4530,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         id: generationId,
         saved_to_library: !!generationId,
         library_warning: librarySaveWarning,
-        imageData: `data:image/jpeg;base64,${imageData}`,
+        imageData: imageData,
         image_url: resultImageUrl,
         points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
         balance: balanceAfter,
@@ -4530,6 +4542,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         shoot_mode: 'portrait',
         image_provider: imageProvider,
         fallback_reason: portraitGenResultSingle && portraitGenResultSingle.fallback_reason || null,
+        flux_request: portraitGenResultSingle && portraitGenResultSingle.flux_request || null,
         space_resolution_tier: spaceResTier,
         camera_params: cameraParamsSnapshot,
         final_prompt: finalPrompt,
@@ -5807,7 +5820,7 @@ async function buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, engine, opt
         text_to_image: !!o.textToImage,
         model: fluxModel,
         bfl_max_edge: 1024,
-        output_format: 'jpeg',
+        output_format: isClear ? 'png' : 'jpeg',
         prompt_only_camera: !!o.promptOnlyCamera,
         flux_backup: !!o.fluxBackup,
         engine: engine || null
@@ -5833,6 +5846,7 @@ async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, b
         fo.fluxConfigKey = PORTRAIT_CLEAR_FLUX_CONFIG_KEY;
         fo.safetyTolerance = await getPromoPortraitClearFluxSafetyTolerance();
         fo.promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
+        fo.portraitStylingMode = promoPortraitStyling.resolvePortraitStylingFromBody(body);
     }
     if (renderCtx && renderCtx.mode === 'experiment') {
         fo.enginePref = 'grok';
@@ -21690,14 +21704,32 @@ async function ensurePromoGenerationShowOnHomepage(generationId, showOn) {
     return { ok: false, error: error.message };
 }
 
-async function uploadPromoResultImageBuffer(userId, buffer) {
+function detectPromoResultImageFormat(buffer, hint) {
+    const h = String(hint || '').trim().toLowerCase();
+    if (h === 'png' || h === 'jpeg' || h === 'jpg') return h === 'jpg' ? 'jpeg' : h;
+    if (buffer && buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50) return 'png';
+    return 'jpeg';
+}
+
+function promoResultImageDataUrl(buffer, formatHint) {
+    const fmt = detectPromoResultImageFormat(buffer, formatHint);
+    return 'data:image/' + fmt + ';base64,' + buffer.toString('base64');
+}
+
+async function uploadPromoResultImageBuffer(userId, buffer, formatHint) {
     if (!buffer) return null;
+    const fmt = detectPromoResultImageFormat(buffer, formatHint);
+    const isPng = fmt === 'png';
     try {
         const uploaded = await uploadToSupabaseStorage(
             'custom-products',
             `promo/${userId}`,
-            { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
-            { ext: 'jpg', contentType: 'image/jpeg', skipNormalize: true }
+            {
+                buffer,
+                mimetype: isPng ? 'image/png' : 'image/jpeg',
+                originalname: 'promo-' + Date.now() + (isPng ? '.png' : '.jpg')
+            },
+            { ext: isPng ? 'png' : 'jpg', contentType: isPng ? 'image/png' : 'image/jpeg', skipNormalize: true }
         );
         return uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
     } catch (upErr) {
