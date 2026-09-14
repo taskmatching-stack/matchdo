@@ -1774,39 +1774,124 @@ async function generatePromoPortraitImageWithGemini(imageRefs, promptText, gemin
     };
 }
 
+function extractBflInputImageBase64(imageRefs) {
+    const list = Array.isArray(imageRefs) ? imageRefs : [];
+    let raw = '';
+    for (let i = 0; i < list.length; i++) {
+        const r = list[i];
+        raw = String((r && r.base64) ? r.base64 : r || '').trim();
+        if (raw) break;
+    }
+    if (raw.startsWith('data:')) {
+        const m = raw.match(/^data:image\/\w+;base64,(.+)$/);
+        raw = m ? m[1] : raw;
+    }
+    return raw;
+}
+
+/**
+ * 清晰人像 FLUX：對齊 BFL 官網 playground curl 的 body 欄位。
+ * 不走 bflPlaygroundImageEdit（那條可能翻譯 prompt、亂加圖、亂加 seed）。
+ */
+async function generatePromoPortraitClearFluxOfficial(imageRefs, promptText, fluxOpts) {
+    if (!process.env.BFL_API_KEY) {
+        throw new Error('情境圖服務暫未設定，請稍後再試');
+    }
+    const prompt = String(promptText || '').trim();
+    if (!prompt) throw new Error('人像提示詞為空');
+    const inputImage = extractBflInputImageBase64(imageRefs);
+    if (!inputImage) throw new Error('請上傳一張人像參考圖');
+    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
+    const fluxConfigKey = portraitClearFluxConfigKey(fo);
+    const endpointUrl = await getBflFluxEndpointForConfigKey(fluxConfigKey);
+    const fluxModel = await getBflFluxModelIdForConfigKey(fluxConfigKey);
+    const promptUpsampling = fo.promptUpsampling === true
+        ? true
+        : (fo.promptUpsampling === false ? false : await getPromoPortraitClearFluxPromptUpsampling());
+    const safetyTolerance = fo.safetyTolerance != null
+        ? Math.min(5, clampFluxSafetyTolerance(fo.safetyTolerance))
+        : await getPromoPortraitClearFluxSafetyTolerance();
+    const body = {
+        prompt: prompt,
+        width: 1024,
+        height: 1024,
+        safety_tolerance: safetyTolerance,
+        output_format: 'png',
+        disable_pup: !promptUpsampling,
+        input_image: inputImage
+    };
+    const rawBuffer = await runInBflQueue(async function () {
+        const createRes = await fetch(endpointUrl, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+                'x-key': process.env.BFL_API_KEY
+            },
+            body: JSON.stringify(body)
+        });
+        if (!createRes.ok) {
+            const errText = await createRes.text();
+            throw new Error('BFL create: ' + createRes.status + ' ' + errText);
+        }
+        const createData = await createRes.json();
+        return pollBflResult(createData, process.env.BFL_API_KEY);
+    });
+    if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
+    const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
+    return {
+        buffer: rawBuffer,
+        gemini_native_width: native.width || 0,
+        gemini_native_height: native.height || 0,
+        image_config: { engine: 'flux', model: fluxModel, width: 1024, height: 1024 },
+        api: 'bfl',
+        image_provider: 'flux',
+        flux_model: fluxModel,
+        flux_config_key: fluxConfigKey,
+        flux_request: {
+            endpoint: endpointUrl,
+            config_key: fluxConfigKey,
+            model: fluxModel,
+            width: 1024,
+            height: 1024,
+            output_format: 'png',
+            safety_tolerance: safetyTolerance,
+            disable_pup: !promptUpsampling,
+            input_image_count: 1,
+            prompt_chars: prompt.length
+        },
+        prompt_sent: prompt,
+        output_format: 'png'
+    };
+}
+
 async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiOpts, fluxOpts) {
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
     }
+    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
+    if (isPromoPortraitClearRenderMode(fo.renderMode)) {
+        return generatePromoPortraitClearFluxOfficial(imageRefs, promptText, fo);
+    }
     let prompt = String(promptText || '').trim();
     if (!prompt) throw new Error('人像提示詞為空');
     const opts = geminiOpts && typeof geminiOpts === 'object' ? geminiOpts : {};
-    const fo = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
     const targetW = opts.targetWidth || opts.width || 2048;
     const targetH = opts.targetHeight || opts.height || 2048;
     /* 官網實測：BFL 原生 1024 邊；人像 FLUX 禁止插值硬放大（allowUpscale: false） */
     const fluxSize = clampBflFluxOutputSize(targetW, targetH, 1024);
-    const isClearFlux = isPromoPortraitClearRenderMode(fo.renderMode);
-    const fluxConfigKey = isClearFlux
-        ? portraitClearFluxConfigKey(fo)
-        : (String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait');
+    const fluxConfigKey = String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait';
     const endpointUrl = await getBflFluxEndpointForConfigKey(fluxConfigKey);
     const fluxModel = await getBflFluxModelIdForConfigKey(fluxConfigKey);
-    const refList = isClearFlux ? (Array.isArray(imageRefs) ? imageRefs : []).slice(0, 1) : (Array.isArray(imageRefs) ? imageRefs : []);
-    const bases = refList
+    const bases = (Array.isArray(imageRefs) ? imageRefs : [])
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    const bflOutputFormat = isClearFlux ? 'png' : 'jpeg';
     let promptUpsampling = false;
     if (fo.promptUpsampling === true || fo.promptUpsampling === false) {
         promptUpsampling = fo.promptUpsampling;
-    } else if (isClearFlux) {
-        promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
     }
-    const safetyTolerance = isClearFlux && fo.safetyTolerance == null
-        ? await getPromoPortraitClearFluxSafetyTolerance()
-        : (fo.safetyTolerance != null ? clampFluxSafetyTolerance(fo.safetyTolerance) : 2);
+    const safetyTolerance = fo.safetyTolerance != null ? clampFluxSafetyTolerance(fo.safetyTolerance) : 2;
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -1815,7 +1900,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         fluxSize.width,
         fluxSize.height,
         seed,
-        bflOutputFormat,
+        'jpeg',
         process.env.BFL_API_KEY,
         {
             promptUpsampling: promptUpsampling,
@@ -1825,27 +1910,25 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
-    const buffer = isClearFlux
-        ? rawBuffer
-        : await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
-            rawBuffer,
-            targetW,
-            targetH,
-            {
-                tier: opts.tier || opts.space_resolution_tier,
-                aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
-                use_source_ratio: !!(opts.useSourceRatio || opts.use_source_ratio),
-                source_width: opts.sourceWidth || opts.source_width,
-                source_height: opts.sourceHeight || opts.source_height,
-                allowUpscale: false
-            }
-        );
+    const buffer = await promoSpaceGemini.ensurePromoSpaceOutputDimensions(
+        rawBuffer,
+        targetW,
+        targetH,
+        {
+            tier: opts.tier || opts.space_resolution_tier,
+            aspect_ratio: opts.aspectRatio || opts.aspect_ratio,
+            use_source_ratio: !!(opts.useSourceRatio || opts.use_source_ratio),
+            source_width: opts.sourceWidth || opts.source_width,
+            source_height: opts.sourceHeight || opts.source_height,
+            allowUpscale: false
+        }
+    );
     const fluxRequest = {
         config_key: fluxConfigKey,
         model: fluxModel,
         width: fluxSize.width,
         height: fluxSize.height,
-        output_format: bflOutputFormat,
+        output_format: 'jpeg',
         input_image_count: bases.length,
         seed: seed,
         safety_tolerance: safetyTolerance,
@@ -1871,7 +1954,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         flux_config_key: fluxConfigKey,
         flux_request: fluxRequest,
         prompt_sent: prompt,
-        output_format: bflOutputFormat,
+        output_format: 'jpeg',
         seed: seed
     };
 }
