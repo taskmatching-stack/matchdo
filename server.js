@@ -5766,19 +5766,27 @@ async function buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, engine, opt
         promptUpsampling = await getPromoPortraitExperimentFluxPromptUpsampling();
         safetyTolerance = await getPromoPortraitExperimentFluxSafetyTolerance();
     }
-    return {
-        prompt_upsampling: promptUpsampling,
-        disable_pup: !promptUpsampling,
+    const fluxModel = o.fluxModel || null;
+    const audit = {
+        prompt_rewrite_on: promptUpsampling,
         safety_tolerance: safetyTolerance,
         skip_prompt_translation: o.skipPromptTranslation !== false,
         text_to_image: !!o.textToImage,
-        model: o.fluxModel || null,
+        model: fluxModel,
         bfl_max_edge: 1024,
         output_format: 'jpeg',
         prompt_only_camera: !!o.promptOnlyCamera,
         flux_backup: !!o.fluxBackup,
         engine: engine || null
     };
+    if (isBflFluxFlexEndpoint(fluxModel ? getBflPlaygroundEndpoint(fluxModel) : '')) {
+        audit.bfl_param = 'prompt_upsampling';
+        audit.prompt_upsampling = promptUpsampling;
+    } else {
+        audit.bfl_param = 'disable_pup';
+        audit.disable_pup = !promptUpsampling;
+    }
+    return audit;
 }
 
 async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body) {
@@ -19919,6 +19927,25 @@ const BFL_PLAYGROUND_MODELS = {
     'flux-2-klein-4b': '/v1/flux-2-klein-4b'
 };
 
+/** FLUX.2 [flex] 用 prompt_upsampling；[pro]/[max]/preview 僅 disable_pup（docs.bfl.ai Flux2Inputs） */
+function isBflFluxFlexEndpoint(endpointUrl) {
+    return String(endpointUrl || '').toLowerCase().includes('/flux-2-flex');
+}
+
+/**
+ * @param {object} body BFL request body
+ * @param {string} endpointUrl
+ * @param {boolean} rewriteOn true=開啟自動改寫，false=關閉（照原文）
+ */
+function applyBflFluxPromptRewriteBody(body, endpointUrl, rewriteOn) {
+    if (rewriteOn !== true && rewriteOn !== false) return;
+    if (isBflFluxFlexEndpoint(endpointUrl)) {
+        body.prompt_upsampling = rewriteOn;
+        return;
+    }
+    body.disable_pup = !rewriteOn;
+}
+
 /** payment_config 鍵 → 程式預設 model id（空間平視備援預設 max；其餘 pro） */
 const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_generate: 'flux-2-pro',
@@ -20087,15 +20114,7 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     body.safety_tolerance = clampFluxSafetyTolerance(
         opts.safetyTolerance != null ? opts.safetyTolerance : FLUX_SAFETY_TOLERANCE_DEFAULT
     );
-    // FLUX.2 [pro]/[max]：預設會做 prompt upsampling；須設 disable_pup=true 才會「照原文」生圖
-    // （舊欄位 prompt_upsampling 對 flux-2-pro 無效，曾導致短中文被改寫成長描述）
-    if (opts.promptUpsampling === true) {
-        body.prompt_upsampling = true;
-        body.disable_pup = false;
-    } else if (opts.promptUpsampling === false) {
-        body.disable_pup = true;
-        body.prompt_upsampling = false;
-    }
+    applyBflFluxPromptRewriteBody(body, endpoint, opts.promptUpsampling);
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
     const createRes = await fetch(endpoint, {
@@ -20172,13 +20191,7 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
         safety_tolerance: 2
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
-    if (extra.promptUpsampling === true) {
-        body.prompt_upsampling = true;
-        body.disable_pup = false;
-    } else if (extra.promptUpsampling === false) {
-        body.disable_pup = true;
-        body.prompt_upsampling = false;
-    }
+    applyBflFluxPromptRewriteBody(body, endpointUrl, extra.promptUpsampling);
     const createRes = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
@@ -20215,13 +20228,7 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     const body = { prompt, output_format: (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg', width: w, height: h, input_image: images[0] };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
-    if (o.promptUpsampling === true) {
-        body.prompt_upsampling = true;
-        body.disable_pup = false;
-    } else if (o.promptUpsampling === false) {
-        body.disable_pup = true;
-        body.prompt_upsampling = false;
-    }
+    applyBflFluxPromptRewriteBody(body, endpointUrl, o.promptUpsampling);
     if (o.safetyTolerance != null && Number.isFinite(Number(o.safetyTolerance))) {
         body.safety_tolerance = Math.max(0, Math.min(6, Math.round(Number(o.safetyTolerance))));
     }

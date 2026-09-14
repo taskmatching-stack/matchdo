@@ -432,9 +432,17 @@
     if (data.render_mode) bits.push('模式 ' + data.render_mode);
     if (data.engine || data.image_provider) bits.push('引擎 ' + (data.engine || data.image_provider));
     if (data.flux_request) {
-      bits.push('upsampling ' + String(data.flux_request.prompt_upsampling));
-      bits.push('safety ' + String(data.flux_request.safety_tolerance));
-      if (data.flux_request.model) bits.push('model ' + data.flux_request.model);
+      var fr = data.flux_request;
+      if (fr.bfl_param === 'disable_pup' || fr.disable_pup === true || fr.disable_pup === false) {
+        bits.push('disable_pup ' + String(fr.disable_pup));
+      } else if (fr.bfl_param === 'prompt_upsampling' || fr.prompt_upsampling === true || fr.prompt_upsampling === false) {
+        bits.push('prompt_upsampling ' + String(fr.prompt_upsampling));
+      } else if (fr.prompt_rewrite_on === true || fr.prompt_rewrite_on === false) {
+        bits.push('改寫 ' + (fr.prompt_rewrite_on ? '開' : '關'));
+      }
+      if (fr.flux_backup) bits.push('FLUX 備援');
+      bits.push('safety ' + String(fr.safety_tolerance));
+      if (fr.model) bits.push('model ' + fr.model);
     }
     if (data.width && data.height) bits.push(data.width + '×' + data.height);
     if (metaEl) metaEl.textContent = bits.length ? bits.join(' · ') : '實際送出（測試用，與生圖同一組裝）';

@@ -143,12 +143,12 @@
                     <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code> — 0–5，預設 5</p>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">提示詞改寫（Prompt upsampling）</label>
+                    <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">自動改寫提示詞（FLUX.2 [pro] · <code>disable_pup</code>）</label>
                     <select id="promoPortraitClearFluxPromptUpsampling" class="form-select form-select-sm">
-                      <option value="0" selected>關閉（false，照原文）</option>
-                      <option value="1">開啟（true）</option>
+                      <option value="0" selected>關閉改寫（送 <code>disable_pup: true</code>，照原文）</option>
+                      <option value="1">開啟改寫（送 <code>disable_pup: false</code>，API 預設）</option>
                     </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code></p>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code> — 對照 <a href="https://docs.bfl.ai/api-reference/models/generate-or-edit-an-image-with-flux2-%5Bpro%5D" target="_blank" rel="noopener">BFL 官方 flux-2-pro</a>：<strong>沒有</strong> <code>prompt_upsampling</code> 欄位，僅 <code>disable_pup</code>。僅清晰 FLUX／Gemini 400 備援；Gemini 主通道不受此項影響。</p>
                   </div>
                 </div>
               </div>
