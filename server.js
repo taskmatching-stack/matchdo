@@ -1453,7 +1453,8 @@ function buildPromoPortraitStage3LightingPrompt(cameraBlock) {
     const parts = [
         'Keep the exact same person, face, identity, pose, outfit, body, and framing. Do not replace or redraw the person from another photo. The subject is already in this image.',
         'Only fuse lighting: match how light, shadow, color temperature, contrast, depth of field, and film texture fall on the person and the scene so they share one photographic setup.',
-        'Do not change identity, clothing, pose, composition, or background layout. Do not draw camera bodies, lenses, or tripods.'
+        'Do not change identity, clothing, pose, composition, or background layout. Do not draw camera bodies, lenses, or tripods.',
+        promoPortraitStyling.buildPortraitNoLensFlareGuard()
     ];
     if (cam) {
         parts.push('Photographic look (lighting and rendering only): ' + cam);
@@ -1466,7 +1467,82 @@ function buildPromoPortraitStage3LightingPrompt(cameraBlock) {
     return parts.join(' ');
 }
 
+function buildPromoPortraitStage3GrokLightingPrompt(cameraBlock) {
+    const cam = promoPortraitStyling.sanitizePromoCameraBlockForGrok(cameraBlock);
+    const parts = [
+        'Keep the exact same person, face, identity, pose, outfit, body, and framing. Do not replace or redraw the person from another photo. The subject is already in this image.',
+        'Only fuse lighting: match how light, shadow, color temperature, contrast, depth of field, and film texture fall on the person and the scene so they share one photographic setup.',
+        'Do not change identity, clothing, pose, composition, or background layout. Do not draw camera bodies, lenses, or tripods.',
+        promoPortraitStyling.buildPortraitNoLensFlareGuard()
+    ];
+    if (cam) {
+        parts.push('Photographic look (lighting and rendering only): ' + cam);
+    }
+    parts.push(promoPortraitStyling.buildPortraitFluxDehazeGuard());
+    parts.push(
+        'No text, labels, logos, watermarks, titles, timestamps, dates, or resolution numbers in the image. '
+        + 'Do not place any caption in the corners, along the top, or along the bottom.'
+    );
+    return parts.join(' ');
+}
+
+function buildPromoPortraitStage3LightingPromptForMode(renderMode, cameraBlock) {
+    if (normalizePromoPortraitRenderMode(renderMode) === 'experiment') {
+        return buildPromoPortraitStage3GrokLightingPrompt(cameraBlock);
+    }
+    return buildPromoPortraitStage3LightingPrompt(cameraBlock);
+}
+
+async function generatePromoPortraitExperimentStage3Grok(lookBuffer, extra) {
+    const apiKey = await getXaiApiKey();
+    if (!apiKey) {
+        const err = new Error('情境圖服務暫未設定，請稍後再試');
+        err.status = 503;
+        throw err;
+    }
+    if (!lookBuffer || !lookBuffer.length) {
+        throw new Error('光影融合缺少成品圖');
+    }
+    const prompt = buildPromoPortraitStage3GrokLightingPrompt(extra && extra.cameraBlock);
+    const model = await getPromoPortraitExperimentStage3GrokModel();
+    const quality = (extra && extra.grokQuality) || await getPromoPortraitExperimentGrokQuality();
+    const lookRef = jpegImageRefFromBuffer(lookBuffer);
+    let extracted;
+    try {
+        extracted = await runInGrokImagineQueue(function () {
+            return xaiImagine.editImageWithGrokImagine({
+                apiKey: apiKey,
+                model: model,
+                prompt: prompt,
+                images: [lookRef],
+                resolution: extra && (extra.workTier || extra.tier || extra.space_resolution_tier),
+                quality: quality
+            });
+        });
+    } catch (genErr) {
+        if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
+            throw markPromoPortraitExternalBlockErrorStatus(genErr);
+        }
+        throw genErr;
+    }
+    const rawBuffer = extracted && extracted.buffer;
+    if (!rawBuffer || !rawBuffer.length) throw new Error('光影融合失敗，請稍後再試');
+    const measured = await promoSpaceGemini.measurePromoSpaceImageDimensions(rawBuffer);
+    return {
+        buffer: rawBuffer,
+        prompt: prompt,
+        grok_model: extracted.model,
+        flux_model: null,
+        flux_config_key: null,
+        width: measured.width || 0,
+        height: measured.height || 0
+    };
+}
+
 async function generatePromoPortraitStage3Lighting(lookBuffer, renderMode, extra) {
+    if (normalizePromoPortraitRenderMode(renderMode) === 'experiment') {
+        return generatePromoPortraitExperimentStage3Grok(lookBuffer, extra);
+    }
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
     }
@@ -1482,9 +1558,7 @@ async function generatePromoPortraitStage3Lighting(lookBuffer, renderMode, extra
     const prompt = buildPromoPortraitStage3LightingPrompt(extra && extra.cameraBlock);
     const native = await promoSpaceGemini.measurePromoSpaceImageDimensions(lookBuffer);
     const fluxSize = clampBflFluxOutputSize(native.width || 1024, native.height || 1024, 2048);
-    const safetyTolerance = normalizePromoPortraitRenderMode(renderMode) === 'experiment'
-        ? await getPromoPortraitExperimentFluxSafetyTolerance()
-        : 2;
+    const safetyTolerance = 2;
     const body = {
         prompt: prompt,
         width: fluxSize.width,
@@ -1541,10 +1615,11 @@ async function applyPromoPortraitStage3LightingIfEnabled(step, renderMode, extra
     step.look = Object.assign({}, step.look, {
         buffer: buffer,
         flux_model: lit.flux_model,
-        flux_config_key: lit.flux_config_key
+        flux_config_key: lit.flux_config_key,
+        grok_model: lit.grok_model || null
     });
     step.lightingPrompt = lit.prompt;
-    step.stage3Model = lit.flux_model;
+    step.stage3Model = lit.grok_model || lit.flux_model;
     step.lookWidth = width;
     step.lookHeight = height;
     return step;
@@ -2700,7 +2775,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
             integratePipeline,
             reverseIntegrate ? fluxPrompt : geminiPrompt,
             reverseIntegrate ? facePrompt : fluxPrompt,
-            buildPromoPortraitStage3LightingPrompt(cameraBlock)
+            buildPromoPortraitStage3LightingPromptForMode(renderCtx.mode, cameraBlock)
         );
     }
     let fluxModel = null;
@@ -6256,6 +6331,20 @@ async function getPromoPortraitExperimentGrokModel() {
         }
     } catch (_) {}
     return xaiImagine.GROK_IMAGINE_MODEL_DEFAULT;
+}
+
+async function getPromoPortraitExperimentStage3GrokModel() {
+    try {
+        const { data: row } = await supabase
+            .from('payment_config')
+            .select('value')
+            .eq('key', 'grok_imagine_model_promo_portrait_experiment_stage3')
+            .maybeSingle();
+        if (row && row.value != null && String(row.value).trim()) {
+            return xaiImagine.normalizeGrokImagineModelId(row.value, await getPromoPortraitExperimentGrokModel());
+        }
+    } catch (_) {}
+    return getPromoPortraitExperimentGrokModel();
 }
 
 async function getPromoPortraitExperimentGrokQuality() {
@@ -15990,6 +16079,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             'promo_portrait_experiment_stage3_enabled',
             'promo_portrait_mood_pipeline',
             'grok_imagine_model_promo_portrait_experiment',
+            'grok_imagine_model_promo_portrait_experiment_stage3',
             'promo_portrait_experiment_grok_quality',
             'xai_api_key',
             'xai_management_api_key',
@@ -16068,6 +16158,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
             promo_portrait_experiment_stage3_enabled: await getPromoPortraitStage3Enabled('experiment'),
             promo_portrait_mood_pipeline: portraitMoodPipeline,
             grok_imagine_model_promo_portrait_experiment: grokExperimentModel,
+            grok_imagine_model_promo_portrait_experiment_stage3: await getPromoPortraitExperimentStage3GrokModel(),
             promo_portrait_experiment_grok_quality: grokExperimentQuality,
             xai_api_key_set: !!xaiKeySource,
             xai_api_key_source: xaiKeySource || null,
@@ -16125,6 +16216,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
                 promo_portrait_default_render_mode: !!byKey.promo_portrait_default_render_mode,
                 promo_portrait_mood_pipeline: !!byKey.promo_portrait_mood_pipeline,
                 grok_imagine_model_promo_portrait_experiment: !!byKey.grok_imagine_model_promo_portrait_experiment,
+                grok_imagine_model_promo_portrait_experiment_stage3: !!byKey.grok_imagine_model_promo_portrait_experiment_stage3,
                 promo_portrait_experiment_grok_quality: !!byKey.promo_portrait_experiment_grok_quality,
                 xai_api_key: !!byKey.xai_api_key,
                 xai_management_api_key: !!byKey.xai_management_api_key,
@@ -16269,6 +16361,20 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             upserts.push({
                 key: 'grok_imagine_model_promo_portrait_experiment',
                 value: raw || xaiImagine.GROK_IMAGINE_MODEL_DEFAULT,
+                updated_at: now
+            });
+        }
+        if (body.grok_imagine_model_promo_portrait_experiment_stage3 !== undefined) {
+            const rawS3 = String(body.grok_imagine_model_promo_portrait_experiment_stage3 || '').trim();
+            if (rawS3 && !xaiImagine.isPlausibleGrokImagineModelId(rawS3)) {
+                return res.status(400).json({
+                    error: '第三階段 Grok Imagine 模型 ID 無效',
+                    hint: '例如 grok-imagine-image-2.0、grok-imagine-image'
+                });
+            }
+            upserts.push({
+                key: 'grok_imagine_model_promo_portrait_experiment_stage3',
+                value: rawS3 || xaiImagine.GROK_IMAGINE_MODEL_DEFAULT,
                 updated_at: now
             });
         }
@@ -16462,6 +16568,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
                 ? normalizePromoPortraitMoodPipeline(byKey.promo_portrait_mood_pipeline)
                 : null,
             grok_imagine_model_promo_portrait_experiment: byKey.grok_imagine_model_promo_portrait_experiment || null,
+            grok_imagine_model_promo_portrait_experiment_stage3: byKey.grok_imagine_model_promo_portrait_experiment_stage3 || null,
             promo_portrait_experiment_grok_quality: byKey.promo_portrait_experiment_grok_quality != null
                 ? xaiImagine.normalizeGrokImagineQuality(byKey.promo_portrait_experiment_grok_quality)
                 : null,

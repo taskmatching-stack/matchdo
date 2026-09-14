@@ -192,7 +192,7 @@
               </div>
               <div class="border rounded p-3 bg-light mt-3" id="grokImagineSettingsCard">
                 <h6 class="small fw-bold mb-2">審核友善（FLUX 空景 → Grok 放人）</h6>
-                <p class="form-text small text-muted mb-3">前台「審核友善」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。流程與混合相同——① FLUX 文生空景 ② Grok 將人像融入場景（依所選 MP）。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。</p>
+                <p class="form-text small text-muted mb-3">前台「審核友善」：給<strong>大尺度產品</strong>用（內衣、泳裝等），<strong>仍須禁止裸露</strong>。限<strong>方案三／方案四</strong>會員（管理員／測試員不受限）。① FLUX 文生空景 ② Grok 將人像融入場景 ③ 可選：再開第三階段，用 Grok 套攝影光影（開關仍獨立）。解析度 1／4 MP；點數在 <a href="/admin/membership.html">會員／點數</a> 獨立設，不套訂閱 −5。</p>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperiment">空景 · FLUX 模型</label>
@@ -201,8 +201,11 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperiment">放入人物 · Grok 模型</label>
-                    <input type="text" id="grokImagineModelPromoPortraitExperiment" class="form-control form-control-sm font-monospace" placeholder="grok-imagine-image-2.0" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment</code> — 手填，例如 grok-imagine-image-2.0、grok-imagine-image、grok-imagine-image-quality</p>
+                    <select id="grokImagineModelPromoPortraitExperiment" class="form-select form-select-sm font-monospace">
+                      <option value="grok-imagine-image-2.0" selected>grok-imagine-image-2.0（2.0，可設 quality）</option>
+                      <option value="grok-imagine-image">grok-imagine-image（1.0，無 quality）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment</code> — 兩條都走同一支 <code>/v1/images/edits</code> 與同一把金鑰／佇列。2.0 才送 <code>quality</code>。</p>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="promoPortraitExperimentStage3Enabled">第三階段・光影融合</label>
@@ -210,12 +213,15 @@
                       <option value="0" selected>關閉（維持兩段）</option>
                       <option value="1">開啟（放人後再套攝影參數）</option>
                     </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_stage3_enabled</code> — 只吃第二段成品，<strong>不再送人像參考圖</strong></p>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_experiment_stage3_enabled</code> — 只吃第二段成品，<strong>不再送人像參考圖</strong>。開著時第三階段走 Grok，不是 FLUX。</p>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitExperimentStage3">第三階段 · FLUX 模型</label>
-                    <input type="text" id="bflFluxModelPromoPortraitExperimentStage3" class="form-control form-control-sm font-monospace" placeholder="flux-2-klein-9b" autocomplete="off" />
-                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_experiment_stage3</code> — 可填 <code>flux-2-klein-9b</code>／<code>flux-2-pro</code>／<code>flux-2-max</code></p>
+                    <label class="form-label small mb-1" for="grokImagineModelPromoPortraitExperimentStage3">第三階段 · Grok 模型</label>
+                    <select id="grokImagineModelPromoPortraitExperimentStage3" class="form-select form-select-sm font-monospace">
+                      <option value="grok-imagine-image-2.0" selected>grok-imagine-image-2.0（2.0，可設 quality）</option>
+                      <option value="grok-imagine-image">grok-imagine-image（1.0，無 quality）</option>
+                    </select>
+                    <p class="form-text small text-muted mb-0"><code>grok_imagine_model_promo_portrait_experiment_stage3</code> — 可與放入人物選不同模型，方便對照。空白未存時沿用放入人物那欄。</p>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label small mb-1" for="promoPortraitExperimentGrokQuality">畫質（2.0 <code>quality</code>）</label>
@@ -571,6 +577,18 @@
       btn.classList.remove('btn-success');
     }, 2200);
   }
+  function setSelectValueAllowCustom(el, value) {
+    if (!el) return;
+    var v = String(value || '').trim();
+    if (!v) return;
+    if (!el.querySelector('option[value="' + v.replace(/"/g, '\\"') + '"]')) {
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v + '（資料庫現值）';
+      el.appendChild(opt);
+    }
+    el.value = v;
+  }
   function syncClearPortraitEngineUi() {
     var eng = document.getElementById('enginePromoPortraitClear');
     var backupPanel = document.getElementById('clearPortraitFluxBackupPanel');
@@ -640,7 +658,7 @@
       expPup.value = data.promo_portrait_experiment_flux_prompt_upsampling === false ? '0' : '1';
     }
     var grokExpModel = document.getElementById('grokImagineModelPromoPortraitExperiment');
-    if (grokExpModel) grokExpModel.value = data.grok_imagine_model_promo_portrait_experiment || 'grok-imagine-image-2.0';
+    if (grokExpModel) setSelectValueAllowCustom(grokExpModel, data.grok_imagine_model_promo_portrait_experiment || 'grok-imagine-image-2.0');
     var grokExpQuality = document.getElementById('promoPortraitExperimentGrokQuality');
     if (grokExpQuality) {
       var gq = String(data.promo_portrait_experiment_grok_quality || 'auto').toLowerCase();
@@ -653,6 +671,15 @@
     var experimentStage3On = document.getElementById('promoPortraitExperimentStage3Enabled');
     if (experimentStage3On) {
       experimentStage3On.value = (data.promo_portrait_experiment_stage3_enabled === true || data.promo_portrait_experiment_stage3_enabled === '1') ? '1' : '0';
+    }
+    var grokExpStage3 = document.getElementById('grokImagineModelPromoPortraitExperimentStage3');
+    if (grokExpStage3) {
+      setSelectValueAllowCustom(
+        grokExpStage3,
+        data.grok_imagine_model_promo_portrait_experiment_stage3
+          || data.grok_imagine_model_promo_portrait_experiment
+          || 'grok-imagine-image-2.0'
+      );
     }
     var expPerMin = document.getElementById('promoPortraitExperimentPerMinute');
     if (expPerMin) {
@@ -791,10 +818,6 @@
     var hybridStage3Flux = document.getElementById('bflFluxModelPromoPortraitHybridStage3');
     if (data.bfl_flux_model_promo_portrait_hybrid_stage3 != null && hybridStage3Flux) {
       hybridStage3Flux.value = data.bfl_flux_model_promo_portrait_hybrid_stage3;
-    }
-    var experimentStage3Flux = document.getElementById('bflFluxModelPromoPortraitExperimentStage3');
-    if (data.bfl_flux_model_promo_portrait_experiment_stage3 != null && experimentStage3Flux) {
-      experimentStage3Flux.value = data.bfl_flux_model_promo_portrait_experiment_stage3;
     }
     var hint = document.getElementById('bflFluxConfigDbHint');
     if (hint && data.saved_in_db) {
@@ -1147,16 +1170,16 @@
         var el = document.getElementById('bflFluxModelPromoPortraitExperiment');
         return (el && el.value.trim()) || 'flux-2-max';
       })(),
-      bfl_flux_model_promo_portrait_experiment_stage3: (function () {
-        var el = document.getElementById('bflFluxModelPromoPortraitExperimentStage3');
-        return (el && el.value.trim()) || 'flux-2-klein-9b';
-      })(),
       promo_portrait_experiment_stage3_enabled: (function () {
         var el = document.getElementById('promoPortraitExperimentStage3Enabled');
         return !!(el && el.value === '1');
       })(),
       grok_imagine_model_promo_portrait_experiment: (function () {
         var el = document.getElementById('grokImagineModelPromoPortraitExperiment');
+        return (el && el.value.trim()) || 'grok-imagine-image-2.0';
+      })(),
+      grok_imagine_model_promo_portrait_experiment_stage3: (function () {
+        var el = document.getElementById('grokImagineModelPromoPortraitExperimentStage3');
         return (el && el.value.trim()) || 'grok-imagine-image-2.0';
       })(),
       promo_portrait_experiment_grok_quality: (function () {
