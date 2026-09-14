@@ -108,57 +108,56 @@
               </div>
               <div class="border rounded p-3 mb-3 bg-light">
                 <h6 class="small fw-bold mb-2">清晰模式</h6>
-                <p class="form-text small text-muted mb-2">先選走哪條路，再填<strong>那一條</strong>的模型。Gemini 欄與 FLUX 欄是兩套，不會互相覆蓋。</p>
+                <p class="form-text small text-muted mb-3">Gemini 與 FLUX <strong>各填各的模型</strong>，隨時都能改。要單獨用哪一套，用下面「生圖用哪個」切換。</p>
                 <div class="row g-3 mb-3">
                   <div class="col-md-6">
-                    <label class="form-label small mb-1" for="enginePromoPortraitClear">走哪條路</label>
+                    <label class="form-label small mb-1" for="enginePromoPortraitClear">生圖用哪個</label>
                     <select id="enginePromoPortraitClear" class="form-select form-select-sm">
-                      <option value="gemini" selected>只用 Gemini（審核失敗會報錯，不改 FLUX）</option>
-                      <option value="auto">先 Gemini，失敗可改 FLUX</option>
-                      <option value="flux">只用 FLUX</option>
+                      <option value="gemini" selected>Gemini</option>
+                      <option value="flux">FLUX</option>
+                      <option value="auto">Gemini（失敗才改 FLUX）</option>
                     </select>
-                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code>（預設只用 Gemini）</p>
+                    <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_engine</code> — 選 FLUX 就只走右邊那欄，不經過 Gemini。</p>
                   </div>
                   <div class="col-md-6 d-flex align-items-end">
-                    <p class="small mb-2" id="clearPortraitEngineHint">現在只走 Gemini。FLUX 區不會被呼叫。</p>
+                    <p class="small mb-2" id="clearPortraitEngineHint">現在用 Gemini。</p>
                   </div>
                 </div>
-                <div class="border rounded p-3 mb-3 bg-white" id="clearPortraitGeminiPanel">
-                  <h6 class="small fw-bold mb-2">Gemini 模型</h6>
-                  <p class="form-text small text-muted mb-2">「只用 Gemini」或「先 Gemini」時用這裡。</p>
-                  <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型 id</label>
-                  <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
-                  <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code></p>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="aiConfigGeminiModelPromoPortrait">Gemini 模型</label>
+                    <input type="text" id="aiConfigGeminiModelPromoPortrait" class="form-control form-control-sm font-monospace" placeholder="gemini-3-pro-image" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>gemini_model_promo_portrait</code></p>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small mb-1" for="bflFluxModelPromoPortraitClear">FLUX 模型</label>
+                    <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
+                    <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — 例如 flux-2-pro、flux-2-max。單獨用 FLUX 也是填這裡。</p>
+                  </div>
                 </div>
-                <div class="border rounded p-3 bg-white" id="clearPortraitFluxPanel">
-                  <h6 class="small fw-bold mb-2">FLUX 模型與備援</h6>
-                  <p class="form-text small text-muted mb-2">「只用 FLUX」時用這裡當主通道。「先 Gemini，失敗可改 FLUX」且備援開啟時，才拿這裡當備援。選「只用 Gemini」時下面<strong>不會被呼叫</strong>，可先填著備用。</p>
+                <div class="border rounded p-3 bg-white" id="clearPortraitFluxBackupPanel">
+                  <h6 class="small fw-bold mb-2">失敗改 FLUX（只有上面選「Gemini（失敗才改 FLUX）」才會用）</h6>
                   <div class="row g-3">
                     <div class="col-md-6">
-                      <label class="form-label small mb-1" for="promoPortraitClearFluxBackup">失敗時要不要改走 FLUX</label>
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxBackup">失敗時改走 FLUX</label>
                       <select id="promoPortraitClearFluxBackup" class="form-select form-select-sm">
-                        <option value="1" selected>要（僅「先 Gemini，失敗可改 FLUX」時有效）</option>
+                        <option value="1" selected>要</option>
                         <option value="0">不要（失敗就報錯）</option>
                       </select>
                       <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_backup</code></p>
                     </div>
-                    <div class="col-md-6">
-                      <label class="form-label small mb-1" for="bflFluxModelPromoPortraitClear">FLUX 模型 id</label>
-                      <input type="text" id="bflFluxModelPromoPortraitClear" class="form-control form-control-sm font-monospace" placeholder="flux-2-pro" autocomplete="off" />
-                      <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_portrait_clear</code> — 例如 flux-2-pro、flux-2-max</p>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label small mb-1" for="promoPortraitClearFluxSafety">FLUX Safety tolerance</label>
+                    <div class="col-md-3">
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxSafety">FLUX Safety</label>
                       <input type="number" id="promoPortraitClearFluxSafety" class="form-control form-control-sm" min="0" max="5" step="1" value="5" />
-                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code> — 0–5，預設 5。不影響 Gemini。</p>
+                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_safety_tolerance</code></p>
                     </div>
-                    <div class="col-md-8">
-                      <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">FLUX 是否自動改寫提示詞</label>
+                    <div class="col-md-3">
+                      <label class="form-label small mb-1" for="promoPortraitClearFluxPromptUpsampling">FLUX 改寫提示詞</label>
                       <select id="promoPortraitClearFluxPromptUpsampling" class="form-select form-select-sm">
-                        <option value="0" selected>不改寫（照原文）</option>
+                        <option value="0" selected>不改寫</option>
                         <option value="1">讓 API 改寫</option>
                       </select>
-                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code> — 只影響 FLUX（<code>disable_pup</code>）。不影響 Gemini。</p>
+                      <p class="form-text small text-muted mb-0"><code>promo_portrait_clear_flux_prompt_upsampling</code></p>
                     </div>
                   </div>
                 </div>
@@ -574,16 +573,14 @@
   }
   function syncClearPortraitEngineUi() {
     var eng = document.getElementById('enginePromoPortraitClear');
-    var gemPanel = document.getElementById('clearPortraitGeminiPanel');
-    var fluxPanel = document.getElementById('clearPortraitFluxPanel');
+    var backupPanel = document.getElementById('clearPortraitFluxBackupPanel');
     var hint = document.getElementById('clearPortraitEngineHint');
     var v = eng ? String(eng.value || 'gemini') : 'gemini';
-    if (gemPanel) gemPanel.classList.toggle('opacity-50', v === 'flux');
-    if (fluxPanel) fluxPanel.classList.toggle('opacity-50', v === 'gemini');
+    if (backupPanel) backupPanel.classList.toggle('opacity-50', v !== 'auto');
     if (!hint) return;
-    if (v === 'gemini') hint.textContent = '現在只走 Gemini。下面 FLUX 區不會被呼叫。';
-    else if (v === 'flux') hint.textContent = '現在只走 FLUX。上面 Gemini 模型不會被呼叫。';
-    else hint.textContent = '先走 Gemini；備援選「要」時，審核失敗或滿額才改 FLUX。';
+    if (v === 'gemini') hint.textContent = '現在用左邊 Gemini 模型。';
+    else if (v === 'flux') hint.textContent = '現在用右邊 FLUX 模型。';
+    else hint.textContent = '先用 Gemini；失敗且備援開著才改右邊 FLUX。';
   }
   function applyEngineConfigToForm(data) {
     var vendor = document.getElementById('engineVendorAsset');
