@@ -1293,6 +1293,7 @@
   "promoCamera.portraitStylingScene": "From scene",
   "promoCamera.portraitStylingPrompt": "From description",
   "promoCamera.portraitStylingHintReference": "Keeps the reference outfit; close-fit clothing may trigger moderation.",
+  "promoCamera.portraitStylingHintReferenceFlux": "If the outfit differs from the original photo, change the outfit or switch to Review-friendly mode.",
   "promoCamera.portraitStylingHintScene": "Outfit is replaced to match the scene; moderation is usually not a concern.",
   "promoCamera.portraitStylingHintPrompt": "Describe clothing and hairstyle in the prompt.",
   "promoCamera.portraitDescReference": "Description (hair, expression, pose; outfit from reference)",

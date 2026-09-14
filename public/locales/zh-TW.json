@@ -1336,6 +1336,7 @@
   "promoCamera.portraitStylingScene": "依場景",
   "promoCamera.portraitStylingPrompt": "依描述",
   "promoCamera.portraitStylingHintReference": "維持原圖衣著；貼身衣著可能觸發審查。",
+  "promoCamera.portraitStylingHintReferenceFlux": "若成圖服飾與原圖不同，請換服飾或切換至審核友善模式。",
   "promoCamera.portraitStylingHintScene": "衣著依場景替換，一般不需擔心審查。",
   "promoCamera.portraitStylingHintPrompt": "服裝、髮型等請寫在描述欄。",
   "promoCamera.portraitDescReference": "描述（髮型、表情、姿勢；衣著維持參考圖）",

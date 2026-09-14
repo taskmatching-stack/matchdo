@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'batch-download-20260908';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'outfit-flux-hint-20260915';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -75,14 +75,49 @@
     return appendLangToUrl('/custom-product.html?tab=promo-image');
   }
 
-  function resultNoteHtml() {
-    return '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
-      esc(t('promoCamera.resultNote', '生成後可下載，並儲存至「我的數位資產 → 情境圖」。')) + '</p>';
+  function portraitClearUsesFluxOrBackup() {
+    var opts = St.get().options || {};
+    var pack = (opts.portrait_render_modes || {}).clear || {};
+    var eng = String(pack.engine || '').toLowerCase();
+    if (eng === 'flux') return true;
+    if (eng === 'auto' && pack.flux_backup !== false) return true;
+    return false;
   }
 
-  function resultPanelOpts(extra) {
+  function portraitFluxOutfitHintText() {
+    return t(
+      'promoCamera.portraitStylingHintReferenceFlux',
+      '若成圖服飾與原圖不同，請換服飾或切換至審核友善模式。'
+    );
+  }
+
+  function portraitPromptEmpty() {
+    var el = document.getElementById('pcPromptInput');
+    var fromDom = el ? String(el.value || '').trim() : '';
+    var fromState = String((St.get() && St.get().userPrompt) || '').trim();
+    return !(fromDom || fromState);
+  }
+
+  function shouldShowPortraitFluxOutfitHintBefore() {
+    return isPortraitMode()
+      && portraitRenderMode() === 'clear'
+      && portraitStylingMode() === 'reference'
+      && portraitClearUsesFluxOrBackup()
+      && portraitPromptEmpty();
+  }
+
+  function resultNoteHtml(data) {
+    var html = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+      esc(t('promoCamera.resultNote', '生成後可下載，並儲存至「我的數位資產 → 情境圖」。')) + '</p>';
+    if (data && data.portrait_outfit_check_hint) {
+      html += '<p class="pc-review-warning mb-0 mt-2">' + esc(portraitFluxOutfitHintText()) + '</p>';
+    }
+    return html;
+  }
+
+  function resultPanelOpts(extra, data) {
     var base = {
-      resultNoteHtml: resultNoteHtml(),
+      resultNoteHtml: resultNoteHtml(data),
       actions: {
         labels: {
           download: t('promoCamera.download', '下載'),
@@ -523,7 +558,7 @@
             ? t('promoCamera.spaceLockResultTop', '俯視空間鎖定圖')
             : t('promoCamera.spaceLockResultIso', '空間鎖定圖'))))
     });
-    Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+    Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts(null, data));
     if (data && data.points_deducted != null) applyPointsDeductedToDisplay(data.points_deducted);
     appendPromptSentUnderResult(el, data);
     fillPromptSentPanel(data);
@@ -623,6 +658,14 @@
       grid.appendChild(item);
     });
     inner.appendChild(grid);
+    var outfitHint = !!(data && (data.portrait_outfit_check_hint
+      || (data.results || []).some(function (r) { return r && r.portrait_outfit_check_hint; })));
+    if (outfitHint) {
+      var outfitP = document.createElement('p');
+      outfitP.className = 'pc-review-warning mb-0 mt-2';
+      outfitP.textContent = portraitFluxOutfitHintText();
+      inner.appendChild(outfitP);
+    }
     var blockedFail = (data.results || []).filter(function (r) {
       return r && !r.success && (r.help_url || r.code === 'image_gen_blocked' || r.code === 'prompt_review_blocked'
         || /外部生圖審核|安全審核/.test(String(r.error || '')));
@@ -979,6 +1022,9 @@
         stylingHint.textContent = t('promoCamera.portraitStylingHintPrompt', '服裝、髮型等請寫在描述欄。');
       } else {
         stylingHint.textContent = t('promoCamera.portraitStylingHintReference', '維持原圖衣著；貼身衣著可能觸發審查。');
+        if (shouldShowPortraitFluxOutfitHintBefore()) {
+          stylingHint.textContent += ' ' + portraitFluxOutfitHintText();
+        }
       }
     }
     var promptLabel = document.querySelector('label[for="pcPromptInput"]');
@@ -2921,6 +2967,7 @@
         promptInput.addEventListener(evName, function () {
           syncPromptFromDom();
           updateGenerateBtn();
+          if (isPortraitMode()) syncPortraitStylingUi();
         });
       });
     }

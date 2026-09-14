@@ -809,6 +809,15 @@ function sanitizeUserFacingImageGenError(msg) {
     return s;
 }
 
+function portraitClearReferenceUsedFlux(renderMode, stylingMode, imageProvider, gen, userPrompt) {
+    if (normalizePromoPortraitRenderMode(renderMode) !== 'clear') return false;
+    if (promoPortraitStyling.normalizePortraitStylingMode(stylingMode) !== 'reference') return false;
+    if (String(userPrompt || '').trim()) return false;
+    if (String(imageProvider || (gen && gen.image_provider) || '').toLowerCase() === 'flux') return true;
+    if (gen && gen.fallback_reason) return true;
+    return false;
+}
+
 function promoPortraitBlockedClientPayload(genErr, renderMode) {
     if (!isPromoPortraitExternalImageGenBlockedError(genErr)) {
         return { error: sanitizeUserFacingImageGenError((genErr && genErr.message) || '') };
@@ -4215,6 +4224,9 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
             megapixels: promoPortraitOutputMegapixels(shotW, shotH),
             camera_params: cameraParamsSnapshot,
             image_provider: imageProvider,
+            portrait_outfit_check_hint: portraitClearReferenceUsedFlux(
+                renderCtx.mode, portraitStylingMode, imageProvider, portraitGenResult, userPrompt
+            ),
             mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
             compare_ref_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment')) ? moodLabels.ref : undefined,
             compare_result_label: (isAdmin && (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment')) ? moodLabels.result : undefined,
@@ -4264,6 +4276,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
         portrait_render_mode: renderCtx.mode || null,
         mood_pipeline_kind: (renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment') ? integratePipeline : null,
         image_provider: first.image_provider || 'gemini',
+        portrait_outfit_check_hint: okResults.some(function (r) { return r && r.portrait_outfit_check_hint; }),
         space_resolution_tier: spaceResTier,
         camera_params: first.camera_params || null
     }, isAdmin));
@@ -4883,6 +4896,9 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         generation_mode: 'camera_advanced',
         shoot_mode: 'portrait',
         image_provider: imageProvider,
+        portrait_outfit_check_hint: portraitClearReferenceUsedFlux(
+            renderCtx.mode, portraitStylingMode, imageProvider, portraitGenResultSingle, userPrompt
+        ),
         fallback_reason: portraitGenResultSingle && portraitGenResultSingle.fallback_reason || null,
         flux_request: portraitGenResultSingle && portraitGenResultSingle.flux_request || null,
         space_resolution_tier: spaceResTier,
@@ -22519,6 +22535,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
 
         const portraitEngine = await getPromoPortraitEngine();
         const clearEng = await getPromoPortraitEngineForRenderMode('clear');
+        const clearFluxBackup = await getPromoPortraitClearFluxBackupEnabled();
         const moodEng = await getPromoPortraitEngineForRenderMode('mood');
         const portraitExperimentAllowed = optionsUserId
             ? await canUsePromoPortraitExperiment(optionsUserId)
@@ -22600,7 +22617,11 @@ app.get('/api/promo-camera/options', async (req, res) => {
             portrait_experiment_per_minute: await getPromoPortraitExperimentPerMinute(),
             portrait_experiment_per_second: await getPromoPortraitExperimentPerSecond(),
             portrait_render_modes: {
-                clear: { engine: clearEng, mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16] },
+                clear: {
+                    engine: clearEng,
+                    mp_tiers: clearEng === 'flux' ? [1, 4] : [1, 4, 16],
+                    flux_backup: !!clearFluxBackup
+                },
                 mood: { engine: moodEng, mp_tiers: moodEng === 'flux' ? [1, 4] : [1, 4, 16], pipeline: 'lite_then_flux' },
                 hybrid: { engine: 'gemini', mp_tiers: [1, 4, 16], pipeline: 'flux_then_lite' },
                 experiment: { engine: 'grok', mp_tiers: [1, 4], pipeline: 'flux_then_grok', allowed: portraitExperimentAllowed }
