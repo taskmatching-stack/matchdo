@@ -1763,6 +1763,7 @@ async function getPointsPromoCameraPortrait(userId, tier, renderMode) {
  * 人像相機參數進 prompt（Gemini／FLUX 共用同一條）。
  * 只送鏡頭／曝光／底片等；剔除產品向 shooting_angle、subject_preservation
  * （人像 UI 已隱藏，但 state 可能仍帶產品預設 keep_reference／keep，會鎖姿勢）。
+ * 人像另剝產品向「不要改光／product photo」並把 EV 當整張測光（不加打亮人物）。
  * 不影響產品攝影：產品走 buildPromoCameraAdvancedPrompt，仍帶完整角度／人物保留。
  */
 async function buildPromoPortraitCameraBlock(cameraKeys) {
@@ -1774,9 +1775,14 @@ async function buildPromoPortraitCameraBlock(cameraKeys) {
     const angleCat = String(cameraUi.angle_button_category || 'shooting_angle').trim();
     if (angleCat) delete raw[angleCat];
     const cam = await resolvePromoCameraPromptFragments(raw, cameraUi);
-    const parts = (cam.fragments || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean);
+    const byCat = cam.fragmentsByCategory || {};
+    const evFrag = String(byCat.exposure_ev || '').trim();
+    const parts = (cam.fragments || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean)
+        .filter(function (f) { return !evFrag || f !== evFrag; });
+    if (evFrag) parts.push(evFrag);
+    const joined = parts.join('. ');
     return {
-        block: parts.join('. '),
+        block: promoPortraitStyling.sanitizePromoCameraBlockForPortrait(joined),
         resolved: cam.resolved || {}
     };
 }
