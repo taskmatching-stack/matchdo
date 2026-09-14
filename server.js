@@ -1926,7 +1926,8 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const hasFlux = !!process.env.BFL_API_KEY;
     const isClear = isPromoPortraitClearRenderMode(fo.renderMode);
     const clearBackupOn = isClear ? await getPromoPortraitClearFluxBackupEnabled() : false;
-    const fluxPromptText = fluxPrompt || geminiPrompt;
+    /* 清晰：FLUX 與 Gemini 共用 finalPrompt（含衣著 reference/scene/prompt）；勿送氛圍短版 fluxPrompt */
+    const fluxPromptText = isClear ? (geminiPrompt || fluxPrompt) : (fluxPrompt || geminiPrompt);
 
     const runFluxPath = async function(reason, geminiBlockMsg) {
         if (!hasFlux) {
@@ -2322,7 +2323,7 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const engine = isTwoStep ? (isExperiment ? 'grok' : 'flux') : renderCtx.engine;
     const promptSent = isTwoStep
         ? formatPromoPortraitMoodPromptSent(integratePipeline, reverseIntegrate ? fluxPrompt : geminiPrompt, reverseIntegrate ? facePrompt : fluxPrompt)
-        : (engine === 'flux' ? fluxPrompt : geminiPrompt);
+        : (renderCtx.mode === 'clear' ? geminiPrompt : (engine === 'flux' ? fluxPrompt : geminiPrompt));
     let fluxModel = null;
     let grokModel = null;
     if (isTwoStep && reverseIntegrate) {
