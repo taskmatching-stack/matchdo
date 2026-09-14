@@ -1786,7 +1786,10 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     const targetH = opts.targetHeight || opts.height || 2048;
     /* 官網實測：BFL 原生 1024 邊；人像 FLUX 禁止插值硬放大（allowUpscale: false） */
     const fluxSize = clampBflFluxOutputSize(targetW, targetH, 1024);
-    const fluxConfigKey = String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait';
+    const isClearFlux = isPromoPortraitClearRenderMode(fo.renderMode);
+    const fluxConfigKey = isClearFlux
+        ? portraitClearFluxConfigKey(fo)
+        : (String(fo.fluxConfigKey || '').trim() || 'bfl_flux_model_promo_portrait');
     const endpointUrl = await getBflFluxEndpointForConfigKey(fluxConfigKey);
     const fluxModel = await getBflFluxModelIdForConfigKey(fluxConfigKey);
     const bases = (Array.isArray(imageRefs) ? imageRefs : [])
@@ -1796,9 +1799,12 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
     let promptUpsampling = false;
     if (fo.promptUpsampling === true || fo.promptUpsampling === false) {
         promptUpsampling = fo.promptUpsampling;
-    } else if (isPromoPortraitClearRenderMode(fo.renderMode)) {
+    } else if (isClearFlux) {
         promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
     }
+    const safetyTolerance = isClearFlux && fo.safetyTolerance == null
+        ? await getPromoPortraitClearFluxSafetyTolerance()
+        : (fo.safetyTolerance != null ? clampFluxSafetyTolerance(fo.safetyTolerance) : 2);
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -1812,9 +1818,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         {
             promptUpsampling: promptUpsampling,
             skipPromptTranslation: true,
-            safetyTolerance: fo.safetyTolerance != null
-                ? clampFluxSafetyTolerance(fo.safetyTolerance)
-                : 2
+            safetyTolerance: safetyTolerance
         }
     );
     if (!rawBuffer || !rawBuffer.length) throw new Error('生成失敗，請稍後再試');
@@ -1832,6 +1836,21 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
             allowUpscale: false
         }
     );
+    const fluxRequest = {
+        config_key: fluxConfigKey,
+        model: fluxModel,
+        safety_tolerance: safetyTolerance,
+        prompt_rewrite_on: promptUpsampling,
+        skip_prompt_translation: true,
+        prompt_chars: prompt.length
+    };
+    if (isBflFluxFlexEndpoint(endpointUrl)) {
+        fluxRequest.bfl_param = 'prompt_upsampling';
+        fluxRequest.prompt_upsampling = promptUpsampling;
+    } else {
+        fluxRequest.bfl_param = 'disable_pup';
+        fluxRequest.disable_pup = !promptUpsampling;
+    }
     return {
         buffer,
         gemini_native_width: native.width || 0,
@@ -1840,6 +1859,9 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         api: 'bfl',
         image_provider: 'flux',
         flux_model: fluxModel,
+        flux_config_key: fluxConfigKey,
+        flux_request: fluxRequest,
+        prompt_sent: prompt,
         seed: seed
     };
 }
@@ -1926,7 +1948,7 @@ async function generatePromoPortraitImage(imageRefs, geminiPrompt, fluxPrompt, g
     const hasFlux = !!process.env.BFL_API_KEY;
     const isClear = isPromoPortraitClearRenderMode(fo.renderMode);
     const clearBackupOn = isClear ? await getPromoPortraitClearFluxBackupEnabled() : false;
-    /* 清晰：FLUX 與 Gemini 共用 finalPrompt（含衣著 reference/scene/prompt）；勿送氛圍短版 fluxPrompt */
+    /* 清晰：FLUX 與 Gemini 共用 finalPrompt（含衣著 reference/scene/prompt）；氛圍仍用短版 fluxPrompt */
     const fluxPromptText = isClear ? (geminiPrompt || fluxPrompt) : (fluxPrompt || geminiPrompt);
 
     const runFluxPath = async function(reason, geminiBlockMsg) {
@@ -3599,7 +3621,11 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 usedGeminiModel = (gen && gen.gemini_model) || usedGeminiModel;
                 usedFluxModel = (gen && gen.flux_model) || null;
                 usedGrokModel = (gen && gen.grok_model) || null;
-                if ((imageProvider === 'flux' || imageProvider === 'grok') && fluxPrompt) finalPrompt = fluxPrompt;
+                if ((imageProvider === 'flux' || imageProvider === 'grok') && fluxPrompt && renderCtx.mode !== 'clear') {
+                    finalPrompt = fluxPrompt;
+                } else if (imageProvider === 'flux' && portraitGenResult && portraitGenResult.prompt_sent) {
+                    finalPrompt = portraitGenResult.prompt_sent;
+                }
             }
         } catch (genErr) {
             if (isBackupConfirmError(genErr) && !results.some((r) => r && r.success)) {
@@ -3712,6 +3738,7 @@ async function handlePromoCameraPortraitBatchGenerate(req, res, ctx) {
                 gemini_model: usedGeminiModel || null,
                 flux_model: usedFluxModel || null,
                 grok_model: usedGrokModel || null,
+                flux_request: portraitGenResult && portraitGenResult.flux_request || null,
                 portrait_render_mode: renderCtx.mode || null,
                 portrait_styling_mode: portraitStylingMode,
                 mood_pipeline: renderCtx.mode === 'mood' || renderCtx.mode === 'hybrid' || renderCtx.mode === 'experiment',
@@ -4345,7 +4372,11 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         geminiModel = (gen && gen.gemini_model) || null;
         fluxModel = (gen && gen.flux_model) || null;
         grokModel = (gen && gen.grok_model) || null;
-        if ((imageProvider === 'flux' || imageProvider === 'grok') && fluxPrompt) finalPrompt = fluxPrompt;
+        if ((imageProvider === 'flux' || imageProvider === 'grok') && fluxPrompt && renderCtx.mode !== 'clear') {
+            finalPrompt = fluxPrompt;
+        } else if (imageProvider === 'flux' && gen && gen.prompt_sent) {
+            finalPrompt = gen.prompt_sent;
+        }
         var portraitGenResultSingle = gen;
     } catch (genErr) {
         if (isPromoPortraitExternalImageGenBlockedError(genErr)) {
@@ -4419,6 +4450,7 @@ async function handlePromoCameraPortraitGenerate(req, res, ctx) {
         gemini_model: imageProvider === 'gemini' ? (geminiModel || await getPromoPortraitModelName()) : null,
         flux_model: imageProvider === 'flux' ? fluxModel : null,
         grok_model: imageProvider === 'grok' ? grokModel : null,
+        flux_request: portraitGenResultSingle && portraitGenResultSingle.flux_request || null,
         space_resolution_tier: spaceResTier,
         portrait_render_mode: renderCtx.mode || null,
         portrait_styling_mode: portraitStylingMode
@@ -5870,6 +5902,7 @@ async function getPromoPortraitExperimentGrokQuality() {
 
 async function resolvePromoPortraitFluxSafetyTolerance(mode, promoOpts) {
     if (mode === 'experiment') return getPromoPortraitExperimentFluxSafetyTolerance();
+    if (mode === 'clear') return getPromoPortraitClearFluxSafetyTolerance();
     return resolveFluxSafetyToleranceForPromo(promoOpts);
 }
 
