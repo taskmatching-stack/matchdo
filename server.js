@@ -1449,6 +1449,7 @@ function buildPromoPortraitStage3LightingPrompt(cameraBlock) {
     if (cam) {
         parts.push('Photographic look (lighting and rendering only): ' + cam);
     }
+    parts.push(promoPortraitStyling.buildPortraitFluxDehazeGuard());
     parts.push(
         'No text, labels, logos, watermarks, titles, timestamps, dates, or resolution numbers in the image. '
         + 'Do not place any caption in the corners, along the top, or along the bottom.'
@@ -2035,7 +2036,7 @@ async function generatePromoPortraitClearFluxOfficial(imageRefs, promptText, flu
     if (!process.env.BFL_API_KEY) {
         throw new Error('情境圖服務暫未設定，請稍後再試');
     }
-    const prompt = String(promptText || '').trim();
+    const prompt = promoPortraitStyling.applyPortraitFluxDehazeGuard(promptText);
     if (!prompt) throw new Error('人像提示詞為空');
     const inputImage = extractBflInputImageBase64(imageRefs);
     if (!inputImage) throw new Error('請上傳一張人像參考圖');
@@ -2680,7 +2681,11 @@ async function assemblePromoPortraitPromptsFromBody(body) {
     const engine = isTwoStep ? (isExperiment ? 'grok' : 'flux') : renderCtx.engine;
     let promptSent = isTwoStep
         ? formatPromoPortraitMoodPromptSent(integratePipeline, reverseIntegrate ? fluxPrompt : geminiPrompt, reverseIntegrate ? facePrompt : fluxPrompt)
-        : (renderCtx.mode === 'clear' ? geminiPrompt : (engine === 'flux' ? fluxPrompt : geminiPrompt));
+        : (renderCtx.mode === 'clear'
+            ? (engine === 'flux'
+                ? promoPortraitStyling.applyPortraitFluxDehazeGuard(geminiPrompt)
+                : geminiPrompt)
+            : (engine === 'flux' ? fluxPrompt : geminiPrompt));
     if (isTwoStep && reverseIntegrate && (await getPromoPortraitStage3Enabled(renderCtx.mode))) {
         promptSent = formatPromoPortraitMoodPromptSent(
             integratePipeline,
