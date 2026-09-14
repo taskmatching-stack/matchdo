@@ -195,11 +195,13 @@
       if (state.portraitRenderMode === 'experiment' && data.portrait_experiment_allowed !== true) {
         state.portraitRenderMode = 'clear';
       }
+      applyPortraitStylingDefaultForRenderMode();
       applyPortraitMoodFilmLookDefault();
     }
   }
 
   function setPortraitRenderMode(mode) {
+    var prev = state.portraitRenderMode;
     var m = String(mode || '').toLowerCase();
     if (m === 'hybrid' || m === 'mix' || m === 'mixed') state.portraitRenderMode = 'hybrid';
     else if (m === 'mood') state.portraitRenderMode = 'mood';
@@ -208,7 +210,18 @@
       state.portraitRenderMode = allowed ? 'experiment' : 'clear';
     }
     else state.portraitRenderMode = 'clear';
+    if (state.portraitRenderMode === 'experiment' && prev !== 'experiment') {
+      state.portraitStylingMode = 'reference';
+    } else if (state.portraitRenderMode !== 'experiment' && prev === 'experiment') {
+      state.portraitStylingMode = 'scene';
+    }
     applyPortraitMoodFilmLookDefault();
+  }
+
+  /** 審核友善預設依原圖；其餘人像模式預設依場景 */
+  function applyPortraitStylingDefaultForRenderMode() {
+    if (state.shootMode !== 'portrait') return;
+    state.portraitStylingMode = state.portraitRenderMode === 'experiment' ? 'reference' : 'scene';
   }
 
   /** 人像氛圍：成像來源預設底片模擬（清晰仍走人像參數預設） */

@@ -1793,7 +1793,12 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         .map(function (r) { return r && r.base64 ? r.base64 : r; })
         .filter(Boolean);
     if (!bases.length) throw new Error('請上傳一張人像參考圖');
-    /* 氛圍第二段傳 promptUpsampling: false。實驗由後台「改寫提示詞」決定，未存前預設開。 */
+    let promptUpsampling = false;
+    if (fo.promptUpsampling === true || fo.promptUpsampling === false) {
+        promptUpsampling = fo.promptUpsampling;
+    } else if (isPromoPortraitClearRenderMode(fo.renderMode)) {
+        promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
+    }
     const seed = Math.floor(Math.random() * 2147483647);
     const rawBuffer = await bflPlaygroundImageEdit(
         endpointUrl,
@@ -1805,7 +1810,7 @@ async function generatePromoPortraitImageWithFlux(imageRefs, promptText, geminiO
         'jpeg',
         process.env.BFL_API_KEY,
         {
-            promptUpsampling: fo.promptUpsampling !== false,
+            promptUpsampling: promptUpsampling,
             skipPromptTranslation: true,
             safetyTolerance: fo.safetyTolerance != null
                 ? clampFluxSafetyTolerance(fo.safetyTolerance)
@@ -2370,19 +2375,32 @@ async function assemblePromoPortraitPromptsFromBody(body) {
         height: outDims.height,
         space_resolution_tier: outDims.tier,
         grok_model: grokModel,
-        flux_request: (isTwoStep && reverseIntegrate) || engine === 'flux'
-            ? {
-                prompt_upsampling: false,
-                disable_pup: true,
-                safety_tolerance: 2,
-                skip_prompt_translation: !reverseIntegrate,
-                text_to_image: !!reverseIntegrate,
-                model: fluxModel,
-                bfl_max_edge: 1024,
-                output_format: 'jpeg',
-                prompt_only_camera: isMood && !reverseIntegrate
+        flux_request: await (async function () {
+            if (isTwoStep && reverseIntegrate) {
+                return buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, engine, {
+                    skipPromptTranslation: false,
+                    textToImage: true,
+                    fluxModel: fluxModel
+                });
             }
-            : null
+            if (engine === 'flux') {
+                return buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, engine, {
+                    skipPromptTranslation: true,
+                    textToImage: false,
+                    fluxModel: fluxModel,
+                    promptOnlyCamera: isMood && !reverseIntegrate
+                });
+            }
+            if (renderCtx.mode === 'clear' && engine === 'gemini' && await getPromoPortraitClearFluxBackupEnabled()) {
+                return buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, 'flux', {
+                    skipPromptTranslation: true,
+                    textToImage: false,
+                    fluxModel: fluxModel,
+                    fluxBackup: true
+                });
+            }
+            return null;
+        })()
     };
 }
 
@@ -5732,6 +5750,35 @@ async function getPromoPortraitExperimentFluxPromptUpsampling() {
         }
     } catch (_) {}
     return true;
+}
+
+async function buildPromoPortraitFluxRequestAuditSnapshot(renderCtx, engine, opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const mode = renderCtx && renderCtx.mode;
+    const isClear = mode === 'clear';
+    const isExperiment = mode === 'experiment';
+    let promptUpsampling = false;
+    let safetyTolerance = 2;
+    if (isClear) {
+        promptUpsampling = await getPromoPortraitClearFluxPromptUpsampling();
+        safetyTolerance = await getPromoPortraitClearFluxSafetyTolerance();
+    } else if (isExperiment && o.textToImage) {
+        promptUpsampling = await getPromoPortraitExperimentFluxPromptUpsampling();
+        safetyTolerance = await getPromoPortraitExperimentFluxSafetyTolerance();
+    }
+    return {
+        prompt_upsampling: promptUpsampling,
+        disable_pup: !promptUpsampling,
+        safety_tolerance: safetyTolerance,
+        skip_prompt_translation: o.skipPromptTranslation !== false,
+        text_to_image: !!o.textToImage,
+        model: o.fluxModel || null,
+        bfl_max_edge: 1024,
+        output_format: 'jpeg',
+        prompt_only_camera: !!o.promptOnlyCamera,
+        flux_backup: !!o.fluxBackup,
+        engine: engine || null
+    };
 }
 
 async function buildPromoPortraitImageFluxOpts(renderCtx, fluxSafetyTolerance, body) {

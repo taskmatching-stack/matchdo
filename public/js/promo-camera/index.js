@@ -1177,6 +1177,7 @@
       if (St.setPortraitRenderMode) St.setPortraitRenderMode(v);
       syncPortraitExperimentAccess();
       syncPortraitRenderHint();
+      syncPortraitStylingUi();
       /* 氛圍／混合／實驗（FLUX）預設 1MP；清晰維持使用者目前選擇 */
       if ((v === 'mood' || v === 'hybrid' || v === 'experiment') && St.setSpaceResolutionTier) {
         St.setSpaceResolutionTier('1k');
