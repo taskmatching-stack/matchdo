@@ -1473,7 +1473,8 @@ function buildPromoPortraitStage3GrokLightingPrompt(cameraBlock) {
         'Keep the exact same person, face, identity, pose, outfit, body, and framing. Do not replace or redraw the person from another photo. The subject is already in this image.',
         'Only fuse lighting: match how light, shadow, color temperature, contrast, depth of field, and film texture fall on the person and the scene so they share one photographic setup.',
         'Do not change identity, clothing, pose, composition, or background layout. Do not draw camera bodies, lenses, or tripods.',
-        promoPortraitStyling.buildPortraitNoLensFlareGuard()
+        promoPortraitStyling.buildPortraitNoLensFlareGuard(),
+        promoPortraitStyling.buildPortraitGrokBokehRestraint()
     ];
     if (cam) {
         parts.push('Photographic look (lighting and rendering only): ' + cam);
