@@ -4,7 +4,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>MATCHDO - 合做</title>
+    <title data-i18n-doc-title="home.docTitle">MATCHDO - 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品,設計稿,廠商媒合,合做,訂製,MATCHDO">
     <meta name="description" content="MatchDO 合做 — 訂製品設計、情境影像產出、廠商媒合與數位素材管理。">
@@ -263,14 +263,14 @@
             <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
                 <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="搜尋作品（標題、提示詞或標籤）" style="max-width: 280px;" autocomplete="off">
                 <button type="button" id="media-wall-search-btn" class="btn btn-sm btn-outline-primary" data-i18n="home.searchBtn">搜尋</button>
-                <button type="button" id="mw-fav-filter-btn" class="btn btn-sm btn-outline-secondary" title="只顯示我的收藏作品">
+                <button type="button" id="mw-fav-filter-btn" class="btn btn-sm btn-outline-secondary" title="只顯示我的收藏作品" data-i18n-title="home.myFavorites">
                     <i class="bi bi-heart me-1"></i><span data-i18n="home.myFavorites">我的收藏</span><span class="fav-count"></span>
                 </button>
-                <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型" data-i18n="home.layoutAll">全部</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign">設計稿</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖" data-i18n="home.layoutComparison">對照圖</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="系列圖" data-i18n="home.layoutSeries">系列圖</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="promo_scene" role="button" tabindex="0" title="情境圖" data-i18n="home.layoutPromoScene">情境圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型" data-i18n="home.layoutAll" data-i18n-title="home.layoutAll">全部</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign" data-i18n-title="home.layoutDesign">設計稿</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖" data-i18n="home.layoutComparison" data-i18n-title="home.layoutComparison">對照圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="系列圖" data-i18n="home.layoutSeries" data-i18n-title="home.layoutSeries">系列圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="promo_scene" role="button" tabindex="0" title="情境圖" data-i18n="home.layoutPromoScene" data-i18n-title="home.layoutPromoScene">情境圖</span>
                 <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary d-none" data-i18n="home.loadMore">載入更多</button>
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">
@@ -292,13 +292,13 @@
             </div>
             <div id="media-wall-empty" class="text-center text-muted py-5 d-none"><span data-i18n="home.emptyPrefix">目前尚無作品展示，歡迎來</span> <a href="/custom/" data-i18n="home.emptyLink">客製產品</a> <span data-i18n="home.emptySuffix">創作。</span></div>
             <div id="media-wall-loading" class="text-center py-4" data-i18n="home.loading">載入中...</div>
-            <nav class="media-wall-seo-desc" aria-label="網站主要頁面">
-                <a href="/custom-product.html">產品設計</a>
-                <a href="/custom/gallery.html">圖庫找廠商</a>
-                <a href="/vendors.html">廠商列表</a>
-                <a href="/design-direction/">設計風向</a>
-                <a href="/promo-camera">商攝導演</a>
-                <a href="/subscription-plans.html">方案與定價</a>
+            <nav class="media-wall-seo-desc" aria-label="網站主要頁面" data-i18n-aria-label="home.mainPagesAria">
+                <a href="/custom-product.html" data-i18n="nav.productDesign">產品設計</a>
+                <a href="/custom/gallery.html" data-i18n="nav.galleryFindVendor">圖庫找廠商</a>
+                <a href="/vendors.html" data-i18n="help.vendorList">廠商列表</a>
+                <a href="/design-direction/" data-i18n="nav.remake">設計風向</a>
+                <a href="/promo-camera" data-i18n="nav.promoCamera">商攝導演</a>
+                <a href="/subscription-plans.html" data-i18n="nav.subscriptionPlans">方案與定價</a>
             </nav>
             <!-- 點擊卡片放大：限制不超出視窗、樣式統一（lightbox 本體已移至 body 下，避免背後版面被擠壓） -->
             <style>
@@ -459,7 +459,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
-    <script src="/js/i18n.js"></script>
+    <script src="/js/i18n.js?v=20260917-en-chrome2"></script>
     <script src="/js/site-header.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async function () {
@@ -503,8 +503,8 @@
 
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
-    <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-gen-links.js?v=1"></script>
+    <script src="/iStudio-1.0.0/js/site-common.js?v=20260917-en-chrome"></script>
+    <script src="/js/media-wall-gen-links.js?v=20260917b"></script>
     <script src="/js/media-wall-promo-scene.js?v=20260812-space-mp"></script>
     <script src="/js/media-wall-mixed-layout.js?v=20260807e"></script>
     <script src="/js/main.js"></script>

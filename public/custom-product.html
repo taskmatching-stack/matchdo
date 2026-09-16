@@ -13,7 +13,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="matchdo-asset-version" content="46">
-    <title>產品設計 - MATCHDO 合做</title>
+    <title data-i18n-doc-title="customProduct.docTitle">產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="index, follow">
     <meta name="keywords" content="客製產品設計,設計稿,廠商媒合,訂製,MATCHDO">
@@ -285,7 +285,7 @@
                                 <div class="col-6 col-md-4 vendor-picker-area-cell">
                                     <label class="form-label small text-muted mb-0" for="vendorAssetsServiceArea" data-i18n="customProduct.filterServiceArea">服務區域</label>
                                     <select class="form-select form-select-sm" id="vendorAssetsServiceArea">
-                                        <option value="">服務區域 — 全部</option>
+                                        <option value="" data-i18n="customProduct.serviceAreaAll">服務區域 — 全部</option>
                                     </select>
                                 </div>
                                 <div class="col-6 col-md-4 vendor-picker-catalog-cell d-none">
@@ -1618,14 +1618,14 @@
                         <div class="create-panel-left cp-spec-compose">
                             <details class="cp-spec-block">
                                 <summary class="cp-spec-summary">
-                                    <span class="cp-spec-kicker">產品描述</span>
-                                    <span class="cp-spec-value" data-cp-spec="prompt">未填</span>
+                                    <span class="cp-spec-kicker" data-i18n="customProduct.specKickerPrompt">產品描述</span>
+                                    <span class="cp-spec-value" data-cp-spec="prompt">—</span>
                                 </summary>
                                 <div class="cp-spec-body">
                             <div class="form-row full">
                                 <div class="prompt-label-row d-flex align-items-center gap-2 flex-wrap mb-1">
                                     <label class="label mb-0" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle prompt-help-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptHelpModal" aria-label="操作說明" title="操作說明" data-i18n-title="customProduct.promptHelpBtnTitle">?</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle prompt-help-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptHelpModal" aria-label="操作說明" title="操作說明" data-i18n-title="customProduct.promptHelpBtnTitle" data-i18n-aria-label="customProduct.promptHelpBtnTitle">?</button>
                                     <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
                                 </div>
                                 <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
@@ -1636,8 +1636,8 @@
 
                             <details class="cp-spec-block">
                                 <summary class="cp-spec-summary">
-                                    <span class="cp-spec-kicker">產品類型</span>
-                                    <span class="cp-spec-value" data-cp-spec="category">未選</span>
+                                    <span class="cp-spec-kicker" data-i18n="customProduct.specKickerCategory">產品類型</span>
+                                    <span class="cp-spec-value" data-cp-spec="category">—</span>
                                 </summary>
                                 <div class="cp-spec-body">
                             <div class="cat-scroll-picker">
@@ -1660,8 +1660,8 @@
 
                             <details class="cp-spec-block">
                                 <summary class="cp-spec-summary">
-                                    <span class="cp-spec-kicker">參考圖</span>
-                                    <span class="cp-spec-value" data-cp-spec="refs">未選</span>
+                                    <span class="cp-spec-kicker" data-i18n="customProduct.specKickerRefs">參考圖</span>
+                                    <span class="cp-spec-value" data-cp-spec="refs">—</span>
                                 </summary>
                                 <div class="cp-spec-body">
                             <div class="form-row full">
@@ -1681,8 +1681,8 @@
 
                             <details class="cp-spec-block" id="seedDetails">
                                 <summary class="cp-spec-summary">
-                                    <span class="cp-spec-kicker">進階</span>
-                                    <span class="cp-spec-value" data-cp-spec="seed">隨機</span>
+                                    <span class="cp-spec-kicker" data-i18n="customProduct.specKickerSeed">進階</span>
+                                    <span class="cp-spec-value" data-cp-spec="seed">—</span>
                                 </summary>
                                 <div class="cp-spec-body">
                                     <div class="form-row full" style="margin-bottom: 0;">
@@ -1709,7 +1709,7 @@
                         <div class="create-panel-right" id="generatedImagePreviewWrap">
                             <div id="generatedImagePreview"></div>
                             <div id="pastGeneratedGallery" class="past-gallery"></div>
-                            <p class="placeholder-hint mb-0" id="generatedImagePlaceholder">生成後的設計稿會顯示在這裡</p>
+                            <p class="placeholder-hint mb-0" id="generatedImagePlaceholder" data-i18n="customProduct.draftsAppearHere">生成後的設計稿會顯示在這裡</p>
                             <p class="design-ai-disclaimer" role="note">
                                 <i class="bi bi-exclamation-circle-fill design-ai-disclaimer-icon" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">設計稿為創意溝通工具，實際製造規格與成品以廠商確認為準。</span>
                             </p>
@@ -1731,11 +1731,11 @@
                             <strong id="bs-cat-main-label"></strong>／<strong id="bs-cat-sub-label"></strong>
                             <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline bs-change-cat-desktop" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">變更分類</button>
                             <span class="btn-group btn-group-sm ms-2 align-baseline" role="group" id="bs-browse-mode-toggle" aria-label="版型來源">
-                                <button type="button" class="btn btn-primary active" id="bs-mode-vendor" data-bs-browse-mode="vendor" data-i18n="customProduct.vendorStylesBrowseVendor" title="由廠商提供的專屬版型，可搭配材料與配件">
-                                    <i class="bi bi-shop me-1"></i>廠商版型
+                                <button type="button" class="btn btn-primary active" id="bs-mode-vendor" data-bs-browse-mode="vendor" title="由廠商提供的專屬版型，可搭配材料與配件">
+                                    <i class="bi bi-shop me-1"></i><span data-i18n="customProduct.vendorStylesBrowseVendor">廠商版型</span>
                                 </button>
-                                <button type="button" class="btn btn-outline-primary" id="bs-mode-official" data-bs-browse-mode="official" data-i18n="customProduct.vendorStylesBrowseOfficial" title="平台精選的通用版型，可快速套用">
-                                    <i class="bi bi-patch-check me-1"></i>官方版型
+                                <button type="button" class="btn btn-outline-primary" id="bs-mode-official" data-bs-browse-mode="official" title="平台精選的通用版型，可快速套用">
+                                    <i class="bi bi-patch-check me-1"></i><span data-i18n="customProduct.vendorStylesBrowseOfficial">官方版型</span>
                                 </button>
                             </span>
                         </div>
@@ -1780,13 +1780,13 @@
                                     <input type="text" id="sceneSimPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.promptOptional" placeholder="選填，可描述想放的位置或穿戴方式" />
                                 </div>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1">圖片</span>
+                                    <span class="label w-100 mb-1" data-i18n="customProduct.imagesLabel">圖片</span>
                                     <div class="scene-sim-two-col">
                                         <div class="scene-sim-col">
                                             <span class="scene-sim-col-label" data-i18n="customProduct.environmentPerson">環境／人物</span>
                                             <div id="sceneSimUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" aria-label="Upload environment or person image">
                                                 <input type="file" id="sceneSimFile" accept="image/*" class="d-none">
-                                                <label for="sceneSimFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text">點擊或拖曳</span></label>
+                                                <label for="sceneSimFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text" data-i18n="customProduct.clickOrDrag">點擊或拖曳</span></label>
                                                 <img id="sceneSimUploadImg" src="" alt="" class="scene-sim-upload-img d-none">
                                             </div>
                                         </div>
@@ -2077,14 +2077,14 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js" defer></script>
     <!-- Bootstrap 已於 head #bs-bundle-js；supabase／auth-config 已於 #site-header 前同步載入，勿再 defer 重複載入 -->
     <script src="/js/auth-middleware.js" defer></script>
-    <script src="/js/i18n.js" defer></script>
+    <script src="/js/i18n.js?v=20260917-en-chrome2" defer></script>
     <script src="/lib/wow/wow.min.js" defer></script>
     <script src="/lib/easing/easing.min.js" defer></script>
     <script src="/lib/waypoints/waypoints.min.js" defer></script>
     <script src="/lib/owlcarousel/owl.carousel.min.js" defer></script>
 
     <!-- Template Javascript -->
-    <script src="/js/site-common.js" defer></script>
+    <script src="/js/site-common.js?v=20260917-en-chrome" defer></script>
     <script src="/js/image-lightbox.js?v=gallery-fast-browse-20260820" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="/js/custom-product-cat-picker.js?v=5" defer></script>
@@ -2096,11 +2096,28 @@
     <script src="/js/show-on-homepage-control.js?v=20260803a"></script>
     <script src="/js/material-dual-color-import.js?v=20260804d"></script>
     <script src="/js/design-workspace-tabs.js?v=7"></script>
-    <script src="/js/media-wall-gen-links.js?v=1" defer></script>
+    <script src="/js/media-wall-gen-links.js?v=20260917b" defer></script>
     <script src="/js/backup-generate-confirm.js?v=20260903" defer></script>
-    <script src="/js/custom-product.js?v=158" defer></script>
-    <script src="/js/custom-product-spec-summary-ui.js?v=20260821e" defer></script>
-    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); if (window.MatchdoMediaWallGenLinks) { var _mwEl = document.getElementById('mwGenWallLinkWrap'); window.MatchdoMediaWallGenLinks.renderGenToWallLink(_mwEl, window.MatchdoMediaWallGenLinks.catalogKeyFromDesignPath()); } }); }</script>
+    <script src="/js/custom-product.js?v=160" defer></script>
+    <script src="/js/custom-product-spec-summary-ui.js?v=20260917b" defer></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+                if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs();
+                if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
+                if (window.MatchdoMediaWallGenLinks) {
+                    var _mwEl = document.getElementById('mwGenWallLinkWrap');
+                    window.MatchdoMediaWallGenLinks.renderGenToWallLink(_mwEl, window.MatchdoMediaWallGenLinks.catalogKeyFromDesignPath());
+                }
+                if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
+                    window.CustomProductSpecSummary.refresh();
+                }
+            });
+        }
+    });
+    </script>
 </body>
 
 </html>

@@ -91,10 +91,16 @@ $(document).ready(function () {
     var refVendorName = urlParams ? decodeURIComponent(urlParams.get('vendor_name') || '') : '';
     if (refVendorMfrId) {
         $('#btnRefFromThisVendorAssets').removeClass('d-none');
-        if (refVendorName) $('#btnRefFromThisVendorAssets').html('<i class="bi bi-box-seam me-1"></i>' + refVendorName + ' 版型');
-        else $('#btnRefFromThisVendorAssets').html('<i class="bi bi-box-seam me-1"></i>廠商版型');
         $('#btnRefFromVendorAssets').addClass('d-none');
     }
+    function syncVendorRefButtonLabel() {
+        if (!refVendorMfrId) return;
+        var label = refVendorName
+            ? (refVendorName + tr('customProduct.selectFromVendorBaseSuffix', ' 版型庫選擇'))
+            : tr('customProduct.selectFromThisVendorBase', '從此廠商版型庫選擇');
+        $('#btnRefFromThisVendorAssets').html('<i class="bi bi-box-seam me-1"></i>' + $('<span></span>').text(label).html());
+    }
+    syncVendorRefButtonLabel();
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）
     let lastGeneratedSeed = null;      // 最近一次使用的 Seed（可重現風格，供儲存）
@@ -5109,7 +5115,7 @@ $(document).ready(function () {
     }
 
     function getGalleryTitle(ownerDisplay) {
-        return (ownerDisplay || t('customProduct.thisAccount')) + t('customProduct.digitalAssetsSuffix');
+        return (ownerDisplay || tr('customProduct.thisAccount', '該帳號')) + tr('customProduct.digitalAssetsSuffix', '的數位資產');
     }
 
     function buildPastItemWrapFromProduct(p, eagerLoad) {
@@ -6378,6 +6384,13 @@ $(document).ready(function () {
     function refreshDesignShellI18n() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         syncDesignTabActiveUi(getTabParamFromPathname());
+        syncMediaWallGenLink();
+        syncVendorRefButtonLabel();
+        var $galleryTitle = $('.past-gallery-title');
+        if ($galleryTitle.length) $galleryTitle.text(getGalleryTitle(galleryOwnerDisplay || ''));
+        if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
+            window.CustomProductSpecSummary.refresh();
+        }
     }
     if (window.i18n && window.i18n.ready) {
         window.i18n.ready.then(refreshDesignShellI18n);

@@ -33,7 +33,7 @@
             else if (t === '連結') h.textContent = 'Links';
             else if (t === '服務') h.textContent = 'Services';
         });
-        var links = el.querySelectorAll('.btn.btn-link');
+        var links = el.querySelectorAll('.btn.btn-link, .copyright a');
         links.forEach(function (a) {
             var t = a.textContent.trim();
             if (t === '首頁') a.textContent = 'Home';
@@ -42,6 +42,12 @@
             else if (t === '聯絡我們') a.textContent = 'Contact Us';
             else if (t === '關於我們') a.textContent = 'About us';
             else if (t === '使用說明') a.textContent = 'Help';
+            else if (t === '圖庫找廠商') a.textContent = 'Find vendors';
+            else if (t === '廠商列表') a.textContent = 'Vendor list';
+            else if (t === '設計風向') a.textContent = 'Design direction';
+            else if (t === '商攝導演') a.textContent = 'Promo camera';
+            else if (t === '方案與定價') a.textContent = 'Plans';
+            else if (t === '常見問題') a.textContent = 'FAQs';
         });
     }
 

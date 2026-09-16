@@ -41,7 +41,7 @@
         var s = fallback || '';
         if (root.i18n && root.i18n.t) {
             var v = root.i18n.t(key);
-            if (v) s = v;
+            if (v && v !== key) s = v;
         }
         if (vars) {
             Object.keys(vars).forEach(function (k) {
