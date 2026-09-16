@@ -1804,7 +1804,7 @@ $(document).ready(function () {
     }
 
     function guideLinkedRefSlotKey(ref, assetNode) {
-        var kind = (assetNode && assetNode.asset_kind) || (ref && ref.asset_kind) || '';
+        var kind = String((assetNode && assetNode.asset_kind) || (ref && ref.asset_kind) || '').toLowerCase();
         if (kind === 'material') return 'material';
         if (kind === 'part') return 'part';
         return null;
@@ -1814,20 +1814,22 @@ $(document).ready(function () {
         if (!refs || !refs.length || !treeData) return Promise.resolve();
         var linked = treeData.linked_assets || [];
         var byId = {};
-        linked.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
+        linked.forEach(function (a) {
+            if (!a || a.id == null || a.id === '') return;
+            byId[a.id] = a;
+            byId[String(a.id)] = a;
+        });
         var proto = treeData.prototype || {};
         var slotsToClear = {};
         refs.forEach(function (ref) {
-            // 只帶入「此原型樹」上的關聯項（避免殘留 session 誤塞其他款的材／配）
-            if (!ref || !ref.id || !byId[ref.id]) return;
-            var slotKey = guideLinkedRefSlotKey(ref, byId[ref.id]);
+            var a = (ref && ref.id != null) ? (byId[ref.id] || byId[String(ref.id)]) : null;
+            var slotKey = guideLinkedRefSlotKey(ref, a);
             if (slotKey) slotsToClear[slotKey] = true;
         });
         Object.keys(slotsToClear).forEach(function (slotKey) { clearRefSlot(slotKey); });
         var chain = Promise.resolve();
         refs.forEach(function (ref) {
-            var a = byId[ref.id];
-            if (!a) return;
+            var a = (ref && ref.id != null) ? (byId[ref.id] || byId[String(ref.id)]) : null;
             var slotKey = guideLinkedRefSlotKey(ref, a);
             if (!slotKey) return;
             var imgUrl = (ref.image_url || (a && a.image_url) || '').trim();
@@ -1900,12 +1902,6 @@ $(document).ready(function () {
         session = session || consumeGuideSessionFromStorage();
         var p = treeData && treeData.prototype;
         if (!p) return Promise.resolve();
-        // 只套用同一原型的角度圖（殘留 session 不可塞進別款）
-        if (session.protoRefs && session.protoRefs.length) {
-            session.protoRefs = session.protoRefs.filter(function (r) {
-                return r && r.image_url && (!r.id || String(r.id) === String(p.id));
-            });
-        }
         var chain = Promise.resolve();
         if (session.protoRefs.length) {
             chain = chain.then(function () { return applyGuidePrototypeRefsToSlot(session.protoRefs, p); });
@@ -1913,7 +1909,6 @@ $(document).ready(function () {
         if (session.linkedRefs.length) {
             chain = chain.then(function () { return applyGuideLinkedRefsToSlots(session.linkedRefs, treeData); });
         }
-        // 舊版（de697ba）：看可搭配帶回只套 session，不再開版型選圖視窗
         return chain;
     }
 
@@ -2105,6 +2100,17 @@ $(document).ready(function () {
         if (!urlParams) return;
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
         var hasGuideSession = peekGuideSessionPending();
+        if (!pid && hasGuideSession) {
+            try {
+                var protoRaw = sessionStorage.getItem('matchdo.guidePrototypeRefs');
+                if (protoRaw) {
+                    var protoArr = JSON.parse(protoRaw);
+                    if (Array.isArray(protoArr) && protoArr[0] && protoArr[0].id) {
+                        pid = String(protoArr[0].id).trim();
+                    }
+                }
+            } catch (e) {}
+        }
         if (!pid && !hasGuideSession) return;
 
         function applyCategoryFromUrlParamsOnly() {
@@ -2132,7 +2138,7 @@ $(document).ready(function () {
             var subCat = (p.subcategory_key || (urlParams.get('subcategory_key') || '')).trim();
             var session = consumeGuideSessionFromStorage();
             return ensureCatPickerReady().then(function () {
-                return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).then(function () {
+                return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).catch(function () {}).then(function () {
                     if (session.protoRefs.length || session.linkedRefs.length) {
                         return applyGuideSessionBundle(treeData, session).then(finishGuideImportToDesignPage);
                     }
@@ -3003,13 +3009,22 @@ $(document).ready(function () {
     }
 
     function fetchUrlAsDataUrl(url) {
-        return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+        url = (url || '').trim();
+        if (!url) return Promise.reject(new Error('empty url'));
+        if (/^data:/i.test(url)) return Promise.resolve(url);
+        return fetch(url).then(function (r) {
+            if (!r.ok) throw new Error('fetch ' + r.status);
+            return r.blob();
+        }).then(function (blob) {
             return new Promise(function (resolve, reject) {
                 var reader = new FileReader();
                 reader.onload = function () { resolve(reader.result); };
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
+        }).catch(function () {
+            // GCS CDN（media.matchdo.cc）無 CORS 時仍把選定圖放進指定槽
+            return url;
         });
     }
 

@@ -695,7 +695,9 @@
     }
 
     function assetById(id) {
-        var a = state.assets.find(function (x) { return x.id === id; });
+        if (id == null || id === '') return null;
+        var sid = String(id);
+        var a = state.assets.find(function (x) { return x && String(x.id) === sid; });
         if (a) return a;
         return prototypeById(id) || null;
     }
@@ -1376,7 +1378,9 @@
     }
 
     function prototypeById(id) {
-        return state.prototypes.find(function (p) { return p.id === id; }) || null;
+        if (id == null || id === '') return null;
+        var sid = String(id);
+        return state.prototypes.find(function (p) { return p && String(p.id) === sid; }) || null;
     }
 
     function linkedIdsForPrototype(prototypeId) {
@@ -1722,8 +1726,6 @@
     }
 
     function persistGuideSelectionForDesign() {
-        if (state.__guidePersistDoneForNav) return;
-        state.__guidePersistDoneForNav = true;
         var p = prototypeById(state.selectedPrototypeId);
         try {
             if (p && state.guideSelectedPrototypeVariants.length) {
@@ -1746,12 +1748,13 @@
                 var refs = state.guideSelectedIds.map(function (aid) {
                     var a = assetById(aid);
                     var v = getGuideVariant(aid);
+                    var kind = String((a && a.asset_kind) || '').toLowerCase();
                     return {
                         id: aid,
-                        image_url: (v && v.url) || (a && a.image_url) || '',
+                        image_url: (v && v.url) || assetDisplayImageUrl(a, aid) || (a && a.image_url) || '',
                         label: (v && v.label) || '',
                         title: (a && a.title) || '',
-                        asset_kind: a ? a.asset_kind : ''
+                        asset_kind: kind
                     };
                 }).filter(function (r) {
                     return r.id && (r.asset_kind === 'material' || r.asset_kind === 'part') && r.image_url;
@@ -1923,7 +1926,6 @@
         state.guideSelectedIds = [];
         state.guideSelectedPrototypeVariants = [];
         state.guideVariantByAssetId = {};
-        state.__guidePersistDoneForNav = false;
         state.guideExpandedAssetIds = Object.create(null);
         state.guidePartSectionExpanded = Object.create(null);
         state.guideCatalogTabByGroup = Object.create(null);
