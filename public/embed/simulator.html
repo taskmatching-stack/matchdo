@@ -2,9 +2,10 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <title>MatchDO Engine · 產品試做</title>
+  <title data-i18n-doc-title="embedSim.docTitle">MatchDO Engine · 產品試做</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="matchdo-asset-version" content="embed-en-host-1">
   <link rel="icon" href="/img/favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -973,24 +974,24 @@
 <body>
   <!-- Header -->
   <header class="sim-header">
-    <a id="simVendorBrand" class="sim-vendor-brand" href="#" target="_blank" rel="noopener noreferrer" title="查看廠商首頁">
+    <a id="simVendorBrand" class="sim-vendor-brand" href="#" target="_blank" rel="noopener noreferrer" data-i18n-title="embedSim.vendorHomeTitle" title="查看廠商首頁">
       <div class="sim-logo-wrap" id="simLogoWrap">
         <img id="simLogo" class="sim-logo" src="/img/placeholder-logo.png" alt="">
         <span id="simLogoFallback" class="sim-logo-fallback" hidden aria-hidden="true"></span>
       </div>
-      <span id="simVendorName" class="sim-vendor-name">載入中…</span>
+      <span id="simVendorName" class="sim-vendor-name" data-i18n="embedSim.loading">載入中…</span>
     </a>
     <div class="sim-header-spacer"></div>
     <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank" rel="noopener noreferrer">MatchDO Engine</a></span>
   </header>
 
   <div id="simModeBar" class="sim-mode-bar" hidden>
-    <button type="button" id="btnModeTry" class="sim-mode-btn active">產品試做</button>
-    <button type="button" id="btnModeScene" class="sim-mode-btn">實境模擬</button>
+    <button type="button" id="btnModeTry" class="sim-mode-btn active" data-i18n="embedSim.tryMode">產品試做</button>
+    <button type="button" id="btnModeScene" class="sim-mode-btn" data-i18n="embedSim.sceneMode">實境模擬</button>
   </div>
   
-  <div id="simSelectedDock" class="sim-selected-dock" hidden aria-label="已選參考圖">
-    <span class="sim-selected-dock-label">已選</span>
+  <div id="simSelectedDock" class="sim-selected-dock" hidden data-i18n-aria-label="embedSim.selectedDock" aria-label="已選參考圖">
+    <span class="sim-selected-dock-label" data-i18n="embedSim.selected">已選</span>
     <div id="simSelectedDockStrip" class="sim-selected-dock-strip"></div>
   </div>
   
@@ -1002,19 +1003,19 @@
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
         <span class="sim-step-number">1</span>
-        <span class="sim-step-title">主產品</span>
+        <span class="sim-step-title" data-i18n="embedSim.stepPrototype">主產品</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="prototypeGuideSection" class="sim-guide-section">
           <div class="sim-guide-section-heading" id="prototypeSectionHeading"></div>
           <div id="prototypeTileGrid" class="sim-guide-tiles" role="list"></div>
-          <p class="sim-prompt-hint" id="prototypeStepHint">點圖選取要帶入生圖的主產品參考（<strong>藍框＋打勾＝已選</strong>，最多 3 張，與看可搭配相同）。</p>
+          <p class="sim-prompt-hint" id="prototypeStepHint" data-i18n-html="embedSim.prototypeHintHtml">點圖選取要帶入生圖的主產品參考（<strong>藍框＋打勾＝已選</strong>，最多 3 張，與看可搭配相同）。</p>
         </div>
-        <p id="prototypeEmpty" class="sim-no-data" style="display:none;">暫無主產品</p>
+        <p id="prototypeEmpty" class="sim-no-data" style="display:none;" data-i18n="embedSim.noPrototype">暫無主產品</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
-        <div>已選 <span id="step1SelectedName">—</span></div>
+        <div><span data-i18n="embedSim.selected">已選</span> <span id="step1SelectedName">—</span></div>
         <div id="step1SummaryThumbs" class="sim-summary-thumbs"></div>
       </div>
     </div>
@@ -1023,23 +1024,23 @@
     <div class="sim-step" id="step2" data-step="materials" style="display:none;">
       <div class="sim-step-header" onclick="window.toggleStep(2)">
         <span class="sim-step-number">2</span>
-        <span class="sim-step-title">材料與配件（選填）</span>
+        <span class="sim-step-title" data-i18n="embedSim.stepMaterials">材料與配件（選填）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="vendorRefSummary" class="sim-vendor-ref-block"></div>
         <div id="materialSection" style="display:none;">
-          <label class="sim-label">材料（單選）</label>
+          <label class="sim-label" data-i18n="embedSim.materialSingle">材料（單選）</label>
           <div id="materialGroups" class="sim-catalog-groups"></div>
         </div>
         <div id="partSection" style="display:none;">
-          <label class="sim-label">配件（可複選）</label>
+          <label class="sim-label" data-i18n="embedSim.partMulti">配件（可複選）</label>
           <div id="partGroups" class="sim-catalog-groups"></div>
         </div>
-        <p id="noMaterials" class="sim-no-data">此主產品無關聯材配</p>
+        <p id="noMaterials" class="sim-no-data" data-i18n="embedSim.noLinked">此主產品無關聯材配</p>
       </div>
       <div class="sim-step-summary" id="step2Summary">
-        已選 <span id="step2Count">0</span> 項
+        <span data-i18n="embedSim.selected">已選</span> <span id="step2Count">0</span> <span data-i18n="embedSim.itemsUnit">項</span>
       </div>
     </div>
     
@@ -1047,14 +1048,14 @@
     <div class="sim-step" id="step3" data-step="capabilities" style="display:none;">
       <div class="sim-step-header" onclick="window.toggleStep(3)">
         <span class="sim-step-number">3</span>
-        <span class="sim-step-title">表面工藝（選填）</span>
+        <span class="sim-step-title" data-i18n="embedSim.stepCraft">表面工藝（選填）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="capabilityOptions" class="sim-cap-options"></div>
       </div>
       <div class="sim-step-summary" id="step3Summary">
-        已選 <span id="step3Count">0</span> 項
+        <span data-i18n="embedSim.selected">已選</span> <span id="step3Count">0</span> <span data-i18n="embedSim.itemsUnit">項</span>
       </div>
     </div>
     
@@ -1062,17 +1063,17 @@
     <div class="sim-step" id="stepRef" data-step="references" style="display:none;">
       <div class="sim-step-header" onclick="window.toggleStep('ref')">
         <span class="sim-step-number">4</span>
-        <span class="sim-step-title">圖稿／風格參考（選填）</span>
+        <span class="sim-step-title" data-i18n="embedSim.stepArtwork">圖稿／風格參考（選填）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
-        <p class="sim-label" style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #64748b;">
+        <p class="sim-label" style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #64748b;" data-i18n="embedSim.artworkHint">
           主產品、材料、配件已在上方選擇並自動帶入。此處僅上傳您的 Logo 圖稿或風格參考圖。
         </p>
         <div id="refSlotsContainer" class="sim-ref-slots"></div>
       </div>
       <div class="sim-step-summary" id="stepRefSummary">
-        已上傳 <span id="stepRefCount">0</span> 張
+        <span data-i18n="embedSim.uploadedPrefix">已上傳</span> <span id="stepRefCount">0</span> <span data-i18n="embedSim.sheetsUnit">張</span>
       </div>
     </div>
     
@@ -1080,24 +1081,24 @@
     <div class="sim-step expanded" id="step4" data-step="prompt">
       <div class="sim-step-header" onclick="window.toggleStep(4)">
         <span class="sim-step-number">5</span>
-        <span class="sim-step-title">描述你想要的產品</span>
+        <span class="sim-step-title" data-i18n="embedSim.stepPrompt">描述你想要的產品</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
-        <textarea id="simPrompt" class="sim-prompt-textarea" placeholder="例：軍綠色，正面印白色 LOGO"></textarea>
-        <p class="sim-prompt-hint">已選主產品／材配或上傳圖稿時，可簡短描述顏色、文字、位置等細節。</p>
+        <textarea id="simPrompt" class="sim-prompt-textarea" data-i18n-placeholder="embedSim.promptPh" placeholder="例：軍綠色，正面印白色 LOGO"></textarea>
+        <p class="sim-prompt-hint" data-i18n="embedSim.promptHint">已選主產品／材配或上傳圖稿時，可簡短描述顏色、文字、位置等細節。</p>
       </div>
     </div>
     
     <!-- Step 6: 生成 -->
     <div class="sim-step expanded" id="step5" data-step="generate">
       <div class="sim-step-body" style="display:block;">
-        <button id="btnGenerate" class="sim-generate-btn" onclick="window.handleGenerate()">
+        <button id="btnGenerate" class="sim-generate-btn" onclick="window.handleGenerate()" data-i18n="embedSim.generate">
           立即生成
         </button>
         <div id="generateStatus" class="sim-loading" style="display:none;">
           <div class="sim-spinner"></div>
-          <span>生成中…</span>
+          <span data-i18n="embedSim.generating">生成中…</span>
         </div>
         <div id="generateError" class="sim-error" style="display:none;"></div>
       </div>
@@ -1107,28 +1108,28 @@
     <section id="resultSection" class="sim-result-section" style="display:none;">
       <div id="resultPlaceholder" class="sim-result-placeholder">
         <i class="bi bi-magic"></i>
-        <p>選擇主產品與描述後<br>點擊「立即生成」查看效果</p>
+        <p data-i18n-html="embedSim.resultPlaceholderHtml">選擇主產品與描述後<br>點擊「立即生成」查看效果</p>
       </div>
       <div id="resultContent" style="display:none;">
-        <img id="resultImg" class="sim-result-img" src="" alt="生成結果">
+        <img id="resultImg" class="sim-result-img" src="" alt="生成結果" data-i18n-alt="embedSim.resultAlt">
         <p class="sim-result-note">
           <i class="bi bi-info-circle"></i>
-          AI 模擬為設計參考，實際結構與材質細節歡迎與我們溝通確認。
+          <span data-i18n="embedSim.resultNote">AI 模擬為設計參考，實際結構與材質細節歡迎與我們溝通確認。</span>
         </p>
         <div class="sim-result-actions">
           <button class="btn btn-outline-secondary" onclick="window.handleRegenerate()">
-            <i class="bi bi-arrow-repeat"></i> 再生成一次
+            <i class="bi bi-arrow-repeat"></i> <span data-i18n="embedSim.regenerate">再生成一次</span>
           </button>
           <a id="resultDownload" class="btn btn-outline-primary" href="" download>
-            <i class="bi bi-download"></i> 下載
+            <i class="bi bi-download"></i> <span data-i18n="embedSim.download">下載</span>
           </a>
         </div>
       </div>
     </section>
     </div><!-- /.sim-main -->
-    <aside class="sim-aside" aria-label="已選參考圖預覽">
+    <aside class="sim-aside" data-i18n-aria-label="embedSim.selectedAsideLabel" aria-label="已選參考圖預覽">
       <div class="sim-aside-inner">
-        <p class="sim-aside-title">已選參考</p>
+        <p class="sim-aside-title" data-i18n="embedSim.selectedAside">已選參考</p>
         <div id="simSelectedStrip" class="sim-selected-strip" hidden></div>
       </div>
     </aside>
@@ -1138,36 +1139,111 @@
   <!-- 實境模擬（精簡版：情境圖 + 產品圖合成）-->
   <div id="simScenePanel" class="sim-scene-panel" hidden>
     <div class="sim-scene-card">
-      <p class="sim-label" style="margin-bottom:0.75rem;">請先於「產品試做」生成設計稿，再上傳情境照片合成（不可自行上傳產品圖）。</p>
-      <p id="sceneProductEmpty" class="sim-no-data" style="margin-bottom:0.75rem;">尚無試做成圖，請切換至「產品試做」完成生成。</p>
+      <p class="sim-label" style="margin-bottom:0.75rem;" data-i18n="embedSim.sceneLead">請先於「產品試做」生成設計稿，再上傳情境照片合成（不可自行上傳產品圖）。</p>
+      <p id="sceneProductEmpty" class="sim-no-data" style="margin-bottom:0.75rem;" data-i18n="embedSim.sceneEmpty">尚無試做成圖，請切換至「產品試做」完成生成。</p>
       <div class="sim-scene-row">
         <div id="sceneProductWrap" class="sim-scene-product-wrap" hidden>
-          <p class="sim-label" style="margin:0 0 0.25rem;font-size:0.75rem;">本次試做成圖</p>
-          <img id="sceneProductThumb" class="sim-scene-thumb" src="" alt="試做成圖">
+          <p class="sim-label" style="margin:0 0 0.25rem;font-size:0.75rem;" data-i18n="embedSim.sceneThisResult">本次試做成圖</p>
+          <img id="sceneProductThumb" class="sim-scene-thumb" src="" alt="試做成圖" data-i18n-alt="embedSim.sceneThumbAlt">
         </div>
         <label id="sceneEnvUpload" class="sim-scene-upload" for="sceneEnvInput">
-          <span id="sceneEnvPlaceholder">點擊上傳情境／環境照片</span>
+          <span id="sceneEnvPlaceholder" data-i18n="embedSim.sceneEnvUpload">點擊上傳情境／環境照片</span>
           <img id="sceneEnvPreview" src="" alt="" hidden>
         </label>
         <input type="file" id="sceneEnvInput" accept="image/*" hidden>
       </div>
-      <textarea id="scenePrompt" class="sim-scene-prompt" rows="2" placeholder="選填：例：放在木桌上、自然光"></textarea>
-      <button type="button" id="btnSceneGenerate" class="sim-generate-btn" style="margin-top:0.75rem;">合成情境圖</button>
+      <textarea id="scenePrompt" class="sim-scene-prompt" rows="2" data-i18n-placeholder="embedSim.scenePromptPh" placeholder="選填：例：放在木桌上、自然光"></textarea>
+      <button type="button" id="btnSceneGenerate" class="sim-generate-btn" style="margin-top:0.75rem;" data-i18n="embedSim.sceneGenerate">合成情境圖</button>
       <div id="sceneGenerateStatus" class="sim-loading" style="display:none;margin-top:0.75rem;">
         <div class="sim-spinner"></div>
-        <span>合成中…</span>
+        <span data-i18n="embedSim.sceneGenerating">合成中…</span>
       </div>
       <div id="sceneGenerateError" class="sim-error" style="display:none;margin-top:0.75rem;"></div>
       <div id="sceneResult" class="sim-scene-result" hidden>
-        <img id="sceneResultImg" src="" alt="實境模擬結果">
+        <img id="sceneResultImg" src="" alt="實境模擬結果" data-i18n-alt="embedSim.sceneResultAlt">
         <div class="sim-result-actions" style="margin-top:0.75rem;">
-          <a id="sceneResultDownload" class="btn btn-outline-primary" href="" download><i class="bi bi-download"></i> 下載</a>
+          <a id="sceneResultDownload" class="btn btn-outline-primary" href="" download><i class="bi bi-download"></i> <span data-i18n="embedSim.download">下載</span></a>
         </div>
       </div>
     </div>
   </div>
   
-  <script src="/js/vendor-asset-image-link-groups.js?v=20260824a"></script>
-  <script src="/js/embed-simulator.js?v=20260824-compose-unselectable"></script>
+  <script>
+    window.__MATCHDO_EMBED_IFRAME__ = true;
+    (function () {
+      function isZh(tag) {
+        var l = String(tag || '').toLowerCase().replace(/_/g, '-');
+        return l === 'zh' || l.indexOf('zh-') === 0;
+      }
+      function langFromUrl(urlStr) {
+        if (!urlStr) return '';
+        try {
+          var u = new URL(urlStr);
+          var q = (u.searchParams.get('lang') || u.searchParams.get('hl') || u.searchParams.get('locale') || u.searchParams.get('language') || '').toLowerCase().replace(/_/g, '-');
+          if (q.indexOf('zh') === 0) return 'zh-TW';
+          if (q.indexOf('en') === 0) return 'en';
+          var path = String(u.pathname || '').toLowerCase();
+          if (/\/zh(-[a-z]{2})?(\/|$)/.test(path) || /\/zh_tw\b/.test(path) || /\/chinese\b/.test(path)) return 'zh-TW';
+          if (/\/en(-[a-z]{2})?(\/|$)/.test(path) || /\/english\b/.test(path)) return 'en';
+          var decoded = path;
+          try { decoded = decodeURIComponent(u.pathname + u.search); } catch (e2) {}
+          if (/[\u3400-\u9fff]/.test(decoded)) return 'zh-TW';
+          if (/^\/(client|admin)(\/|$)/.test(path)) return 'zh-TW';
+        } catch (e) {}
+        return '';
+      }
+      function fromParentPage() {
+        try {
+          if (!window.parent || window.parent === window) return '';
+          var htmlLang = '';
+          try { htmlLang = String(window.parent.document.documentElement.lang || ''); } catch (e) {}
+          if (htmlLang) return isZh(htmlLang) ? 'zh-TW' : 'en';
+          try {
+            var marked = langFromUrl(window.parent.location.href);
+            if (marked) return marked;
+          } catch (e2) {}
+        } catch (e3) {}
+        return '';
+      }
+      function isEmbedded() {
+        try {
+          if (window.parent && window.parent !== window) return true;
+        } catch (e) { return true; }
+        try {
+          if (window.location.ancestorOrigins && window.location.ancestorOrigins.length) return true;
+        } catch (e2) {}
+        return false;
+      }
+      function fromBrowser() {
+        try {
+          var list = (navigator.languages && navigator.languages.length)
+            ? navigator.languages
+            : [navigator.language || navigator.userLanguage || ''];
+          for (var i = 0; i < list.length; i++) {
+            if (isZh(list[i])) return 'zh-TW';
+          }
+        } catch (e) {}
+        return 'en';
+      }
+      function detectHostLang() {
+        var parentLang = fromParentPage();
+        if (parentLang) return parentLang;
+        var refMarked = langFromUrl(document.referrer || '');
+        if (refMarked) return refMarked;
+        if (document.referrer || isEmbedded()) return 'en';
+        return fromBrowser();
+      }
+      try {
+        var p = new URLSearchParams(window.location.search || '');
+        if (!p.get('lang')) {
+          p.set('lang', detectHostLang());
+          history.replaceState(null, '', window.location.pathname + '?' + p.toString() + (window.location.hash || ''));
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script src="/js/i18n.js?v=20260917-embed-en-host" defer></script>
+  <script src="/js/vendor-asset-image-link-groups.js?v=20260824a" defer></script>
+  <script src="/js/embed-simulator.js?v=20260917-embed-en-host" defer></script>
 </body>
 </html>

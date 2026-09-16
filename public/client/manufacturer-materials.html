@@ -1152,7 +1152,16 @@
                                                 <option value="dark">深色</option>
                                             </select>
                                         </div>
+                                        <div class="col-4">
+                                            <label class="form-label small text-muted mb-1" for="edit-share-embed-lang">介面語言</label>
+                                            <select class="form-select form-select-sm" id="edit-share-embed-lang">
+                                                <option value="" selected>自動（非中文頁＝英文）</option>
+                                                <option value="zh-TW">繁體中文</option>
+                                                <option value="en">English</option>
+                                            </select>
+                                        </div>
                                     </div>
+                                    <p class="text-muted small mb-2">自動：貼在非中文官網即顯示英文，中文頁顯示繁中。通常一份嵌入碼即可；要鎖定語系再選繁中或 English。</p>
                                     <label class="form-label small text-muted mb-1">iframe 網址</label>
                                     <div class="input-group input-group-sm mb-2">
                                         <input type="text" class="form-control font-monospace" id="edit-share-embed-url" readonly>
@@ -1374,7 +1383,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'links-folders-more-20260824';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-lang-host-20260917';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -8150,10 +8159,12 @@
             var hEl = document.getElementById('edit-share-embed-height');
             var cEl = document.getElementById('edit-share-embed-chrome');
             var tEl = document.getElementById('edit-share-embed-theme');
+            var lEl = document.getElementById('edit-share-embed-lang');
             var height = Number(hEl && hEl.value) || 720;
             var chrome = (cEl && cEl.value) || 'minimal';
             var theme = (tEl && tEl.value) || 'host';
-            return { height: height, chrome: chrome, theme: theme, title: editEmbedSnippetTitle };
+            var lang = (lEl && lEl.value) || '';
+            return { height: height, chrome: chrome, theme: theme, lang: lang, title: editEmbedSnippetTitle };
         }
 
         function applyEmbedUiToPageUrl(baseUrl, opts) {
@@ -8165,6 +8176,8 @@
                 else u.searchParams.delete('theme');
                 if (opts.chrome) u.searchParams.set('chrome', opts.chrome);
                 else u.searchParams.delete('chrome');
+                if (opts.lang) u.searchParams.set('lang', opts.lang);
+                else u.searchParams.delete('lang');
                 return u.toString();
             } catch (e) {
                 return baseUrl;
@@ -8177,7 +8190,7 @@
             if (!isFinite(h) || h < 200) h = 720;
             var title = String(opts.title || '產品試做').replace(/"/g, '&quot;');
             var src = String(pageUrl || '').replace(/"/g, '&quot;');
-            return '<iframe\n  src="' + src + '"\n  width="100%"\n  height="' + h + '"\n  style="border:0;border-radius:8px;max-width:100%;"\n  loading="lazy"\n  title="' + title + '"\n></iframe>';
+            return '<iframe\n  src="' + src + '"\n  width="100%"\n  height="' + h + '"\n  style="border:0;border-radius:8px;max-width:100%;"\n  loading="lazy"\n  referrerpolicy="no-referrer-when-downgrade"\n  title="' + title + '"\n></iframe>';
         }
 
         function refreshEditEmbedSnippetFields() {
@@ -8196,7 +8209,7 @@
         function bindEditEmbedUiControlsOnce() {
             if (window.__editEmbedUiBound) return;
             window.__editEmbedUiBound = true;
-            ['edit-share-embed-height', 'edit-share-embed-chrome', 'edit-share-embed-theme'].forEach(function (id) {
+            ['edit-share-embed-height', 'edit-share-embed-chrome', 'edit-share-embed-theme', 'edit-share-embed-lang'].forEach(function (id) {
                 var el = document.getElementById(id);
                 if (el) el.addEventListener('change', refreshEditEmbedSnippetFields);
             });
@@ -8273,6 +8286,7 @@
                         var u = new URL(raw, window.location.origin);
                         u.searchParams.delete('theme');
                         u.searchParams.delete('chrome');
+                        u.searchParams.delete('lang');
                         return u.toString();
                     } catch (e2) { return raw; }
                 })();

@@ -42,6 +42,10 @@
         var params = typeof window !== 'undefined' && window.location && window.location.search
             ? new URLSearchParams(window.location.search) : null;
         if (params && params.get('lang')) return normalizeLang(params.get('lang'));
+        /* Embed iframe：勿沿用 MatchDO 站內 localStorage，以免廠商英文頁被翻成中文 */
+        if (typeof window !== 'undefined' && window.__MATCHDO_EMBED_IFRAME__) {
+            return detectBrowserLang();
+        }
         try {
             var stored = localStorage.getItem(STORAGE_KEY);
             if (stored) return normalizeLang(stored);
@@ -69,7 +73,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260917-refs-slots';
+    var LOCALE_CACHE_V = '20260917-embed-en';
 
     function loadLocale(lang) {
         lang = lang || getLang();

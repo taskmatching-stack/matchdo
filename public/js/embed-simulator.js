@@ -6,13 +6,39 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260824-compose-unselectable';
+  const BUILD = 'embed-simulator-20260917-embed-en';
   const EMBED_ENGINE_BRAND = 'MatchDO Engine';
+
+  function t(key) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+      var s = window.i18n.t(key);
+      if (s) return s;
+    }
+    return key;
+  }
+
+  function tf(key, vars) {
+    var s = t(key);
+    vars = vars || {};
+    Object.keys(vars).forEach(function (k) {
+      s = s.split('{' + k + '}').join(String(vars[k]));
+    });
+    return s;
+  }
+
+  function currentUiLang() {
+    if (window.i18n && typeof window.i18n.getLang === 'function') return window.i18n.getLang();
+    try {
+      return new URLSearchParams(window.location.search).get('lang') || 'zh-TW';
+    } catch (e) {
+      return 'zh-TW';
+    }
+  }
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
-    { key: 'pattern_print', title: '原圖印刷', hint: 'Logo、圖稿等，原樣轉印到產品上' },
-    { key: 'pattern_style', title: '風格參考', hint: '參考配色、紋理或設計風格（非 Logo 圖稿）' }
+    { key: 'pattern_print', titleKey: 'embedSim.printTitle', hintKey: 'embedSim.printHint' },
+    { key: 'pattern_style', titleKey: 'embedSim.styleTitle', hintKey: 'embedSim.styleHint' }
   ];
   
   // === 參考圖上傳限制 ===
@@ -225,22 +251,22 @@
     if (state.prototype) {
       state.selectedPrototypeAngles.forEach(function (angle) {
         if (!angle || !angle.url) return;
-        var t = '主產品';
-        if (angle.label) t += ' · ' + angle.label;
-        thumbs.push({ url: angle.url, title: t });
+        var label = t('embedSim.protoTag');
+        if (angle.label) label += ' · ' + angle.label;
+        thumbs.push({ url: angle.url, title: label, kind: 'prototype' });
       });
     }
     state.selectedMaterials.forEach(function (id) {
       var m = state.materials.find(function (x) { return x.id === id; });
-      if (m && m.image_url) thumbs.push({ url: m.image_url, title: '材料 · ' + (m.title || '') });
+      if (m && m.image_url) thumbs.push({ url: m.image_url, title: tf('embedSim.kindDotTitle', { kind: t('embedSim.kindMaterial'), title: m.title || '' }), kind: 'material' });
     });
     state.selectedParts.forEach(function (id) {
       var p = state.parts.find(function (x) { return x.id === id; });
-      if (p && p.image_url) thumbs.push({ url: p.image_url, title: '配件 · ' + (p.title || '') });
+      if (p && p.image_url) thumbs.push({ url: p.image_url, title: tf('embedSim.kindDotTitle', { kind: t('embedSim.kindPart'), title: p.title || '' }), kind: 'part' });
     });
     UPLOAD_REF_SLOTS.forEach(function (slot) {
       (state.refImages[slot.key] || []).forEach(function (img) {
-        if (img && img.url) thumbs.push({ url: img.url, title: slot.title || slot.key });
+        if (img && img.url) thumbs.push({ url: img.url, title: t(slot.titleKey) || slot.key, kind: slot.key });
       });
     });
     return thumbs;
@@ -273,7 +299,7 @@
     if (dockStrip) dockStrip.innerHTML = html;
     if (step1Thumbs) {
       step1Thumbs.innerHTML = renderThumbHtml(
-        thumbs.filter(function (t) { return String(t.title || '').indexOf('主產品') === 0; }),
+        thumbs.filter(function (item) { return item.kind === 'prototype'; }),
         'sim-summary-thumb'
       );
     }
@@ -290,7 +316,7 @@
       el.innerHTML = '';
       return;
     }
-    el.innerHTML = '<p class="sim-vendor-ref-hint mb-0">已勾選材料／配件會與步驟 1 主產品一併帶入生圖；右側欄可預覽全部已選圖。</p>';
+    el.innerHTML = '<p class="sim-vendor-ref-hint mb-0">' + escapeHtml(t('embedSim.matPartHint')) + '</p>';
   }
   
   function buildReferencePayload() {
@@ -350,12 +376,12 @@
     container.innerHTML = UPLOAD_REF_SLOTS.map(slot => `
       <div class="sim-ref-slot" data-slot="${slot.key}">
         <div class="sim-ref-slot-header">
-          <span class="sim-ref-slot-title">${escapeHtml(slot.title)}</span>
+          <span class="sim-ref-slot-title">${escapeHtml(t(slot.titleKey))}</span>
           <span style="font-size: 0.7rem; color: #94a3b8;">
             ${state.refImages[slot.key].length}/${MAX_REF_IMAGES_PER_SLOT}
           </span>
         </div>
-        <div class="sim-ref-slot-hint">${escapeHtml(slot.hint)}</div>
+        <div class="sim-ref-slot-hint">${escapeHtml(t(slot.hintKey))}</div>
         <div class="sim-ref-slot-grid" id="refSlot_${slot.key}"></div>
       </div>
     `).join('');
@@ -430,13 +456,13 @@
     
     // 檢查總數限制
     if (countTotalRefImages() >= MAX_REF_IMAGES_TOTAL) {
-      alert(`最多上傳 ${MAX_REF_IMAGES_TOTAL} 張參考圖`);
+      alert(tf('embedSim.maxRefs', { n: MAX_REF_IMAGES_TOTAL }));
       return;
     }
     
     // 檢查單槽限制
     if (state.refImages[slotKey].length >= MAX_REF_IMAGES_PER_SLOT) {
-      alert(`此類別最多 ${MAX_REF_IMAGES_PER_SLOT} 張`);
+      alert(tf('embedSim.maxSlot', { n: MAX_REF_IMAGES_PER_SLOT }));
       return;
     }
     
@@ -453,7 +479,7 @@
       reader.readAsDataURL(file);
     } catch (e) {
       console.error('[Upload Error]', e);
-      alert('上傳失敗，請重試');
+      alert(t('embedSim.uploadFail'));
     }
   }
   
@@ -465,10 +491,30 @@
   }
   
   // === 初始化 ===
-  function embedErrorMessage(data, fallback) {
-    if (!data) return fallback || '操作失敗';
-    if (data.error) return data.error;
-    return fallback || '操作失敗';
+  function embedErrorMessage(data, fallbackKey) {
+    var code = data && data.error_code ? String(data.error_code) : '';
+    var vendor = (state.manufacturer && state.manufacturer.name) ? String(state.manufacturer.name).trim() : '';
+    var map = {
+      daily_cap_reached: 'embedSim.errDaily',
+      monthly_cap_reached: 'embedSim.errMonthly',
+      rate_limit_ip_hour: 'embedSim.errRateHour',
+      insufficient_credits: vendor ? 'embedSim.errCreditsNamed' : 'embedSim.errCredits',
+      plan_quota_exhausted_no_credits: vendor ? 'embedSim.errCreditsNamed' : 'embedSim.errCredits',
+      invalid_signature: 'embedSim.errInvalidLink',
+      instance_disabled: 'embedSim.errPaused',
+      embed_disabled: 'embedSim.errUnavailable',
+      missing_input: 'embedSim.errMissingInput',
+      missing_product: 'embedSim.sceneNeedTry',
+      invalid_product: 'embedSim.sceneNeedTry',
+      server_error: 'embedSim.errServer'
+    };
+    var mapped = map[code];
+    if (mapped === 'embedSim.errCreditsNamed') return tf(mapped, { name: vendor });
+    if (mapped) return t(mapped);
+    if (fallbackKey && String(fallbackKey).indexOf('embedSim.') === 0) return t(fallbackKey);
+    if (data && data.error) return data.error;
+    if (fallbackKey) return fallbackKey;
+    return t('embedSim.errFail');
   }
 
   async function init() {
@@ -485,7 +531,7 @@
     }
     
     if (!embedId || !sig) {
-      showError('無效的嵌入連結，請檢查 URL 參數');
+      showError(t('embedSim.invalidLink'));
       return;
     }
     
@@ -493,7 +539,7 @@
       const res = await fetch(`/api/embed/simulator/bootstrap?embed_id=${encodeURIComponent(embedId)}&sig=${encodeURIComponent(sig)}`);
       const data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        showError(embedErrorMessage(data, '載入失敗'));
+        showError(embedErrorMessage(data, 'embedSim.loadFail'));
         return;
       }
       state.manufacturer = data.manufacturer;
@@ -504,7 +550,7 @@
       await initWithPrototype(pickBootstrapPrototype(data));
     } catch (e) {
       console.error('[Init Error]', e);
-      showError('網路錯誤，請稍後再試');
+      showError(t('embedSim.networkError'));
     }
   }
   
@@ -609,12 +655,12 @@
     if (state.sceneGenerating) return;
     var productUrl = getSceneProductImageUrl();
     if (!productUrl) {
-      alert('請先在「產品試做」完成生成，再使用實境模擬');
+      alert(t('embedSim.sceneNeedTry'));
       setUiMode('try');
       return;
     }
     if (!state.sceneEnvImage) {
-      alert('請上傳情境或環境照片');
+      alert(t('embedSim.sceneNeedEnv'));
       return;
     }
 
@@ -640,7 +686,8 @@
           environmentImage: state.sceneEnvImage,
           productImage: productUrl,
           prompt: promptEl ? promptEl.value.trim() : '',
-          session_id: state.sessionId
+          session_id: state.sessionId,
+          ui_locale: currentUiLang()
         };
         var res = await fetch('/api/embed/simulator/scene-simulate', {
           method: 'POST',
@@ -649,23 +696,13 @@
         });
         var data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
-          var code = data.error_code || '';
-          if (code === 'daily_cap_reached' || code === 'monthly_cap_reached' || code === 'rate_limit_ip_hour') {
-            throw new Error(data.error || '試做次數已達上限，請稍後再試');
-          }
-          if (code === 'insufficient_credits' || code === 'plan_quota_exhausted_no_credits') {
-            throw new Error(data.error || '試做暫停，請聯絡廠商');
-          }
-          if (code === 'invalid_product' || code === 'missing_product') {
-            throw new Error(data.error || '請先在「產品試做」生成設計稿');
-          }
-          throw new Error(embedErrorMessage(data, '合成失敗'));
+          throw new Error(embedErrorMessage(data, 'embedSim.composeFail'));
         }
         showSceneResult(data.imageUrl);
       }
     } catch (e) {
       if (error) {
-        error.textContent = e.message || '合成失敗';
+        error.textContent = e.message || t('embedSim.composeFail');
         error.style.display = 'block';
       }
     } finally {
@@ -694,9 +731,20 @@
   // === Header 渲染 ===
   function manufacturerProfileUrl(mfr) {
     if (!mfr) return '';
-    if (mfr.profile_url) return String(mfr.profile_url).trim();
-    if (mfr.id) return '/vendor-profile.html?id=' + encodeURIComponent(String(mfr.id));
-    return '';
+    var url = '';
+    if (mfr.profile_url) url = String(mfr.profile_url).trim();
+    else if (mfr.id) url = '/vendor-profile.html?id=' + encodeURIComponent(String(mfr.id));
+    if (!url) return '';
+    try {
+      var u = new URL(url, window.location.origin);
+      if (!u.searchParams.get('lang')) u.searchParams.set('lang', currentUiLang());
+      if (!/^https?:\/\//i.test(url) && u.origin === window.location.origin) {
+        return u.pathname + u.search + (u.hash || '');
+      }
+      return u.toString();
+    } catch (e) {
+      return url;
+    }
   }
 
   function renderHeader() {
@@ -705,7 +753,7 @@
     const name = document.getElementById('simVendorName');
     const brand = document.getElementById('simVendorBrand');
     const powered = document.querySelector('.sim-powered');
-    const vendorName = (state.manufacturer && state.manufacturer.name) ? String(state.manufacturer.name).trim() : '廠商';
+    const vendorName = (state.manufacturer && state.manufacturer.name) ? String(state.manufacturer.name).trim() : t('embedSim.vendorFallback');
     const initial = vendorName ? vendorName.charAt(0).toUpperCase() : '?';
     const profileUrl = manufacturerProfileUrl(state.manufacturer);
 
@@ -736,7 +784,7 @@
       if (profileUrl) {
         brand.href = profileUrl;
         brand.hidden = false;
-        brand.title = '查看 ' + vendorName + ' 廠商首頁';
+        brand.title = tf('embedSim.vendorHomeTitleNamed', { name: vendorName });
         brand.setAttribute('aria-label', brand.title);
       } else {
         brand.removeAttribute('href');
@@ -744,7 +792,7 @@
         brand.title = vendorName;
       }
     }
-    document.title = `${EMBED_ENGINE_BRAND} · 產品試做 - ${vendorName}`;
+    document.title = tf('embedSim.docTitleNamed', { name: vendorName });
     if (powered) {
       var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;
       var poweredLabel = 'Powered by ' + EMBED_ENGINE_BRAND;
@@ -820,8 +868,8 @@
   function prototypeTileLabel(proto, it, index, total) {
     var raw = (it && it.label) ? String(it.label).trim() : '';
     if (raw) return raw;
-    if (total <= 1) return proto.title || '主產品';
-    return '角度 ' + (index + 1);
+    if (total <= 1) return proto.title || t('embedSim.protoTag');
+    return tf('embedSim.angleN', { n: index + 1 });
   }
 
   function isPrototypeAngleSelected(url) {
@@ -863,8 +911,8 @@
     if (!heading || !grid) return;
 
     heading.innerHTML =
-      '<span class="sim-guide-tag">主產品</span>' +
-      '<span class="sim-guide-name">' + escapeHtml(proto.title || '主產品') + '</span>';
+      '<span class="sim-guide-tag">' + escapeHtml(t('embedSim.protoTag')) + '</span>' +
+      '<span class="sim-guide-name">' + escapeHtml(proto.title || t('embedSim.protoTag')) + '</span>';
 
     var items = getPrototypeImageItems(proto);
     grid.innerHTML = items.map(function (it, i) {
@@ -910,14 +958,14 @@
       return;
     }
     if (!picked) {
-      el.textContent = (proto.title || '主產品') + ' · 請點圖選取';
+      el.textContent = tf('embedSim.protoPickHintNamed', { title: proto.title || t('embedSim.protoTag') });
       renderSelectedStrip();
       return;
     }
     if (picked === 1) {
-      el.textContent = proto.title || '主產品';
+      el.textContent = proto.title || t('embedSim.protoTag');
     } else {
-      el.textContent = (proto.title || '主產品') + ' · ' + picked + ' 張';
+      el.textContent = tf('embedSim.protoPickedCount', { title: proto.title || t('embedSim.protoTag'), n: picked });
     }
     renderSelectedStrip();
   }
@@ -945,7 +993,7 @@
         list.splice(idx, 1);
         result = { selected: list, action: 'remove' };
       } else if (list.length >= MAX_REF_IMAGES_PER_SLOT) {
-        alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張（與看可搭配／設計頁原型槽相同）');
+        alert(tf('embedSim.protoMax', { n: MAX_REF_IMAGES_PER_SLOT }));
         return;
       } else {
         list.push({ url: url, label: label || '' });
@@ -953,15 +1001,15 @@
       }
     }
     if (result.action === 'blocked' && result.reason === 'max') {
-      alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張（與看可搭配／設計頁原型槽相同）');
+      alert(tf('embedSim.protoMax', { n: MAX_REF_IMAGES_PER_SLOT }));
       return;
     }
     if (result.action === 'blocked' && result.reason === 'display_only') {
-      alert('此圖僅展示，不可選用。');
+      alert(t('embedSim.displayOnly'));
       return;
     }
     if (result.truncated) {
-      alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張；同組部分角度未能全部加入');
+      alert(tf('embedSim.protoMaxPartial', { n: MAX_REF_IMAGES_PER_SLOT }));
     }
     state.selectedPrototypeAngles = result.selected;
     renderStep1Prototype();
@@ -1047,7 +1095,7 @@
   }
 
   function kindSectionLabel(kind) {
-    return kind === 'part' ? '配件' : '材料';
+    return kind === 'part' ? t('embedSim.kindPart') : t('embedSim.kindMaterial');
   }
 
   function assetByIdInList(items, id) {
@@ -1104,7 +1152,7 @@
     return '<div class="sim-catalog-block sim-catalog-block--tabs" data-catalog-group="' + escapeHtml(sectionKey) + '">' +
       '<div class="sim-catalog-block-head">' +
       '<span class="sim-catalog-kind">' + kindLbl + '</span>' +
-      ' <span class="sim-catalog-group-label">' + escapeHtml(bucket.groupLabel || '自訂分類') + '</span>' +
+      ' <span class="sim-catalog-group-label">' + escapeHtml(bucket.groupLabel || t('embedSim.customGroup')) + '</span>' +
       '</div>' +
       '<div class="sim-catalog-tabs" role="tablist">' + tabsHtml + '</div>' +
       '<div class="sim-catalog-panels">' + panelsHtml + '</div>' +
@@ -1304,7 +1352,7 @@
     html += customs.map(c => `
       <label class="sim-cap-checkbox">
         <input type="checkbox" value="custom:${escapeHtml(c.label)}" data-custom="1" checked>
-        <span>${escapeHtml(c.label)} <span style="color:#94a3b8;font-size:0.75rem">(自填)</span></span>
+        <span>${escapeHtml(c.label)} <span style="color:#94a3b8;font-size:0.75rem">${escapeHtml(t('embedSim.customFill'))}</span></span>
       </label>
     `).join('');
     
@@ -1345,13 +1393,13 @@
     if (state.generating) return;
     
     if (!state.prototype) {
-      alert('請選擇主產品');
+      alert(t('embedSim.protoRequired'));
       return;
     }
 
     var protoItems = getPrototypeImageItems(state.prototype);
     if (protoItems.length > 1 && !state.selectedPrototypeAngles.length) {
-      alert('請點選要帶入生圖的主產品參考圖（最多 3 張，與看可搭配相同）');
+      alert(t('embedSim.protoPickRequired'));
       document.getElementById('step1').classList.add('expanded');
       return;
     }
@@ -1400,7 +1448,8 @@
       reference_sources: refs.referenceSources,
       reference_images: refs.referenceImages,
       prompt: state.prompt,
-      session_id: state.sessionId
+      session_id: state.sessionId,
+      ui_locale: currentUiLang()
     };
     
     const res = await fetch('/api/embed/simulator/generate', {
@@ -1412,14 +1461,7 @@
     const data = await res.json().catch(function () { return {}; });
     
     if (!res.ok) {
-      const code = data.error_code || '';
-      if (code === 'daily_cap_reached' || code === 'monthly_cap_reached' || code === 'rate_limit_ip_hour') {
-        throw new Error(data.error || '試做次數已達上限，請稍後再試');
-      }
-      if (code === 'insufficient_credits' || code === 'plan_quota_exhausted_no_credits') {
-        throw new Error(data.error || '試做暫停，請聯絡廠商');
-      }
-      throw new Error(embedErrorMessage(data, '生成失敗'));
+      throw new Error(embedErrorMessage(data, 'embedSim.errGenerate'));
     }
     
     showResult(data.imageUrl);
@@ -1480,7 +1522,7 @@
     const container = document.querySelector('.sim-container');
     container.innerHTML = `
       <div class="sim-error" style="margin: 2rem 0;">
-        <strong>載入失敗</strong><br>
+        <strong>${escapeHtml(t('embedSim.loadFail'))}</strong><br>
         ${escapeHtml(msg)}
       </div>
     `;
@@ -1501,10 +1543,18 @@
   window.removeRefImage = removeRefImage;
   
   // === 啟動 ===
+  function startWhenReady() {
+    var p = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+    p.then(function () {
+      if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+      init();
+    }).catch(function () { init(); });
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', startWhenReady);
   } else {
-    init();
+    startWhenReady();
   }
   
 })();
