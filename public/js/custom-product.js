@@ -1648,6 +1648,16 @@ $(document).ready(function () {
         }
     }
     window.__renderIntentSlots = renderIntentSlots;
+    window.__countTotalRefImages = countTotalRefImages;
+    window.__countRefImagesBySlot = function () {
+        return REF_INTENT_SLOTS.map(function (def) {
+            return {
+                key: def.key,
+                n: countSlotRefImages(def.key),
+                label: refIntentTabLabel(def)
+            };
+        }).filter(function (x) { return x.n > 0; });
+    };
 
     function customizationLevelLabel(key) {
         for (var i = 0; i < CUSTOMIZATION_LEVEL_DEFS.length; i++) {

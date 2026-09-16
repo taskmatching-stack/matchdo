@@ -69,7 +69,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260917-en-chrome2';
+    var LOCALE_CACHE_V = '20260917-refs-slots';
 
     function loadLocale(lang) {
         lang = lang || getLang();

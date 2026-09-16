@@ -890,6 +890,9 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        #custom-product .cp-spec-value[data-cp-spec="refs"] {
+            white-space: normal;
+        }
         #custom-product .cp-spec-value--pending {
             color: #C4784A;
             font-weight: 500;
@@ -2077,7 +2080,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js" defer></script>
     <!-- Bootstrap 已於 head #bs-bundle-js；supabase／auth-config 已於 #site-header 前同步載入，勿再 defer 重複載入 -->
     <script src="/js/auth-middleware.js" defer></script>
-    <script src="/js/i18n.js?v=20260917-en-chrome2" defer></script>
+    <script src="/js/i18n.js?v=20260917-refs-slots" defer></script>
     <script src="/lib/wow/wow.min.js" defer></script>
     <script src="/lib/easing/easing.min.js" defer></script>
     <script src="/lib/waypoints/waypoints.min.js" defer></script>
@@ -2098,8 +2101,8 @@
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/media-wall-gen-links.js?v=20260917b" defer></script>
     <script src="/js/backup-generate-confirm.js?v=20260903" defer></script>
-    <script src="/js/custom-product.js?v=162" defer></script>
-    <script src="/js/custom-product-spec-summary-ui.js?v=20260917b" defer></script>
+    <script src="/js/custom-product.js?v=164" defer></script>
+    <script src="/js/custom-product-spec-summary-ui.js?v=20260917d" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (window.i18n && window.i18n.ready) {

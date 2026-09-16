@@ -629,6 +629,7 @@
   "customProduct.specEmpty": "Not filled",
   "customProduct.specUnselected": "Not selected",
   "customProduct.specRefsCount": "{n} selected",
+  "customProduct.specRefsSlotItem": "{slot} {n}",
   "customProduct.specSeedRandom": "Random",
   "customProduct.draftsAppearHere": "Design drafts will appear here",
   "customProduct.clickOrDrag": "Click or drag",

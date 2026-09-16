@@ -667,6 +667,7 @@
   "customProduct.specEmpty": "未填",
   "customProduct.specUnselected": "未選",
   "customProduct.specRefsCount": "已選 {n} 張",
+  "customProduct.specRefsSlotItem": "{slot} {n} 張",
   "customProduct.specSeedRandom": "隨機",
   "customProduct.draftsAppearHere": "生成後的設計稿會顯示在這裡",
   "customProduct.clickOrDrag": "點擊或拖曳",

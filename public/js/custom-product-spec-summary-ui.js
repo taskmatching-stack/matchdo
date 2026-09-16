@@ -62,9 +62,32 @@
     else setVal('category', t('customProduct.specUnselected', '未選'), true);
 
     var refRoot = document.getElementById('refIntentSlots');
-    var n = 0;
-    if (refRoot) n = refRoot.querySelectorAll('.ref-intent-thumb:not(.ref-intent-thumb-add) img, .ref-intent-thumb-cell img').length;
-    setVal('refs', n ? tf('customProduct.specRefsCount', '已選 {n} 張', { n: n }) : t('customProduct.specUnselected', '未選'), n ? false : 'optional-empty');
+    var slotParts = [];
+    if (typeof window.__countRefImagesBySlot === 'function') {
+      try { slotParts = window.__countRefImagesBySlot() || []; } catch (e) { slotParts = []; }
+    }
+    if (!slotParts.length && refRoot) {
+      var slotOrder = [
+        { key: 'prototype', tabKey: 'customProduct.refSlotPrototypeTab', fb: '原型' },
+        { key: 'material', tabKey: 'customProduct.refSlotMaterialTab', fb: '材料' },
+        { key: 'part', tabKey: 'customProduct.refSlotPartTab', fb: '配件' },
+        { key: 'pattern_print', tabKey: 'customProduct.refSlotPatternPrintTab', fb: '原圖印刷' },
+        { key: 'pattern_style', tabKey: 'customProduct.refSlotPatternStyleTab', fb: '風格參考' }
+      ];
+      slotOrder.forEach(function (def) {
+        var btn = refRoot.querySelector('.ref-intent-tab-btn[data-ref-tab="' + def.key + '"]');
+        if (!btn) return;
+        var badge = btn.querySelector('.ref-intent-tab-badge');
+        var n = badge ? parseInt((badge.textContent || '').trim(), 10) : 0;
+        if (n > 0) slotParts.push({ key: def.key, n: n, label: t(def.tabKey, def.fb) });
+      });
+    }
+    var refsText = slotParts.length
+      ? slotParts.map(function (p) {
+          return tf('customProduct.specRefsSlotItem', '{slot} {n} 張', { slot: p.label, n: p.n });
+        }).join(' · ')
+      : t('customProduct.specUnselected', '未選');
+    setVal('refs', refsText, slotParts.length ? false : 'optional-empty');
 
     var seed = (document.getElementById('generationSeed') || {}).value;
     setVal('seed', seed !== undefined && String(seed).trim() !== '' ? ('Seed ' + String(seed).trim()) : t('customProduct.specSeedRandom', '隨機'));
