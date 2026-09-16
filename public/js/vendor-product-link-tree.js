@@ -1677,20 +1677,28 @@
         });
     }
 
-    /** 舊版：return_to 應是設計稿頁。獨立列表誤傳 /vendor-styles/ 時不可當導向目標。 */
+    /** 舊版：return_to 應是設計稿頁。獨立列表或 ?tab=vendor-styles 不可當導向目標。 */
     function isDesignImportCapablePath(pathname) {
         var p = String(pathname || '').replace(/\/$/, '') || '';
         return /custom-product\.html$/i.test(p);
     }
 
+    function forceProductDesignTab(urlObj) {
+        var tab = String(urlObj.searchParams.get('tab') || 'product-design').trim();
+        if (tab !== 'product-design') urlObj.searchParams.set('tab', 'product-design');
+        else if (!urlObj.searchParams.get('tab')) urlObj.searchParams.set('tab', 'product-design');
+        return urlObj;
+    }
+
     function buildStartDesignUrl(p) {
-        if (!p || !p.id) return '/custom-product.html';
+        if (!p || !p.id) return '/custom-product.html?tab=product-design';
         var ret = qs('return_to');
         if (ret) {
             try {
                 var decoded = decodeURIComponent(ret);
                 var u = new URL(decoded, window.location.origin);
                 if (isDesignImportCapablePath(u.pathname)) {
+                    forceProductDesignTab(u);
                     u.searchParams.set('prototype_asset_id', p.id);
                     if (p.manufacturer_id) u.searchParams.set('manufacturer_id', p.manufacturer_id);
                     if (p.category_key) u.searchParams.set('category_key', p.category_key);
@@ -1700,7 +1708,7 @@
             } catch (e) { /* fall through */ }
         }
         // 與舊版 fallback 相同：一定回設計稿並帶 prototype_asset_id（才會吃 guide session）
-        var designUrl = '/custom-product.html?prototype_asset_id=' + encodeURIComponent(p.id);
+        var designUrl = '/custom-product.html?tab=product-design&prototype_asset_id=' + encodeURIComponent(p.id);
         if (p.manufacturer_id) {
             designUrl += '&manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
         }
@@ -2021,10 +2029,18 @@
     function setupReturnButton() {
         var ret = qs('return_to');
         var btn = document.getElementById('btn-return-design');
-        if (btn && ret) {
-            btn.href = ret;
-            btn.classList.remove('d-none');
-        }
+        if (!btn || !ret) return;
+        var href = '/custom-product.html?tab=product-design';
+        try {
+            var decoded = decodeURIComponent(ret);
+            var u = new URL(decoded, window.location.origin);
+            if (isDesignImportCapablePath(u.pathname)) {
+                forceProductDesignTab(u);
+                href = u.pathname + u.search + u.hash;
+            }
+        } catch (e) { /* keep design fallback */ }
+        btn.href = href;
+        btn.classList.remove('d-none');
     }
 
     function showApp() {

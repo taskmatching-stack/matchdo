@@ -628,7 +628,7 @@ $(document).ready(function () {
                 navigateToVendorStylesTab();
                 return;
             }
-            var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+            var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
             window.location.href = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
             return;
         }
@@ -646,7 +646,7 @@ $(document).ready(function () {
         if ((slotKey === 'material' || slotKey === 'part')) {
             var anchor = getPrototypeAnchorSource();
             if (anchor && anchor.official === true && anchor.vendor_asset_id) {
-                var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
                 window.location.href = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(String(anchor.vendor_asset_id).trim()) + '&return_to=' + returnTo;
                 return;
             }
@@ -1453,7 +1453,7 @@ $(document).ready(function () {
             if (anchor) {
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
-                    var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                    var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
                     var treeUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
                     var treeTpl = tr('customProduct.openMatchGuide', '看此款式的可搭配');
                     $panel.append($('<p class="mb-2"><a href="' + treeUrl + '" class="small"></a></p>')
@@ -1913,9 +1913,28 @@ $(document).ready(function () {
         if (session.linkedRefs.length) {
             chain = chain.then(function () { return applyGuideLinkedRefsToSlots(session.linkedRefs, treeData); });
         }
-        return chain.then(function () {
-            if (countSlotRefImages('prototype') === 0) {
-                return applyPrototypeRefsFromLinkTreeNode(p);
+        // 舊版（de697ba）：看可搭配帶回只套 session，不再開版型選圖視窗
+        return chain;
+    }
+
+    function applyPrototypeCoverFromLinkTreeNode(p) {
+        var imgUrl = (p && p.image_url || '').trim();
+        if (!p || !imgUrl) return Promise.resolve();
+        return fetchUrlAsDataUrl(imgUrl).catch(function () { return null; }).then(function (dataUrl) {
+            if (!dataUrl) return;
+            clearRefSlot('prototype');
+            setPrototypeAnchorMetaFromNode(p);
+            addRefImageToSlot('prototype', dataUrl, {
+                vendor_asset_id: p.id,
+                manufacturer_id: p.manufacturer_id,
+                manufacturer_name: p.manufacturer_name,
+                title: p.title,
+                image_url: imgUrl,
+                asset_kind: 'prototype'
+            });
+            if (p.manufacturer_id && !refVendorMfrId) {
+                refVendorMfrId = p.manufacturer_id;
+                if (p.manufacturer_name) refVendorName = p.manufacturer_name;
             }
         });
     }
@@ -2117,7 +2136,8 @@ $(document).ready(function () {
                     if (session.protoRefs.length || session.linkedRefs.length) {
                         return applyGuideSessionBundle(treeData, session).then(finishGuideImportToDesignPage);
                     }
-                    return applyPrototypeRefsFromLinkTreeNode(p).then(finishGuideImportToDesignPage);
+                    // 舊版：沒有搭配頁選取時只帶封面，不要跳出多圖挑選視窗
+                    return applyPrototypeCoverFromLinkTreeNode(p).then(finishGuideImportToDesignPage);
                 });
             });
         }
@@ -2135,7 +2155,7 @@ $(document).ready(function () {
 
         if (!pid) return;
 
-        if (urlParams.get('official') === '1') {
+        if (urlParams.get('official') === '1' && !hasGuideSession) {
             function applyOfficialFromUrl() {
                 var mainCat = (urlParams.get('category_key') || $('#imageCategoryMainSelect').val() || '').trim();
                 var subCat = (urlParams.get('subcategory_key') || '').trim();
