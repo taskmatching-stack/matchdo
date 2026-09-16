@@ -1,4 +1,29 @@
 (function(){
+  var FOOTER_TAGLINE_ZH = '看見結果，才能更快決定。';
+  var FOOTER_TAGLINE_EN = 'See the result first. Decide faster.';
+
+  function isFooterEnglish() {
+    try {
+      var lang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+      if (lang) return String(lang).toLowerCase().indexOf('en') === 0;
+      var docLang = document.documentElement.getAttribute('lang') || '';
+      if (docLang.toLowerCase().indexOf('en') === 0) return true;
+      var params = window.location && window.location.search
+        ? new URLSearchParams(window.location.search) : null;
+      if (params && params.get('lang')) return String(params.get('lang')).toLowerCase().indexOf('en') === 0;
+      return false;
+    } catch (e) { return false; }
+  }
+
+  function applyFooterLocale(el) {
+    if (!el || !isFooterEnglish()) return;
+    var firstCol = el.querySelector('.col-md-6.col-lg-3');
+    if (firstCol) {
+      var p = firstCol.querySelector('p.mb-0');
+      if (p) p.innerHTML = FOOTER_TAGLINE_EN + '<br><span class="text-white-50 small">' + FOOTER_TAGLINE_ZH + '</span>';
+    }
+  }
+
   async function inject(id, url){
     const el = document.getElementById(id);
     if(!el) return;
@@ -6,6 +31,7 @@
       const res = await fetch(url, { cache: 'no-cache' });
       if(!res.ok) throw new Error('fetch failed');
       el.innerHTML = await res.text();
+      if (id === 'site-footer') applyFooterLocale(el);
     }catch(e){
       // silent
     }

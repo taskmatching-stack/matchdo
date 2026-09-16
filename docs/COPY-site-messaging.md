@@ -1,6 +1,6 @@
 # MatchDO 官網文案規劃
 
-**更新**：2026-08-29（P1 商攝：攝影參數、空間地圖用詞）
+**更新**：2026-09-15（價值句：看見結果，才能更快決定）
 **語氣**：官方說明（陳述功能、短句、不推銷、不提 AI、不跟別家比）  
 **實作**：P0 已寫入 `public/locales/*.json`、首頁 meta、help；其餘見下方分期。
 
@@ -25,6 +25,9 @@
 |-----|------|---------|
 | `site.taglineCategory` | 訂製品設計與製作協作 | Custom design & production |
 | `site.taglineSlogan` | 設計稿 · 影像 · 廠商素材 | Drafts · scenes · vendor assets |
+| 價值句（頁尾、關於我們 subtitle） | 看見結果，才能更快決定。 | See the result first. Decide faster. |
+
+**層次**：頁首維持「做什麼」（分類＋功能名）。價值句說明「為什麼」——先看見設計稿／情境影像，決策才快。**不要**做成首頁大標語 hero、蓋過媒體牆。
 
 **定義句**（meta、OG、JSON-LD、help 共用）：
 
@@ -37,6 +40,8 @@
 
 | Key / 位置 | 中文 | English |
 |------------|------|---------|
+| `about.subtitle` | 看見結果，才能更快決定 | See the result first. Decide faster. |
+| 頁尾 tagline | 同上 | 同上 |
 | `home.wallDesc` | 設計稿、廠商作品、情境影像。 | Design drafts, vendor work, and scene images. |
 | `home.helpCtaLink` | 使用說明 | Help |
 | `help.subtitle` | 各功能入口、操作步驟與常見問題。 | Feature entry points, steps, and FAQ. |

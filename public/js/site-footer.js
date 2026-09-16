@@ -3,8 +3,8 @@
  * 依語系切換描述與欄位標題（英文版：英文描述為主、連結/服務標題與文案改英文）
  */
 (function () {
-    var FOOTER_TAGLINE_ZH = '連結高端需求與卓越工藝。縮減設計與生產的摩擦，讓訂製不再靠想像。';
-    var FOOTER_TAGLINE_EN = 'Connecting global vision with master craftsmanship. Beyond imagination, into reality.';
+    var FOOTER_TAGLINE_ZH = '看見結果，才能更快決定。';
+    var FOOTER_TAGLINE_EN = 'See the result first. Decide faster.';
 
     function isFooterEnglish() {
         try {
@@ -63,7 +63,7 @@
                     <div class="row g-5">
                         <div class="col-md-6 col-lg-3">
                             <a href="/" class="d-inline-block mb-3"><h1 class="text-white">MATCHDO</h1></a>
-                            <p class="mb-0">連結高端需求與卓越工藝。縮減設計與生產的摩擦，讓訂製不再靠想像。<br><span class="text-white-50 small">Connecting global vision with master craftsmanship. Beyond imagination, into reality.</span></p>
+                            <p class="mb-0">看見結果，才能更快決定。<br><span class="text-white-50 small">See the result first. Decide faster.</span></p>
                         </div>
                         <div class="col-md-6 col-lg-3">
                             <h5 class="text-white mb-4">聯絡我們</h5>

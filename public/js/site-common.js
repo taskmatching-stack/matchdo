@@ -1,6 +1,6 @@
 (function(){
-  var FOOTER_TAGLINE_ZH = '連結高端需求與卓越工藝。縮減設計與生產的摩擦，讓訂製不再靠想像。';
-  var FOOTER_TAGLINE_EN = 'Connecting global vision with master craftsmanship. Beyond imagination, into reality.';
+  var FOOTER_TAGLINE_ZH = '看見結果，才能更快決定。';
+  var FOOTER_TAGLINE_EN = 'See the result first. Decide faster.';
 
   function isFooterEnglish() {
     try {
