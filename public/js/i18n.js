@@ -73,7 +73,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260917-embed-en';
+    var LOCALE_CACHE_V = '20260917-proration-refund';
 
     function loadLocale(lang) {
         lang = lang || getLang();

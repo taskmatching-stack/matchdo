@@ -132,21 +132,23 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="cancelSubscriptionModalLabel">調整為免費方案</h5>
+          <h5 class="modal-title" id="cancelSubscriptionModalLabel" data-i18n="credits.cancelModalTitle">調整為免費方案</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
         </div>
         <div class="modal-body">
-          <p>您將調整為<strong>免費方案</strong>。付費期間享有的上牆控制將結束：</p>
+          <p data-i18n="credits.cancelModalLead">您將調整為<strong>免費方案</strong>。付費期間享有的上牆控制將結束：</p>
           <ul class="small text-muted mb-3">
-            <li>非人像作品將依免費方案<strong>展示在靈感牆</strong>（您可事先至「我的設計」整理公開設定）</li>
-            <li>人像作品預設不上牆，仍可自行選擇公開</li>
-            <li>圖片享有<strong>至少 90 天儲存保證</strong>（常使用的作品會保留更久）</li>
+            <li data-i18n="credits.cancelModalWall">非人像作品將依免費方案<strong>展示在靈感牆</strong>（您可事先至「我的設計」整理公開設定）</li>
+            <li data-i18n="credits.cancelModalPortrait">人像作品預設不上牆，仍可自行選擇公開</li>
+            <li data-i18n="credits.cancelModalKeep">圖片享有<strong>至少 90 天儲存保證</strong>（常使用的作品會保留更久）</li>
           </ul>
-          <p class="small mb-0">若只是暫時不想續訂、希望保留 15 日整理靈感牆設定，請勿按此鈕，待到期後再決定即可。</p>
+          <p class="small mb-2" data-i18n="credits.cancelModalRefundPolicy">退費以「未使用的完整月」計算，當月不退；該月對應的點數若已用完，該月也不退。單次儲值點數不在此退費範圍。</p>
+          <p class="small text-primary mb-2" id="cancelRefundPreview"></p>
+          <p class="small mb-0" data-i18n="credits.cancelModalGraceHint">若只是暫時不想續訂、希望保留 15 日整理靈感牆設定，請勿按此鈕，待到期後再決定即可。</p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">先不要</button>
-          <button type="button" class="btn btn-primary" id="btnConfirmCancelSubscription">確認調整為免費方案</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="credits.cancelModalLater">先不要</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmCancelSubscription" data-i18n="credits.cancelModalConfirm">確認調整為免費方案</button>
         </div>
       </div>
     </div>
@@ -324,7 +326,22 @@
     return { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
   }
 
+  var lastRefundPreview = null;
   var cancelModalInstance = null;
+
+  function formatRefundPreview(preview) {
+    if (!preview) return '';
+    if (preview.refund_amount > 0) {
+      return (t('credits.cancelPreviewRefund') || '預估退費：未使用 {months} 個月，約 {amount} {currency}（實際以金流入帳為準）。')
+        .replace('{months}', preview.refundable_months)
+        .replace('{amount}', preview.refund_amount)
+        .replace('{currency}', preview.currency || '');
+    }
+    if (preview.reason === 'points_used') {
+      return t('credits.cancelPreviewPoints') || '目前沒有可退月份：對應點數已使用。';
+    }
+    return t('credits.cancelPreviewNone') || '當月視為已使用，不退當月費用。';
+  }
 
   function loadSubscriptionStatus() {
     var renewalEl = document.getElementById('renewalReminder');
@@ -362,6 +379,9 @@
             var endStr2 = sub.end_date ? new Date(sub.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
             manageSummary.textContent = '「' + (sub.plan_name || '付費方案') + '」有效至 ' + endStr2 + (sub.auto_renew ? '（自動續訂）' : '');
             managePanel.classList.remove('d-none');
+            lastRefundPreview = data.refund_preview || null;
+            var previewEl = document.getElementById('cancelRefundPreview');
+            if (previewEl) previewEl.textContent = formatRefundPreview(lastRefundPreview);
           } else {
             managePanel.classList.add('d-none');
           }
@@ -441,10 +461,20 @@
           btnConfirmCancel.disabled = false;
           if (cancelModalInstance) cancelModalInstance.hide();
           if (!res.ok) {
-            alert((res.data && res.data.error) || '調整失敗，請稍後再試');
+            alert((res.data && res.data.error) || (t('credits.cancelFailed') || '調整失敗，請稍後再試'));
             return;
           }
-          alert('已調整為免費方案');
+          var refund = res.data && res.data.refund;
+          if (refund && refund.refund_amount > 0) {
+            alert((t('credits.cancelSuccessRefund') || '已調整為免費方案。未使用 {months} 個月已退費 {amount} {currency}。')
+              .replace('{months}', refund.refundable_months)
+              .replace('{amount}', refund.refund_amount)
+              .replace('{currency}', refund.currency || ''));
+          } else if (refund && refund.reason === 'points_used') {
+            alert(t('credits.cancelSuccessPoints') || '已調整為免費方案。因對應點數已使用，未產生退費。');
+          } else {
+            alert(t('credits.cancelSuccessNone') || '已調整為免費方案。當月不退費。');
+          }
           loadSubscriptionStatus();
           loadCredits();
           if (window.MatchdoMembershipDowngradeNotice && window.MatchdoMembershipDowngradeNotice.pollPending) {

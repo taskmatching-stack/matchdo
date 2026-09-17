@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>金流紀錄 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">金流紀錄</h4>
+        <p class="text-muted small mb-3">綠界／PayPal 付款訂單（<code>payment_orders</code>）。退訂／換方案的按月退費會顯示在「退費」欄。閘道金鑰請至 <a href="/admin/payment-settings.html">金流設定</a>。</p>
+
+        <div id="pageMsg" class="alert d-none small py-2"></div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label small mb-1">關鍵字</label>
+                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="Email／本站訂單號／金流交易號">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">狀態</label>
+                <select class="form-select form-select-sm" id="filterStatus">
+                  <option value="">全部</option>
+                  <option value="paid">已付款</option>
+                  <option value="pending">待付款</option>
+                  <option value="cancelled">已取消</option>
+                  <option value="failed">失敗</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">金流</label>
+                <select class="form-select form-select-sm" id="filterProvider">
+                  <option value="">全部</option>
+                  <option value="ecpay">綠界</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">類型</label>
+                <select class="form-select form-select-sm" id="filterType">
+                  <option value="">全部</option>
+                  <option value="one_time">單次儲值</option>
+                  <option value="subscription">月訂閱</option>
+                  <option value="yearly">年付</option>
+                </select>
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill" id="btnSearch"><i class="bi bi-search me-1"></i>查詢</button>
+                <button class="btn btn-outline-secondary btn-sm" id="btnReset" title="清除"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>建立時間</th>
+                  <th>付款時間</th>
+                  <th>帳號</th>
+                  <th>金流</th>
+                  <th>類型</th>
+                  <th>金額</th>
+                  <th>點數</th>
+                  <th>狀態</th>
+                  <th>退費</th>
+                  <th>本站訂單號</th>
+                  <th>金流交易號</th>
+                </tr>
+              </thead>
+              <tbody id="ordersBody">
+                <tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+            <span class="small text-muted" id="pagerInfo">—</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary" id="btnPrev" disabled>上一頁</button>
+              <button class="btn btn-outline-secondary" id="btnNext" disabled>下一頁</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/auth-middleware.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function () {
+    var offset = 0;
+    var limit = 40;
+    var total = 0;
+    var token = null;
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('zh-TW'); } catch (_) { return iso; }
+    }
+    function statusBadge(st) {
+      var map = { paid: 'success', pending: 'warning', cancelled: 'secondary', failed: 'danger' };
+      var label = { paid: '已付款', pending: '待付款', cancelled: '已取消', failed: '失敗' };
+      var cls = map[st] || 'secondary';
+      return '<span class="badge bg-' + cls + '">' + esc(label[st] || st || '—') + '</span>';
+    }
+    function typeLabel(t) {
+      var map = { one_time: '單次儲值', subscription: '月訂閱', yearly: '年付' };
+      return map[t] || t || '—';
+    }
+    function providerLabel(p) {
+      if (p === 'ecpay') return '綠界';
+      if (p === 'paypal') return 'PayPal';
+      return p || '—';
+    }
+    function refundCell(row) {
+      var st = row.refund_status || '';
+      if (st === 'refunded') {
+        return '<span class="badge bg-info">已退 ' + esc(row.refund_amount) + ' ' + esc(row.currency || '') + '</span>' +
+          (row.refund_months ? '<div class="text-muted small">' + esc(row.refund_months) + ' 個月</div>' : '');
+      }
+      if (st === 'skipped') {
+        var why = row.refund_reason === 'points_used' ? '點數已用' : (row.refund_reason === 'current_period' ? '當月不退' : '未退費');
+        return '<span class="text-muted small">' + esc(why) + '</span>';
+      }
+      if (st === 'failed') return '<span class="badge bg-danger">退費失敗</span>';
+      return '—';
+    }
+    function showMsg(text, type) {
+      var el = document.getElementById('pageMsg');
+      el.textContent = text;
+      el.className = 'alert alert-' + (type || 'info') + ' small py-2';
+      el.classList.remove('d-none');
+    }
+    function hideMsg() {
+      document.getElementById('pageMsg').classList.add('d-none');
+    }
+    function renderRows(items) {
+      if (!items.length) {
+        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">尚無紀錄</td></tr>';
+        return;
+      }
+      document.getElementById('ordersBody').innerHTML = items.map(function (row) {
+        var amt = (row.amount != null ? row.amount : '') + ' ' + esc(row.currency || '');
+        var plan = row.plan_key ? (' <span class="text-muted small">' + esc(row.plan_key) + '</span>') : '';
+        return '<tr>' +
+          '<td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td>' +
+          '<td class="small text-nowrap">' + esc(fmtTime(row.paid_at)) + '</td>' +
+          '<td class="small">' + esc(row.email || '—') + (row.full_name ? '<div class="text-muted">' + esc(row.full_name) + '</div>' : '') + '</td>' +
+          '<td class="small">' + esc(providerLabel(row.provider)) + '</td>' +
+          '<td class="small">' + esc(typeLabel(row.order_type)) + plan + '</td>' +
+          '<td class="small text-nowrap">' + esc(amt) + '</td>' +
+          '<td class="small">' + esc(row.credits_to_grant != null ? String(row.credits_to_grant) : '—') + '</td>' +
+          '<td>' + statusBadge(row.status) + '</td>' +
+          '<td class="small">' + refundCell(row) + '</td>' +
+          '<td class="small"><code>' + esc(row.order_id || '') + '</code></td>' +
+          '<td class="small"><code>' + esc(row.external_id || '—') + '</code></td>' +
+          '</tr>';
+      }).join('');
+    }
+    function updatePager() {
+      document.getElementById('pagerInfo').textContent = '共 ' + total + ' 筆 · 第 ' + (Math.floor(offset / limit) + 1) + ' 頁';
+      document.getElementById('btnPrev').disabled = offset <= 0;
+      document.getElementById('btnNext').disabled = offset + limit >= total;
+    }
+    async function loadList() {
+      if (!token) return;
+      document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>';
+      var qs = new URLSearchParams();
+      qs.set('limit', String(limit));
+      qs.set('offset', String(offset));
+      var q = document.getElementById('filterQ').value.trim();
+      var st = document.getElementById('filterStatus').value;
+      var pv = document.getElementById('filterProvider').value;
+      var ty = document.getElementById('filterType').value;
+      if (q) qs.set('q', q);
+      if (st) qs.set('status', st);
+      if (pv) qs.set('provider', pv);
+      if (ty) qs.set('order_type', ty);
+      var r = await fetch('/api/admin/payment-orders?' + qs.toString(), {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        showMsg(data.error || '載入失敗', 'danger');
+        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">載入失敗</td></tr>';
+        return;
+      }
+      hideMsg();
+      total = data.total || 0;
+      renderRows(data.items || []);
+      updatePager();
+    }
+    document.addEventListener('DOMContentLoaded', async function () {
+      try {
+        var session = window.AuthService && AuthService.getSession ? await AuthService.getSession() : null;
+        token = (session && session.access_token) || '';
+      } catch (_) {}
+      document.getElementById('btnSearch').addEventListener('click', function () { offset = 0; loadList(); });
+      document.getElementById('btnReset').addEventListener('click', function () {
+        document.getElementById('filterQ').value = '';
+        document.getElementById('filterStatus').value = '';
+        document.getElementById('filterProvider').value = '';
+        document.getElementById('filterType').value = '';
+        offset = 0;
+        loadList();
+      });
+      document.getElementById('btnPrev').addEventListener('click', function () {
+        offset = Math.max(0, offset - limit);
+        loadList();
+      });
+      document.getElementById('btnNext').addEventListener('click', function () {
+        offset += limit;
+        loadList();
+      });
+      document.getElementById('filterQ').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); offset = 0; loadList(); }
+      });
+      setTimeout(loadList, 400);
+    });
+  })();
+  </script>
+</body>
+</html>

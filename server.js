@@ -125,6 +125,7 @@ const membershipDowngradeNotices = require('./lib/membership-downgrade-notices')
 const ugcAccessLog = require('./lib/ugc-access-log');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
+const subscriptionProrationRefund = require('./lib/subscription-proration-refund');
 const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
@@ -14399,14 +14400,20 @@ async function attachAdminAuthStates(users) {
             const { data, error } = await supabase.auth.admin.getUserById(u.id);
             if (error) {
                 console.warn('attachAdminAuthStates getUserById:', u.id, error.message);
-                return { ...u, is_disabled: false, banned_until: null };
+                return { ...u, is_disabled: false, banned_until: null, last_sign_in_at: null, auth_created_at: null };
             }
             const bannedUntil = data?.user?.banned_until || null;
             const isDisabled = !!(bannedUntil && Date.parse(bannedUntil) > now);
-            return { ...u, is_disabled: isDisabled, banned_until: bannedUntil };
+            return {
+                ...u,
+                is_disabled: isDisabled,
+                banned_until: bannedUntil,
+                last_sign_in_at: data?.user?.last_sign_in_at || null,
+                auth_created_at: data?.user?.created_at || null
+            };
         } catch (err) {
             console.warn('attachAdminAuthStates exception:', u.id, err && err.message);
-            return { ...u, is_disabled: false, banned_until: null };
+            return { ...u, is_disabled: false, banned_until: null, last_sign_in_at: null, auth_created_at: null };
         }
     }));
 }
@@ -15411,6 +15418,86 @@ app.get('/api/admin/payment-config', async (req, res) => {
         });
     } catch (e) {
         console.error('GET /api/admin/payment-config:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/payment-orders — 金流訂單紀錄（綠界／PayPal）
+app.get('/api/admin/payment-orders', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 40));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+        const status = String(req.query.status || '').trim().toLowerCase();
+        const provider = String(req.query.provider || '').trim().toLowerCase();
+        const orderType = String(req.query.order_type || '').trim().toLowerCase();
+        const q = String(req.query.q || '').trim().slice(0, 80);
+        const allowedStatus = ['pending', 'paid', 'failed', 'cancelled'];
+        const allowedProvider = ['ecpay', 'paypal'];
+        const allowedType = ['one_time', 'subscription', 'yearly'];
+
+        let query = supabase
+            .from('payment_orders')
+            .select('id, order_id, user_id, provider, amount, currency, credits_to_grant, status, order_type, external_id, created_at, paid_at, metadata', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+        if (allowedStatus.indexOf(status) >= 0) query = query.eq('status', status);
+        if (allowedProvider.indexOf(provider) >= 0) query = query.eq('provider', provider);
+        if (allowedType.indexOf(orderType) >= 0) query = query.eq('order_type', orderType);
+        if (q) {
+            const safe = q.replace(/[%_,]/g, ' ').trim();
+            if (safe) {
+                const { data: profs } = await supabase.from('profiles').select('id').ilike('email', '%' + safe + '%');
+                const ids = (profs || []).map((p) => p.id).filter(Boolean);
+                if (ids.length) {
+                    query = query.or('order_id.ilike.%' + safe + '%,external_id.ilike.%' + safe + '%,user_id.in.(' + ids.join(',') + ')');
+                } else {
+                    query = query.or('order_id.ilike.%' + safe + '%,external_id.ilike.%' + safe + '%');
+                }
+            }
+        }
+        const { data: rows, error, count } = await query;
+        if (error) {
+            console.error('GET /api/admin/payment-orders:', error);
+            return res.status(500).json({ error: error.message || '查詢金流訂單失敗' });
+        }
+        const userIds = [...new Set((rows || []).map((r) => r.user_id).filter(Boolean))];
+        const emailMap = {};
+        if (userIds.length) {
+            const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', userIds);
+            (profs || []).forEach((p) => {
+                emailMap[p.id] = { email: p.email || '', full_name: p.full_name || '' };
+            });
+        }
+        const items = (rows || []).map((r) => {
+            const meta = (r.metadata && typeof r.metadata === 'object') ? r.metadata : {};
+            const ident = emailMap[r.user_id] || {};
+            return {
+                id: r.id,
+                order_id: r.order_id,
+                user_id: r.user_id,
+                email: ident.email || '',
+                full_name: ident.full_name || '',
+                provider: r.provider,
+                amount: r.amount,
+                currency: r.currency,
+                credits_to_grant: r.credits_to_grant,
+                status: r.status,
+                order_type: r.order_type,
+                external_id: r.external_id || '',
+                plan_key: meta.plan_key || '',
+                refund_status: (meta.proration_refund && meta.proration_refund.status) || '',
+                refund_amount: (meta.proration_refund && meta.proration_refund.amount) || 0,
+                refund_months: (meta.proration_refund && meta.proration_refund.refundable_months) || 0,
+                refund_reason: (meta.proration_refund && meta.proration_refund.reason) || '',
+                created_at: r.created_at,
+                paid_at: r.paid_at
+            };
+        });
+        res.json({ items, total: count || 0, limit, offset });
+    } catch (e) {
+        console.error('GET /api/admin/payment-orders 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -17805,6 +17892,15 @@ app.get('/api/me/subscription', async (req, res) => {
             plan_price: (r.subscription_plans && r.subscription_plans.price) ? r.subscription_plans.price : 0
         }));
         const hasPaidActive = subscriptions.some(function (s) { return (s.plan_price || 0) > 0; });
+        let refund_preview = null;
+        try {
+            refund_preview = await subscriptionProrationRefund.previewForUser({
+                supabase,
+                userId: user.id
+            });
+        } catch (previewErr) {
+            console.warn('GET /api/me/subscription refund preview:', previewErr && previewErr.message);
+        }
         const twoWeeksFromNow = new Date(now);
         twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
         let renewal_reminder = null;
@@ -17831,6 +17927,7 @@ app.get('/api/me/subscription', async (req, res) => {
             renewal_reminder,
             has_paid_active: hasPaidActive,
             can_cancel_to_free: hasPaidActive,
+            refund_preview,
             wall_grace_until: wallGraceUntil,
             wall_grace_days_left: wallGraceDaysLeft
         });
@@ -17900,7 +17997,8 @@ app.post('/api/me/subscription/cancel', express.json(), async (req, res) => {
         res.json({
             success: true,
             message: '已調整為免費方案',
-            cancelled: result.cancelled
+            cancelled: result.cancelled,
+            refund: result.refund || null
         });
     } catch (e) {
         console.error('POST /api/me/subscription/cancel 異常:', e);
@@ -18465,7 +18563,13 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
         }
         const credits = order.credits_to_grant;
         const paidAt = new Date().toISOString();
-        await supabase.from('payment_orders').update({ status: 'paid', paid_at: paidAt }).eq('id', order.id);
+        const captureId = paypalRest.extractPayPalCaptureId(response.result);
+        const prevMeta = parsePaymentOrderMetadata(order.metadata);
+        const paidPatch = { status: 'paid', paid_at: paidAt };
+        if (captureId) {
+            paidPatch.metadata = Object.assign({}, prevMeta, { paypal_capture_id: captureId });
+        }
+        await supabase.from('payment_orders').update(paidPatch).eq('id', order.id);
         const { data: cred } = await supabase.from('user_credits').select('balance, total_earned, total_spent').eq('user_id', user.id).maybeSingle();
         const balanceBefore = (cred && cred.balance) ? cred.balance : 0;
         const balanceAfter = balanceBefore + credits;
@@ -18820,6 +18924,11 @@ app.post('/api/payment/paypal/webhook', express.json(), async (req, res) => {
                 userId = order && order.user_id;
             }
             if (userId) {
+                try {
+                    await runSubscriptionProrationRefund(userId, { reason: 'paypal_webhook_cancel' });
+                } catch (refundErr) {
+                    console.warn('PayPal cancel webhook proration:', refundErr && refundErr.message);
+                }
                 const nowIso = new Date().toISOString();
                 await supabase
                     .from('user_subscriptions')
@@ -24575,6 +24684,20 @@ function parsePaymentOrderMetadata(metadata) {
     return {};
 }
 
+async function runSubscriptionProrationRefund(userId, options) {
+    const config = await getPaymentConfig();
+    return subscriptionProrationRefund.applyForUser({
+        supabase,
+        userId,
+        excludeOrderId: options && options.excludeOrderId,
+        reason: (options && options.reason) || 'user_voluntary',
+        consumeUserCredits,
+        paypalRest,
+        paypalConfig: config.paypal,
+        ecpayConfig: config.ecpay
+    });
+}
+
 /**
  * 寫入／延長 user_subscriptions，並同步 profiles.member_level（月訂／年付／後台開通共用）
  * @param {'new'|'extend'} options.mode — new：作廢其他 active 後新建；extend：自現有到期日或今日起延長 duration_months
@@ -24591,6 +24714,14 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
     const months = Math.max(1, parseInt(plan.duration_months, 10) || 1);
 
     if (mode === 'new') {
+        try {
+            await runSubscriptionProrationRefund(userId, {
+                excludeOrderId: options.excludeOrderId,
+                reason: 'plan_switch'
+            });
+        } catch (refundErr) {
+            console.warn('plan switch proration refund:', refundErr && refundErr.message);
+        }
         await supabase
             .from('user_subscriptions')
             .update({ status: 'expired' })
@@ -24684,7 +24815,8 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     await activateUserSubscriptionFromPlan(order.user_id, plan, {
         mode,
         syncMemberLevel: 'always',
-        autoRenew: !!(options && options.autoRenew)
+        autoRenew: !!(options && options.autoRenew),
+        excludeOrderId: order.id
     });
 }
 
@@ -24913,6 +25045,14 @@ async function voluntaryCancelUserSubscription(userId) {
         console.warn('voluntaryCancel PayPal:', paypalErr && paypalErr.message);
     }
 
+    let refund = null;
+    try {
+        refund = await runSubscriptionProrationRefund(userId, { reason: 'user_voluntary' });
+    } catch (refundErr) {
+        console.error('voluntaryCancel proration refund:', refundErr && refundErr.message);
+        refund = { refund_amount: 0, error: refundErr && refundErr.message };
+    }
+
     for (let i = 0; i < paidSubs.length; i++) {
         const patch = {
             status: 'cancelled',
@@ -24925,7 +25065,7 @@ async function voluntaryCancelUserSubscription(userId) {
     }
 
     await reconcileMembershipAfterSubscriptionEnd(userId);
-    return { ok: true, cancelled: paidSubs.length };
+    return { ok: true, cancelled: paidSubs.length, refund };
 }
 
 async function hideVendorAssetsOnMembershipDowngrade(userId) {

@@ -17,7 +17,7 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h2>一般會員管理</h2>
         <p class="text-muted small mb-2">
-            管理登入帳號、會員等級、點數與<strong>訂閱帳期</strong>。廠商／供應商資料請至
+            管理登入帳號、會員等級、點數、最近登入與<strong>訂閱帳期</strong>。廠商／供應商資料請至
             <a href="/admin/manufacturers.html">廠商管理</a>、<a href="/admin/industry-suppliers.html">產業供應商</a>；
             全站方案價請至 <a href="/admin/membership.html">方案／點數</a>。（平台 admin/tester 角色仍在此編輯）
             列表「管理備註」可記錄待處理狀況與處理歷程（需先執行 <code>docs/add-admin-entity-followups.sql</code>）。
@@ -78,6 +78,7 @@
                     <th>平台角色</th>
                     <th>會員等級</th>
                     <th>點數</th>
+                    <th>最近登入</th>
                     <th>身分／工作區</th>
                     <th>管理備註</th>
                     <th>操作</th>
@@ -227,6 +228,10 @@
             var plansCache = [];
             var userSubModal = null;
 
+            function fmtDateTime(iso) {
+                if (!iso) return '<span class="text-muted">—</span>';
+                try { return escapeHtml(new Date(iso).toLocaleString('zh-TW')); } catch (_) { return escapeHtml(String(iso)); }
+            }
             function showError(msg) {
                 $('#usersTable').html('<tr><td colspan="10" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
             }
@@ -344,7 +349,7 @@
                         var followupCell = (window.AdminFollowup && AdminFollowup.renderCellSummary)
                             ? AdminFollowup.renderCellSummary(u.admin_followup)
                             : '—';
-                        html += '<tr data-user-id="' + escapeHtml(u.id) + '"><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td>' + idCell + '</td><td>' + followupCell + '</td><td>' +
+                        html += '<tr data-user-id="' + escapeHtml(u.id) + '"><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td class="small text-nowrap">' + fmtDateTime(u.last_sign_in_at) + '</td><td>' + idCell + '</td><td>' + followupCell + '</td><td>' +
                             '<button type="button" class="btn btn-sm btn-outline-warning btn-followup-user me-1">備註</button>' +
                             '<a class="btn btn-sm btn-outline-secondary me-1" href="' + monthlyUrl + '">月消耗</a>' +
                             '<button type="button" class="btn btn-sm btn-outline-success btn-sub-user me-1">訂閱</button>' +
@@ -625,7 +630,7 @@
                     }
                 });
             } catch (e) {
-                $('#usersTable').html('<tr><td colspan="7" class="text-center text-danger">錯誤：' + escapeHtml(e.message) + '</td></tr>');
+                $('#usersTable').html('<tr><td colspan="10" class="text-center text-danger">錯誤：' + escapeHtml(e.message) + '</td></tr>');
             }
         });
     </script>
