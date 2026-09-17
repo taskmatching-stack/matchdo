@@ -118,6 +118,7 @@ const materialComboAnalytics = require('./lib/material-combo-analytics');
 const vendorAssetCategoryStats = require('./lib/vendor-asset-category-stats');
 const categoryUsageStats = require('./lib/category-usage-stats');
 const platformUsageMonitor = require('./lib/platform-usage-monitor');
+const membershipStructureStats = require('./lib/membership-structure-stats');
 const ugcRetention = require('./lib/ugc-retention');
 const subscriptionExpiry = require('./lib/subscription-expiry');
 const matchdoInternal = require('./lib/matchdo-internal-account');
@@ -17141,6 +17142,21 @@ function aggregateCreditTransactionsMonthly(transactions) {
     });
     return { byUserMonth, byUserMonthDesc };
 }
+
+// GET /api/admin/membership-structure-stats — 會員免費／付費、年付／月付、等級占比（目前＋歷月月底）
+app.get('/api/admin/membership-structure-stats', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const data = await membershipStructureStats.buildMembershipStructureStats(supabase, {
+            months: req.query.months
+        });
+        res.json(data);
+    } catch (e) {
+        console.error('GET /api/admin/membership-structure-stats:', e);
+        res.status(500).json({ error: (e && e.message) || '系統錯誤' });
+    }
+});
 
 // GET /api/admin/membership/points-monthly — 每帳號每月消耗（及獲得）點數彙總
 // ?email= 單一用戶；?scope=all 全部用戶矩陣；months=1..36（預設 12）
