@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-        window.__MATCHDO_PROMO_CAMERA_BUILD = 'outfit-flux-hint-20260915';
+        window.__MATCHDO_PROMO_CAMERA_BUILD = 'space-map-mark-adopt-20260917';
 
   var CAMERA_IMG = {
     film: '/img/cam-film.png',
@@ -562,17 +562,67 @@
     if (data && data.points_deducted != null) applyPointsDeductedToDisplay(data.points_deducted);
     appendPromptSentUnderResult(el, data);
     fillPromptSentPanel(data);
-    if (data && data.space_output_type === 'layout_plan' && (data.image_url || url)) {
-      var layoutSrc = data.image_url || url;
-      var layoutGenId = data.layout_generation_id || data.id || null;
-      ensureLayoutImageDataUrl(layoutSrc).then(function (dataUrl) {
-        St.setLayoutReference(dataUrl, layoutGenId);
-        renderLayoutRefThumbs();
-      }).catch(function () {
-        St.setLayoutReference(layoutSrc, layoutGenId);
-        renderLayoutRefThumbs();
-      });
+    adoptGeneratedLayoutMap(data, payload);
+  }
+
+  function isLayoutPlanGenerateResult(data, payload) {
+    var fromData = data && String(data.space_output_type || '').toLowerCase();
+    var fromPayload = payload && String(payload.space_output_type || '').toLowerCase();
+    if (fromData === 'eye_level' || fromData === 'planning_sim') return false;
+    if (fromPayload === 'eye_level' || fromPayload === 'planning_sim') return false;
+    if (fromData === 'layout_plan' || fromPayload === 'layout_plan') return true;
+    return !!(isSpaceMode() && !isSpaceEyeLevel() && payload && payload.shoot_mode === 'space');
+  }
+
+  function layoutMapSrcFromResult(data) {
+    if (!data) return '';
+    return String(data.imageData || data.image_url || '').trim();
+  }
+
+  function openSpaceMapMarkPanel() {
+    var panel = document.getElementById('pcSpaceMapMarkPanel');
+    if (!panel) return;
+    var details = panel.closest('details');
+    if (details) details.open = true;
+  }
+
+  function finishAdoptLayoutMap() {
+    renderLayoutRefThumbs();
+    renderSpaceMapMarkStage();
+    if (isSpaceEyeLevel()) openSpaceMapMarkPanel();
+    if (window.PromoCameraSpecSummary && typeof window.PromoCameraSpecSummary.refresh === 'function') {
+      window.PromoCameraSpecSummary.refresh();
     }
+    updateGenerateBtn();
+  }
+
+  /** 空間地圖生成後，把成圖直接帶進「地圖標註（點圖打字母）」 */
+  function adoptGeneratedLayoutMap(data, payload) {
+    if (!isLayoutPlanGenerateResult(data, payload)) return;
+    var src = layoutMapSrcFromResult(data);
+    if (!src) return;
+    var genId = (data && (data.layout_generation_id || data.id)) || null;
+    if (/^data:/i.test(src)) {
+      St.setLayoutReference(src, genId);
+      finishAdoptLayoutMap();
+      return;
+    }
+    ensureLayoutImageDataUrl(src).then(function (dataUrl) {
+      St.setLayoutReference(dataUrl, genId);
+      finishAdoptLayoutMap();
+    }).catch(function () {
+      St.setLayoutReference(src, genId);
+      finishAdoptLayoutMap();
+    });
+  }
+
+  function tryAdoptLayoutFromLastResult() {
+    if (St.get().layoutReferenceImage) return false;
+    var last = St.get().lastResult;
+    if (!last || !layoutMapSrcFromResult(last)) return false;
+    if (String(last.space_output_type || '').toLowerCase() !== 'layout_plan') return false;
+    adoptGeneratedLayoutMap(last, { shoot_mode: 'space', space_output_type: 'layout_plan' });
+    return true;
   }
 
   function showPortraitBatchResults(data, payload) {
@@ -964,8 +1014,10 @@
         var spanEye = genBtn.querySelector('span');
         if (spanEye) spanEye.textContent = t('promoCamera.genEyeLevel', '生成平視攝影');
       }
+      tryAdoptLayoutFromLastResult();
       renderSpaceMapMarkStage();
       syncSpaceMarkConfirmUi();
+      if (St.get().layoutReferenceImage) openSpaceMapMarkPanel();
     } else {
       if (promptLabel) {
         promptLabel.textContent = St.get().spaceStyleSource === 'image'
@@ -1814,6 +1866,7 @@
     }
     var url = St.get().layoutReferenceImage;
     if (!url) {
+      if (tryAdoptLayoutFromLastResult()) return;
       wrap.classList.add('d-none');
       if (empty) {
         empty.classList.remove('d-none');
@@ -1858,6 +1911,10 @@
       _spaceMarkImg = new Image();
       _spaceMarkImg.onload = paintFromImg;
       _spaceMarkImg.onerror = function () {
+        if (/^https?:/i.test(url) && _spaceMarkImg && _spaceMarkImg.src.indexOf('/api/proxy-image') < 0) {
+          _spaceMarkImg.src = '/api/proxy-image?url=' + encodeURIComponent(url);
+          return;
+        }
         wrap.classList.add('d-none');
         if (empty) {
           empty.classList.remove('d-none');
