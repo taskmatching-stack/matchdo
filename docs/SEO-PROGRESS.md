@@ -144,9 +144,9 @@
 
 | 項目 | 說明 |
 |------|------|
-| **前台載入** | `public/js/ga4-loader.js` 從 `GET /api/config/ga4` 取得衡量 ID，有值則動態注入 gtag 並送 page_view |
-| **涵蓋範圍** | 首頁、產品設計、訂閱方案、廠商列表、客製產品等主要頁面直接掛載；其餘使用共用導覽的頁面由 `site-header.js` 動態注入，全站覆蓋 |
-| **後台設定** | 後台「網站設定」→「GA4 衡量 ID」填寫 `G-XXXXXXXXXX` 並儲存後即生效；無需改 HTML |
+| **前台載入** | `public/js/ga4-loader.js` 從 `GET /api/config/ga4` 取得衡量 ID，有值則動態注入 gtag 並送 page_view；以 `__MATCHDO_GA4_INIT` 保證只初始化一次 |
+| **涵蓋範圍** | 共用導覽頁由 `site-header.js` 注入；另掛於登入／註冊／重設密碼、404、`/inspiration/{type}/{id}` SSR。`site-common.js` 若頁面已有 loader 則不再重複掛 |
+| **後台設定** | 後台「網站設定」→「GA4 衡量 ID」填寫 `G-XXXXXXXXXX` 並儲存後即生效（格式不符會拒絕）；無需改 HTML |
 | **文件** | `docs/user-manual.md` 已新增「Google 網站行為分析（GA4）」說明 |
 
 ### ✅ 聯絡信箱統一為 support@matchdo.cc（2026-03-05）

@@ -160,6 +160,10 @@ $(async function () {
 
     $('#btnSaveGa4').on('click', function () {
         var measurementId = $('#ga4MeasurementId').val().trim();
+        if (measurementId && !/^G-[A-Z0-9]+$/i.test(measurementId)) {
+            setStatus('格式須為 G- 開頭（例 G-XXXXXXXXXX），留空則停用', true);
+            return;
+        }
         setStatus('儲存中…', false);
         $.ajax({
             url: '/api/admin/ga4',
@@ -169,7 +173,10 @@ $(async function () {
             data: JSON.stringify({ measurementId: measurementId })
         })
             .done(function () { setStatus('已儲存', false); })
-            .fail(function () { setStatus('儲存失敗', true); });
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : '儲存失敗';
+                setStatus(msg, true);
+            });
     });
 
     // ── 社群帳號：載入 ──────────────────────────────────────────────────

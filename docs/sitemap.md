@@ -221,7 +221,7 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 - **申請位置**：[https://analytics.google.com/](https://analytics.google.com/) → 建立資源 → 選擇 **GA4**，取得 **Measurement ID**（`G-XXXXXXXXXX`）。
 - **要用 GA4 還是 GA5？** 請用 **GA4**；目前 Google 只提供 GA4，**沒有 GA5**（GA4 為現行版本，新站一律 GA4）。
-- **本專案**：將 Measurement ID 設為環境變數（如 `GA_MEASUREMENT_ID`），在全站共用版型（如 site-header 或各頁 `<head>`）加入 GA4 追蹤碼（gtag.js）即可。
+- **本專案**：後台「網站設定」填入 GA4 衡量 ID（存 `payment_config.ga4_measurement_id`）。前台 `ga4-loader.js` 呼叫 `GET /api/config/ga4` 後注入 gtag.js；有共用導覽的頁面由 `site-header.js` 掛載，登入／註冊／靈感落地頁另掛 loader。
 
 ---
 

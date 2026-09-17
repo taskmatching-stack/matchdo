@@ -7245,6 +7245,10 @@ function buildInspirationBodySectionHtml(bodyText, type) {
     return '<section class="inspiration-desc"><h2 class="inspiration-desc-label">' + escapeHtmlText(label) + '</h2><p class="inspiration-desc-text">' + htmlBody + '</p></section>';
 }
 
+function ga4PublicLoaderScriptTag() {
+    return '<script src="/js/ga4-loader.js?v=20260917ga4" async></script>\n';
+}
+
 function buildInspirationUgcDetailHtml(item, base, type, id, options) {
     options = options || {};
     attachDisplayTags(item);
@@ -7339,7 +7343,7 @@ ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')
 .inspiration-ref-card span{display:block;margin-top:.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
+${ga4PublicLoaderScriptTag()}</head>
 <body>
 <article class="inspiration-page">
 <h1>${title}</h1>
@@ -7580,7 +7584,7 @@ body{margin:0;background:var(--vp-bg);color:#1e293b;font-family:system-ui,-apple
   .vp-detail-meta-row{grid-template-columns:1fr}
 }
 </style>
-</head>
+${ga4PublicLoaderScriptTag()}</head>
 <body>
 <main class="vp-wrap">
 <nav class="vp-nav">${vendorHref ? '<a href="' + escapeHtmlAttr(vendorHref) + '">← 返回廠商頁</a>' : '<a href="/vendors.html">← 廠商列表</a>'}</nav>
@@ -15605,8 +15609,9 @@ app.get('/api/config/ga4', async (req, res) => {
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'ga4_measurement_id').maybeSingle();
         const measurementId = (row && row.value && String(row.value).trim()) ? String(row.value).trim() : '';
+        const validId = /^G-[A-Z0-9]+$/i.test(measurementId) ? measurementId : '';
         res.set('Cache-Control', 'public, max-age=300');
-        res.json({ measurementId });
+        res.json({ measurementId: validId });
     } catch (e) {
         res.set('Cache-Control', 'public, max-age=60');
         res.json({ measurementId: '' });
@@ -15633,6 +15638,9 @@ app.patch('/api/admin/ga4', express.json(), async (req, res) => {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
         const measurementId = (req.body && req.body.measurementId != null) ? String(req.body.measurementId).trim() : '';
+        if (measurementId && !/^G-[A-Z0-9]+$/i.test(measurementId)) {
+            return res.status(400).json({ error: '衡量 ID 須為 G- 開頭（例 G-XXXXXXXXXX），留空則停用' });
+        }
         await supabase.from('payment_config').upsert(
             { key: 'ga4_measurement_id', value: measurementId, updated_at: new Date().toISOString() },
             { onConflict: 'key' }

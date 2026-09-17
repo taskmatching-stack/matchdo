@@ -101,9 +101,11 @@
       await buildMenu();
     }
     await inject('site-footer', '/partials/footer.html');
-    var ga4 = document.createElement('script');
-    ga4.src = '/js/ga4-loader.js';
-    ga4.async = true;
-    document.head.appendChild(ga4);
+    if (!document.querySelector('script[src*="ga4-loader"]')) {
+      var ga4 = document.createElement('script');
+      ga4.src = '/js/ga4-loader.js?v=20260917ga4';
+      ga4.async = true;
+      document.head.appendChild(ga4);
+    }
   });
 })();

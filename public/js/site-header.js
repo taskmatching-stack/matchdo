@@ -975,7 +975,7 @@ async function handleLogout(event) {
 (function () {
     if (document.querySelector('script[src*="ga4-loader"]')) return;
     var s = document.createElement('script');
-    s.src = '/js/ga4-loader.js';
+    s.src = '/js/ga4-loader.js?v=20260917ga4';
     s.async = true;
     document.head.appendChild(s);
 })();

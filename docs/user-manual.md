@@ -394,7 +394,7 @@
 
 - **設定位置**：後台 → **網站設定**（site-settings）→「GA4 衡量 ID」欄位填寫 Measurement ID（格式 `G-XXXXXXXXXX`），儲存後全站即會載入 Google Analytics 4 追蹤。
 - **取得 ID**：至 [Google Analytics](https://analytics.google.com/) 建立 GA4 資源，在「資料串流」中取得「衡量 ID」。
-- **涵蓋範圍**：首頁、產品設計、訂閱方案、廠商列表、客製產品、登入／註冊等所有使用共用導覽或已個別掛載的頁面，皆會送出 page_view 等事件至 GA4，可在 GA4 報表查看流量與行為。
+- **涵蓋範圍**：共用導覽頁、登入／註冊／重設密碼、404、靈感落地頁（`/inspiration/{type}/{id}`）皆會送 page_view。衡量 ID 須為 `G-` 開頭；留空則不載入。
 
 ---
 
