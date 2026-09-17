@@ -171,7 +171,7 @@ $(document).ready(function () {
                     if (u && u === norm) {
                         lastGeneratedProductId = p.id || null;
                         $('#pastGeneratedGallery .past-item-wrap').filter(function () {
-                            return $(this).attr('data-image-url') === norm;
+                            return readPastItemImageUrl($(this)) === norm;
                         }).attr('data-show-on-homepage', p.show_on_homepage === false ? '0' : '1');
                         break;
                     }
@@ -5159,6 +5159,48 @@ $(document).ready(function () {
         return normalizeGalleryImageUrl((p && (p.ai_generated_image_url || p.reference_image_url)) || '');
     }
 
+    function attachPastItemImageUrl($cell, url) {
+        if (!$cell || !$cell.length) return;
+        var u = String(url || '').trim();
+        $cell.data('imageUrl', u);
+        // 超長 data URL 不可寫進 HTML attribute，瀏覽器會截斷，點開資產庫就一片空白
+        if (u && u.indexOf('data:') !== 0 && u.length < 2048) {
+            $cell.attr('data-image-url', u);
+        } else {
+            $cell.removeAttr('data-image-url');
+        }
+    }
+
+    function attachPastItemRefSources($cell, list) {
+        if (!$cell || !$cell.length) return;
+        $cell.data('referenceSources', Array.isArray(list) ? list : []);
+        $cell.removeAttr('data-reference-sources');
+    }
+
+    function readPastItemImageUrl($wrap) {
+        if (!$wrap || !$wrap.length) return '';
+        var img = $wrap.find('img').get(0);
+        var fromImg = img ? String(img.currentSrc || img.src || '').trim() : '';
+        if (fromImg && fromImg.indexOf('javascript:') !== 0 && fromImg !== window.location.href) return fromImg;
+        var fromData = $wrap.data('imageUrl');
+        if (fromData) return String(fromData).trim();
+        return String($wrap.attr('data-image-url') || '').trim();
+    }
+
+    function readPastItemRefSources($wrap) {
+        if (!$wrap || !$wrap.length) return [];
+        var stored = $wrap.data('referenceSources');
+        if (Array.isArray(stored)) return stored;
+        var raw = $wrap.attr('data-reference-sources') || '';
+        if (!raw) return [];
+        try {
+            var parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     function getGalleryTitle(ownerDisplay) {
         return (ownerDisplay || tr('customProduct.thisAccount', '該帳號')) + tr('customProduct.digitalAssetsSuffix', '的數位資產');
     }
@@ -5173,18 +5215,17 @@ $(document).ready(function () {
         var showOnHomepage = p.show_on_homepage !== false;
         var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
         var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
-        var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
         var $cell = $('<div class="past-item-wrap"></div>').attr({
-            'data-image-url': url,
             'data-prompt': promptText,
             'data-seed': seedStr,
             'data-owner-display': ownerDisplay,
             'data-product-id': p.id || '',
             'data-show-on-homepage': showOnHomepage ? '1' : '0',
             'data-category-key': catKey,
-            'data-subcategory-key': subKey,
-            'data-reference-sources': refSourcesJson
+            'data-subcategory-key': subKey
         });
+        attachPastItemImageUrl($cell, url);
+        attachPastItemRefSources($cell, (p.reference_sources && Array.isArray(p.reference_sources)) ? p.reference_sources : []);
         var $img = $('<img>').attr({ src: url, alt: '' });
         if (eagerLoad) {
             $img.attr('loading', 'eager');
@@ -5213,11 +5254,12 @@ $(document).ready(function () {
         var dataUrl = item.href || item;
         var prompt = (item.prompt != null && item.prompt !== undefined) ? String(item.prompt) : '';
         var seed = (item.seed != null && item.seed !== undefined) ? String(item.seed) : '';
-        var url = (dataUrl + '').replace(/"/g, '&quot;');
+        var url = String(dataUrl || '').trim();
         var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || (t('customProduct.thisGeneration') + '（點擊放大）');
         if (seed) tip += ' · Seed: ' + seed;
-        var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-image-url': url, 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
-        $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
+        var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
+        attachPastItemImageUrl($cell, url);
+        $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: url, alt: '' })));
         var caption = (prompt ? prompt.substring(0, 120) : t('customProduct.thisGeneration')) + (seed ? ' · Seed: ' + seed : '');
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
         return $cell;
@@ -5291,11 +5333,11 @@ $(document).ready(function () {
         var tip = promptText || (tab === 'promo' ? '情境圖' : (tab === 'material_combo' ? '材料組合' : (tab === 'print' ? '印花' : '我的最愛')));
         var comboJson = item.material_combo ? JSON.stringify(item.material_combo) : '';
         var $cell = $('<div class="past-item-wrap"></div>').attr({
-            'data-image-url': url,
             'data-prompt': promptText,
             'data-seed': '',
             'data-owner-display': galleryOwnerDisplay || ''
         });
+        attachPastItemImageUrl($cell, url);
         if (comboJson) $cell.attr('data-material-combo', comboJson);
         if (tab === 'print') $cell.attr('data-print-asset', '1');
         if (tab === 'material_combo' && item.sourceId) {
@@ -5890,10 +5932,11 @@ $(document).ready(function () {
         var ck = ($('#imageCategoryMainSelect').val() || '').trim();
         var sk = ($('#imageCategorySubSelect').val() || '').trim();
         $('#pastItemModal').data('redesignCategoryKey', ck).data('redesignSubcategoryKey', sk);
+        $('#pastItemModal').data('import-url', url || '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
         var inner = document.getElementById('pastItemModalBodyInner');
-        if (inner) inner.innerHTML = '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">';
+        if (inner) inner.innerHTML = url ? '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">' : '';
         $('#pastItemModalPrompt').text(prompt || '（無）');
         $('#pastItemModalSeed').text(seed || '（無）');
         $('#pastItemModalOwner').text(t('customProduct.thisGeneration'));
@@ -5910,7 +5953,7 @@ $(document).ready(function () {
         e.preventDefault();
         var wrap = $(this).closest('.past-item-wrap');
         if (!wrap.length) return;
-        var url = wrap.attr('data-image-url');
+        var url = readPastItemImageUrl(wrap);
         var prompt = wrap.attr('data-prompt') || '';
         var seed = wrap.attr('data-seed') || '';
         var ownerDisplay = wrap.attr('data-owner-display') || '';
@@ -5929,9 +5972,7 @@ $(document).ready(function () {
         $('#pastItemModalPrompt').text(prompt || '（無）');
         $('#pastItemModalSeed').text(seed || '（無）');
         $('#pastItemModalOwner').text(ownerDisplay || ('（' + t('customProduct.thisGeneration') + '）'));
-        var refSourcesRaw = wrap.attr('data-reference-sources') || '';
-        var refSourcesList = [];
-        try { if (refSourcesRaw) refSourcesList = JSON.parse(refSourcesRaw); } catch (e) {}
+        var refSourcesList = readPastItemRefSources(wrap);
         applyPastItemModalRefSources(Array.isArray(refSourcesList) ? refSourcesList : []);
         var $showSection = $('#pastItemModalShowSection');
         var $checkbox = $('#pastItemModalShowOnHomepage');
@@ -5962,6 +6003,16 @@ $(document).ready(function () {
             $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
         }
         showBootstrapModal(document.getElementById('pastItemModal'));
+    });
+
+    $(document).on('click', '#pastItemModal .past-ref-asset-link', function (e) {
+        var img = this.querySelector('img');
+        var src = img ? String(img.currentSrc || img.src || '').trim() : '';
+        if (!src) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var cap = String(this.getAttribute('title') || '').trim();
+        openImageLightbox(src, cap);
     });
 
     $(document).on('click', '#pastItemModalAddRef', function () {
@@ -6081,28 +6132,24 @@ $(document).ready(function () {
             if (!imageDataUrl) return;
             var wrap = $('#pastGeneratedGallery');
             if (!wrap.length) return;
-            var url = String(imageDataUrl).replace(/"/g, '&quot;');
             var promptStr = (prompt != null && String(prompt).trim()) ? String(prompt).trim() : '';
             var seedStr = (seed != null && seed !== '') ? String(seed) : '';
             var tip = (promptStr ? promptStr.replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200) : '') || '本次生成（點擊放大）';
             if (seedStr) tip += ' · Seed: ' + seedStr;
             var ck = ($('#imageCategoryMainSelect').val() || '').trim();
             var sk = ($('#imageCategorySubSelect').val() || '').trim();
-            var refSourcesJson = '';
-            try {
-                var rs = getActiveRefSourcesList();
-                if (rs.length) refSourcesJson = JSON.stringify(rs);
-            } catch (e) {}
+            var rs = [];
+            try { rs = getActiveRefSourcesList() || []; } catch (e) { rs = []; }
             var $cell = $('<div class="past-item-wrap"></div>').attr({
-                'data-image-url': url,
                 'data-prompt': promptStr,
                 'data-seed': seedStr,
                 'data-owner-display': '',
                 'data-category-key': ck,
-                'data-subcategory-key': sk,
-                'data-reference-sources': refSourcesJson
+                'data-subcategory-key': sk
             });
-            $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
+            attachPastItemImageUrl($cell, imageDataUrl);
+            attachPastItemRefSources($cell, rs);
+            $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: imageDataUrl, alt: '' })));
             var caption = (promptStr ? promptStr.substring(0, 120) : t('customProduct.thisGeneration')) + (seedStr ? ' · Seed: ' + seedStr : '');
             $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
             var inner = wrap.find('.past-gallery-inner');

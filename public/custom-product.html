@@ -777,8 +777,9 @@
         #pastItemModal .past-item-ref-sources { background: rgba(122,143,163,.08); border-radius: 8px; }
         #pastItemModal .past-ref-mfr-group:last-child { border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
         #pastItemModal .modal-body { padding: 0; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; background: #f5f7fa; text-align: center; position: relative; display: flex; flex-direction: column; align-items: stretch; max-width: 100%; box-sizing: border-box; }
-        #pastItemModal #pastItemModalBody { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
-        #pastItemModal #pastItemModalBodyInner { width: 100%; max-width: 100%; height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-sizing: border-box; }
+        #pastItemModal #pastItemModalBody { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; flex-direction: row; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+        #pastItemModal #pastItemModalBodyInner { flex: 1 1 auto; width: auto; max-width: 100%; min-width: 12rem; height: auto; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: auto; box-sizing: border-box; }
+        #pastItemModal #pastItemModalRefSources:not(.d-none) { flex: 0 0 168px; max-width: 180px; overflow-y: auto; }
         #pastItemModal #pastItemModalBodyInner img { max-width: 100%; max-height: 78vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; }
         #pastItemModal #pastItemModalDetail { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.4rem 0.6rem 0.5rem; background: linear-gradient(transparent, rgba(88, 100, 112,.95)); color: #fff; text-align: left; font-size: 0.7rem; }
         #pastItemModal #pastItemModalDetail .detail-label { color: rgba(255,255,255,.85); margin-right: 0.25rem; }
@@ -2101,7 +2102,7 @@
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/media-wall-gen-links.js?v=20260917b" defer></script>
     <script src="/js/backup-generate-confirm.js?v=20260903" defer></script>
-    <script src="/js/custom-product.js?v=164" defer></script>
+    <script src="/js/custom-product.js?v=165" defer></script>
     <script src="/js/custom-product-spec-summary-ui.js?v=20260917d" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -725,6 +725,30 @@
             }
         }
 
+        function openAssetOriginalPreview(url, fromEl) {
+            var src = String(url || '').trim();
+            if (fromEl && fromEl.closest) {
+                var card = fromEl.closest('.card');
+                var img = card && card.querySelector('img');
+                var fromImg = img ? String(img.currentSrc || img.src || '').trim() : '';
+                if (fromImg && fromImg.indexOf('javascript:') !== 0) src = fromImg;
+            }
+            if (!src) return;
+            if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.open === 'function') {
+                window.MatchdoImageLightbox.open({ src: src });
+                return;
+            }
+            var tabUrl = toSiteImageUrl(src);
+            if (tabUrl) window.open(tabUrl, '_blank', 'noopener');
+        }
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest && e.target.closest('.js-open-asset-original');
+            if (!btn) return;
+            e.preventDefault();
+            openAssetOriginalPreview(btn.getAttribute('data-image-url'), btn);
+        });
+
         function refreshDesignsBadge() {
             const badgeEl = document.getElementById('badgeDesigns');
             if (!badgeEl) return;
@@ -1159,7 +1183,7 @@
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
@@ -1332,7 +1356,7 @@
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
@@ -1606,7 +1630,7 @@
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
-                            <a href="${escapeHtml(toSiteImageUrl(item.image_url))}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>原圖</a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
