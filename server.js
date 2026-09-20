@@ -1028,6 +1028,7 @@ function buildPromoPortraitMoodFaceRefinePrompt(opts) {
     if (cam) {
         parts.push('第二張底圖的成像條件，人物受光與色調要對齊：');
         parts.push(cam);
+        parts.push(promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('zh'));
     }
     const stylingLines = promoPortraitStyling.buildPortraitStylingMoodFaceLines(
         o.stylingMode || o.portrait_styling_mode,
@@ -1294,7 +1295,9 @@ async function generatePromoPortraitExperimentGrokSwap(personRef, sceneRef, prom
 function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
     const cam = String(cameraBlock || '').trim();
     if (!cam) return '';
-    if (cam.indexOf('重新拍攝') !== -1) return cam.trim();
+    if (cam.indexOf('重新拍攝') !== -1) {
+        return cam.trim() + promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('zh');
+    }
     return [
         '這不是濾鏡、不是調色疊加。',
         '用下列攝影參數把畫面重新拍攝：換成這種鏡頭、光圈、光線與底片的成像。',
@@ -1302,7 +1305,8 @@ function buildPromoPortraitMoodFluxLookPrompt(cameraBlock) {
         '畫面要清晰透亮、對比乾淨，不要整體霧化、柔焦蒙霧、灰霧或低對比發灰。',
         '保留人物與環境細節與邊緣銳度，不要柔糊一片。',
         '不要暗角。No vignette, no heavy haze, no soft focus veil.',
-        cam
+        cam,
+        promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('zh')
     ].join('');
 }
 
@@ -1460,6 +1464,7 @@ function buildPromoPortraitStage3LightingPrompt(cameraBlock) {
     ];
     if (cam) {
         parts.push('Photographic look (lighting and rendering only): ' + cam);
+        parts.push(promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('en'));
     }
     parts.push(promoPortraitStyling.buildPortraitFluxDehazeGuard());
     parts.push(
@@ -1480,6 +1485,7 @@ function buildPromoPortraitStage3GrokLightingPrompt(cameraBlock) {
     ];
     if (cam) {
         parts.push('Photographic look (lighting and rendering only): ' + cam);
+        parts.push(promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('en'));
     }
     parts.push(promoPortraitStyling.buildPortraitFluxDehazeGuard());
     parts.push(
@@ -2588,7 +2594,10 @@ async function buildPromoPortraitFluxPrompt(opts) {
     }
     parts.push(promoPortraitStyling.buildPortraitCommercialPrincipleZh(stylingMode, themeKey).replace(/。$/, ''));
 
-    if (cameraBlock) parts.push(cameraBlock);
+    if (cameraBlock) {
+        parts.push(cameraBlock);
+        parts.push(promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('en'));
+    }
     parts.push('No text, labels, logos, or watermarks in the image.');
     return parts.filter(Boolean).join(' ');
 }
@@ -2600,6 +2609,7 @@ function buildPromoPortraitFluxSceneCameraAppend(cameraBlock) {
     return [
         '空景的透視、景深、色調、光比與底片質感依下列攝影成像條件呈現（只影響環境怎麼被拍出來，不要因此畫出相機、鏡頭、機身、三腳架或任何器材）：',
         cam,
+        promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('en'),
         'No camera body, no lens hardware, no tripod, no filming equipment in frame.'
     ].join(' ');
 }
@@ -26504,6 +26514,9 @@ async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, ca
         if (f) parts.push(f);
     });
     if (user) parts.push(user);
+    if ((cam.fragments || []).some(Boolean)) {
+        parts.push(promoPortraitStyling.buildPromoCameraNoOnImageHudGuard('en'));
+    }
     return {
         prompt: joinPromoPromptParts(parts),
         camera_resolved: cam.resolved
