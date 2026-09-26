@@ -108,6 +108,10 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gclou
 
 ---
 
+## 相關
+
+- **年付限時特價（規劃中）**：`docs/PLAN-pricing-campaigns.md`、`docs/PROGRESS-pricing-campaigns.md`
+
 ## 相關對話
 
 Agent transcript：`863a3493-6847-48e9-97f2-fb34650f484f`

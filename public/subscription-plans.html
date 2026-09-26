@@ -57,6 +57,9 @@
     .pricing-card .plan-name { font-size: 1.1rem; font-weight: 600; color: #212529; margin-bottom: 0.25rem; }
     .pricing-card .plan-sub { font-size: 0.8rem; color: #6c757d; margin-bottom: 1rem; min-height: 1.25em; }
     .pricing-card .price { font-size: 1.75rem; font-weight: 700; color: #7A8FA3; line-height: 1.2; }
+    .pricing-card .price-list { font-size: 0.95rem; font-weight: 500; color: #adb5bd; text-decoration: line-through; margin-right: 0.35rem; }
+    .pricing-card .price-sale { font-size: 1.75rem; font-weight: 700; color: #5a8f7a; }
+    #pricingCampaignBanner { border-radius: 10px; }
     .pricing-card .price-unit { font-size: 0.9rem; font-weight: 500; color: #6c757d; }
     .pricing-card .price + .points { margin-top: 0.5rem; font-size: 0.95rem; color: #495057; }
     .pricing-card .btn-subscribe { width: 100%; }
@@ -203,6 +206,7 @@
       <p class="text-muted small mb-3" data-i18n="pricing.priceNote">價格預設以美金顯示；繁中介面顯示台幣。PayPal 以美金結帳。</p>
 
       <div id="checkoutDisabledBanner" class="alert alert-info d-none" role="status"></div>
+      <div id="pricingCampaignBanner" class="alert alert-success d-none mb-3" role="status"></div>
 
       <!-- 月付 / 年付切換（參考 Leonardo，目前僅 UI） -->
       <div class="pricing-toggle-wrap">
@@ -248,19 +252,62 @@
     var l = String(lang || '').toLowerCase().replace(/_/g, '-');
     return !(l === 'zh' || l.indexOf('zh-') === 0);
   }
+  function resolveYearlyAmounts(plan, sortOrder) {
+    var twdMonthly = plan && plan.price != null ? parseInt(plan.price, 10) : 0;
+    if (isNaN(twdMonthly)) twdMonthly = 0;
+    var usdMonthly = (window.PaymentLocale && PaymentLocale.resolvePlanUsdMonthly)
+      ? PaymentLocale.resolvePlanUsdMonthly(plan)
+      : (PaymentLocale ? PaymentLocale.planUsdMonthly(sortOrder) : 0);
+    var listTwd = plan.yearly_list_twd != null ? parseInt(plan.yearly_list_twd, 10) : (twdMonthly * 10);
+    var listUsd = plan.yearly_list_usd != null ? parseFloat(plan.yearly_list_usd) : (usdMonthly > 0 ? usdMonthly * 10 : 0);
+    var saleTwd = plan.yearly_sale_twd != null ? parseInt(plan.yearly_sale_twd, 10) : 0;
+    var saleUsd = plan.yearly_sale_usd != null ? parseFloat(plan.yearly_sale_usd) : 0;
+    var useUsd = displayPricesInUsd();
+    var list = useUsd ? listUsd : listTwd;
+    var sale = useUsd ? saleUsd : saleTwd;
+    var hasSale = sale > 0 && list > 0 && sale < list;
+    return { list: list, sale: hasSale ? sale : list, hasSale: hasSale, useUsd: useUsd };
+  }
+
   function formatDisplayPrice(plan, sortOrder, isYearly) {
     var twdMonthly = plan && plan.price != null ? parseInt(plan.price, 10) : 0;
     if (isNaN(twdMonthly)) twdMonthly = 0;
     var usdMonthly = (window.PaymentLocale && PaymentLocale.resolvePlanUsdMonthly)
       ? PaymentLocale.resolvePlanUsdMonthly(plan)
       : (PaymentLocale ? PaymentLocale.planUsdMonthly(sortOrder) : 0);
-    if (displayPricesInUsd()) {
-      var usd = isYearly ? (usdMonthly > 0 ? usdMonthly * 10 : 0) : usdMonthly;
-      return isYearly ? ('$' + usd + '/yr') : ('$' + usd + '/mo');
+    if (isYearly) {
+      var y = resolveYearlyAmounts(plan, sortOrder);
+      if (y.useUsd) return '$' + y.sale + '/yr';
+      return y.sale.toLocaleString('zh-TW') + t('pricing.perYear');
     }
-    var twd = isYearly ? twdMonthly * 10 : twdMonthly;
-    var twdText = twd.toLocaleString('zh-TW');
-    return isYearly ? (twdText + t('pricing.perYear')) : (twdText + t('pricing.perMonth'));
+    if (displayPricesInUsd()) {
+      return '$' + usdMonthly + '/mo';
+    }
+    return twdMonthly.toLocaleString('zh-TW') + t('pricing.perMonth');
+  }
+
+  function formatYearlyPriceHtml(plan, sortOrder) {
+    var y = resolveYearlyAmounts(plan, sortOrder);
+    if (!y.hasSale) return formatDisplayPrice(plan, sortOrder, true);
+    if (y.useUsd) {
+      return '<span class="price-list">$' + y.list + '/yr</span><span class="price-sale">$' + y.sale + '/yr</span>';
+    }
+    return '<span class="price-list">' + y.list.toLocaleString('zh-TW') + t('pricing.perYear') + '</span><span class="price-sale">' + y.sale.toLocaleString('zh-TW') + t('pricing.perYear') + '</span>';
+  }
+
+  function applyCampaignBanner(campaign) {
+    activePricingCampaign = campaign || null;
+    var el = document.getElementById('pricingCampaignBanner');
+    if (!el) return;
+    if (!campaign || !campaign.title) {
+      el.classList.add('d-none');
+      el.textContent = '';
+      return;
+    }
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+    var title = (lang === 'en' && campaign.title_en) ? campaign.title_en : campaign.title;
+    el.textContent = title;
+    el.classList.remove('d-none');
   }
   function applyPricingLocaleUi() {
     var note = document.querySelector('[data-i18n="pricing.priceNote"]');
@@ -269,6 +316,7 @@
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
   var checkoutEnabled = true;
   var lastCheckoutStatus = null;
+  var activePricingCampaign = null;
   // 方案名稱對應的 i18n key
   var planNameKeys = ['pricing.planFree', 'pricing.planTier2', 'pricing.planTier3', 'pricing.planTier4'];
   var planSubKeys  = ['pricing.planFreeSub', 'pricing.planTier2Sub', 'pricing.planTier3Sub', 'pricing.planTier4Sub'];
@@ -344,9 +392,8 @@
       var checkoutMonthly = PaymentLocale.resolvePlanUsdMonthly
         ? PaymentLocale.resolvePlanUsdMonthly(plan)
         : PaymentLocale.planUsdMonthly(sortOrder);
-      var checkoutYearly = PaymentLocale.planUsdYearlyFromPlan
-        ? PaymentLocale.planUsdYearlyFromPlan(plan)
-        : PaymentLocale.planUsdYearly(sortOrder);
+      var yearlyAmt = resolveYearlyAmounts(plan, sortOrder);
+      var checkoutYearly = yearlyAmt.sale;
       var isFree = price === 0;
       var featureListHtml = getPlanFeatures(sortOrder);
       var col = document.createElement('div');
@@ -356,7 +403,6 @@
       var planName = t(planNameKeys[sortOrder] || '') || plan.name || '';
       var planSub  = t(planSubKeys[sortOrder] || '') || '';
       var priceMonthlyText = formatDisplayPrice(plan, sortOrder, false);
-      var priceYearlyText = formatDisplayPrice(plan, sortOrder, true);
       col.innerHTML =
         '<div class="pricing-card card h-100">' + badge +
         '<div class="card-body">' +
@@ -364,7 +410,7 @@
         '<div class="plan-sub">' + planSub + '</div>' +
         '<div class="price">' +
         '<span class="price-monthly">' + priceMonthlyText + '</span>' +
-        '<span class="price-yearly d-none">' + priceYearlyText + '</span>' +
+        '<span class="price-yearly d-none">' + formatYearlyPriceHtml(plan, sortOrder) + '</span>' +
         '</div>' +
         '<div class="points">' + credits + ' <span>' + t('pricing.pointsPerMonth') + '</span></div>' +
         (featureListHtml ? '<ul class="feature-list">' + featureListHtml + '</ul>' : '') +
@@ -492,6 +538,7 @@
         return fetch('/api/subscription-plans');
       })
       .then(function(r){ return r.json(); }).then(function(data){
+      applyCampaignBanner(data.campaign);
       var row = document.getElementById('pricingCardsRow');
       if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
       var plans = (data.plans || []).filter(function (p) {

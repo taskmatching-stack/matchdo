@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>年付限時特價 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">年付限時特價</h4>
+        <p class="text-muted small mb-3">
+          僅影響<strong>年付</strong>結帳；月付與儲值不變。檔期請以<strong>台北時間</strong>輸入，系統會存 UTC 並在列表顯示 UTC 對照。
+          常態牌價年付仍為方案月費 ×10（請在 <a href="/admin/membership.html">方案／點數</a> 維護）。
+        </p>
+        <div id="pageMsg" class="alert d-none small py-2"></div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-sm" id="btnNew">新增活動</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnReload">重新載入</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered bg-white">
+            <thead class="table-light">
+              <tr>
+                <th>主題</th>
+                <th>檔期（台北）</th>
+                <th>UTC</th>
+                <th>狀態</th>
+                <th>啟用</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="campaignTbody"></tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editModalTitle">活動</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editId" />
+          <div class="mb-2">
+            <label class="form-label small">活動主題（繁中）</label>
+            <input type="text" class="form-control form-control-sm" id="editTitle" maxlength="120" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">活動主題（英文，前台英文頁）</label>
+            <input type="text" class="form-control form-control-sm" id="editTitleEn" maxlength="120" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">內部備註</label>
+            <textarea class="form-control form-control-sm" id="editNote" rows="2"></textarea>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small">開始（台北時間）</label>
+              <input type="datetime-local" class="form-control form-control-sm" id="editStarts" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">結束（台北時間）</label>
+              <input type="datetime-local" class="form-control form-control-sm" id="editEnds" />
+            </div>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="editEnabled" checked />
+            <label class="form-check-label small" for="editEnabled">啟用（關閉則立即下線，不等到結束時間）</label>
+          </div>
+          <h6 class="small fw-semibold">年付特價（整年一筆；未填的方案不折扣）</h6>
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr><th>方案</th><th>年付台幣</th><th>年付 USD</th></tr>
+            </thead>
+            <tbody>
+              <tr data-plan="tier2"><td>方案二</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+              <tr data-plan="tier3"><td>方案三</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+              <tr data-plan="tier4"><td>方案四</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnSave">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+$(async function () {
+  var token = '';
+  var editModal = null;
+  try {
+    var session = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : Promise.resolve(null));
+    if (!session || !session.user) {
+      location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(location.pathname);
+      return;
+    }
+    var profile = await (AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+    if (profile && profile.role !== 'admin') {
+      alert('僅管理員可操作');
+      location.href = '/index.html';
+      return;
+    }
+    token = session.access_token || '';
+  } catch (e) {
+    location.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname);
+    return;
+  }
+
+  var elModal = document.getElementById('editModal');
+  if (elModal) editModal = new bootstrap.Modal(elModal);
+
+  function msg(text, isErr) {
+    var el = $('#pageMsg');
+    el.removeClass('d-none alert-success alert-danger').addClass(isErr ? 'alert-danger' : 'alert-success').text(text);
+  }
+
+  function lifecycleLabel(lc) {
+    if (lc === 'active') return '進行中';
+    if (lc === 'scheduled') return '未開始';
+    if (lc === 'ended') return '已結束';
+    if (lc === 'disabled') return '已停用';
+    return lc || '—';
+  }
+
+  function taipeiInputFromIso(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      var parts = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(d);
+      var map = {};
+      parts.forEach(function (p) { if (p.type !== 'literal') map[p.type] = p.value; });
+      return map.year + '-' + map.month + '-' + map.day + 'T' + map.hour + ':' + map.minute;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function collectRules() {
+    var rules = [];
+    $('#editModal tbody tr[data-plan]').each(function () {
+      var plan = $(this).attr('data-plan');
+      var twd = parseInt($(this).find('.rule-twd').val(), 10) || 0;
+      var usd = parseFloat($(this).find('.rule-usd').val()) || 0;
+      if (twd > 0 && usd > 0) rules.push({ plan_key: plan, yearly_price_twd: twd, yearly_price_usd: usd });
+    });
+    return rules;
+  }
+
+  function fillRules(rules) {
+    $('#editModal tbody tr[data-plan]').each(function () {
+      $(this).find('.rule-twd').val('');
+      $(this).find('.rule-usd').val('');
+    });
+    (rules || []).forEach(function (r) {
+      var row = $('#editModal tbody tr[data-plan="' + r.plan_key + '"]');
+      if (row.length) {
+        row.find('.rule-twd').val(r.yearly_price_twd || '');
+        row.find('.rule-usd').val(r.yearly_price_usd || '');
+      }
+    });
+  }
+
+  function openNew() {
+    $('#editModalTitle').text('新增活動');
+    $('#editId').val('');
+    $('#editTitle').val('');
+    $('#editTitleEn').val('');
+    $('#editNote').val('');
+    $('#editStarts').val('');
+    $('#editEnds').val('');
+    $('#editEnabled').prop('checked', true);
+    fillRules([]);
+    if (editModal) editModal.show();
+  }
+
+  function openEdit(c) {
+    $('#editModalTitle').text('編輯活動');
+    $('#editId').val(c.id);
+    $('#editTitle').val(c.title || '');
+    $('#editTitleEn').val(c.title_en || '');
+    $('#editNote').val(c.note_internal || '');
+    $('#editStarts').val(taipeiInputFromIso(c.starts_at));
+    $('#editEnds').val(taipeiInputFromIso(c.ends_at));
+    $('#editEnabled').prop('checked', c.is_enabled !== false);
+    fillRules(c.yearly_rules || []);
+    if (editModal) editModal.show();
+  }
+
+  function renderList(campaigns) {
+    var tb = $('#campaignTbody');
+    tb.empty();
+    if (!campaigns || !campaigns.length) {
+      tb.append('<tr><td colspan="6" class="text-muted text-center">尚無活動</td></tr>');
+      return;
+    }
+    campaigns.forEach(function (c) {
+      var utc = (c.starts_at ? new Date(c.starts_at).toISOString().slice(0, 16).replace('T', ' ') : '') +
+        ' → ' + (c.ends_at ? new Date(c.ends_at).toISOString().slice(0, 16).replace('T', ' ') : '');
+      tb.append(
+        '<tr>' +
+        '<td>' + $('<div>').text(c.title || '').html() + (c.title_en ? '<div class="text-muted small">EN: ' + $('<div>').text(c.title_en).html() + '</div>' : '') + '</td>' +
+        '<td class="small">' + (c.starts_at_taipei || '') + '<br>～ ' + (c.ends_at_taipei || '') + '</td>' +
+        '<td class="small text-muted">' + utc + '</td>' +
+        '<td>' + lifecycleLabel(c.lifecycle) + '</td>' +
+        '<td>' + (c.is_enabled ? '是' : '否') + '</td>' +
+        '<td class="text-nowrap">' +
+        '<button type="button" class="btn btn-outline-primary btn-sm btn-edit" data-id="' + c.id + '">編輯</button> ' +
+        '<button type="button" class="btn btn-outline-danger btn-sm btn-del" data-id="' + c.id + '">刪除</button>' +
+        '</td></tr>'
+      );
+    });
+  }
+
+  var campaignsCache = [];
+
+  function loadList() {
+    return $.ajax({
+      url: '/api/admin/pricing-campaigns',
+      headers: { Authorization: 'Bearer ' + token },
+      dataType: 'json'
+    }).done(function (data) {
+      campaignsCache = data.campaigns || [];
+      renderList(campaignsCache);
+    }).fail(function (xhr) {
+      var hint = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : '無法載入';
+      if (xhr.status === 500 && hint.indexOf('pricing_campaigns') !== -1) {
+        hint += '（請至資料庫 Migration 執行 pricing-campaigns）';
+      }
+      msg(hint, true);
+    });
+  }
+
+  $('#btnReload').on('click', function () { loadList(); });
+  $('#btnNew').on('click', openNew);
+
+  $('#campaignTbody').on('click', '.btn-edit', function () {
+    var id = $(this).attr('data-id');
+    var c = campaignsCache.filter(function (x) { return x.id === id; })[0];
+    if (c) openEdit(c);
+  });
+
+  $('#campaignTbody').on('click', '.btn-del', function () {
+    var id = $(this).attr('data-id');
+    if (!id || !confirm('確定刪除此活動？')) return;
+    $.ajax({
+      url: '/api/admin/pricing-campaigns/' + encodeURIComponent(id),
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token }
+    }).done(function () {
+      msg('已刪除');
+      loadList();
+    }).fail(function (xhr) {
+      msg((xhr.responseJSON && xhr.responseJSON.error) || '刪除失敗', true);
+    });
+  });
+
+  $('#btnSave').on('click', function () {
+    var id = $('#editId').val();
+    var payload = {
+      title: $('#editTitle').val().trim(),
+      title_en: $('#editTitleEn').val().trim(),
+      note_internal: $('#editNote').val().trim(),
+      starts_at: $('#editStarts').val(),
+      ends_at: $('#editEnds').val(),
+      is_enabled: $('#editEnabled').prop('checked'),
+      yearly_rules: collectRules()
+    };
+    if (!payload.title) { msg('請填寫活動主題', true); return; }
+    if (!payload.starts_at || !payload.ends_at) { msg('請填寫開始與結束時間', true); return; }
+    if (!payload.yearly_rules.length) { msg('請至少填寫一個方案的年付特價', true); return; }
+    $('#btnSave').prop('disabled', true);
+    $.ajax({
+      url: id ? ('/api/admin/pricing-campaigns/' + encodeURIComponent(id)) : '/api/admin/pricing-campaigns',
+      method: id ? 'PATCH' : 'POST',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token },
+      data: JSON.stringify(payload)
+    }).done(function () {
+      msg('已儲存');
+      if (editModal) editModal.hide();
+      loadList();
+    }).fail(function (xhr) {
+      msg((xhr.responseJSON && xhr.responseJSON.error) || '儲存失敗', true);
+    }).always(function () {
+      $('#btnSave').prop('disabled', false);
+    });
+  });
+
+  loadList();
+});
+  </script>
+</body>
+</html>

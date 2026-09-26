@@ -50,6 +50,7 @@
         <span class="plan-badge" id="planBadge">—</span>
       </div>
       <p class="text-muted mb-4" id="checkoutSummary" data-i18n="subscriptionCheckout.summary">此為方案月費／年費訂閱，非單次儲值。PayPal 將依方案自動扣款或一次付清。</p>
+      <div id="campaignNote" class="alert alert-success py-2 small d-none" role="status"></div>
 
       <div class="row mb-3">
         <div class="col-md-6">
@@ -83,6 +84,7 @@
   var urlBilling = '';
   var urlPlan = '';
   var urlReturnTo = '';
+  var checkoutQuote = null;
 
   function t(key, fb) {
     if (window.i18n && window.i18n.t) {
@@ -145,14 +147,34 @@
     return { amount: amount, credits: credits };
   }
 
+  function formatQuoteAmount(quote) {
+    if (!quote) return '';
+    if (quote.currency === 'TWD') return quote.amount.toLocaleString('zh-TW') + ' 元';
+    return '$' + quote.amount;
+  }
+
   function applyCheckoutUi(values) {
     var billingText = urlBilling === 'yearly'
       ? t('subscriptionCheckout.billingYearly', '年繳')
       : t('subscriptionCheckout.billingMonthly', '月繳');
     var badge = document.getElementById('planBadge');
     if (badge) badge.textContent = (urlPlan ? urlPlan.toUpperCase() + ' · ' : '') + billingText;
-    document.getElementById('amount').value = values.amount ? ('$' + values.amount) : '';
-    document.getElementById('credits').value = values.credits || '';
+    var q = values.quote || checkoutQuote;
+    var amountLabel = q ? formatQuoteAmount(q) : (values.amount ? ('$' + values.amount) : '');
+    document.getElementById('amount').value = amountLabel;
+    document.getElementById('credits').value = (q && q.credits) ? q.credits : (values.credits || '');
+    var campEl = document.getElementById('campaignNote');
+    if (campEl) {
+      var title = q && (q.campaign_title || q.campaign_title_en);
+      if (urlBilling === 'yearly' && title) {
+        if (lang === 'en' && q.campaign_title_en) title = q.campaign_title_en;
+        campEl.textContent = title;
+        campEl.classList.remove('d-none');
+      } else {
+        campEl.classList.add('d-none');
+        campEl.textContent = '';
+      }
+    }
     var credLabel = document.getElementById('creditsLabel');
     if (credLabel) {
       credLabel.textContent = urlBilling === 'yearly'
@@ -170,8 +192,8 @@
   document.getElementById('btnPay').addEventListener('click', function () {
     var errEl = document.getElementById('payError');
     show(errEl, false);
-    var amount = parseFloat(String(document.getElementById('amount').value).replace(/[^0-9.]/g, '')) || 0;
-    var credits = parseInt(document.getElementById('credits').value, 10) || 0;
+    var amount = checkoutQuote ? checkoutQuote.amount : (parseFloat(String(document.getElementById('amount').value).replace(/[^0-9.]/g, '')) || 0);
+    var credits = checkoutQuote ? checkoutQuote.credits : (parseInt(document.getElementById('credits').value, 10) || 0);
     if (!amount || !credits || !urlPlan) {
       setText(errEl, t('subscriptionCheckout.missingParams', '缺少方案資訊'));
       show(errEl, true);
@@ -236,7 +258,7 @@
   function initCheckout() {
     syncLangLinks();
     var values = readParams();
-    var valid = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan && values.amount && values.credits;
+    var valid = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan;
     if (!valid) {
       show(document.getElementById('missingParams'), true);
       return;
@@ -255,8 +277,25 @@
         if (loginLink) loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search);
         return;
       }
-      applyCheckoutUi(values);
-      show(document.getElementById('checkoutPanel'), true);
+      fetch('/api/payment/quote', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ plan: urlPlan, billing: urlBilling, lang: lang, currency: 'usd' })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.d || !res.d.quote) {
+            throw new Error((res.d && res.d.error) || t('subscriptionCheckout.missingParams', '缺少方案資訊'));
+          }
+          checkoutQuote = res.d.quote;
+          applyCheckoutUi({ quote: checkoutQuote });
+          show(document.getElementById('checkoutPanel'), true);
+        })
+        .catch(function (err) {
+          show(document.getElementById('missingParams'), true);
+          var miss = document.getElementById('missingParams');
+          if (miss && err && err.message) miss.textContent = err.message;
+        });
     });
   }
 

@@ -158,6 +158,7 @@ const promoSpaceGemini = require('./lib/promo-space-gemini');
 const promoPortraitStyling = require('./lib/promo-portrait-styling');
 const xaiImagine = require('./lib/xai-imagine');
 const promoSpaceAppeal = require('./lib/promo-space-appeal');
+const pricingCampaigns = require('./lib/pricing-campaigns');
 const mediaWallQueries = require('./lib/media-wall-queries');
 const manufacturerAudience = require('./lib/manufacturer-audience');
 
@@ -12517,6 +12518,83 @@ function filterPublicSubscriptionPlans(rows) {
     return (rows || []).filter(isPublicListedSubscriptionPlan);
 }
 
+async function findPublicSubscriptionPlanByKey(planKey) {
+    const key = pricingCampaigns.normalizePlanKey(planKey);
+    if (!key) return null;
+    const { data: rows, error } = await supabase
+        .from('subscription_plans')
+        .select(SUBSCRIPTION_PLANS_SELECT_COLUMNS)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+    if (error) throw error;
+    const publicRows = filterPublicSubscriptionPlans(rows || []);
+    for (let i = 0; i < publicRows.length; i++) {
+        if (pricingCampaigns.resolvePublicPlanKey(publicRows[i]) === key) return publicRows[i];
+    }
+    return null;
+}
+
+async function buildPaymentCheckoutQuote(req, body, opts) {
+    const b = body && typeof body === 'object' ? body : {};
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const planKey = pricingCampaigns.normalizePlanKey(b.plan || b.plan_key);
+    const billing = String(b.billing || '').trim().toLowerCase();
+    if (!planKey) {
+        const err = new Error('請提供方案 plan（tier2／tier3／tier4）');
+        err.status = 400;
+        throw err;
+    }
+    if (billing !== 'yearly' && billing !== 'monthly') {
+        const err = new Error('billing 須為 yearly 或 monthly');
+        err.status = 400;
+        throw err;
+    }
+    const plan = await findPublicSubscriptionPlanByKey(planKey);
+    if (!plan) {
+        const err = new Error('找不到可訂閱的公開方案');
+        err.status = 400;
+        throw err;
+    }
+    const lang = paymentUiLangFromReq(req) || (b.lang ? String(b.lang) : '');
+    const currencyHint = String(b.currency || b.checkout_currency || '').trim().toLowerCase();
+    let useTwd;
+    if (o.forceUsd === true || currencyHint === 'usd') useTwd = false;
+    else if (currencyHint === 'twd') useTwd = true;
+    else useTwd = pricingCampaigns.checkoutUsesTwd(lang);
+    const active = await pricingCampaigns.fetchActivePricingCampaign(supabase);
+    return pricingCampaigns.buildCheckoutQuote({
+        planKey,
+        billing,
+        plan,
+        lang,
+        useTwd,
+        campaign: active.campaign,
+        rules: active.rules,
+        resolveUsdMonthly: resolvePlanUsdMonthly
+    });
+}
+
+function paymentOrderMetadataFromQuote(quote) {
+    const meta = {
+        plan_key: quote.plan_key,
+        billing: quote.billing
+    };
+    if (quote.campaign_id) meta.campaign_id = quote.campaign_id;
+    if (quote.list_amount != null && quote.list_amount !== quote.amount) {
+        meta.list_amount = quote.list_amount;
+        meta.quoted_amount = quote.amount;
+    }
+    return meta;
+}
+
+async function assertCheckoutBodyMatchesQuote(req, body, quote) {
+    if (!pricingCampaigns.amountsMatchQuote(quote, body.amount, body.credits)) {
+        const err = new Error('結帳金額與方案不符，請重新從方案頁選擇');
+        err.status = 400;
+        throw err;
+    }
+}
+
 function paidPublicPlansForTopup(rows) {
     return filterPublicSubscriptionPlans(rows).filter(function (p) {
         return parseInt(p.price, 10) > 0;
@@ -15929,11 +16007,162 @@ app.get('/api/subscription-plans', async (req, res) => {
             console.error('GET /api/subscription-plans:', error);
             return res.status(500).json({ error: '查詢失敗', plans: [] });
         }
+        const publicPlans = filterPublicSubscriptionPlans(rows);
+        let payload = { plans: publicPlans, campaign: null };
+        try {
+            const active = await pricingCampaigns.fetchActivePricingCampaign(supabase);
+            if (active.campaign) {
+                const enriched = pricingCampaigns.attachCampaignPricingToPlans(
+                    publicPlans,
+                    active.campaign,
+                    active.rules,
+                    resolvePlanUsdMonthly
+                );
+                payload = { plans: enriched.plans, campaign: enriched.campaign };
+            }
+        } catch (campErr) {
+            console.error('GET /api/subscription-plans campaign:', campErr);
+        }
         res.set('Cache-Control', 'public, max-age=60');
-        res.json({ plans: filterPublicSubscriptionPlans(rows) });
+        res.json(payload);
     } catch (e) {
         console.error('GET /api/subscription-plans 異常:', e);
         res.status(500).json({ error: '系統錯誤', plans: [] });
+    }
+});
+
+// GET /api/pricing-campaign/active — 公開：目前年付特價活動（無則 campaign: null）
+app.get('/api/pricing-campaign/active', async (req, res) => {
+    try {
+        const active = await pricingCampaigns.fetchActivePricingCampaign(supabase);
+        if (!active.campaign) {
+            res.set('Cache-Control', 'public, max-age=60');
+            return res.json({ campaign: null, rules: [] });
+        }
+        res.set('Cache-Control', 'public, max-age=60');
+        res.json({
+            campaign: {
+                id: active.campaign.id,
+                title: active.campaign.title,
+                title_en: active.campaign.title_en,
+                starts_at: active.campaign.starts_at,
+                ends_at: active.campaign.ends_at
+            },
+            rules: (active.rules || []).map(function (r) {
+                return {
+                    plan_key: r.plan_key,
+                    yearly_price_twd: r.yearly_price_twd,
+                    yearly_price_usd: r.yearly_price_usd
+                };
+            })
+        });
+    } catch (e) {
+        console.error('GET /api/pricing-campaign/active:', e);
+        res.json({ campaign: null, rules: [] });
+    }
+});
+
+// POST /api/payment/quote — 登入：訂閱結帳前伺服器算價（年付可套用限時特價）
+app.post('/api/payment/quote', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const quote = await buildPaymentCheckoutQuote(req, req.body || {});
+        res.json({ success: true, quote });
+    } catch (e) {
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/payment/quote:', e);
+        res.status(status).json({ error: e.message || '算價失敗' });
+    }
+});
+
+// GET /api/admin/pricing-campaigns
+app.get('/api/admin/pricing-campaigns', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const { campaigns, rules } = await pricingCampaigns.listPricingCampaigns(supabase);
+        const rulesByCampaign = {};
+        (rules || []).forEach(function (r) {
+            if (!rulesByCampaign[r.campaign_id]) rulesByCampaign[r.campaign_id] = [];
+            rulesByCampaign[r.campaign_id].push(r);
+        });
+        const list = (campaigns || []).map(function (c) {
+            return Object.assign({}, c, {
+                lifecycle: pricingCampaigns.campaignLifecycle(c),
+                starts_at_taipei: pricingCampaigns.formatInstantForTz(c.starts_at, c.input_timezone),
+                ends_at_taipei: pricingCampaigns.formatInstantForTz(c.ends_at, c.input_timezone),
+                yearly_rules: rulesByCampaign[c.id] || []
+            });
+        });
+        res.json({ campaigns: list });
+    } catch (e) {
+        console.error('GET /api/admin/pricing-campaigns:', e);
+        res.status(500).json({ error: e.message || '查詢失敗' });
+    }
+});
+
+// GET /api/admin/pricing-campaigns/:id
+app.get('/api/admin/pricing-campaigns/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const pack = await pricingCampaigns.fetchPricingCampaignById(supabase, req.params.id);
+        if (!pack) return res.status(404).json({ error: '找不到活動' });
+        const c = pack.campaign;
+        res.json({
+            campaign: Object.assign({}, c, {
+                lifecycle: pricingCampaigns.campaignLifecycle(c),
+                starts_at_taipei: pricingCampaigns.formatInstantForTz(c.starts_at, c.input_timezone),
+                ends_at_taipei: pricingCampaigns.formatInstantForTz(c.ends_at, c.input_timezone)
+            }),
+            yearly_rules: pack.rules || []
+        });
+    } catch (e) {
+        console.error('GET /api/admin/pricing-campaigns/:id:', e);
+        res.status(500).json({ error: e.message || '查詢失敗' });
+    }
+});
+
+// POST /api/admin/pricing-campaigns
+app.post('/api/admin/pricing-campaigns', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const pack = await pricingCampaigns.createPricingCampaign(supabase, req.body || {});
+        res.json({ success: true, campaign: pack.campaign, yearly_rules: pack.rules });
+    } catch (e) {
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/admin/pricing-campaigns:', e);
+        res.status(status).json({ error: e.message || '建立失敗' });
+    }
+});
+
+// PATCH /api/admin/pricing-campaigns/:id
+app.patch('/api/admin/pricing-campaigns/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const pack = await pricingCampaigns.updatePricingCampaign(supabase, req.params.id, req.body || {});
+        if (!pack) return res.status(404).json({ error: '找不到活動' });
+        res.json({ success: true, campaign: pack.campaign, yearly_rules: pack.rules });
+    } catch (e) {
+        const status = e.status || 500;
+        if (status >= 500) console.error('PATCH /api/admin/pricing-campaigns:', e);
+        res.status(status).json({ error: e.message || '更新失敗' });
+    }
+});
+
+// DELETE /api/admin/pricing-campaigns/:id
+app.delete('/api/admin/pricing-campaigns/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        await pricingCampaigns.deletePricingCampaign(supabase, req.params.id);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/pricing-campaigns:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
     }
 });
 
@@ -18127,12 +18356,19 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
             });
         }
         const body = req.body || {};
-        const amount = Math.abs(parseInt(body.amount, 10) || 0);
-        const credits = Math.abs(parseInt(body.credits, 10) || 0);
+        let amount = Math.abs(parseInt(body.amount, 10) || 0);
+        let credits = Math.abs(parseInt(body.credits, 10) || 0);
         if (amount <= 0 || credits <= 0) return res.status(400).json({ error: '請填寫金額與點數' });
         const billing = (body.billing || '').toLowerCase();
         const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
         const isYearly = billing === 'yearly' && planKey;
+        let yearlyQuote = null;
+        if (isYearly) {
+            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang });
+            await assertCheckoutBodyMatchesQuote(req, body, yearlyQuote);
+            amount = yearlyQuote.amount;
+            credits = yearlyQuote.credits;
+        }
         const orderId = 'EC' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         const insertPayload = {
             order_id: orderId,
@@ -18145,7 +18381,7 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
         };
         if (isYearly) {
             insertPayload.order_type = 'yearly';
-            insertPayload.metadata = { plan_key: planKey };
+            insertPayload.metadata = paymentOrderMetadataFromQuote(yearlyQuote);
         }
         const { data: orderRow, error: orderErr } = await supabase
             .from('payment_orders')
@@ -18185,8 +18421,9 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (e) {
-        console.error('POST /api/payment/ecpay/create 異常:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/payment/ecpay/create 異常:', e);
+        res.status(status).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -18208,10 +18445,17 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
             });
         }
         const body = req.body || {};
-        const amount = Math.abs(parseInt(body.amount, 10) || 0);
-        const credits = Math.abs(parseInt(body.credits, 10) || 0);
+        let amount = Math.abs(parseInt(body.amount, 10) || 0);
+        let credits = Math.abs(parseInt(body.credits, 10) || 0);
         if (amount <= 0 || credits <= 0) return res.status(400).json({ error: '請填寫月付金額與每期點數' });
         const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
+        let monthlyQuote = null;
+        if (planKey) {
+            monthlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'monthly', lang: body.lang });
+            await assertCheckoutBodyMatchesQuote(req, body, monthlyQuote);
+            amount = monthlyQuote.amount;
+            credits = monthlyQuote.credits;
+        }
         const orderId = 'ECP' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         const subInsertPayload = {
             order_id: orderId,
@@ -18223,7 +18467,12 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
             status: 'pending',
             order_type: 'subscription'
         };
-        if (planKey) subInsertPayload.metadata = { plan_key: planKey };
+        if (planKey) {
+            subInsertPayload.metadata = Object.assign(
+                { plan_key: planKey, billing: 'monthly' },
+                monthlyQuote ? paymentOrderMetadataFromQuote(monthlyQuote) : {}
+            );
+        }
         const { error: orderErr } = await supabase
             .from('payment_orders')
             .insert(subInsertPayload)
@@ -18268,8 +18517,9 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (e) {
-        console.error('POST /api/payment/ecpay/create-subscription 異常:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/payment/ecpay/create-subscription 異常:', e);
+        res.status(status).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -18506,12 +18756,19 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
             });
         }
         const body = req.body || {};
-        const amount = Math.abs(parseFloat(body.amount) || 0);
-        const credits = Math.abs(parseInt(body.credits, 10) || 0);
+        let amount = Math.abs(parseFloat(body.amount) || 0);
+        let credits = Math.abs(parseInt(body.credits, 10) || 0);
         if (amount <= 0 || credits <= 0) return res.status(400).json({ error: '請填寫金額與點數' });
         const billing = (body.billing || '').toLowerCase();
         const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
         const isYearly = billing === 'yearly' && planKey;
+        let yearlyQuote = null;
+        if (isYearly) {
+            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang }, { forceUsd: true });
+            await assertCheckoutBodyMatchesQuote(req, body, yearlyQuote);
+            amount = yearlyQuote.amount;
+            credits = yearlyQuote.credits;
+        }
         if (isYearly && config.paypal && config.paypal.clientId && config.paypal.clientSecret) {
             await cancelUserPayPalSubscriptionsBeforeNewPlan(user.id, config.paypal, {
                 reason: 'User switched to yearly plan'
@@ -18529,7 +18786,7 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
         };
         if (isYearly) {
             insertPayload.order_type = 'yearly';
-            insertPayload.metadata = { plan_key: planKey };
+            insertPayload.metadata = paymentOrderMetadataFromQuote(yearlyQuote);
         }
         const { error: orderErr } = await supabase.from('payment_orders').insert(insertPayload);
         if (orderErr) {
@@ -18561,8 +18818,9 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
         await supabase.from('payment_orders').update({ external_id: response.result.id }).eq('order_id', orderId);
         res.json({ approval_url: approvalUrl.href, order_id: orderId });
     } catch (e) {
-        console.error('POST /api/payment/paypal/create 異常:', e);
-        res.status(500).json({ error: e.message || '系統錯誤' });
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/payment/paypal/create 異常:', e);
+        res.status(status).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -18773,12 +19031,16 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
             });
         }
         const body = req.body || {};
-        const amount = Math.abs(parseFloat(body.amount) || 0);
-        const credits = Math.abs(parseInt(body.credits, 10) || 0);
+        let amount = Math.abs(parseFloat(body.amount) || 0);
+        let credits = Math.abs(parseInt(body.credits, 10) || 0);
         const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
         if (amount <= 0 || credits <= 0 || !planKey) {
             return res.status(400).json({ error: '請填寫月付金額、點數與方案' });
         }
+        const monthlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'monthly', lang: body.lang }, { forceUsd: true });
+        await assertCheckoutBodyMatchesQuote(req, body, monthlyQuote);
+        amount = monthlyQuote.amount;
+        credits = monthlyQuote.credits;
         await cancelUserPayPalSubscriptionsBeforeNewPlan(user.id, paypalCfg, {
             reason: 'User switched to a new monthly plan'
         });
@@ -18792,7 +19054,7 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
             credits_to_grant: credits,
             status: 'pending',
             order_type: 'subscription',
-            metadata: { plan_key: planKey, billing: 'monthly' }
+            metadata: Object.assign({ plan_key: planKey, billing: 'monthly' }, paymentOrderMetadataFromQuote(monthlyQuote))
         };
         const { error: orderErr } = await supabase.from('payment_orders').insert(insertPayload);
         if (orderErr) {
@@ -18826,8 +19088,9 @@ app.post('/api/payment/paypal/create-subscription', express.json(), async (req, 
         await supabase.from('payment_orders').update({ external_id: subscription.id }).eq('order_id', orderId);
         res.json({ approval_url: approvalUrl, order_id: orderId, subscription_id: subscription.id });
     } catch (e) {
-        console.error('POST /api/payment/paypal/create-subscription 異常:', e);
-        res.status(500).json({ error: e.message || '系統錯誤' });
+        const status = e.status || 500;
+        if (status >= 500) console.error('POST /api/payment/paypal/create-subscription 異常:', e);
+        res.status(status).json({ error: e.message || '系統錯誤' });
     }
 });
 
