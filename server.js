@@ -6713,6 +6713,31 @@ function shouldReplaceCustomProductDescriptionFromAi(description, genPrompt) {
     return customProductTextCopiedFromPrompt(d, genPrompt);
 }
 
+/** 與 localizeCustomProductForApiResponse 相同標題規則（佔位／複製 prompt 才用語意覆寫） */
+function resolveCustomProductDisplayTitlePair(p, genPromptOverride) {
+    if (!p || typeof p !== 'object') return { zh: '', en: '' };
+    const gp = genPromptOverride != null
+        ? String(genPromptOverride).trim()
+        : (p.generation_prompt != null ? String(p.generation_prompt).trim() : '');
+    let titleZh = p.title;
+    let titleEn = p.title_en;
+    const titlePair = resolveCustomProductTitlePairFromRow(p);
+    if (titlePair) {
+        if (shouldReplaceCustomProductTitleFromAi(titleZh, gp)) {
+            if (titlePair.zh) titleZh = titlePair.zh;
+            else if (titlePair.en) titleZh = titlePair.en;
+        }
+        const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
+            || customProductTextCopiedFromPrompt(titleEn, gp);
+        if (enNeeds && titlePair.en) titleEn = titlePair.en;
+        else if (enNeeds && titlePair.zh) titleEn = titlePair.zh;
+    }
+    return {
+        zh: titleZh != null ? String(titleZh).trim() : '',
+        en: titleEn != null ? String(titleEn).trim() : ''
+    };
+}
+
 /** 從 image_semantics_json 或 ai_tags 推設計稿標題雙語 */
 function resolveCustomProductTitlePairFromRow(p) {
     if (!p || typeof p !== 'object') return null;
@@ -6749,22 +6774,12 @@ function localizeCustomProductForApiResponse(p, lang) {
     if (!p || typeof p !== 'object') return p;
     const out = Object.assign({}, p);
     const gp = p.generation_prompt != null ? String(p.generation_prompt).trim() : '';
-    let titleZh = p.title;
-    let titleEn = p.title_en;
+    const displayTitles = resolveCustomProductDisplayTitlePair(p, gp);
+    let titleZh = displayTitles.zh || p.title;
+    let titleEn = displayTitles.en || p.title_en;
     let descZh = p.description;
     let descEn = p.description_en;
     const sem = parseImageSemanticsJson(p.image_semantics_json);
-    const titlePair = resolveCustomProductTitlePairFromRow(p);
-    if (titlePair) {
-        if (shouldReplaceCustomProductTitleFromAi(titleZh, gp)) {
-            if (titlePair.zh) titleZh = titlePair.zh;
-            else if (titlePair.en) titleZh = titlePair.en;
-        }
-        const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
-            || customProductTextCopiedFromPrompt(titleEn, gp);
-        if (enNeeds && titlePair.en) titleEn = titlePair.en;
-        else if (enNeeds && titlePair.zh) titleEn = titlePair.zh;
-    }
     if (sem && shouldReplaceCustomProductDescriptionFromAi(descZh, gp)) {
         const dz = (sem.product_description_zh || '').trim();
         const de = (sem.product_description_en || '').trim();
@@ -6884,13 +6899,14 @@ function resolveUserDesignMediaWallTitlePair(p) {
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
     const genPrompt = (p.generation_prompt || (aj && aj.generation_prompt) || '').trim();
     const sem = parseImageSemanticsJson(p.image_semantics_json);
-    const fromStored = resolveCustomProductTitlePairFromRow(p);
-    if (fromStored && (fromStored.zh || fromStored.en)) {
-        return { zh: fromStored.zh || '', en: fromStored.en || '' };
+    const displayTitles = resolveCustomProductDisplayTitlePair(p, genPrompt);
+    const fromDb = mediaWallTitlePairFromDbTitleFields(displayTitles.zh || p.title, displayTitles.en || p.title_en);
+    if (fromDb.zh || fromDb.en) {
+        return {
+            zh: fromDb.zh ? truncateMediaWallTitle(fromDb.zh) : '',
+            en: fromDb.en ? truncateMediaWallTitle(fromDb.en) : ''
+        };
     }
-
-    const fromDb = mediaWallTitlePairFromDbTitleFields(p.title, p.title_en);
-    if (fromDb.zh || fromDb.en) return fromDb;
 
     const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
     const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
