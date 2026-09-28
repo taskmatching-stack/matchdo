@@ -46,7 +46,7 @@ node scripts/audit-locale-mix.js
 | 區塊 | 檔案 | 狀態 | 備註 |
 |------|------|------|------|
 | 導覽／登入 | `public/js/site-header.js` | 部分 | `t()` + fallback；依 locale 載入 |
-| 頁尾 | `public/partials/footer.html` | 部分 | |
+| 頁尾 | `public/partials/footer.html` | OK（主連結） | `data-i18n` + `footer.*`／`nav.*`；`site-footer.js` 改為 `applyPage`（2026-09-29） |
 | 語系檔 | `public/locales/en.json` | 持續補 | 缺鍵會顯示中文 fallback |
 
 **手機版：** 與桌面共用 `i18n.js`（`?lang=en`／cookie），**沒有**獨立 mobile locale。導覽抽屜、`data-i18n` 與 `applyPage()` 同套；設計頁手機分類 Bottom Sheet 需 JS 同步（`syncCatSheetChromeI18n`）。商攝在手機會開 `/promo-camera-app`，該頁亦載入同一套 locale。
@@ -167,6 +167,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：`custom/gallery.html` 完成批次 C；首頁 lightbox／收藏／類型 badge `home.*`。
 - 2026-09-29：`vendor-profile` 服務地區、`vendors` meta；`remake-product.js` 參考圖 UI／趨勢摘要。
 - 2026-09-29：**B4 凍結**（設計風向測試中）；首頁 B3 lightbox 聯絡／分享 toast 收尾。
+- 2026-09-29：殼層 A 頁尾 `footer.*`／`nav.help`；`partials/footer.html` 全面 `data-i18n`；資產庫 `myCustomProducts.loading` 統一「載入中…」。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -178,12 +179,12 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（生圖區、歷史 aria、locale 重繪 sheet；參考圖 scope／商攝 tab 等仍 `tr` fallback） |
-| **F（片段）** | `subscription-plans.html` 載入文案 | 🔄 `pricing.loading`（2026-09-29） |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（`e9e8465`／`e8cd00a` 生圖 preview／歷史 aria／sheet；大段 JS 仍靠 `tr` fallback，下一批掃 alert／toast） |
+| **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
 | **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
-| **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | ⏳ 與 D2 可併 |
+| **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | 🔄 footer 主流程 OK；header 殘留與 D2 sheet 下一批 |
 
 ### 還有多少批？（使用者問答用，2026-09-29 估）
 

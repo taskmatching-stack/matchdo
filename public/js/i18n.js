@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260928-product-tree-pdf';
+    var LOCALE_CACHE_V = '20260929-footer-shell';
 
     function loadLocale(lang) {
         lang = lang || getLang();
