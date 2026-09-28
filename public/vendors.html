@@ -190,7 +190,7 @@
             <!-- 服務地區過濾（多選） -->
             <div class="filter-wrap mt-2" id="areaFilterWrap">
                 <div class="d-flex align-items-center justify-content-between mb-1">
-                    <span class="small text-muted" style="font-size:.75rem;" id="areaFilterLabel"><i class="bi bi-geo-alt me-1"></i>服務地區（可複選）</span>
+                    <span class="small text-muted" style="font-size:.75rem;" id="areaFilterLabel"><i class="bi bi-geo-alt me-1"></i><span data-i18n="vendors.areaFilterLabel">服務地區（可複選）</span></span>
                     <span role="button" tabindex="0" id="areaClearBtn" class="small text-primary d-none" style="font-size:.75rem;cursor:pointer;" data-i18n="vendors.areaClear">清除選擇</span>
                 </div>
                 <div id="filterAreaGroups"></div>
@@ -305,11 +305,29 @@
             return html;
         }
         function getLang() {
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var gl = window.i18n.getLang();
+                if (gl) return gl;
+            }
             var lang = '';
-            try { lang = new URLSearchParams(window.location.search).get('lang') || ''; } catch(e) {}
-            if (!lang) try { lang = localStorage.getItem('lang') || ''; } catch(e) {}
-            if (!lang && window.i18n && window.i18n.getLang) lang = window.i18n.getLang() || '';
-            return lang;
+            try { lang = new URLSearchParams(window.location.search).get('lang') || ''; } catch (e) {}
+            if (!lang) try { lang = localStorage.getItem('lang') || ''; } catch (e) {}
+            return lang || 'zh-TW';
+        }
+
+        function applyVendorsPageMeta() {
+            var title = tr('vendors.pageTitle', document.title);
+            var desc = tr('vendors.metaDesc', '瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。');
+            document.title = title;
+            function setMeta(sel, attr, val) {
+                var el = document.querySelector(sel);
+                if (el) el.setAttribute(attr, val);
+            }
+            setMeta('meta[name="description"]', 'content', desc);
+            setMeta('meta[property="og:title"]', 'content', title);
+            setMeta('meta[property="og:description"]', 'content', desc);
+            setMeta('meta[name="twitter:title"]', 'content', title);
+            setMeta('meta[name="twitter:description"]', 'content', desc);
         }
 
         /* ── 建立廠商卡片 HTML ── */
@@ -624,7 +642,9 @@
             var $label = document.getElementById('areaFilterLabel');
             var $clear = document.getElementById('areaClearBtn');
             var countries = (window.AreaCodes && window.AreaCodes.countries) || [];
-            if ($label) $label.innerHTML = '<i class="bi bi-geo-alt me-1"></i>' + esc(tr('vendors.areaFilterLabel', '服務地區（可複選）'));
+            if ($label) {
+                $label.innerHTML = '<i class="bi bi-geo-alt me-1"></i><span data-i18n="vendors.areaFilterLabel">' + esc(tr('vendors.areaFilterLabel', '服務地區（可複選）')) + '</span>';
+            }
             if (!$wrap) return;
 
             // 第一層：台灣 + 海外國家同級
@@ -754,7 +774,7 @@
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(function() {
                 if (window.i18n.applyPage) window.i18n.applyPage();
-                document.title = tr('vendors.pageTitle', document.title);
+                applyVendorsPageMeta();
                 renderMainTags();
                 var cat = categoriesData.find(function(c) { return c.key === state.categoryKey; });
                 if (cat) renderSubTags(cat);
@@ -762,7 +782,7 @@
             });
         }
         document.addEventListener('i18n:applied', function () {
-            document.title = tr('vendors.pageTitle', document.title);
+            applyVendorsPageMeta();
         });
         renderAreaFilter();
         loadCategories();   // loadCategories 結束後會呼叫 renderCategoryTags，再根據 state.categoryKey 標記 active

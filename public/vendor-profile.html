@@ -514,7 +514,61 @@
             }
         };
 
+        var _lastProfileVendor = null;
+
+        function areaCodesLang() {
+            return profileContentLang() === 'en' ? 'en' : 'zh';
+        }
+
+        function renderProfileServiceAreas(v) {
+            var sectionArea = document.getElementById('sectionArea');
+            var areaEl = document.getElementById('vendorAreas');
+            if (!areaEl || !sectionArea) return;
+            var contact = (v && v.contact) || {};
+            var areas = contact.service_area;
+            if (!areas) {
+                areaEl.innerHTML = '';
+                sectionArea.style.display = 'none';
+                return;
+            }
+            if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+            if (!Array.isArray(areas) || !areas.length) {
+                areaEl.innerHTML = '';
+                sectionArea.style.display = 'none';
+                return;
+            }
+            var lang = areaCodesLang();
+            var ac = window.AreaCodes;
+            var groups = (ac && ac.groups) || [];
+            var useEn = lang === 'en';
+            var codes = areas.map(function (a) { return (ac && ac.zhToCode) ? ac.zhToCode(a) : a; });
+            var grouped = [], usedCodes = {};
+            groups.forEach(function (g) {
+                var matched = (g.cities || []).filter(function (c) { return codes.indexOf(c.code) >= 0; });
+                if (matched.length > 0) {
+                    grouped.push({
+                        label: useEn ? g.en : g.zh,
+                        items: matched.map(function (c) { return useEn ? c.en : c.zh; })
+                    });
+                    matched.forEach(function (c) { usedCodes[c.code] = true; });
+                }
+            });
+            var ungrouped = codes.filter(function (c) { return !usedCodes[c]; })
+                .map(function (c) { return (ac && ac.getLabel) ? ac.getLabel(c, lang) : c; });
+            var html = '';
+            grouped.forEach(function (g) {
+                html += '<div class="d-flex align-items-center flex-wrap gap-1 mb-1">';
+                html += '<span class="text-muted me-1" style="font-size:.72rem;white-space:nowrap;">' + g.label + '：</span>';
+                g.items.forEach(function (a) { html += '<span class="area-tag">' + a + '</span>'; });
+                html += '</div>';
+            });
+            ungrouped.forEach(function (a) { html += '<span class="area-tag">' + a + '</span>'; });
+            areaEl.innerHTML = html;
+            sectionArea.style.display = '';
+        }
+
         function renderProfile(v) {
+            _lastProfileVendor = v;
             _vendorProfileMfrId = v.id || null;
             _vendorProfileMfrName = v.name || '';
             document.getElementById('pageLoading').classList.add('d-none');
@@ -528,9 +582,13 @@
             // 動態更新 SEO meta
             var canonicalUrl = 'https://matchdo.cc/vendor-profile.html?id=' + encodeURIComponent(v.id || id);
             var ogImg = v.logo_url || v.cover_image || v.avatar_url || 'https://matchdo.cc/img/og-vendors.jpg';
+            var vendorName = v.name || '';
             var desc = v.specialty
-                ? (v.name || '') + '：' + String(v.specialty).slice(0, 100) + '。在 MATCHDO 合做聯繫廠商。'
-                : '在 MATCHDO 合做找到 ' + (v.name || '') + '，瀏覽廠商作品、服務地區與聯繫方式。';
+                ? vpTr('vendor.metaDescWithSpecialty', '{name}：{specialty}。在 MATCHDO 合做聯繫廠商。')
+                    .replace(/\{name\}/g, vendorName)
+                    .replace(/\{specialty\}/g, String(v.specialty).slice(0, 100))
+                : vpTr('vendor.metaDescDefault', '在 MATCHDO 合做找到 {name}，瀏覽廠商作品、服務地區與聯繫方式。')
+                    .replace(/\{name\}/g, vendorName);
             function setMeta(sel, attr, val) {
                 var el = document.querySelector(sel);
                 if (el) el.setAttribute(attr, val);
@@ -634,48 +692,7 @@
             if (descEl) descEl.textContent = specialty || vpTr('vendor.noBio', '此廠商尚未填寫簡介。');
             if (sectionDescEl) sectionDescEl.style.display = '';
 
-            // 服務地區（contact.service_area 陣列 or 字串，分組顯示）
-            var contact = v.contact || {};
-            var areas = contact.service_area;
-            if (areas) {
-                if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function(s){return s.trim();}).filter(Boolean);
-                if (Array.isArray(areas) && areas.length > 0) {
-                    var areaEl = document.getElementById('vendorAreas');
-                    var isEn = (document.documentElement.lang || '').startsWith('en');
-                    var lang = isEn ? 'en' : 'zh';
-                    var ac = window.AreaCodes;
-                    var groups = (ac && ac.groups) || [];
-
-                    // 將 DB 中的值轉成 code（相容舊版中文字串）
-                    var codes = areas.map(function(a) { return (ac && ac.zhToCode) ? ac.zhToCode(a) : a; });
-
-                    // 依 area-codes.js 分組
-                    var grouped = [], usedCodes = {};
-                    groups.forEach(function(g) {
-                        var matched = (g.cities || []).filter(function(c){ return codes.indexOf(c.code) >= 0; });
-                        if (matched.length > 0) {
-                            grouped.push({
-                                label: isEn ? g.en : g.zh,
-                                items: matched.map(function(c){ return isEn ? c.en : c.zh; })
-                            });
-                            matched.forEach(function(c){ usedCodes[c.code] = true; });
-                        }
-                    });
-                    var ungrouped = codes.filter(function(c){ return !usedCodes[c]; })
-                        .map(function(c){ return (ac && ac.getLabel) ? ac.getLabel(c, lang) : c; });
-
-                    var html = '';
-                    grouped.forEach(function(g) {
-                        html += '<div class="d-flex align-items-center flex-wrap gap-1 mb-1">';
-                        html += '<span class="text-muted me-1" style="font-size:.72rem;white-space:nowrap;">' + g.label + '：</span>';
-                        g.items.forEach(function(a){ html += '<span class="area-tag">' + a + '</span>'; });
-                        html += '</div>';
-                    });
-                    ungrouped.forEach(function(a){ html += '<span class="area-tag">' + a + '</span>'; });
-                    areaEl.innerHTML = html;
-                    document.getElementById('sectionArea').style.display = '';
-                }
-            }
+            renderProfileServiceAreas(v);
 
             // 專業能力
             var caps = v.capabilities;
@@ -1143,9 +1160,7 @@
         function renderVendorCatalogNav(mfrId) {
             var nav = document.getElementById('vendorCatalogNav');
             if (!nav) return;
-            var allLabel = (window.i18n && typeof window.i18n.t === 'function')
-                ? (window.i18n.t('vendor.catalogAll') || '全部')
-                : '全部';
+            var allLabel = vpTr('vendor.catalogAll', '全部');
             var protoGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'prototype'; });
             var partGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'part'; });
             var matGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'material'; });
@@ -1160,21 +1175,15 @@
             }
             var html = '<button type="button" class="catalog-pill' + (!vendorAssetsActiveGroupId ? ' active' : '') + '" data-group="">' + escHtml(allLabel) + '</button>';
             if (protoGroups.length) {
-                var protoLabel = (window.i18n && typeof window.i18n.t === 'function')
-                    ? (window.i18n.t('vendor.catalogPrototypeGroups') || '數位原型')
-                    : '數位原型';
+                var protoLabel = vpTr('vendor.catalogPrototypeGroups', '數位原型');
                 html += '<span class="text-muted small align-self-center ms-1 me-1">' + escHtml(protoLabel) + '</span>' + pillRow(protoGroups);
             }
             if (partGroups.length) {
-                var partLabel = (window.i18n && typeof window.i18n.t === 'function')
-                    ? (window.i18n.t('vendor.catalogPartGroups') || '配件／零件')
-                    : '配件／零件';
+                var partLabel = vpTr('vendor.catalogPartGroups', '配件／零件');
                 html += '<span class="text-muted small align-self-center ms-2 me-1">' + escHtml(partLabel) + '</span>' + pillRow(partGroups);
             }
             if (matGroups.length) {
-                var matLabel = (window.i18n && typeof window.i18n.t === 'function')
-                    ? (window.i18n.t('vendor.catalogMaterialGroups') || '材料/顏色')
-                    : '材料/顏色';
+                var matLabel = vpTr('vendor.catalogMaterialGroups', '材料/顏色');
                 html += '<span class="text-muted small align-self-center ms-2 me-1">' + escHtml(matLabel) + '</span>' + pillRow(matGroups);
             }
             if (!protoGroups.length && !matGroups.length) {
@@ -1345,6 +1354,13 @@
                 renderVendorAssetsGrid(vendorProfileListItems);
             });
         }
+
+        document.addEventListener('i18n:applied', function () {
+            if (_lastProfileVendor) {
+                renderProfileServiceAreas(_lastProfileVendor);
+                if (_vendorProfileMfrId) renderVendorCatalogNav(_vendorProfileMfrId);
+            }
+        });
 
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(function () {

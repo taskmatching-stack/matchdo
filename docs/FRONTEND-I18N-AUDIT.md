@@ -72,8 +72,8 @@ node scripts/audit-locale-mix.js
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
 | SSR 版型列表 `/official-templates/`、`/vendor-styles/` 等 | 部分 | `browse-page-i18n.js`、cookie `lang` |
-| `vendor-profile.html` | 部分 | UI `vendor.*` + JS `vpTr`；內容靠 `name_en` |
-| `vendors.html` | 部分 | `vendors.*` + 列表 JS `tr()` |
+| `vendor-profile.html` | 部分 | `vpTr`、服務地區 `profileContentLang` + `i18n:applied` 重繪（2026-09-29） |
+| `vendors.html` | 部分 | `vendors.*`、地區篩選、`applyVendorsPageMeta`（2026-09-29） |
 | `inspiration/*` SSR | 內容 | `title_en` |
 
 ### D. 廠商工作區（① 製造商）
@@ -153,6 +153,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**修混用** — 媒體牆繁中標題 API、`zh-TW.json` 誤英（sizeMode、myProjects 等）；數位資產小卡「更多」選單（`691eed9`）。
 - 2026-09-29：首頁篩選 chip／分類列 `home.*`；設計風向 alert `remakeProduct.alert*`（`7a915a0` 起）。
 - 2026-09-29：`custom/gallery.html` 完成批次 C；首頁 lightbox／收藏／類型 badge `home.*`。
+- 2026-09-29：`vendor-profile` 服務地區、`vendors` meta；`remake-product.js` 參考圖 UI／趨勢摘要。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -161,9 +162,10 @@ node scripts/audit-locale-mix.js
 | **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
 | **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
 | **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏） | 🔄 lightbox 主流程已 `home.*`；分享 toast／部分 lightbox 動態行仍補 |
-| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 alert + 趨勢區 + 儲存標題改 `t()`；參考圖 UI 等仍中文 |
+| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 參考圖槽／趨勢摘要／儲存按鈕 `remakeProduct.*`；生圖錯誤面板仍中文 |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
-| **C～F** | 廠商列表、控制台、供應商區 | ⏳ 下一批：`vendor-profile` 服務地區標籤、`vendors.html` 靜態 meta |
+| **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
+| **C～F** | 控制台、供應商區 | ⏳ 下一批：廠商控制台／供應商上架頁 |
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 

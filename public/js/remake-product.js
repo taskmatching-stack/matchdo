@@ -10,6 +10,15 @@ $(document).ready(function () {
         }
         return zhFallback != null ? zhFallback : '';
     }
+    function rpReplace(key, zhFallback, vars) {
+        var s = rpTr(key, zhFallback);
+        if (vars) {
+            Object.keys(vars).forEach(function (k) {
+                s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+            });
+        }
+        return s;
+    }
     let generatedImageData = null;
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）
@@ -79,7 +88,13 @@ $(document).ready(function () {
                     return;
                 }
                 var parts = [];
-                parts.push('樣本 ' + s.sample_size + ' 筆；近' + s.window_days + '日 ' + s.category_recent + ' 筆（' + (s.category_growth_pct >= 0 ? '▲' : '▼') + Math.abs(s.category_growth_pct) + '%）');
+                parts.push(rpReplace('remakeProduct.marketSampleSummary', '樣本 {sample_size} 筆；近{window_days}日 {category_recent} 筆（{growth_sign}{growth_pct}%）', {
+                    sample_size: s.sample_size,
+                    window_days: s.window_days,
+                    category_recent: s.category_recent,
+                    growth_sign: s.category_growth_pct >= 0 ? '▲' : '▼',
+                    growth_pct: Math.abs(s.category_growth_pct)
+                }));
                 if (s.tags_top && s.tags_top.style && s.tags_top.style.length) {
                     parts.push(rpTr('remakeProduct.marketHotStyle', '熱門 style：') + s.tags_top.style.map(function (t) { return t.tag; }).join('、'));
                 }
@@ -168,8 +183,8 @@ $(document).ready(function () {
             if (refDataUrls[i]) {
                 slot.addClass('filled');
                 if (i === selectedRefIndex) slot.addClass('selected');
-                slot.append($('<img class="ref-slot-thumb" alt="參考圖 ' + (i + 1) + '">').attr('src', refDataUrls[i]));
-                slot.append($('<button type="button" class="ref-slot-clear" title="移除">×</button>').on('click', function (ev) {
+                slot.append($('<img class="ref-slot-thumb">').attr('src', refDataUrls[i]).attr('alt', rpReplace('remakeProduct.refImageAlt', '參考圖 {n}', { n: i + 1 })));
+                slot.append($('<button type="button" class="ref-slot-clear">×</button>').attr('title', rpTr('remakeProduct.refRemoveTitle', '移除')).on('click', function (ev) {
                     ev.stopPropagation();
                     refDataUrls[i] = null;
                     refDescs[i] = '';
@@ -181,7 +196,7 @@ $(document).ready(function () {
                     if (refDataUrls[idx]) { selectedRefIndex = idx; updateRefSelection(); }
                 });
             } else {
-                slot.append($('<button type="button" class="ref-slot-add" title="加圖"><i class="fas fa-plus"></i></button>').on('click', function () {
+                slot.append($('<button type="button" class="ref-slot-add"><i class="fas fa-plus"></i></button>').attr('title', rpTr('remakeProduct.refAddTitle', '加圖')).on('click', function () {
                     currentAddSlot = i;
                     document.getElementById('referenceImageFile').click();
                 }));
@@ -209,12 +224,12 @@ $(document).ready(function () {
             for (let i = 0; i < MAX_REF_IMAGES; i++) {
                 if (!refDataUrls[i]) continue;
                 const card = $('<div class="ref-card" data-index="' + i + '"></div>');
-                card.append($('<img class="ref-card-thumb" alt="參考圖 ' + (i + 1) + '">').attr('src', refDataUrls[i]));
+                card.append($('<img class="ref-card-thumb">').attr('src', refDataUrls[i]).attr('alt', rpReplace('remakeProduct.refImageAlt', '參考圖 {n}', { n: i + 1 })));
                 const right = $('<div class="ref-card-right"></div>');
-                right.append($('<span class="ref-card-label text-muted small">參考圖 ' + (i + 1) + ' · 從此圖產生描述</span>'));
-                const descArea = $('<textarea class="ref-desc form-control" rows="2" placeholder="此圖描述（可手動填或按鈕產生）"></textarea>').val(refDescs[i] || '');
+                right.append($('<span class="ref-card-label text-muted small"></span>').text(rpReplace('remakeProduct.refCardLabel', '參考圖 {n} · 從此圖產生描述', { n: i + 1 })));
+                const descArea = $('<textarea class="ref-desc form-control" rows="2"></textarea>').attr('placeholder', rpTr('remakeProduct.refDescPlaceholder', '此圖描述（可手動填或按鈕產生）')).val(refDescs[i] || '');
                 right.append(descArea);
-                const btn = $('<button type="button" class="btn btn-outline-secondary btn-describe-one"><i class="fas fa-eye me-1"></i>從此圖產生描述</button>');
+                const btn = $('<button type="button" class="btn btn-outline-secondary btn-describe-one"><i class="fas fa-eye me-1"></i></button>').append(document.createTextNode(rpTr('remakeProduct.refDescribeBtn', '從此圖產生描述')));
                 btn.on('click', function () { describeOneImage(i, btn, descArea); });
                 right.append(btn);
                 card.append(right);
@@ -237,6 +252,13 @@ $(document).ready(function () {
         $('#generatedImagePlaceholder').hide();
         $('#generatedImagePreviewWrap').addClass('has-result');
     }
+
+    document.addEventListener('i18n:applied', function () {
+        if ($('#referenceImagesSlots').length) {
+            renderRefSlots();
+            renderRefCards();
+        }
+    });
 
     $(function () {
         ensureRefArrays();
@@ -283,7 +305,7 @@ $(document).ready(function () {
     async function describeOneImage(index, btn, descArea) {
         if (!refDataUrls[index]) return;
         const originalText = btn.html();
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>讀圖中...');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>' + rpTr('remakeProduct.readingImage', '讀圖中...'));
         try {
             var lang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
             const res = await fetch('/api/describe-reference-images', {
@@ -484,7 +506,7 @@ $(document).ready(function () {
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
             var subKey = $('#imageCategorySubSelect').val() || '';
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>儲存中...');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>' + rpTr('remakeProduct.saving', '儲存中...'));
             fetch('/api/custom-products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -515,7 +537,7 @@ $(document).ready(function () {
                     console.warn('save product:', err);
                     alert(rpTr('remakeProduct.alertSaveRetry', '儲存失敗，請稍後再試'));
                 })
-                .finally(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>儲存為我的訂製產品'); });
+                .finally(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>' + rpTr('remakeProduct.saveAsCustomProduct', '儲存為我的訂製產品')); });
         });
     });
 
