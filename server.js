@@ -6713,6 +6713,107 @@ function shouldReplaceCustomProductDescriptionFromAi(description, genPrompt) {
     return customProductTextCopiedFromPrompt(d, genPrompt);
 }
 
+/** 從 image_semantics_json 或 ai_tags 推設計稿標題雙語 */
+function resolveCustomProductTitlePairFromRow(p) {
+    if (!p || typeof p !== 'object') return null;
+    const sem = parseImageSemanticsJson(p.image_semantics_json);
+    if (sem) {
+        const pair = visualSemantics.buildCustomProductTitlePairFromSemantics(sem);
+        if (pair && (pair.zh || pair.en)) return pair;
+    }
+    if (Array.isArray(p.ai_tags) && p.ai_tags.length) {
+        return visualSemantics.buildCustomProductTitlePairFromSemantics({ tags: p.ai_tags });
+    }
+    return null;
+}
+
+async function persistCustomProductTitlePairIfStale(productId, ownerId, currentTitle, genPrompt, titlePair) {
+    if (!productId || !ownerId || !titlePair) return false;
+    if (!shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) return false;
+    if (!titlePair.zh && !titlePair.en) return false;
+    const updates = {};
+    if (titlePair.zh) updates.title = titlePair.zh;
+    if (titlePair.en) updates.title_en = titlePair.en;
+    let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
+    if (updErr && updErr.code === '42703' && updates.title_en) {
+        delete updates.title_en;
+        ({ error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId));
+    }
+    return !updErr;
+}
+
+async function runPool(items, concurrency, fn) {
+    if (!items || !items.length) return;
+    let idx = 0;
+    async function worker() {
+        while (idx < items.length) {
+            const i = idx++;
+            try { await fn(items[i], i); } catch (e) { /* per-item */ }
+        }
+    }
+    const n = Math.min(Math.max(1, concurrency), items.length);
+    await Promise.all(Array.from({ length: n }, function () { return worker(); }));
+}
+
+/** 資產庫列表：佔位標題當次請求內修復（有語意／標籤）或同步讀圖（無語意，上限防打爆 Gemini） */
+async function hydrateCustomProductTitlesForList(list, ownerId) {
+    if (!Array.isArray(list) || !list.length || !ownerId) return;
+    const needGemini = [];
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p || !p.id) continue;
+        const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
+        if (!shouldReplaceCustomProductTitleFromAi(p.title, gp)) continue;
+        const img = p.ai_generated_image_url ? String(p.ai_generated_image_url).trim() : '';
+        if (!img || img.indexOf('data:') === 0) continue;
+        const pair = resolveCustomProductTitlePairFromRow(p);
+        if (pair && (pair.zh || pair.en)) {
+            await persistCustomProductTitlePairIfStale(p.id, ownerId, p.title, gp, pair);
+            if (pair.zh) p.title = pair.zh;
+            if (pair.en) p.title_en = pair.en;
+            continue;
+        }
+        needGemini.push({ p: p, gp: gp, img: img });
+    }
+    const SYNC_ENRICH_MAX = 12;
+    const syncBatch = needGemini.slice(0, SYNC_ENRICH_MAX);
+    await runPool(syncBatch, 2, async function (item) {
+        const p = item.p;
+        const gp = item.gp;
+        const img = item.img;
+        if (!process.env.GEMINI_API_KEY) return;
+        await enrichCustomProductSemantics(p.id, ownerId, {
+            imageUrl: img,
+            generationPrompt: gp || null,
+            title: p.title,
+            categoryKey: p.category || null
+        });
+        const { data: row } = await supabase
+            .from('custom_products')
+            .select('title, title_en, description, description_en, image_semantics_json, ai_tags')
+            .eq('id', p.id)
+            .eq('owner_id', ownerId)
+            .maybeSingle();
+        if (row) {
+            if (row.title) p.title = row.title;
+            if (row.title_en != null) p.title_en = row.title_en;
+            if (row.description != null) p.description = row.description;
+            if (row.description_en != null) p.description_en = row.description_en;
+            if (row.image_semantics_json) p.image_semantics_json = row.image_semantics_json;
+            if (row.ai_tags) p.ai_tags = row.ai_tags;
+        }
+    });
+    for (let j = SYNC_ENRICH_MAX; j < needGemini.length; j++) {
+        const item = needGemini[j];
+        scheduleCustomProductSemanticsEnrich(item.p.id, ownerId, {
+            imageUrl: item.img,
+            generationPrompt: item.gp || null,
+            title: item.p.title,
+            categoryKey: item.p.category || null
+        });
+    }
+}
+
 /** API 列表：lang=en 時用 title_en／description_en；佔位標題可從 image_semantics_json 推顯示用文案 */
 function localizeCustomProductForApiResponse(p, lang) {
     if (!p || typeof p !== 'object') return p;
@@ -6723,7 +6824,7 @@ function localizeCustomProductForApiResponse(p, lang) {
     let descZh = p.description;
     let descEn = p.description_en;
     const sem = parseImageSemanticsJson(p.image_semantics_json);
-    const titlePair = sem ? visualSemantics.buildCustomProductTitlePairFromSemantics(sem) : null;
+    const titlePair = resolveCustomProductTitlePairFromRow(p);
     if (titlePair) {
         if (shouldReplaceCustomProductTitleFromAi(titleZh, gp) && titlePair.zh) titleZh = titlePair.zh;
         const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
@@ -11913,8 +12014,7 @@ async function repairCustomProductTitleFromStoredSemantics(productId, ownerId) {
         if (error || !row) return false;
         const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
         if (!shouldReplaceCustomProductTitleFromAi(row.title, gp)) return false;
-        const sem = parseImageSemanticsJson(row.image_semantics_json);
-        const titlePair = sem ? visualSemantics.buildCustomProductTitlePairFromSemantics(sem) : null;
+        const titlePair = resolveCustomProductTitlePairFromRow(row);
         if (!titlePair || (!titlePair.zh && !titlePair.en)) return false;
         const updates = {};
         if (titlePair.zh) updates.title = titlePair.zh;
@@ -28832,29 +28932,7 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
-            let reEnrichBudget = 6;
-            let repairBudget = 12;
-            list.forEach(function (p) {
-                if (!p || !p.id) return;
-                const img = p.ai_generated_image_url ? String(p.ai_generated_image_url).trim() : '';
-                if (!img || img.indexOf('data:') === 0) return;
-                const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
-                const staleTitle = shouldReplaceCustomProductTitleFromAi(p.title, gp);
-                if (!staleTitle) return;
-                if (p.image_semantics_json && repairBudget > 0) {
-                    scheduleRepairCustomProductTitleFromStoredSemantics(p.id, user.id);
-                    repairBudget -= 1;
-                    return;
-                }
-                if (reEnrichBudget <= 0) return;
-                scheduleCustomProductSemanticsEnrich(p.id, user.id, {
-                    imageUrl: img,
-                    generationPrompt: gp || null,
-                    title: p.title,
-                    categoryKey: p.category || null
-                });
-                reEnrichBudget -= 1;
-            });
+            await hydrateCustomProductTitlesForList(list, user.id);
             const productsWithOwner = list.map(function (p) {
                 const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
@@ -28888,6 +28966,9 @@ app.get('/api/custom-products', async (req, res) => {
         const list = data || [];
         if (summaryOnly) {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
+        }
+        if (!summaryOnly && list.length) {
+            await hydrateCustomProductTitlesForList(list, user.id);
         }
         const productsWithOwner = list.map(function (p) {
             const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({

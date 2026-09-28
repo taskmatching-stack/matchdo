@@ -2129,7 +2129,7 @@
   "myCustomProducts.title": "我的數位資產",
   "myCustomProducts.subtitle": "設計稿、情境圖與相關產出；含參考來源與生成履歷。",
   "myCustomProducts.btnCreate": "建立新產品",
-  "myCustomProducts.loading": "載入中...",
+  "myCustomProducts.loading": "載入中…若標題仍為「產品設計稿」，系統正在讀圖產生標題，請稍候。",
   "myCustomProducts.loadingList": "載入中...",
   "myCustomProducts.emptyTitle": "尚無數位資產",
   "myCustomProducts.emptyDesc": "建立客製產品後，生成的圖片會顯示於此",
