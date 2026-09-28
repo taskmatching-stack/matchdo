@@ -182,7 +182,7 @@ node scripts/audit-locale-mix.js
 
 | 估計 | 內容 |
 |------|------|
-| **約 4～6 次 push 批次** | 若每批 1～2 個「部分」區塊（設計稿 JS、廠商控制台、供應商上架、帳號／方案／help、browse SSR） |
+| **約 3～5 次 push 批次** | D2 生圖區已一輪；剩：設計稿 JS 大段、D3 廠商控制台×2、E 供應商、F 帳號／help／browse |
 | **已大致 OK** | B1/B2、圖庫 C、數位資產庫 UI、find-makers、登入、credits、首頁媒體牆主流程 B3 |
 | **不算「全站完成」** | `custom-product.js` 仍大、`manufacturer-materials` 表單多、內容欄靠 API／後台英文 |
 

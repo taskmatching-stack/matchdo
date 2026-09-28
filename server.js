@@ -6680,6 +6680,69 @@ function isGenericMediaWallTitle(title) {
     return generic.some((g) => t === g || t.toLowerCase() === g.toLowerCase());
 }
 
+const CUSTOM_PRODUCT_DESC_PLACEHOLDERS = new Set(['（無描述）', '(No description)', '无描述']);
+
+function truncateLikeGenerationPromptTitle(prompt, maxLen) {
+    const gp = String(prompt || '').trim();
+    if (!gp) return '';
+    const n = maxLen == null ? 80 : maxLen;
+    return gp.substring(0, n) + (gp.length > n ? '…' : '');
+}
+
+/** 標題／描述是否仍為「複製 generation_prompt」的佔位（應由讀圖語意覆寫） */
+function customProductTextCopiedFromPrompt(text, genPrompt) {
+    const t = String(text || '').trim();
+    const gp = String(genPrompt || '').trim();
+    if (!t || !gp) return false;
+    if (t === gp) return true;
+    if (t === truncateLikeGenerationPromptTitle(gp)) return true;
+    const head = t.replace(/…$/, '');
+    if (head.length >= 6 && gp.startsWith(head) && gp.length > head.length) return true;
+    return false;
+}
+
+function shouldReplaceCustomProductTitleFromAi(title, genPrompt) {
+    if (isGenericMediaWallTitle(title)) return true;
+    return customProductTextCopiedFromPrompt(title, genPrompt);
+}
+
+function shouldReplaceCustomProductDescriptionFromAi(description, genPrompt) {
+    const d = String(description || '').trim();
+    if (!d) return true;
+    if (CUSTOM_PRODUCT_DESC_PLACEHOLDERS.has(d)) return true;
+    return customProductTextCopiedFromPrompt(d, genPrompt);
+}
+
+/** API 列表：lang=en 時用 title_en／description_en；佔位標題可從 image_semantics_json 推顯示用文案 */
+function localizeCustomProductForApiResponse(p, lang) {
+    if (!p || typeof p !== 'object') return p;
+    const out = Object.assign({}, p);
+    const gp = p.generation_prompt != null ? String(p.generation_prompt).trim() : '';
+    let titleZh = p.title;
+    let titleEn = p.title_en;
+    let descZh = p.description;
+    let descEn = p.description_en;
+    const sem = parseImageSemanticsJson(p.image_semantics_json);
+    const titlePair = sem ? visualSemantics.buildCustomProductTitlePairFromSemantics(sem) : null;
+    if (titlePair) {
+        if (shouldReplaceCustomProductTitleFromAi(titleZh, gp) && titlePair.zh) titleZh = titlePair.zh;
+        const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
+            || customProductTextCopiedFromPrompt(titleEn, gp);
+        if (enNeeds && titlePair.en) titleEn = titlePair.en;
+    }
+    if (sem && shouldReplaceCustomProductDescriptionFromAi(descZh, gp)) {
+        const dz = (sem.product_description_zh || '').trim();
+        const de = (sem.product_description_en || '').trim();
+        if (dz) descZh = dz;
+        if (de) descEn = de;
+    }
+    const localizedTitle = pickVendorLocalizedText(titleZh, titleEn, lang);
+    if (localizedTitle) out.title = localizedTitle;
+    const localizedDesc = pickVendorLocalizedText(descZh, descEn, lang);
+    if (localizedDesc) out.description = localizedDesc;
+    return out;
+}
+
 function mediaWallTextHasCjk(text) {
     return /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(String(text || ''));
 }
@@ -11715,7 +11778,7 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         });
         let mergedTags = imgResult.tags || [];
         let promptSemantics = null;
-        const genPrompt = (ctx.generationPrompt || '').trim();
+        let genPrompt = (ctx.generationPrompt || '').trim();
         if (genPrompt) {
             try {
                 const pResult = await visualSemantics.analyzePromptSemantics(deps, genPrompt, {
@@ -11732,16 +11795,17 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         let currentTitle = (ctx.title || '').trim();
         let currentTitleEn = (ctx.title_en || '').trim();
         let currentDescription = '';
-        if (!currentTitle || !currentTitleEn || !genPrompt) {
-            try {
-                const { data: row } = await supabase.from('custom_products').select('title, title_en, description').eq('id', productId).maybeSingle();
-                if (row) {
-                    if (!currentTitle) currentTitle = (row.title) ? String(row.title).trim() : '';
-                    if (!currentTitleEn) currentTitleEn = (row.title_en) ? String(row.title_en).trim() : '';
-                    currentDescription = (row.description) ? String(row.description).trim() : '';
-                }
-            } catch (_) {}
-        }
+        let currentDescriptionEn = '';
+        try {
+            const { data: row } = await supabase.from('custom_products').select('title, title_en, description, description_en, generation_prompt').eq('id', productId).maybeSingle();
+            if (row) {
+                if (!currentTitle) currentTitle = (row.title) ? String(row.title).trim() : '';
+                if (!currentTitleEn) currentTitleEn = (row.title_en) ? String(row.title_en).trim() : '';
+                currentDescription = (row.description) ? String(row.description).trim() : '';
+                currentDescriptionEn = (row.description_en) ? String(row.description_en).trim() : '';
+                if (!genPrompt && row.generation_prompt) genPrompt = String(row.generation_prompt).trim();
+            }
+        } catch (_) {}
         const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(imgResult.semantics);
         const updates = {
             ai_tags: mergedTags,
@@ -11750,22 +11814,33 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
             semantics_generated_at: new Date().toISOString()
         };
         if (titlePair) {
-            if (titlePair.zh && (!currentTitle || isGenericMediaWallTitle(currentTitle))) updates.title = titlePair.zh;
-            if (titlePair.en && (!currentTitleEn || isGenericMediaWallTitle(currentTitleEn))) updates.title_en = titlePair.en;
+            if (titlePair.zh && shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) updates.title = titlePair.zh;
+            const enNeeds = !currentTitleEn || isGenericMediaWallTitle(currentTitleEn)
+                || customProductTextCopiedFromPrompt(currentTitleEn, genPrompt);
+            if (titlePair.en && enNeeds) updates.title_en = titlePair.en;
         }
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
-        // 無提示詞：一併寫入產品描述（僅在 description 仍空時；有提示詞則不自動灌描述）
-        if (!genPrompt && !currentDescription) {
-            const autoDesc = (imgResult.semantics && imgResult.semantics.product_description_zh
-                ? String(imgResult.semantics.product_description_zh).trim()
-                : '') || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics) || '';
-            if (autoDesc) updates.description = autoDesc;
+        const descZh = (imgResult.semantics && imgResult.semantics.product_description_zh
+            ? String(imgResult.semantics.product_description_zh).trim()
+            : '') || visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics) || '';
+        const descEn = (imgResult.semantics && imgResult.semantics.product_description_en
+            ? String(imgResult.semantics.product_description_en).trim()
+            : '') || '';
+        if (shouldReplaceCustomProductDescriptionFromAi(currentDescription, genPrompt) && descZh) {
+            updates.description = descZh;
+        }
+        if (shouldReplaceCustomProductDescriptionFromAi(currentDescriptionEn, genPrompt) && descEn) {
+            updates.description_en = descEn;
         }
         let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
-        if (updErr && updErr.code === '42703' && updates.title_en) {
-            delete updates.title_en;
-            ({ error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId));
-            if (!updErr) console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-title-i18n.sql 以寫入 title_en');
+        if (updErr && updErr.code === '42703') {
+            const stripped = Object.assign({}, updates);
+            if (stripped.title_en) delete stripped.title_en;
+            if (stripped.description_en) delete stripped.description_en;
+            ({ error: updErr } = await supabase.from('custom_products').update(stripped).eq('id', productId));
+            if (!updErr && (updates.title_en || updates.description_en)) {
+                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-title-i18n.sql 以寫入 title_en／description_en');
+            }
         }
         if (updErr) {
             if (updErr.code === '42703') {
@@ -24938,11 +25013,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     }
                 }
                 const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
-                const titleFallbackEn = autoUiLocale && String(autoUiLocale).toLowerCase().indexOf('en') === 0;
-                const title = (prompt && String(prompt).trim())
-                    ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '')
-                    : (titleFallbackEn ? 'Product design draft' : '產品設計稿');
-                const description = (prompt && String(prompt).trim()) || (titleFallbackEn ? '(No description)' : '（無描述）');
+                const title = mediaWallUserDesignDefaultTitle(autoUiLocale || 'zh-TW');
+                const description = normalizeVendorContentLang(autoUiLocale || 'zh-TW') === 'en' ? '(No description)' : '（無描述）';
                 const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
                 const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                 const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
@@ -28637,6 +28709,7 @@ app.get('/api/custom-products', async (req, res) => {
 
         const summaryOnly = req.query.summary === '1' || req.query.summary === 'true';
         const galleryMode = req.query.gallery === '1' || req.query.gallery === 'true';
+        const apiContentLang = normalizeVendorContentLang(req.query.lang || req.query.ui_locale || '');
         const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
         const ownerEmail = user.email || '';
 
@@ -28692,7 +28765,7 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
+            const listSelect = 'id, title, title_en, description, description_en, generation_prompt, image_semantics_json, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -28700,7 +28773,7 @@ app.get('/api/custom-products', async (req, res) => {
                 .order('created_at', { ascending: false })
                 .range(offsetN, rangeEnd);
             if (error && error.code === '42703') {
-                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags';
+                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags, generation_prompt';
                 ({ data, error } = await supabase
                     .from('custom_products')
                     .select(fallbackSelect)
@@ -28715,12 +28788,31 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
+            let reEnrichBudget = 2;
+            list.forEach(function (p) {
+                if (reEnrichBudget <= 0 || !p || !p.id) return;
+                const img = p.ai_generated_image_url ? String(p.ai_generated_image_url).trim() : '';
+                if (!img || img.indexOf('data:') === 0) return;
+                const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
+                const staleTitle = shouldReplaceCustomProductTitleFromAi(p.title, gp);
+                const needsEnrich = !p.semantics_generated_at
+                    || (staleTitle && !p.image_semantics_json);
+                if (!needsEnrich) return;
+                scheduleCustomProductSemanticsEnrich(p.id, user.id, {
+                    imageUrl: img,
+                    generationPrompt: gp || null,
+                    title: p.title,
+                    categoryKey: p.category || null
+                });
+                reEnrichBudget -= 1;
+            });
             const productsWithOwner = list.map(function (p) {
-                return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
+                const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
                     owner_email: ownerEmail,
                     owner_display: ownerDisplay
                 }));
+                return localizeCustomProductForApiResponse(row, apiContentLang);
             });
             return res.json({
                 success: true,
@@ -28749,11 +28841,12 @@ app.get('/api/custom-products', async (req, res) => {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
         }
         const productsWithOwner = list.map(function (p) {
-            return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
+            const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                 ...p,
                 owner_email: ownerEmail,
                 owner_display: ownerDisplay
             }));
+            return localizeCustomProductForApiResponse(row, apiContentLang);
         });
         res.json({ success: true, products: productsWithOwner });
     } catch (e) {
@@ -30495,9 +30588,14 @@ app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
         try {
             updates.ai_tags_by_dimension = visualSemantics.buildTagsByDimension(analyzed.semantics);
         } catch (_) {}
+        const gp = (product.generation_prompt || '').trim();
         const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(analyzed.semantics);
-        if (titlePair && titlePair.zh && isGenericMediaWallTitle(product.title)) updates.title = titlePair.zh;
-        if (titlePair && titlePair.en && isGenericMediaWallTitle(product.title)) updates.title_en = titlePair.en;
+        if (titlePair && titlePair.zh && shouldReplaceCustomProductTitleFromAi(product.title, gp)) updates.title = titlePair.zh;
+        if (titlePair && titlePair.en) {
+            const enNeeds = !String(product.title_en || '').trim() || isGenericMediaWallTitle(product.title_en)
+                || customProductTextCopiedFromPrompt(product.title_en, gp);
+            if (enNeeds) updates.title_en = titlePair.en;
+        }
         const { data: updated, error: updErr } = await updateCustomProductSemanticsFields(product.id, user.id, updates);
         if (updErr) {
             console.error('custom-product regenerate-tags update:', updErr.code || '', updErr.message || updErr);
@@ -30568,9 +30666,21 @@ app.post('/api/custom-products/:id/generate-description', async (req, res) => {
             } catch (_) {}
         }
         if (analyzed && analyzed.promptSemantics) updates.prompt_semantics_json = analyzed.promptSemantics;
+        const gp = (product.generation_prompt || '').trim();
         const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(analyzed && analyzed.semantics);
-        if (titlePair && titlePair.zh && isGenericMediaWallTitle(product.title)) updates.title = titlePair.zh;
-        if (titlePair && titlePair.en && isGenericMediaWallTitle(product.title)) updates.title_en = titlePair.en;
+        if (titlePair && titlePair.zh && shouldReplaceCustomProductTitleFromAi(product.title, gp)) updates.title = titlePair.zh;
+        if (titlePair && titlePair.en) {
+            const enNeeds = !String(product.title_en || '').trim() || isGenericMediaWallTitle(product.title_en)
+                || customProductTextCopiedFromPrompt(product.title_en, gp);
+            if (enNeeds) updates.title_en = titlePair.en;
+        }
+        const sem = analyzed && analyzed.semantics;
+        if (sem && shouldReplaceCustomProductDescriptionFromAi(product.description, gp)) {
+            const dz = (sem.product_description_zh || '').trim();
+            const de = (sem.product_description_en || '').trim();
+            if (dz) updates.description = dz;
+            if (de) updates.description_en = de;
+        }
         const { data: updated, error: updErr } = await updateCustomProductSemanticsFields(product.id, user.id, updates);
         if (updErr) {
             console.error('custom-product generate-description update:', updErr.code || '', updErr.message || updErr);

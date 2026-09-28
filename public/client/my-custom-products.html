@@ -794,6 +794,15 @@
             else badgeEl.textContent = String(productsTotalLoaded);
         }
 
+        function customProductsLangQuery() {
+            try {
+                if (window.i18n && typeof window.i18n.getLang === 'function') {
+                    return '&lang=' + encodeURIComponent(window.i18n.getLang());
+                }
+            } catch (e) { /* ignore */ }
+            return '';
+        }
+
         function loadDesignsBadgeCount() {
             if (!authToken) return;
             fetch('/api/custom-products?summary=1', {
@@ -1850,7 +1859,7 @@
             productsLoading = true;
             const offset = append ? productsOffset : 0;
             try {
-                const response = await fetch('/api/custom-products?list=1&limit=' + ((append && fillLimit) ? fillLimit : PRODUCTS_PAGE_SIZE) + '&offset=' + offset, {
+                const response = await fetch('/api/custom-products?list=1&limit=' + ((append && fillLimit) ? fillLimit : PRODUCTS_PAGE_SIZE) + '&offset=' + offset + customProductsLangQuery(), {
                     headers: { Authorization: 'Bearer ' + authToken }
                 });
                 const data = await response.json();

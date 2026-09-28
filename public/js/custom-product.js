@@ -5049,10 +5049,8 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = promptText
-            ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '')
-            : tr('customProduct.defaultSaveTitle', '產品設計稿');
-        var description = promptText || tr('customProduct.noDescription', '（無描述）');
+        var title = tr('customProduct.defaultSaveTitle', '產品設計稿');
+        var description = tr('customProduct.noDescription', '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
             var seedInput = $('#generationSeed').val();
