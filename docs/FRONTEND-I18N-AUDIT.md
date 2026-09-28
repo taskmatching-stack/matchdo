@@ -66,6 +66,9 @@ node scripts/audit-frontend-i18n.js
 | `no-access.html` | OK | `noAccess.*` |
 | `embed/preview-simulator.html` | OK | `embedPreview.*` |
 | `custom/index.html` | OK | `customIndex.*`（轉址頁） |
+| `custom/gallery.html` | 部分 | 篩選／Modal 接 `gallery.*` + `i18n.getLang` |
+| `custom/collection.html` | OK | `customCollection.*` |
+| `design-direction/analysis.html` | 部分 | `remakeProduct.*` + 設計稿 modal |
 | `client/my-supplier-references.html` | 部分 | |
 | `client/industry-suppliers.html` | 部分 | |
 
@@ -105,3 +108,4 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：建立本檔 + `scripts/audit-frontend-i18n.js`；素材上傳／供應商上架 UI 補強；廠商控制台 `mfrDash`；Embed 紀錄／設計洞察／登入頁 `authPage`。
 - 2026-09-29：`folder-edit.html` 掛 i18n；素材「可執行工藝」區塊 `baseModels.executableCrafts*`；作品頁種子橫幅／載入錯誤 EN。
 - 2026-09-29：`no-access`、`embed/preview-simulator`、`custom/index`、legacy `manufacturer-inquiries`（轉址保留 `lang`）。
+- 2026-09-29：`custom/gallery` 語系與 `gallery.*` 鍵；`custom/collection`；`design-direction/analysis` 表單與 modal。

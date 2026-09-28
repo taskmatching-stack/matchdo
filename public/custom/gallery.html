@@ -118,7 +118,7 @@
         <div id="galleryEmpty" class="text-center py-5 d-none">
             <i class="bi bi-images display-4 text-muted"></i>
             <p class="mt-2 text-muted" data-i18n="gallery.empty">尚無作品圖，或目前篩選無結果。請試試其他關鍵字或分類。</p>
-            <p class="small text-muted">若您已在「我的廠商作品」上傳資料卻看不到：請確認後端 .env 已設 <code>SUPABASE_SERVICE_ROLE_KEY</code>，並在 Supabase 執行過 <code>docs/seed-manufacturers-and-portfolio.sql</code>。</p>
+            <p class="small text-muted" id="galleryDevEnvHint" data-i18n="gallery.devEnvHint">若您已在「我的廠商作品」上傳資料卻看不到：請確認後端 .env 已設 <code>SUPABASE_SERVICE_ROLE_KEY</code>，並在 Supabase 執行過 <code>docs/seed-manufacturers-and-portfolio.sql</code>。</p>
             <a href="/custom/" class="btn btn-outline-primary" data-i18n="gallery.backToCustom">返回客製產品首頁</a>
         </div>
 
@@ -135,7 +135,7 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="galleryModalLabel" data-i18n="gallery.modal.title">作品詳情</h5>
+                    <h5 class="modal-title" id="galleryModalLabel" data-i18n="gallery.modalTitle">作品詳情</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -178,67 +178,47 @@
 (function() {
     const CATEGORIES_API = '/api/custom-product-categories';
 
-    // ── 語系偵測 ──────────────────────────────────────────────────────────
-    const _lang = (new URLSearchParams(window.location.search).get('lang') || '').toLowerCase().replace(/-.*$/,'') || 'zh';
-    const _isEn = _lang === 'en';
-
-    // ── 翻譯字典（只有非中文才需要，中文直接用 HTML 預設值）────────────────
-    const T = _isEn ? {
-        modalTitle:     'Work Details',
-        highlight:      'Design Highlights',
-        vendor:         'Vendor',
-        contact:        'Message Vendor',
-        viewVendor:     'View Vendor',
-        browseVendors:  'Browse Vendors',
-        browseCategory: 'Browse Category Vendors',
-        redesign:       'Use for Redesign',
-        noContact:      'No contact info provided',
-        labelKeyword:   'Keyword',
-        labelCategory:  'Category',
-        labelSubcat:    'Subcategory',
-        labelArea:      'Service Region',
-        filterAll:      'All',
-        areaAll:        'All Regions',
-        areaNorth:      'North',
-        areaCentral:    'Central',
-        areaSouth:      'South',
-        areaEast:       'East',
-        areaIsland:     'Islands',
-        areaOverseas:   'Overseas',
-        kwPlaceholder:  'Search title, tags…',
-        assetsOnlyIntro:  'No portfolio images in this category yet. Browse vendor assets below.',
-        assetPrototype:   'Prototype',
-        assetMaterial:    'Material',
-        redesignAsset:    'Design with this asset',
-        modalAssetTitle:  'Vendor asset',
-    } : {
-        modalTitle:     '作品詳情',
-        highlight:      '作品重點',
-        vendor:         '廠商',
-        contact:        '站內聯絡廠商',
-        viewVendor:     '查看廠商',
-        browseVendors:  '瀏覽廠商列表',
-        browseCategory: '瀏覽此分類廠商',
-        redesign:       '用此圖再設計',
-        noContact:      '未提供聯絡方式',
-        labelKeyword:   '關鍵字',
-        labelCategory:  '分類',
-        labelSubcat:    '小分類',
-        labelArea:      '服務地區',
-        filterAll:      '全部',
-        areaAll:        '全部地區',
-        areaNorth:      '北部',
-        areaCentral:    '中部',
-        areaSouth:      '南部',
-        areaEast:       '東部',
-        areaIsland:     '離島',
-        areaOverseas:   '海外',
-        kwPlaceholder:  '搜尋標題、標籤…',
-        assetsOnlyIntro:  '此分類尚無作品展示圖，您可先瀏覽以下廠商上傳的數位原型與材料/顏色。',
-        assetPrototype:   '數位原型',
-        assetMaterial:    '材料/顏色',
-        redesignAsset:    '用此素材設計',
-        modalAssetTitle:  '廠商素材',
+    // ── 語系（與全站 i18n 一致）──────────────────────────────────────────
+    let _lang = 'zh';
+    let _isEn = false;
+    function refreshGalleryLang() {
+        if (window.i18n && window.i18n.getLang) {
+            _isEn = window.i18n.getLang() === 'en';
+        } else {
+            const q = (new URLSearchParams(window.location.search).get('lang') || '').toLowerCase();
+            _isEn = q === 'en' || q.indexOf('en-') === 0;
+        }
+        _lang = _isEn ? 'en' : 'zh';
+    }
+    function tr(k, fb) {
+        if (window.i18n && typeof window.i18n.t === 'function') {
+            const v = window.i18n.t(k);
+            if (v && v !== k) return v;
+        }
+        return fb != null ? fb : k;
+    }
+    const T = {
+        get modalTitle() { return tr('gallery.modalTitle', '作品詳情'); },
+        get highlight() { return tr('gallery.designHighlight', '作品重點'); },
+        get vendor() { return tr('gallery.vendor', '廠商'); },
+        get contact() { return tr('gallery.contactVendor', '站內聯絡廠商'); },
+        get viewVendor() { return tr('gallery.viewVendor', '查看廠商'); },
+        get browseVendors() { return tr('gallery.browseVendors', '瀏覽廠商列表'); },
+        get browseCategory() { return tr('gallery.browseCategoryVendors', '瀏覽此分類廠商'); },
+        get redesign() { return tr('gallery.redesign', '用此圖再設計'); },
+        get noContact() { return tr('gallery.noContact', '未提供聯絡方式'); },
+        get labelKeyword() { return tr('gallery.filterKeyword', '關鍵字'); },
+        get labelCategory() { return tr('gallery.filterCategory', '分類'); },
+        get labelSubcat() { return tr('gallery.filterSubcategory', '小分類'); },
+        get labelArea() { return tr('gallery.filterArea', '服務地區'); },
+        get filterAll() { return tr('gallery.all', '全部'); },
+        get areaAll() { return tr('gallery.areaAll', '全部地區'); },
+        get kwPlaceholder() { return tr('gallery.keywordPlaceholder', '搜尋標題、標籤…'); },
+        get assetsOnlyIntro() { return tr('gallery.assetsOnlyIntro', '此分類尚無作品展示圖…'); },
+        get assetPrototype() { return tr('gallery.assetPrototype', '數位原型'); },
+        get assetMaterial() { return tr('gallery.assetMaterial', '材料/顏色'); },
+        get redesignAsset() { return tr('gallery.redesignAsset', '用此素材設計'); },
+        get modalAssetTitle() { return tr('gallery.modalAssetTitle', '廠商素材'); }
     };
 
     // 套用所有靜態文字（filter 區 + modal）
@@ -288,11 +268,12 @@
     let scopeMfrName = '';
     let selCustomizationLevels = []; // URL customization_levels（如 form_structure）
 
-    const CUSTOMIZATION_LEVEL_LABELS = {
-        form_structure: '造型／結構',
-        color_material: '顏色／材質',
-        graphic_print: '圖案／印刷'
-    };
+    function customizationLevelLabel(key) {
+        if (key === 'form_structure') return tr('customProduct.customLevelFormStructure', '造型／結構');
+        if (key === 'color_material') return tr('customProduct.customLevelColorMaterial', '顏色／材質');
+        if (key === 'graphic_print') return tr('customProduct.customLevelColorGraphic', '圖案／印刷');
+        return key;
+    }
 
     const $loading  = document.getElementById('galleryLoading');
     const $empty    = document.getElementById('galleryEmpty');
@@ -304,27 +285,28 @@
         const banner = document.getElementById('galleryVendorScopeBanner');
         if (!banner || !selCustomizationLevels.length) return;
         const labels = selCustomizationLevels.map(function (k) {
-            return CUSTOMIZATION_LEVEL_LABELS[k] || k;
+            return customizationLevelLabel(k);
         }).join('、');
-        banner.innerHTML = '目前僅顯示訂製程度含「' + esc(labels) + '」的廠商作品與素材。';
+        banner.innerHTML = esc(tr('gallery.customizationFilterBanner', '目前僅顯示訂製程度含「{labels}」的廠商作品與素材。').replace(/\{labels\}/g, labels));
         banner.classList.remove('d-none');
     }
 
     function applyScopedGalleryUi(vendorLabel) {
-        const label = vendorLabel || '此廠商';
+        const label = vendorLabel || tr('gallery.thisVendor', '此廠商');
         const scopeBanner = document.getElementById('galleryVendorScopeBanner');
         if (scopeBanner) {
-            scopeBanner.innerHTML = '目前僅顯示「' + esc(label) + '」的作品與素材。' +
-                ' <a href="/vendor-profile.html?id=' + encodeURIComponent(scopeMfrId) + '" class="alert-link">返回廠商頁</a>';
+            scopeBanner.innerHTML = tr('gallery.scopedBanner', '目前僅顯示「{name}」的作品與素材。')
+                .replace(/\{name\}/g, label)
+                .replace(/\{id\}/g, encodeURIComponent(scopeMfrId));
             scopeBanner.classList.remove('d-none');
         }
         const h1 = document.querySelector('h1 span[data-i18n="gallery.title"]');
-        if (h1) h1.textContent = label + ' 的作品圖庫';
+        if (h1) h1.textContent = tr('gallery.scopedTitle', '{name} 的作品圖庫').replace(/\{name\}/g, label);
         const desc = document.querySelector('p[data-i18n="gallery.desc"]');
-        if (desc) desc.textContent = '瀏覽此廠商的作品與素材，可用關鍵字或分類篩選；點選可聯繫廠商或加入再設計。';
+        if (desc) desc.textContent = tr('gallery.scopedDesc', '瀏覽此廠商的作品與素材…');
         const areaRow = document.querySelector('#galleryAreaBtns') && document.querySelector('#galleryAreaBtns').closest('.col-12');
         if (areaRow) areaRow.classList.add('d-none');
-        document.title = label + ' 的作品圖庫 - MATCHDO 合做';
+        document.title = tr('gallery.scopedTitle', '{name} 的作品圖庫').replace(/\{name\}/g, label) + tr('customCollection.pageTitleSuffix', ' - MATCHDO 合做');
     }
 
     // ── 工具 ──────────────────────────────────────────────────────────────
@@ -1068,6 +1050,9 @@
     // ── 初始化（與 01a1053 相同，勿改 selCat 賦值方式）──
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
+        if (window.i18n && window.i18n.ready) await window.i18n.ready;
+        refreshGalleryLang();
+        if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
         applyModalI18n();
         const params = new URLSearchParams(window.location.search);
         scopeMfrId = (params.get('manufacturer_id') || '').trim();
@@ -1090,7 +1075,6 @@
     else init();
 })();
     </script>
-    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",

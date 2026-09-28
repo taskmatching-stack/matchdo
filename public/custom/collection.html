@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="custom">
 <head>
     <meta charset="utf-8">
-    <title>作品系列 - MATCHDO 合做</title>
+    <title data-i18n-doc-title="customCollection.seriesDefault">作品系列 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="瀏覽 MATCHDO 合做上的廠商作品系列，依主題與分類探索客製生產靈感，一鍵聯繫廠商。">
     <meta property="og:type" content="website">
@@ -47,19 +47,18 @@
 
     <div id="pageLoading" class="text-center py-5 text-muted">
         <div class="spinner-border mb-2" role="status"></div>
-        <p>載入中…</p>
+        <p data-i18n="customCollection.loading">載入中…</p>
     </div>
 
     <div id="pageContent" style="display:none;">
-        <!-- Hero -->
         <div class="hero-banner">
             <div class="container">
                 <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
                     <div>
                         <a href="/custom/gallery.html" class="btn btn-sm btn-outline-light mb-3">
-                            <i class="bi bi-arrow-left me-1"></i>返回圖庫
+                            <i class="bi bi-arrow-left me-1"></i><span data-i18n="customCollection.backGallery">返回圖庫</span>
                         </a>
-                        <h1 id="colTitle">系列作品</h1>
+                        <h1 id="colTitle" data-i18n="customCollection.seriesDefault">系列作品</h1>
                         <p id="colDesc" class="desc mb-0"></p>
                     </div>
                     <div id="mfrInfo" class="text-end" style="display:none!important;">
@@ -70,37 +69,34 @@
             </div>
         </div>
 
-        <!-- 聯絡廠商 sticky bar -->
         <div class="contact-bar" id="contactBar" style="display:none;">
             <div class="container d-flex align-items-center gap-3 flex-wrap">
                 <span id="barMfrName" class="fw-semibold"></span>
                 <button id="btnContactInApp" class="btn btn-success btn-sm d-none" onclick="contactVendor()">
-                    <i class="bi bi-chat-dots me-1"></i>站內聯絡廠商
+                    <i class="bi bi-chat-dots me-1"></i><span data-i18n="customCollection.contactInApp">站內聯絡廠商</span>
                 </button>
                 <a id="btnViewProfile" href="#" class="btn btn-outline-primary btn-sm d-none">
-                    <i class="bi bi-person-badge me-1"></i>查看廠商頁
+                    <i class="bi bi-person-badge me-1"></i><span data-i18n="customCollection.viewProfile">查看廠商頁</span>
                 </a>
             </div>
         </div>
 
-        <!-- 圖片網格 -->
         <div class="container py-4">
             <div id="imgGrid" class="img-grid"></div>
             <div id="emptyState" class="empty-state d-none">
                 <i class="bi bi-images"></i>
-                <p>此系列尚無圖片</p>
-                <a href="/custom/gallery.html" class="btn btn-outline-primary">返回圖庫</a>
+                <p data-i18n="customCollection.empty">此系列尚無圖片</p>
+                <a href="/custom/gallery.html" class="btn btn-outline-primary" data-i18n="customCollection.backGalleryBtn">返回圖庫</a>
             </div>
         </div>
     </div>
 
     <div id="pageError" style="display:none;" class="text-center py-5">
         <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
-        <p class="mt-3 text-muted">找不到此系列資料</p>
-        <a href="/custom/gallery.html" class="btn btn-outline-primary">返回圖庫</a>
+        <p class="mt-3 text-muted" data-i18n="customCollection.notFound">找不到此系列資料</p>
+        <a href="/custom/gallery.html" class="btn btn-outline-primary" data-i18n="customCollection.backGalleryBtn">返回圖庫</a>
     </div>
 
-    <!-- Lightbox -->
     <div id="imgLightbox" class="img-lightbox" onclick="closeLightbox(event)">
         <span class="lb-close" onclick="document.getElementById('imgLightbox').classList.remove('show')">&times;</span>
         <img id="lbImg" src="" alt="">
@@ -116,6 +112,14 @@
     <script>
     (function () {
         var _mfrUserId = null;
+
+        function tr(k, fb) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
 
         window.contactVendor = function () {
             if (!_mfrUserId) return;
@@ -146,21 +150,20 @@
             document.getElementById('pageLoading').style.display = 'none';
             document.getElementById('pageContent').style.display = '';
 
-            // Hero
-            document.getElementById('colTitle').textContent = collection.title || '系列作品';
-            document.title = (collection.title || '系列作品') + ' - MATCHDO';
+            var defaultTitle = tr('customCollection.seriesDefault', '系列作品');
+            var titleSuffix = tr('customCollection.pageTitleSuffix', ' - MATCHDO 合做');
+            document.getElementById('colTitle').textContent = collection.title || defaultTitle;
+            document.title = (collection.title || defaultTitle) + titleSuffix;
             if (collection.description) {
                 document.getElementById('colDesc').textContent = collection.description;
             }
 
-            // 廠商資訊
             if (manufacturer) {
                 _mfrUserId = manufacturer.user_id || null;
                 document.getElementById('mfrInfo').style.removeProperty('display');
                 document.getElementById('mfrName').textContent = manufacturer.name || '';
                 if (manufacturer.location) document.getElementById('mfrLocation').textContent = manufacturer.location;
 
-                // 聯絡 bar
                 var bar = document.getElementById('contactBar');
                 bar.style.display = '';
                 document.getElementById('barMfrName').textContent = manufacturer.name || '';
@@ -175,7 +178,6 @@
                 }
             }
 
-            // 圖片：優先顯示 portfolioItems，其次 collection.image_urls
             var grid = document.getElementById('imgGrid');
             var imgs = [];
 
@@ -205,6 +207,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            var ready = window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve();
+            ready.then(function () {
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            });
             var slug = new URLSearchParams(location.search).get('slug');
             if (!slug) {
                 document.getElementById('pageLoading').style.display = 'none';

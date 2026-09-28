@@ -69,30 +69,30 @@
         <div class="modal-dialog modal-dialog-centered past-item-modal-dialog">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h6 class="modal-title" id="pastItemModalLabel">設計稿</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    <h6 class="modal-title" id="pastItemModalLabel" data-i18n="customProduct.pastItemModalTitle">設計稿</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="customProduct.catBsClose" aria-label="關閉"></button>
                 </div>
                 <div class="modal-body p-0 text-center">
                     <div id="pastItemModalBody" style="min-height:120px;">
                         <div id="pastItemModalBodyInner"></div>
                         <div id="pastItemModalDetail">
-                            <div class="detail-row"><span class="detail-label">提示詞</span><span id="pastItemModalPrompt" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="customProduct.detailPrompt">提示詞</span><span id="pastItemModalPrompt" class="detail-value"></span></div>
                             <div class="detail-row"><span class="detail-label">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
-                            <div class="detail-row"><span class="detail-label">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="customProduct.detailAccount">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
                         </div>
                     </div>
                     <div id="pastItemModalShowSection" class="d-none">
                         <label class="d-flex align-items-center gap-2 mb-0">
                             <input type="checkbox" id="pastItemModalShowOnHomepage" class="form-check-input" disabled>
-                            <span class="small">展示在首頁媒體牆</span>
+                            <span class="small" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</span>
                         </label>
-                        <p id="pastItemModalShowOnHomepageHint" class="text-muted small mb-0 mt-1">免費用戶預設展示在首頁，無法取消</p>
+                        <p id="pastItemModalShowOnHomepageHint" class="text-muted small mb-0 mt-1" data-i18n="customProduct.showOnHomepageFreeHint">免費用戶預設展示在首頁，無法取消</p>
                     </div>
                 </div>
                 <div class="modal-footer py-2">
-                    <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener">找廠商訂製</a>
-                    <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm">再設計</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
+                    <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener" data-i18n="home.findVendor">找廠商訂製</a>
+                    <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm" data-i18n="customProduct.modalRedesign">再設計</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="customProduct.catBsClose">關閉</button>
                 </div>
             </div>
         </div>
@@ -367,18 +367,18 @@
                                 </div>
                                 <div class="cat-sub-panel">
                                     <span class="cat-label" data-i18n="customProduct.categorySub">子分類</span>
-                                    <div id="imageCategorySubList" class="cat-list empty" role="listbox">請先選左側主分類</div>
+                                    <div id="imageCategorySubList" class="cat-list empty" role="listbox" data-i18n="customProduct.selectMainFirst">請先選左側主分類</div>
                                     <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
                                 </div>
                             </div>
                             <div id="designDirectionMarketSignals" class="alert alert-light border small py-2 mb-0 mt-2" style="display:none;" role="status">
-                                <div class="fw-semibold text-secondary mb-1"><i class="bi bi-graph-up-arrow me-1"></i>平台同品類生圖趨勢（供意圖分析參考）</div>
+                                <div class="fw-semibold text-secondary mb-1"><i class="bi bi-graph-up-arrow me-1"></i><span data-i18n="remakeProduct.marketTrendsTitle">平台同品類生圖趨勢（供意圖分析參考）</span></div>
                                 <div id="designDirectionMarketSignalsBody" class="text-muted"></div>
                             </div>
                             <!-- 手機版分類按鈕 -->
                             <button type="button" id="catMobileBtn" class="cat-mobile-btn" style="display:none;">
                                 <i class="bi bi-folder2-open"></i>
-                                <span id="catMobileBtnLabel">分類</span>
+                                <span id="catMobileBtnLabel" data-i18n="customProduct.categoryPickerLabel">分類</span>
                                 <i class="bi bi-chevron-down ms-auto"></i>
                             </button>
 
@@ -389,11 +389,11 @@
                                 <div class="ref-cards-wrap">
                                     <div id="referenceImagesCards" class="ref-cards"></div>
                                 </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;">將以上描述合併至上方描述框</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;" data-i18n="remakeProduct.mergeDescToPrompt">將以上描述合併至上方描述框</button>
                             </div>
 
                             <details id="seedDetails">
-                                <summary>進階 Seed 設定</summary>
+                                <summary data-i18n="customProduct.seedAdvancedSummary">進階 Seed 設定</summary>
                                 <div class="form-row full mt-2">
                                     <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
                                     <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
@@ -406,7 +406,7 @@
                         <div class="create-panel-right" id="generatedImagePreviewWrap">
                             <div id="generatedImagePreview"></div>
                             <div id="pastGeneratedGallery" class="past-gallery"></div>
-                            <p class="placeholder-hint mb-0" id="generatedImagePlaceholder">生成後的設計稿會顯示在這裡</p>
+                            <p class="placeholder-hint mb-0" id="generatedImagePlaceholder" data-i18n="customProduct.draftsAppearHere">生成後的設計稿會顯示在這裡</p>
                         </div>
                     </div>
                 </form>
@@ -417,13 +417,13 @@
 
 
     <!-- 手機分類 Bottom Sheet -->
-    <div class="cat-bottom-sheet" id="catBottomSheet" aria-modal="true" role="dialog" aria-label="選擇分類">
+    <div class="cat-bottom-sheet" id="catBottomSheet" aria-modal="true" role="dialog" data-i18n-aria-label="customProduct.pickCategoryTitle" aria-label="選擇分類">
         <div class="cat-bs-backdrop" id="catBsBackdrop"></div>
         <div class="cat-bs-panel">
             <div class="cat-bs-header">
-                <button type="button" class="cat-bs-nav-btn" id="catBsBack" style="visibility:hidden;">&#8592; 返回</button>
-                <span class="cat-bs-title" id="catBsTitle">選擇分類</span>
-                <button type="button" class="cat-bs-nav-btn" id="catBsClose">關閉</button>
+                <button type="button" class="cat-bs-nav-btn" id="catBsBack" style="visibility:hidden;" data-i18n="customProduct.catBsBack">&#8592; 返回</button>
+                <span class="cat-bs-title" id="catBsTitle" data-i18n="customProduct.pickCategoryTitle">選擇分類</span>
+                <button type="button" class="cat-bs-nav-btn" id="catBsClose" data-i18n="customProduct.catBsClose">關閉</button>
             </div>
             <div class="cat-bs-list" id="catBsList"></div>
         </div>
@@ -439,7 +439,7 @@
     <div id="pastItemLightbox" class="past-lightbox" aria-hidden="true" style="display: none;">
         <div class="past-lightbox-backdrop"></div>
         <div class="past-lightbox-content">
-            <button type="button" class="past-lightbox-close" aria-label="關閉">&times;</button>
+            <button type="button" class="past-lightbox-close" data-i18n-aria-label="customProduct.catBsClose" aria-label="關閉">&times;</button>
             <div class="past-lightbox-image-wrap">
                 <img id="pastLightboxImage" src="" alt="" class="past-lightbox-image">
                 <div class="past-lightbox-overlay">
