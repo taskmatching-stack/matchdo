@@ -1626,7 +1626,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title + (ratio ? ' ' + ratio : ''))}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title + (ratio ? ' ' + ratio : ''))}" class="matchdo-enlarge-trigger" title="${escapeHtml(uiT('myCustomProducts.clickEnlarge', '點擊放大', 'Click to enlarge'))}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start gap-1 mb-1 flex-wrap">
@@ -1716,25 +1716,7 @@
             const tagsWrap = colEl.querySelector('[data-role="promo-tags-wrap"]');
             if (tagsWrap && Array.isArray(data.ai_tags)) {
                 const tags = data.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean);
-                if (!tags.length) {
-                    tagsWrap.textContent = '尚無標籤';
-                    tagsWrap.className = 'design-tags-meta';
-                    tagsWrap.setAttribute('data-role', 'promo-tags-wrap');
-                } else {
-                    const show = tags.slice(0, 2);
-                    const more = tags.length > 2 ? tags.length - 2 : 0;
-                    tagsWrap.className = 'design-tags-meta';
-                    tagsWrap.setAttribute('data-role', 'promo-tags-wrap');
-                    let html = '<span class="me-1">標籤 ' + tags.length + '</span><span class="design-tags-wrap" data-role="promo-tags">';
-                    show.forEach(function () { html += '<span class="badge"></span>'; });
-                    if (more) html += '<span class="badge">+' + more + '</span>';
-                    html += '</span>';
-                    tagsWrap.innerHTML = html;
-                    const badges = tagsWrap.querySelectorAll('.design-tags-wrap .badge');
-                    show.forEach(function (t, i) {
-                        if (badges[i]) badges[i].textContent = t;
-                    });
-                }
+                tagsWrap.outerHTML = formatTagsMetaHtml(tags, 'promo-tags-wrap');
             }
         }
 
@@ -1743,7 +1725,7 @@
             const path = '/api/promo-image/generations/' + encodeURIComponent(promoId) + '/regenerate-tags';
             const prevHtml = btnEl.innerHTML;
             btnEl.disabled = true;
-            btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>產生中…';
+            btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + escapeHtml(uiT('myCustomProducts.promoRegenBusy', '產生中…', 'Generating…'));
             try {
                 const session = await AuthService.getSession();
                 const token = session && session.access_token;
@@ -1822,14 +1804,16 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed'));
                 if (hintEl) {
-                    hintEl.textContent = checked ? '已設定為展示在首頁' : '已取消展示在首頁';
+                    hintEl.textContent = checked
+                        ? uiT('myCustomProducts.promoShowOnHomeOn', '已設定為展示在首頁', 'Will show on the homepage')
+                        : uiT('myCustomProducts.promoShowOnHomeOff', '已取消展示在首頁', 'Removed from homepage display');
                     hintEl.classList.remove('text-danger');
                     hintEl.classList.add('text-success');
                 }
             } catch (err) {
                 if (inputEl) inputEl.checked = !checked;
                 if (hintEl) {
-                    hintEl.textContent = err.message || '更新失敗';
+                    hintEl.textContent = err.message || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed');
                     hintEl.classList.remove('text-success');
                     hintEl.classList.add('text-danger');
                 }
@@ -2279,7 +2263,7 @@
         };
 
         window.matchProduct = async function(productId) {
-            if (!confirm('確定要開始媒合廠商嗎？')) return;
+            if (!confirm(uiT('myCustomProducts.confirmMatch', '確定要開始媒合廠商嗎？', 'Start matching vendors?'))) return;
 
             try {
                 const session = await AuthService.getSession();
@@ -2296,7 +2280,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.error || '媒合失敗');
+                    throw new Error(data.error || uiT('myCustomProducts.matchFail', '媒合失敗', 'Match failed'));
                 }
 
                 showAlert(uiT('myCustomProducts.matchSuccess', '媒合成功！正在跳轉...', 'Match successful! Redirecting...'), 'success');
@@ -2345,7 +2329,7 @@
         };
 
         window.markCompleted = async function(productId) {
-            if (!confirm('確認標記為「已完成訂製」？標記後將自動關閉廠商搜尋，且無法復原。')) return;
+            if (!confirm(uiT('myCustomProducts.markCompleteConfirm', '確認標記為「已完成訂製」？標記後將自動關閉廠商搜尋，且無法復原。', 'Mark as customization complete? This closes vendor search and cannot be undone.'))) return;
             try {
                 const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
                 if (result.ok) {
@@ -2378,7 +2362,7 @@
                     list.innerHTML = favs.map(f => {
                         const item = f.item || {};
                         const img = item.image_url || item.cover_image_url || '';
-                        const title = item.title || '（未命名）';
+                        const title = item.title || uiT('myCustomProducts.untitledItem', '（未命名）', '(Untitled)');
                         const link = item.link || '';
                         const mfrName = item.owner_display || item.manufacturer_name || '';
                         const isPortfolio = item.type === 'comparison' || item.type === 'collection' || !!item.manufacturer_id || !!mfrName;
@@ -2386,12 +2370,12 @@
                         const mfrUserId = item.manufacturer_user_id || '';
                         // 聯絡按鈕：有 user_id → 站內訊息；有 mfrId → 查看廠商頁；都沒有 → 隱藏
                         const contactBtnHtml = mfrUserId
-                            ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</a>`
-                            : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
+                            ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>${escapeHtml(uiT('myCustomProducts.favContactMessage', '站內聯絡廠商', 'Message vendor'))}</a>`
+                            : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>${escapeHtml(uiT('myCustomProducts.favContactVendorPage', '前往廠商頁聯絡', 'Contact via vendor page'))}</a>` : '');
                         return `<div class="col-6 col-md-3 col-xl-2">
                             <div class="card product-card h-100">
                                 ${img
-                                    ? `<div class="product-image-wrap"><img src="${img}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(title)}" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
+                                    ? `<div class="product-image-wrap"><img src="${img}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(title)}" title="${escapeHtml(uiT('myCustomProducts.clickEnlarge', '點擊放大', 'Click to enlarge'))}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
                                     : '<div class="product-image-wrap d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
                                 <div class="card-body d-flex flex-column">
                                     <div class="d-flex align-items-start justify-content-between mb-1">
@@ -2400,10 +2384,10 @@
                                     </div>
                                     ${mfrName ? `<div class="text-muted small mb-2"><i class="bi bi-shop me-1"></i>${escapeHtml(mfrName)}</div>` : ''}
                                     <div class="mt-auto d-grid gap-2 pt-2">
-                                        ${isPortfolio && mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>` : ''}
+                                        ${isPortfolio && mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>${escapeHtml(uiT('myCustomProducts.favViewVendor', '查看廠商', 'View vendor'))}</a>` : ''}
                                         ${isPortfolio && contactBtnHtml ? contactBtnHtml : ''}
-                                        ${link ? `<a href="${link}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>前往廠商頁面</a>` : ''}
-                                        <button class="btn btn-outline-danger btn-sm btn-unfav" data-fav-id="${escapeHtml(f.id)}"><i class="bi bi-heart me-1"></i>取消收藏</button>
+                                        ${link ? `<a href="${link}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>${escapeHtml(uiT('myCustomProducts.favOpenVendorSite', '前往廠商頁面', 'Open vendor site'))}</a>` : ''}
+                                        <button class="btn btn-outline-danger btn-sm btn-unfav" data-fav-id="${escapeHtml(f.id)}"><i class="bi bi-heart me-1"></i>${escapeHtml(uiT('myCustomProducts.favRemove', '取消收藏', 'Remove favorite'))}</button>
                                     </div>
                                 </div>
                             </div>
