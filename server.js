@@ -6763,10 +6763,6 @@ function localizeCustomProductForApiResponse(p, lang) {
         if (enNeeds && titlePair.en) titleEn = titlePair.en;
         else if (enNeeds && titlePair.zh) titleEn = titlePair.zh;
     }
-    if (shouldReplaceCustomProductTitleFromAi(titleZh, gp) && gp) {
-        const fromPrompt = truncateMediaWallTitle(gp);
-        if (fromPrompt) titleZh = fromPrompt;
-    }
     if (sem && shouldReplaceCustomProductDescriptionFromAi(descZh, gp)) {
         const dz = (sem.product_description_zh || '').trim();
         const de = (sem.product_description_en || '').trim();
@@ -6872,12 +6868,6 @@ function resolveUserDesignMediaWallTitlePair(p) {
 
     const fromDb = mediaWallTitlePairFromDbTitleFields(p.title, p.title_en);
     if (fromDb.zh || fromDb.en) return fromDb;
-
-    if (genPrompt) {
-        const t = truncateMediaWallTitle(genPrompt);
-        if (mediaWallTextHasCjk(t)) return { zh: t, en: '' };
-        return { zh: '', en: t };
-    }
 
     const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
     const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';

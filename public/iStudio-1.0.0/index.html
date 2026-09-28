@@ -1246,10 +1246,6 @@
                     var mwUseEn = String(getMediaWallLang() || '').toLowerCase().indexOf('zh') !== 0;
                     var titleRaw = pickMediaWallLocalizedTitle(p);
                     if (p.type === 'user_design') {
-                        var udPrompt = ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
-                        if (isGenericMediaWallCardTitle(titleRaw) && udPrompt) {
-                            titleRaw = udPrompt.length > 56 ? udPrompt.slice(0, 56) + '\u2026' : udPrompt;
-                        }
                         if (!mwUseEn && !mediaWallTextHasCjk(titleRaw) && isGenericMediaWallCardTitle(titleRaw)) {
                             titleRaw = mediaWallDefaultDesignTitle();
                         }
