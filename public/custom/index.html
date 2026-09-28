@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="custom">
 <head>
     <meta charset="utf-8">
-    <title>客製產品 - MatchDO 合做</title>
+    <title data-i18n-doc-title="customIndex.pageTitle">客製產品 - MatchDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="從圖庫找廠商、上傳設計稿或文字搜尋，AI 自動媒合訂製廠商，快速開始您的客製產品訂單。">
     <meta property="og:type" content="website">
@@ -19,22 +19,44 @@
     {"@context":"https://schema.org","@type":"WebPage","name":"客製產品 - MATCHDO 合做","url":"https://matchdo.cc/custom/","description":"從圖庫找廠商、上傳設計稿或文字搜尋，AI 自動媒合訂製廠商。"}
     </script>
     <noscript><meta http-equiv="refresh" content="0;url=/custom/gallery.html"></noscript>
+    <script src="/js/i18n.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script>
     (function () {
-        var dest = '/custom/gallery.html';
+        function langSuffix() {
+            try {
+                if (window.i18n && window.i18n.getLang) {
+                    var lang = window.i18n.getLang();
+                    if (lang === 'en') return '?lang=en';
+                }
+            } catch (e) {}
+            return '';
+        }
+        var dest = '/custom/gallery.html' + langSuffix();
         function go() { window.location.replace(dest); }
         if (!window.AuthService || !AuthService.getSession) { go(); return; }
         AuthService.getSession().then(function (s) {
-            if (s && s.access_token) dest = '/custom-product.html';
+            if (s && s.access_token) dest = '/custom-product.html' + langSuffix();
             go();
         }).catch(go);
     })();
     </script>
 </head>
 <body>
-    <p style="font-family:sans-serif;padding:2rem;color:#666;">正在前往… <a href="/custom/gallery.html">圖庫找廠商</a> · <a href="/custom-product.html">產品設計</a></p>
+    <p style="font-family:sans-serif;padding:2rem;color:#666;">
+        <span data-i18n="customIndex.redirecting">正在前往…</span>
+        <a href="/custom/gallery.html" data-i18n="customIndex.linkGallery">圖庫找廠商</a> ·
+        <a href="/custom-product.html" data-i18n="customIndex.linkDesign">產品設計</a>
+    </p>
+    <script>
+    (function () {
+        var ready = window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve();
+        ready.then(function () {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+        });
+    })();
+    </script>
 </body>
 </html>

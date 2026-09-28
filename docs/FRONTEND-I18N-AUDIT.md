@@ -60,8 +60,12 @@ node scripts/audit-frontend-i18n.js
 | `client/manufacturer-materials.html` | 部分 | 2026-09-29 大幅補 UI |
 | `client/manufacturer-portfolio.html` | 部分 | |
 | `client/vendor-product-link-tree.html` | 部分 | |
-| `client/vendor-prototype-insights.html` | **缺** | 待掛 i18n |
-| `client/embed-design-records.html` | **缺** | 待掛 i18n |
+| `client/vendor-prototype-insights.html` | 部分 | 已有 `protoInsights.*` |
+| `client/embed-design-records.html` | 部分 | 已有 `embedRecords.*` |
+| `client/manufacturer-inquiries.html` | OK | legacy 轉 contact-info；`mfrInquiries.*` |
+| `no-access.html` | OK | `noAccess.*` |
+| `embed/preview-simulator.html` | OK | `embedPreview.*` |
+| `custom/index.html` | OK | `customIndex.*`（轉址頁） |
 | `client/my-supplier-references.html` | 部分 | |
 | `client/industry-suppliers.html` | 部分 | |
 
@@ -100,3 +104,4 @@ node scripts/audit-frontend-i18n.js
 
 - 2026-09-29：建立本檔 + `scripts/audit-frontend-i18n.js`；素材上傳／供應商上架 UI 補強；廠商控制台 `mfrDash`；Embed 紀錄／設計洞察／登入頁 `authPage`。
 - 2026-09-29：`folder-edit.html` 掛 i18n；素材「可執行工藝」區塊 `baseModels.executableCrafts*`；作品頁種子橫幅／載入錯誤 EN。
+- 2026-09-29：`no-access`、`embed/preview-simulator`、`custom/index`、legacy `manufacturer-inquiries`（轉址保留 `lang`）。

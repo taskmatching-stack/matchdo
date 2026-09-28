@@ -2,8 +2,9 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <title>嵌入式模擬器 - 預覽測試</title>
+  <title data-i18n-doc-title="embedPreview.pageTitle">嵌入式模擬器 - 預覽測試</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/js/i18n.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -85,25 +86,25 @@
 </head>
 <body>
   <div class="preview-container">
-    <h1>🎨 嵌入式模擬器 - 預覽測試</h1>
+    <h1 data-i18n="embedPreview.heading">🎨 嵌入式模擬器 - 預覽測試</h1>
     
     <div class="info collapsed">
       <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-        <span>📌 測試說明</span>
+        <span data-i18n="embedPreview.sectionTitle">📌 測試說明</span>
         <span class="toggle-icon">▼</span>
       </h2>
       <div class="info-content">
-        <p>此頁面模擬廠商網站嵌入 iframe 的效果。</p>
-        <p><strong>測試模式：</strong>使用假資料 <code>?mock=1</code></p>
-        <p><strong>真實模式：</strong>需要後端 API（Phase B 完成後）</p>
-        <p><strong>功能測試：</strong></p>
+        <p data-i18n="embedPreview.intro1">此頁面模擬廠商網站嵌入 iframe 的效果。</p>
+        <p data-i18n-html="embedPreview.intro2">測試模式：使用假資料 <code>?mock=1</code></p>
+        <p data-i18n="embedPreview.intro3">真實模式：需要後端 API（Phase B 完成後）</p>
+        <p data-i18n="embedPreview.intro4">功能測試：</p>
         <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-          <li>點擊主產品卡片複選（藍框＋打勾，最多 3 個）</li>
-          <li>選擇材料（單選）+ 配件（複選）</li>
-          <li>勾選工藝（刺繡、絲印、燙金、雷射）</li>
-          <li>輸入參考圖（5 個槽位）</li>
-          <li>輸入描述 → 點擊「立即生成」</li>
-          <li>查看模擬成圖（3 秒延遲）</li>
+          <li data-i18n="embedPreview.bullet1">點擊主產品卡片複選（藍框＋打勾，最多 3 個）</li>
+          <li data-i18n="embedPreview.bullet2">選擇材料（單選）+ 配件（複選）</li>
+          <li data-i18n="embedPreview.bullet3">勾選工藝（刺繡、絲印、燙金、雷射）</li>
+          <li data-i18n="embedPreview.bullet4">輸入參考圖（5 個槽位）</li>
+          <li data-i18n="embedPreview.bullet5">輸入描述 → 點擊「立即生成」</li>
+          <li data-i18n="embedPreview.bullet6">查看模擬成圖（3 秒延遲）</li>
         </ul>
       </div>
     </div>
@@ -112,5 +113,13 @@
       <iframe src="/embed/simulator.html?mock=1"></iframe>
     </div>
   </div>
+  <script>
+    (function () {
+      var ready = window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve();
+      ready.then(function () {
+        if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -2,15 +2,16 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>無權限 - MatchDO 合做</title>
+    <title data-i18n-doc-title="noAccess.pageTitle">無權限 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta name="description" content="您的帳號沒有此頁面所需的身分權限，請返回首頁或重新登入。">
+    <meta name="description" data-i18n-meta-desc="noAccess.metaDescription" content="您的帳號沒有此頁面所需的身分權限，請返回首頁或重新登入。">
     <link rel="canonical" href="https://matchdo.cc/no-access.html">
     <link href="/img/favicon.ico" rel="icon">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
     <link href="iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="iStudio-1.0.0/css/style.css" rel="stylesheet">
+    <script src="/js/i18n.js"></script>
 </head>
 <body>
     <div class="container py-5">
@@ -19,10 +20,10 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-body text-center py-5">
                         <i class="fas fa-lock fa-4x text-warning mb-4"></i>
-                        <h4 class="mb-3">無法存取此頁面</h4>
-                        <p class="text-muted mb-4" id="message">您的帳號沒有此頁面所需的身分權限。</p>
-                        <a href="/index.html" class="btn btn-primary">返回首頁</a>
-                        <a href="/login.html" class="btn btn-outline-secondary ms-2">重新登入</a>
+                        <h4 class="mb-3" data-i18n="noAccess.heading">無法存取此頁面</h4>
+                        <p class="text-muted mb-4" id="message" data-i18n="noAccess.defaultMessage">您的帳號沒有此頁面所需的身分權限。</p>
+                        <a href="/index.html" class="btn btn-primary" data-i18n="noAccess.backHome">返回首頁</a>
+                        <a href="/login.html" class="btn btn-outline-secondary ms-2" data-i18n="noAccess.relogin">重新登入</a>
                     </div>
                 </div>
             </div>
@@ -30,12 +31,28 @@
     </div>
     <script>
         (function() {
-            var p = new URLSearchParams(window.location.search);
-            var for_ = p.get('for');
-            var msg = document.getElementById('message');
-            if (for_ === 'admin') msg.textContent = '此頁面僅限管理員使用。';
-            else if (for_ === 'expert') msg.textContent = '此頁面僅限專家（承包商）使用。請使用具專家身分的帳號登入。';
-            else if (for_ === 'client') msg.textContent = '此頁面僅限發案者使用。請使用具發案者身分的帳號登入。';
+            function tr(k, fb) {
+                if (window.i18n && typeof window.i18n.t === 'function') {
+                    var v = window.i18n.t(k);
+                    if (v && v !== k) return v;
+                }
+                return fb != null ? fb : k;
+            }
+            function applyRoleMessage() {
+                var p = new URLSearchParams(window.location.search);
+                var for_ = p.get('for');
+                var msg = document.getElementById('message');
+                if (!msg) return;
+                if (for_ === 'admin') msg.textContent = tr('noAccess.forAdmin', '此頁面僅限管理員使用。');
+                else if (for_ === 'expert') msg.textContent = tr('noAccess.forExpert', '此頁面僅限專家（承包商）使用。請使用具專家身分的帳號登入。');
+                else if (for_ === 'client') msg.textContent = tr('noAccess.forClient', '此頁面僅限發案者使用。請使用具發案者身分的帳號登入。');
+                else msg.textContent = tr('noAccess.defaultMessage', '您的帳號沒有此頁面所需的身分權限。');
+            }
+            var ready = window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve();
+            ready.then(function () {
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                applyRoleMessage();
+            });
         })();
     </script>
 </body>
