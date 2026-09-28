@@ -80,7 +80,7 @@ node scripts/audit-frontend-i18n.js
 |------|------|
 | `profile/account.html`, `contact-info.html` | 部分 |
 | `subscription-plans.html`, `credits.html` | 部分 |
-| `login.html`, `register.html` | **缺** |
+| `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
 | 首頁 `iStudio-1.0.0/index.html` | 部分 |
 
