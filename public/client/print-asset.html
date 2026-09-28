@@ -2,10 +2,10 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>印花 Print Asset - MatchDO 合做</title>
+    <title data-i18n-doc-title="printAsset.docTitle">印花 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="index, follow">
-    <meta name="description" content="上傳印花圖稿，可選重繪後存入數位資產，供設計稿參考使用。">
+    <meta name="description" content="上傳印花圖稿，可選重繪後存入數位資產，供設計稿參考使用。" data-i18n-meta-desc="printAsset.metaDesc">
     <link rel="canonical" href="https://matchdo.cc/client/print-asset.html">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -60,8 +60,8 @@
             <div class="alert alert-light border small mb-3" data-i18n="printAsset.intro">
                 選圖後下方出現存庫區（圖只顯示一次）。只存原圖免費；AI 重繪選用，成功後才扣點。
             </div>
-            <div id="pa-table-hint" class="alert alert-warning border small mb-3 d-none">
-                印花資料表尚未建立：請在 Supabase SQL Editor 執行 <code>docs/add-user-print-generations.sql</code> 後再存庫。
+            <div id="pa-table-hint" class="alert alert-warning border small mb-3 d-none" data-i18n="printAsset.tableMissing">
+                印花資料表尚未建立：請在 Supabase SQL Editor 執行 docs/add-user-print-generations.sql 後再存庫。
             </div>
 
             <div class="card pa-step-card shadow-sm mb-3">
@@ -94,7 +94,7 @@
                                     <label class="form-check-label small" for="pa-save-original" data-i18n="printAsset.uploadOriginal">上傳原圖</label>
                                 </div>
                             </div>
-                            <img id="pa-cell-original" alt="原圖">
+                            <img id="pa-cell-original" alt="原圖" data-i18n-alt="printAsset.altOriginal">
                         </div>
                         <div class="pa-cell-block d-none" id="pa-cell-redraw-block">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -104,7 +104,7 @@
                                     <label class="form-check-label small" for="pa-save-redraw" data-i18n="printAsset.uploadThis">上傳此張</label>
                                 </div>
                             </div>
-                            <img id="pa-cell-redraw" alt="重繪結果">
+                            <img id="pa-cell-redraw" alt="重繪結果" data-i18n-alt="printAsset.altRedraw">
                         </div>
                     </div>
                     <p class="small text-muted mb-2" data-i18n="printAsset.saveHint">僅存原圖：不扣點。AI 重繪已成功時扣過點，再存庫不另收費。</p>
@@ -221,7 +221,7 @@
                 promptPreview.textContent = t('printAsset.promptPreviewEmpty', '（填印花材質後顯示）');
                 return;
             }
-            promptPreview.textContent = '保持顏色並優化此' + kind + '印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此' + kind + '印花圖樣。';
+            promptPreview.textContent = tf('printAsset.promptPreviewTemplate', '保持顏色並優化此{kind}印花圖稿光影與清晰度。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此{kind}印花圖樣。', { kind: kind });
         }
 
         function updateRedrawEnabled() {
@@ -236,7 +236,7 @@
             if (originalObjectUrl) URL.revokeObjectURL(originalObjectUrl);
             originalObjectUrl = URL.createObjectURL(file);
             // 圖只顯示在存庫區一次，上傳區只留檔名
-            fileNameEl.textContent = file.name || '已選圖片';
+            fileNameEl.textContent = file.name || t('printAsset.fileSelectedDefault', '已選圖片');
             dropEmpty.classList.add('d-none');
             dropSelected.classList.remove('d-none');
             dropEl.classList.add('has-file');
@@ -367,13 +367,13 @@
 
         async function saveOne(kind, imageUrlOrFile) {
             var tok = await getToken();
-            if (!tok) throw new Error('未登入');
+            if (!tok) throw new Error(t('printAsset.notLoggedIn', '未登入'));
             var fd = new FormData();
             fd.append('source_kind', kind);
             fd.append('print_type', lastPrintType || (printTypeEl.value || '').trim());
             var titleEl = document.getElementById('pa-save-title');
             var catEl = document.getElementById('pa-save-category');
-            var titleVal = (titleEl && titleEl.value.trim()) || lastPrintType || (printTypeEl.value || '').trim() || '印花';
+            var titleVal = (titleEl && titleEl.value.trim()) || lastPrintType || (printTypeEl.value || '').trim() || t('printAsset.defaultTitle', '印花');
             fd.append('title', titleVal);
             if (catEl && catEl.value.trim()) fd.append('category', catEl.value.trim());
             if (typeof imageUrlOrFile === 'string') {
@@ -390,7 +390,7 @@
             if (!res.ok) {
                 if (d.table_missing || res.status === 503) {
                     tableHint.classList.remove('d-none');
-                    throw new Error('印花資料表尚未建立：請在 Supabase 執行 docs/add-user-print-generations.sql');
+                    throw new Error(t('printAsset.tableMissing', '印花資料表尚未建立：請在 Supabase SQL Editor 執行 docs/add-user-print-generations.sql 後再存庫。'));
                 }
                 throw new Error(d.error || t('printAsset.saveFailed', '儲存失敗'));
             }

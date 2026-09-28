@@ -35,12 +35,12 @@ node scripts/audit-frontend-i18n.js
 
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
-| `custom-product.html` | 部分 | 大量 `data-i18n`；子模組 JS 需逐項 |
+| `custom-product.html` | 部分 | 大量 `data-i18n`；`formatMaterialComboAddon` 等 JS 持續補 |
 | `client/my-custom-products.html` | OK（UI） | 靜態 `data-i18n` + 各 Tab 卡片／收藏／toast JS；API 標籤／保留期 label 仍為內容 |
 | `client/find-makers.html` | OK | `findMakers.*` + 列表 JS |
 | `client/custom-product-detail.html` | OK（UI） | `customProductDetail.*`；分類名等 API 內容仍原語 |
-| `client/print-asset.html` | 部分 | |
-| `client/material-dual-color.html` | 部分 | |
+| `client/print-asset.html` | OK | `printAsset.*` 靜態 + 提示詞預覽／存庫 JS |
+| `client/material-dual-color.html` | OK（UI） | `materialCombo.*`；色標由 `syncModeUi` 更新 |
 | `client/promo-camera.html` / `promo-camera-app.html` | 部分 | L3 凍結區慎改 |
 | `product-tree.html` | 部分 | 持續補篩選／PDF |
 | `design-direction/*` | 部分 | |
@@ -127,4 +127,5 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`my-custom-products.html` 設計風向 view、`uiTf`、材料組合／印花／情境圖刪除與描述編輯 EN（`03878f8`）。
 - 2026-09-29：設計頁手機分類 Bottom Sheet i18n；數位資產情境圖／印花空狀態／設計卡引用與標籤 EN（`25afac1`）。
 - 2026-09-29：數位資產收藏 Tab、媒合／完成 confirm、情境圖媒體牆切換（本機待 push）。
-- 2026-09-29：`client/find-makers.html`、`client/custom-product-detail.html` 全頁 UI + 動態 JS（`findMakers.*`、`customProductDetail.*`）。
+- 2026-09-29：`client/find-makers.html`、`client/custom-product-detail.html` 全頁 UI + 動態 JS（`findMakers.*`、`customProductDetail.*`）（`9e9e030`）。
+- 2026-09-29：`print-asset.html` 剩餘 JS／meta；`material-dual-color` 存庫失敗提示與 a11y；設計頁材料組合摘要 `customProduct.materialCombo*`。

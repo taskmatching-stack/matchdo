@@ -1067,40 +1067,56 @@ $(document).ready(function () {
 
     function formatMaterialComboAddon(combo) {
         if (!combo || !combo.main) return '';
+        var sep = tr('customProduct.listSep', '；');
         var parts = [];
         if (combo.swatch_mode === 'mixed' && combo.mix && Array.isArray(combo.mix.colors)) {
-            parts.push('全幅混色');
+            parts.push(tr('customProduct.materialComboMixedFull', '全幅混色'));
             combo.mix.colors.forEach(function (c) {
                 if (!c || !c.hex) return;
-                var roleLbl = c.role === 'main' ? '主色' : (c.role === 'accent' ? '配色' : '輔色');
+                var roleLbl = c.role === 'main' ? tr('customProduct.materialComboRoleMain', '主色')
+                    : (c.role === 'accent' ? tr('customProduct.materialComboRoleAccent', '配色') : tr('customProduct.materialComboRoleThird', '輔色'));
                 parts.push(roleLbl + ' ' + c.hex + (c.weight != null ? ' ' + c.weight + '%' : ''));
             });
             if (combo.main.material) parts.push(combo.main.material);
-            return parts.join('；');
+            return parts.join(sep);
         }
         if (combo.main.hex || combo.main.material) {
-            parts.push('主色 ' + (combo.main.hex || '') + ' ' + (combo.main.material || ''));
+            parts.push(tf('customProduct.materialComboMainLine', '主色 {hex} {material}', {
+                hex: combo.main.hex || '',
+                material: combo.main.material || ''
+            }).trim());
         }
         if (combo.accent && (combo.accent.hex || combo.accent.material)) {
-            parts.push('配色 ' + (combo.accent.hex || '') + ' ' + (combo.accent.material || ''));
+            parts.push(tf('customProduct.materialComboAccentLine', '配色 {hex} {material}', {
+                hex: combo.accent.hex || '',
+                material: combo.accent.material || ''
+            }).trim());
         }
         if (combo.third && (combo.third.hex || combo.third.material)) {
-            parts.push('輔色 ' + (combo.third.hex || '') + ' ' + (combo.third.material || ''));
+            parts.push(tf('customProduct.materialComboThirdLine', '輔色 {hex} {material}', {
+                hex: combo.third.hex || '',
+                material: combo.third.material || ''
+            }).trim());
         }
         if (Array.isArray(combo.transitions) && combo.transitions.length) {
-            combo.transitions.forEach(function (tr) {
-                if (!tr || !tr.edge) return;
-                if (tr.mode === 'gradient') {
-                    var edgeLbl = tr.edge === 'main_accent' ? '主↔配' : '配↔輔';
-                    parts.push(edgeLbl + '漸層 ' + (tr.span_pct != null ? tr.span_pct : 12) + '%');
-                } else if (tr.boundary) {
-                    parts.push('分界：' + tr.boundary);
+            combo.transitions.forEach(function (trRow) {
+                if (!trRow || !trRow.edge) return;
+                if (trRow.mode === 'gradient') {
+                    var edgeLbl = trRow.edge === 'main_accent'
+                        ? tr('customProduct.materialComboEdgeMainAccent', '主↔配')
+                        : tr('customProduct.materialComboEdgeAccentThird', '配↔輔');
+                    parts.push(tf('customProduct.materialComboGradient', '{edge}漸層 {pct}%', {
+                        edge: edgeLbl,
+                        pct: trRow.span_pct != null ? trRow.span_pct : 12
+                    }));
+                } else if (trRow.boundary) {
+                    parts.push(tf('customProduct.materialComboBoundary', '分界：{text}', { text: trRow.boundary }));
                 }
             });
         } else if (combo.boundary) {
-            parts.push('分界：' + combo.boundary);
+            parts.push(tf('customProduct.materialComboBoundary', '分界：{text}', { text: combo.boundary }));
         }
-        return parts.join('；');
+        return parts.join(sep);
     }
 
     function parseMaterialComboFromItem(item) {
