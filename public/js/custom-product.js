@@ -3176,7 +3176,7 @@ $(document).ready(function () {
                     bootstrap.Modal.getInstance(pickerModalEl).hide();
                 }
             })
-            .catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+            .catch(function () { alert(tr('customProduct.loadFailed', '讀取圖片失敗')); });
     }
 
     function importDigitalAssetToRefSlot(targetKey, pick) {
@@ -3202,7 +3202,7 @@ $(document).ready(function () {
         if (slotDef && slotDef.patternIntent) baseMeta.pattern_intent = slotDef.patternIntent;
         fetchUrlAsDataUrl(pick.url).then(function (dataUrl) {
             if (!dataUrl) {
-                alert(t('customProduct.loadFailed') || '載入圖片失敗');
+                alert(tr('customProduct.loadFailed', '讀取圖片失敗'));
                 return;
             }
             var importMeta = Object.assign({}, baseMeta);
@@ -3217,7 +3217,7 @@ $(document).ready(function () {
             renderIntentSlots();
             showBootstrapTab(document.getElementById('tab-product-design'));
         }).catch(function () {
-            alert(t('customProduct.loadFailed') || '載入圖片失敗');
+            alert(tr('customProduct.loadFailed', '讀取圖片失敗'));
         });
     }
 
@@ -3652,7 +3652,7 @@ $(document).ready(function () {
             var $cell = $('.vendor-picker-mfr-name-cell');
             var $input = $('#vendorAssetsManufacturerName');
             if ($cell.hasClass('d-none') || !$input.length) {
-                alert(t('customProduct.vendorSearchLocked') || '此模式已鎖定單一廠商，無法使用廠商名稱篩選。');
+                alert(tr('customProduct.vendorSearchLocked', '此模式已鎖定單一廠商，無法使用廠商名稱篩選。'));
                 return;
             }
             var mfrId = ($c.attr('data-manufacturer-id') || '').trim();
@@ -4199,7 +4199,7 @@ $(document).ready(function () {
                 }));
                 return finish();
             }).catch(function () {
-                alert(t('customProduct.loadFailed') || '載入圖片失敗');
+                alert(tr('customProduct.loadFailed', '讀取圖片失敗'));
             });
         }
         openVendorAssetImagePickModal({
@@ -4686,7 +4686,7 @@ $(document).ready(function () {
         const prompt = composeUserPromptForGenerate();
         const refTotal = getRefKindCounts().total;
         if (!prompt && refTotal === 0) {
-            alert(t('customProduct.needPrompt'));
+            alert(tr('customProduct.needPrompt', '請輸入文字描述'));
             isGenerateInProgress = false;
             return;
         }
@@ -5646,11 +5646,11 @@ $(document).ready(function () {
 
     function deleteCustomProductById(productId, cb) {
         if (!productId) return;
-        var msg = t('customProduct.deleteDesignConfirm') || '確定要刪除此設計？刪除後無法復原。';
+        var msg = tr('customProduct.deleteDesignConfirm', '確定要刪除此設計？刪除後無法復原。');
         if (!confirm(msg)) return;
         getAuthToken(function (token) {
             if (!token) {
-                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                alert(tr('customProduct.loginToViewHistory', '請先登入'));
                 return;
             }
             fetch('/api/custom-products/' + encodeURIComponent(productId), {
@@ -5667,11 +5667,11 @@ $(document).ready(function () {
                     invalidateGalleryCache();
                     if (typeof cb === 'function') cb(true);
                 } else {
-                    alert((r.data && r.data.error) || t('customProduct.deleteDesignFailed') || '刪除失敗');
+                    alert((r.data && r.data.error) || tr('customProduct.deleteDesignFailed', '刪除失敗'));
                     if (typeof cb === 'function') cb(false);
                 }
             }).catch(function () {
-                alert(t('customProduct.deleteDesignFailed') || '刪除失敗');
+                alert(tr('customProduct.deleteDesignFailed', '刪除失敗'));
                 if (typeof cb === 'function') cb(false);
             });
         });
@@ -5703,7 +5703,7 @@ $(document).ready(function () {
         if (!confirm(tr('customProduct.deleteMaterialComboConfirm', '確定要刪除此材料組合？刪除後無法復原。'))) return;
         getAuthToken(function (token) {
             if (!token) {
-                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                alert(tr('customProduct.loginToViewHistory', '請先登入'));
                 return;
             }
             fetch('/api/me/material-combo-generations/' + encodeURIComponent(comboId), {
@@ -5749,7 +5749,7 @@ $(document).ready(function () {
         if (!confirm(tr('customProduct.deletePrintConfirm', '確定要刪除此印花？刪除後無法復原。'))) return;
         getAuthToken(function (token) {
             if (!token) {
-                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                alert(tr('customProduct.loginToViewHistory', '請先登入'));
                 return;
             }
             fetch('/api/me/print-generations/' + encodeURIComponent(printId), {
@@ -6944,7 +6944,7 @@ $(document).ready(function () {
     $('#patternExtractApplyBtn').on('click', function () {
         var imageUrl = window.patternExtractImageDataUrl || '';
         if (!imageUrl) {
-            alert(t('customProduct.patternExtractSelectRequired') || '請從數位資產選擇一張圖片');
+            alert(tr('customProduct.patternExtractSelectRequired', '請從數位資產選擇一張圖片'));
             return;
         }
         var $btn = $('#patternExtractApplyBtn');
@@ -6985,7 +6985,7 @@ $(document).ready(function () {
                 var data = result.data;
                 var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
                 if (result.declined) {
-                    $wrap.html('<p class="text-muted small mb-0">' + ((data && data.error) || '已取消，可稍後再送出。') + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-muted small mb-0">' + ((data && data.error) || tr('customProduct.patternExtractDeclined', '已取消，可稍後再送出。')) + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 401) {
@@ -6993,7 +6993,7 @@ $(document).ready(function () {
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tf('customProduct.patternExtractInsufficientPoints', '點數不足（需要 {required} 點）', { required: data.required || 20 })) + '</p>' + noteHtml);
                     return;
                 }
                 if (data.success && data.imageData) {
@@ -7063,7 +7063,7 @@ $(document).ready(function () {
                 if (typeof addRefImageToSlot === 'function') {
                     var ok = addRefImageToSlot('prototype', imageDataUrl, { asset_kind: 'prototype', from: 'design_to_physical' });
                     if (ok) {
-                        alert(t('customProduct.designToPhysicalAddedRef') || '已加入數位原型參考');
+                        alert(tr('customProduct.designToPhysicalAddedRef', '已加入數位原型參考'));
                         var tabEl = document.getElementById('tab-product-design');
                         if (tabEl && typeof showBootstrapTab === 'function') showBootstrapTab(tabEl);
                     } else {
@@ -7112,7 +7112,7 @@ $(document).ready(function () {
     $('#designToPhysicalApplyBtn').on('click', function () {
         var imageUrl = window.designToPhysicalImageDataUrl || '';
         if (!imageUrl) {
-            alert(t('customProduct.designToPhysicalSelectRequired') || '請先選擇一張產品圖稿或示意圖');
+            alert(tr('customProduct.designToPhysicalSelectRequired', '請先選擇一張產品圖稿或示意圖'));
             return;
         }
         var $btn = $('#designToPhysicalApplyBtn');
@@ -7368,7 +7368,7 @@ $(document).ready(function () {
     $('#promoImageApplyBtn').on('click', function () {
         var urls = (window.promoImageImageUrls || []).slice();
         if (!urls.length) {
-            alert(t('customProduct.promoImageSelectRequired') || '請先從數位資產加入至少一張圖片');
+            alert(tr('customProduct.promoImageSelectRequired', '請先從數位資產加入至少一張圖片'));
             return;
         }
         var $btn = $('#promoImageApplyBtn');
@@ -7451,8 +7451,8 @@ $(document).ready(function () {
 function contactManufacturer(id) {
     // TODO: 實作聯繫功能
     var msgKey = 'customProduct.contactMfrDeveloping';
-    var msg = (window.i18n && window.i18n.t) ? window.i18n.t(msgKey) : msgKey;
-    if (!msg || msg === msgKey) msg = '聯繫功能開發中，廠商 ID: {id}';
+    var v = (window.i18n && window.i18n.t) ? window.i18n.t(msgKey) : '';
+    var msg = (v && v !== msgKey) ? v : '聯繫功能開發中，廠商 ID: {id}';
     alert(msg.replace('{id}', id));
 }
 
