@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-scene-history';
+    var LOCALE_CACHE_V = '20260929-d2-design-meta';
 
     function loadLocale(lang) {
         lang = lang || getLang();
@@ -146,8 +146,8 @@
             var key = el.getAttribute('data-i18n-html');
             if (m[key]) el.innerHTML = m[key];
         });
-        document.querySelectorAll('[data-i18n-meta-desc]').forEach(function (el) {
-            var key = el.getAttribute('data-i18n-meta-desc');
+        document.querySelectorAll('[data-i18n-meta-desc],[data-i18n-meta-content]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-meta-desc') || el.getAttribute('data-i18n-meta-content');
             if (m[key]) el.setAttribute('content', m[key]);
         });
         document.querySelectorAll('[data-i18n-doc-title]').forEach(function (el) {
