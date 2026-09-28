@@ -12087,7 +12087,7 @@ async function repairCustomProductTitleFromStoredSemantics(productId, ownerId) {
     try {
         const { data: row, error } = await supabase
             .from('custom_products')
-            .select('id, title, title_en, generation_prompt, image_semantics_json')
+            .select('id, title, title_en, generation_prompt, image_semantics_json, ai_tags')
             .eq('id', productId)
             .eq('owner_id', ownerId)
             .maybeSingle();
@@ -12118,6 +12118,83 @@ function scheduleRepairCustomProductTitleFromStoredSemantics(productId, ownerId)
     setImmediate(function () {
         repairCustomProductTitleFromStoredSemantics(productId, ownerId).catch(function () {});
     });
+}
+
+const CUSTOM_PRODUCT_TITLE_AUDIT_SELECT = 'id, title, title_en, generation_prompt, image_semantics_json, ai_tags, semantics_generated_at, ai_generated_image_url';
+
+function customProductRowHasStoredImageSemantics(row) {
+    if (!row) return false;
+    if (row.image_semantics_json) return true;
+    return Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
+}
+
+function classifyCustomProductTitleStorage(row) {
+    if (!row || !row.id) return 'invalid';
+    const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
+    const needsTitle = shouldReplaceCustomProductTitleFromAi(row.title, gp);
+    if (!needsTitle) return 'title_ok';
+    if (!customProductRowHasStoredImageSemantics(row)) return 'no_stored_semantics';
+    const pair = resolveCustomProductTitlePairFromRow(row);
+    if (pair && (pair.zh || pair.en)) return 'repairable_from_stored_semantics';
+    return 'stored_semantics_no_title_pair';
+}
+
+function auditCustomProductTitleStorage(rows) {
+    const stats = {
+        total: 0,
+        title_ok: 0,
+        repairable_from_stored_semantics: 0,
+        no_stored_semantics: 0,
+        stored_semantics_no_title_pair: 0
+    };
+    const samples = { repairable_ids: [], no_semantics_ids: [], no_pair_ids: [] };
+    (rows || []).forEach(function (row) {
+        if (!row || !row.ai_generated_image_url) return;
+        stats.total++;
+        const kind = classifyCustomProductTitleStorage(row);
+        if (stats[kind] != null) stats[kind]++;
+        if (kind === 'repairable_from_stored_semantics' && samples.repairable_ids.length < 8) samples.repairable_ids.push(row.id);
+        else if (kind === 'no_stored_semantics' && samples.no_semantics_ids.length < 8) samples.no_semantics_ids.push(row.id);
+        else if (kind === 'stored_semantics_no_title_pair' && samples.no_pair_ids.length < 8) samples.no_pair_ids.push(row.id);
+    });
+    return { stats, samples };
+}
+
+async function fetchCustomProductRowsForTitleAudit(ownerId, limitN) {
+    const limit = Math.min(Math.max(parseInt(limitN, 10) || 500, 1), 2000);
+    const selectAttempts = [
+        CUSTOM_PRODUCT_TITLE_AUDIT_SELECT,
+        'id, title, title_en, generation_prompt, image_semantics_json, ai_tags, ai_generated_image_url'
+    ];
+    for (let i = 0; i < selectAttempts.length; i++) {
+        const { data, error } = await supabase
+            .from('custom_products')
+            .select(selectAttempts[i])
+            .eq('owner_id', ownerId)
+            .not('ai_generated_image_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        if (!error) return data || [];
+        if (error.code !== '42703' && !/column/i.test(String(error.message || ''))) break;
+    }
+    return [];
+}
+
+async function repairCustomProductTitlesFromStoredSemanticsForOwner(ownerId, limitN) {
+    const rows = await fetchCustomProductRowsForTitleAudit(ownerId, limitN);
+    const before = auditCustomProductTitleStorage(rows);
+    let repaired = 0;
+    let failed = 0;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (classifyCustomProductTitleStorage(row) !== 'repairable_from_stored_semantics') continue;
+        const ok = await repairCustomProductTitleFromStoredSemantics(row.id, ownerId);
+        if (ok) repaired++;
+        else failed++;
+    }
+    const afterRows = await fetchCustomProductRowsForTitleAudit(ownerId, limitN);
+    const after = auditCustomProductTitleStorage(afterRows);
+    return { before, after, repaired, failed, scanned: rows.length };
 }
 
 /** 僅在生圖寫入 custom_products 後呼叫一次（setImmediate）；列表／首頁不得觸發 */
@@ -13460,17 +13537,19 @@ app.get('/', async (req, res) => {
         const subcategoryKey = String((req.query && req.query.subcategory_key) || '').trim();
         const homeSsr = require('./lib/home-media-wall-ssr');
         const internalPreview = await getRequestInternalPreviewFlag(req);
-        const items = await homeSsr.fetchHomeMediaWallSsrItems({
-            supabase,
-            categoryKey,
-            subcategoryKey,
-            limit: 24,
-            internalPreview,
-            log: function (label, msg) { console.warn('home-ssr', label, msg); }
-        });
+        const [items, crawlNav] = await Promise.all([
+            homeSsr.fetchHomeMediaWallSsrItems({
+                supabase,
+                categoryKey,
+                subcategoryKey,
+                limit: 24,
+                internalPreview,
+                log: function (label, msg) { console.warn('home-ssr', label, msg); }
+            }),
+            buildHomeInspirationCrawlNavHtml()
+        ]);
         const gridHtml = homeSsr.buildHomeMediaWallSsrGridHtml(items, base, proxyPublicImageUrl);
         const itemListJson = homeSsr.buildHomeMediaWallItemListJsonLd(items, base);
-        const crawlNav = await buildHomeInspirationCrawlNavHtml();
         let metaTitle = '';
         let metaDescription = '';
         let canonicalUrl = base + '/';
@@ -30463,6 +30542,51 @@ app.post('/api/media-collections', express.json(), async (req, res) => {
     } catch (e) {
         console.error('POST /api/media-collections:', e);
         if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/custom-products/title-storage-audit — 查自己設計稿：title 欄 vs 已存讀圖語意（不呼叫 Gemini）
+app.get('/api/custom-products/title-storage-audit', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const limit = req.query.limit;
+        const rows = await fetchCustomProductRowsForTitleAudit(user.id, limit);
+        const report = auditCustomProductTitleStorage(rows);
+        res.json({
+            success: true,
+            owner_id: user.id,
+            limit_scanned: rows.length,
+            meaning: {
+                title_ok: 'title 欄已是讀圖標題或你手動改的標題',
+                repairable_from_stored_semantics: 'DB 已有讀圖語意／tags，可用 repair 寫入 title（不讀圖）',
+                no_stored_semantics: '沒有讀圖語意存檔，repair 無法補 title，需生圖後 enrich 或手動標籤／描述',
+                stored_semantics_no_title_pair: '有語意但推不出標題句，需檢查 image_semantics_json 或手動改名'
+            },
+            ...report
+        });
+    } catch (e) {
+        console.error('GET /api/custom-products/title-storage-audit:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/custom-products/repair-titles-from-stored-semantics — 僅從已存語意寫 title／title_en（不呼叫 Gemini）
+app.post('/api/custom-products/repair-titles-from-stored-semantics', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const limit = (req.body && req.body.limit) != null ? req.body.limit : (req.query.limit || 200);
+        const result = await repairCustomProductTitlesFromStoredSemanticsForOwner(user.id, limit);
+        res.json({
+            success: true,
+            owner_id: user.id,
+            note: '只更新 custom_products.title／title_en；資料來源為 image_semantics_json／ai_tags，不呼叫 Gemini',
+            ...result
+        });
+    } catch (e) {
+        console.error('POST /api/custom-products/repair-titles-from-stored-semantics:', e);
+        res.status(500).json({ error: '系統錯誤' });
     }
 });
 

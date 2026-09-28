@@ -1507,25 +1507,17 @@
                 }
             }
             (function bootMediaWallWithAuth() {
-                var authTimer = null;
-                function finishBoot(profile, session) {
-                    if (mediaWallInitialLoadDone) return;
+                if (!mediaWallInitialLoadDone) {
                     mediaWallInitialLoadDone = true;
-                    if (authTimer) clearTimeout(authTimer);
-                    applyMediaWallAdminFromProfile(profile, session);
                     if (showingFavoritesOnly) renderFavoritesGrid();
                     else reloadMediaWall(1, false);
                 }
-                if (!window.AuthService || !AuthService.getSession) {
-                    finishBoot(null, null);
-                    return;
-                }
-                authTimer = setTimeout(function () { finishBoot(null, null); }, 2000);
+                if (!window.AuthService || !AuthService.getSession) return;
                 Promise.all([
                     AuthService.getSession().catch(function () { return null; }),
                     AuthService.getUserProfile ? AuthService.getUserProfile().catch(function () { return null; }) : Promise.resolve(null)
                 ]).then(function (pair) {
-                    finishBoot(pair[1], pair[0]);
+                    applyMediaWallAdminFromProfile(pair[1], pair[0]);
                 });
             })();
             var currentCategoryKey = '';
@@ -1835,8 +1827,12 @@
             }
             function buildMediaWallFetchOpts(baseOpts) {
                 baseOpts = baseOpts || {};
-                var opts = Object.assign({}, baseOpts, { cache: 'no-store' });
-                if (!adminOpts.staffPreview) return Promise.resolve(opts);
+                var opts = Object.assign({}, baseOpts);
+                if (!adminOpts.staffPreview) {
+                    if (!opts.cache) opts.cache = 'default';
+                    return Promise.resolve(opts);
+                }
+                opts.cache = 'no-store';
                 return adminOpts.getToken().then(function (token) {
                     if (token && adminOpts.staffPreview) {
                         opts.headers = Object.assign({}, opts.headers || {}, { Authorization: 'Bearer ' + token });
@@ -1876,15 +1872,23 @@
                 var thisRequestId = ++loadMediaWallRequestId;
                 var layoutFilter = currentLayoutType;
                 var savedScrollY = (!append && typeof window !== 'undefined') ? window.scrollY : 0;
+                var keepSsrShell = false;
                 if (!append) {
                     if (gridWrap && gridWrap.offsetHeight > 0) gridWrap.style.minHeight = gridWrap.offsetHeight + 'px';
-                    clearMediaWallGrid();
+                    keepSsrShell = !q && !layoutFilter && !currentCategoryKey && !currentSubcategoryKey
+                        && !currentTagFilters.length && mediaWallHasAnyItems()
+                        && !!(grid && grid.querySelector('.media-wall-item[data-ssr="1"]'));
+                    if (!keepSsrShell) {
+                        clearMediaWallGrid();
+                        loading.classList.remove('d-none');
+                    } else {
+                        loading.classList.add('d-none');
+                    }
                     allLoadedMixedItems = [];
-                    loading.classList.remove('d-none');
                     empty.classList.add('d-none');
                 }
                 var url = buildMediaWallUrl(page, q);
-                var fetchOpts = { cache: 'no-store' };
+                var fetchOpts = adminOpts.staffPreview ? { cache: 'no-store' } : { cache: 'default' };
                 function clearMediaWallLoadingShell() {
                     loading.classList.add('d-none');
                     if (gridWrap) gridWrap.style.minHeight = '';
