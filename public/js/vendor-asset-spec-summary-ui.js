@@ -275,6 +275,14 @@
     setTimeout(refresh, 1500);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
+  window.matchdoVaSpecSummaryUi = { refresh: refresh };
+
+  function bindWhenI18nReady() {
+    bind();
+    var ready = window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve();
+    ready.then(function () { refresh(); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindWhenI18nReady);
+  else bindWhenI18nReady();
 })();

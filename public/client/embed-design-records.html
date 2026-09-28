@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>MatchDO Engine 訪客生圖紀錄</title>
+    <title data-i18n="embedRecords.pageTitle">MatchDO Engine 訪客生圖紀錄</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow">
     <link href="../img/favicon.ico" rel="icon">
@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
     <style>
         .rec-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid rgba(88, 100, 112, 0.14); }
         .rec-row { cursor: pointer; }
@@ -26,10 +27,10 @@
         <div class="container" style="max-width: 1100px;">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">MatchDO Engine 訪客生圖紀錄</h4>
-                    <small class="text-muted">官網 iframe（MatchDO Engine）訪客試做成功後的成圖與搭配資料（扣您的點數）</small>
+                    <h4 class="mb-0 fw-bold" data-i18n="embedRecords.heading">MatchDO Engine 訪客生圖紀錄</h4>
+                    <small class="text-muted" data-i18n="embedRecords.intro">官網 iframe（MatchDO Engine）訪客試做成功後的成圖與搭配資料（扣您的點數）</small>
                 </div>
-                <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>廠商控制台</a>
+                <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="nav.vendorDashboard">廠商控制台</span></a>
             </div>
         </div>
     </div>
@@ -39,11 +40,11 @@
             <div class="card-body">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-5">
-                        <label class="form-label small mb-1">主產品篩選</label>
-                        <select class="form-select form-select-sm" id="filter-proto"><option value="">全部主產品</option></select>
+                        <label class="form-label small mb-1" data-i18n="embedRecords.filterProto">主產品篩選</label>
+                        <select class="form-select form-select-sm" id="filter-proto"><option value="" data-i18n="embedRecords.filterAll">全部主產品</option></select>
                     </div>
                     <div class="col-md-3">
-                        <button class="btn btn-primary btn-sm w-100" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i>重新載入</button>
+                        <button class="btn btn-primary btn-sm w-100" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="embedRecords.reload">重新載入</span></button>
                     </div>
                     <div class="col-md-4 text-md-end">
                         <span class="text-muted small" id="total-label"></span>
@@ -257,6 +258,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            localeReady.then(function () {
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            });
             if (typeof window.initSiteHeader === 'function') window.initSiteHeader();
             document.getElementById('btn-reload').addEventListener('click', function () { page = 0; loadRecords(); });
             document.getElementById('filter-proto').addEventListener('change', function () { page = 0; loadRecords(); });

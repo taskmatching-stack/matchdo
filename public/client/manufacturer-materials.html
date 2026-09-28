@@ -5,6 +5,7 @@
     <title data-i18n="baseModels.pageTitle">上傳數位版型 (Base Models) - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="matchdo-asset-version" content="materials-i18n-20260929">
     <link href="../img/favicon.ico" rel="icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -378,10 +379,10 @@
                     <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="/client/material-dual-color.html" class="btn btn-sm btn-success" id="btn-material-combination" title="Material Combination"><i class="bi bi-layout-split me-1"></i>材料組合</a>
+                    <a href="/client/material-dual-color.html" class="btn btn-sm btn-success" id="btn-material-combination" title="Material Combination"><i class="bi bi-layout-split me-1"></i><span data-i18n="baseModels.openMaterialCombo">材料組合</span></a>
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary product-link-tree-entry"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary vendor-only-not-official"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
-                    <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i>返回後台</a>
+                    <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i><span data-i18n="baseModels.backAdmin">返回後台</span></a>
                     <button type="button" class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i><span id="btn-add-open-label" data-i18n="baseModels.addUpload">新增</span></button>
                 </div>
             </div>
@@ -408,20 +409,20 @@
     <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert"></div>
 
     <div class="container py-4">
-        <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
-        <div id="no-mfr-alert" class="alert alert-warning d-none">
+        <div id="auth-alert" class="alert alert-warning d-none" data-i18n-html="baseModels.authRequired">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="no-mfr-alert" class="alert alert-warning d-none" data-i18n-html="baseModels.noManufacturerProfile">
             <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台建立</a>
         </div>
-        <div id="admin-official-hint" class="alert alert-info d-none">
+        <div id="admin-official-hint" class="alert alert-info d-none" data-i18n-html="baseModels.adminOfficialHint">
             <i class="bi bi-info-circle me-2"></i>管理員上傳<strong>官方版型</strong>請至
             <a href="/client/manufacturer-materials.html?official_platform=1&manage=1" class="alert-link">官方版型庫</a>（此頁為個人廠商素材，需先建立廠商資料）。
         </div>
 
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
             <i class="bi bi-collection me-2"></i>
-            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、情境圖、零件、材料、<strong>材料組合</strong>、產品關聯圖）。上方綠色「材料組合」或切至「材料/顏色」分頁頂部卡片可開啟。內容會出現在設計頁「官方版型」。
+            <span data-i18n-html="baseModels.officialLibraryBanner">官方版型庫（管理員）說明</span>
             <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-official-batch-i18n-en">批次 AI 補英文（已上傳素材）</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-official-batch-i18n-en" data-i18n="baseModels.officialBatchI18nEn">批次 AI 補英文（已上傳素材）</button>
                 <span class="small text-muted" id="official-batch-i18n-en-msg"></span>
             </div>
         </div>
@@ -432,7 +433,7 @@
                 <i class="bi bi-shield-check me-1"></i>
                 <span data-i18n="baseModels.vendorZonePolicy">廠商工作區清單<strong>僅</strong>含：① 本廠自行上傳　② 從<strong>產業供應商目錄</strong>匯入（標示「引用自供應商」）。<strong>不會</strong>也<strong>不允許</strong>引用或顯示其他製造商／廠商的產品。</span>
             </div>
-            <div class="alert alert-light border mb-3 py-2 small vendor-only-not-official">
+            <div class="alert alert-light border mb-3 py-2 small vendor-only-not-official" data-i18n-html="baseModels.materialsPortfolioHint">
                 <i class="bi bi-info-circle text-primary me-1"></i>
                 此頁素材會顯示在公開廠商頁「<strong>素材庫</strong>」；展示案例（系列／對照圖）請至
                 <a href="/client/manufacturer-portfolio.html" class="alert-link">上傳展示案例</a>。
@@ -456,12 +457,12 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="material_combo" id="tab-material-combo" role="tab">
-                        <i class="bi bi-layout-split me-1"></i>材料組合
+                        <i class="bi bi-layout-split me-1"></i><span data-i18n="baseModels.tabMaterialCombo">材料組合</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="promo" id="tab-promo" role="tab">
-                        <i class="bi bi-megaphone me-1"></i>情境圖
+                        <i class="bi bi-megaphone me-1"></i><span data-i18n="baseModels.tabPromoScene">情境圖</span>
                     </button>
                 </li>
             </ul>
@@ -482,16 +483,16 @@
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
                             <label class="form-check form-check-inline small text-muted mb-0">
-                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="prototype">
+                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="prototype" checked>
                                 <span data-i18n="baseModels.catalogGroupsDefaultCollapsed">預設收起</span>
                             </label>
-                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="prototype" aria-expanded="true">
-                                <i class="bi bi-chevron-up catalog-groups-toggle-icon"></i>
-                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsCollapse">收起</span>
+                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="prototype" aria-expanded="false">
+                                <i class="bi bi-chevron-down catalog-groups-toggle-icon"></i>
+                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsExpand">展開</span>
                             </button>
                         </div>
                     </div>
-                    <div id="catalog-groups-panel-prototype" class="catalog-groups-panel mt-2">
+                    <div id="catalog-groups-panel-prototype" class="catalog-groups-panel catalog-groups-panel--collapsed mt-2">
                         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                             <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="prototype" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：領型庫）">
                             <button type="button" class="btn btn-sm btn-primary btn-add-catalog-group" data-catalog-kind="prototype"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
@@ -518,18 +519,18 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="category">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold">子分類 <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformMainCategory">主分類</span> <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformSubCategory">子分類</span> <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.productionModeOptional">生產模式（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
                                 </div></div>
                                 </details>
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="craft">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
                                     <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
@@ -548,18 +549,18 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="name">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecNameDesc">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料/顏色分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 </div></div>
                                 </details>
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="images">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecProductImages">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -612,7 +613,7 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="links">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">材料／配件聯結</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecPartMaterialLinks">材料／配件聯結</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 add-prototype-links-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">預設 材料／配件 聯結</span></label>
@@ -656,16 +657,16 @@
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
                             <label class="form-check form-check-inline small text-muted mb-0">
-                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="part">
+                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="part" checked>
                                 <span data-i18n="baseModels.catalogGroupsDefaultCollapsed">預設收起</span>
                             </label>
-                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="part" aria-expanded="true">
-                                <i class="bi bi-chevron-up catalog-groups-toggle-icon"></i>
-                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsCollapse">收起</span>
+                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="part" aria-expanded="false">
+                                <i class="bi bi-chevron-down catalog-groups-toggle-icon"></i>
+                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsExpand">展開</span>
                             </button>
                         </div>
                     </div>
-                    <div id="catalog-groups-panel-part" class="catalog-groups-panel mt-2">
+                    <div id="catalog-groups-panel-part" class="catalog-groups-panel catalog-groups-panel--collapsed mt-2">
                         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                             <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="part" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholderPart" placeholder="輸入分類名稱（例：扣具庫）">
                             <button type="button" class="btn btn-sm btn-warning btn-add-catalog-group" data-catalog-kind="part"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
@@ -688,16 +689,16 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="category">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformMainCategory">主分類</span> <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.productionModeOptional">生產模式（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
                                 </div></div>
                                 </details>
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="craft">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
                                     <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
@@ -716,18 +717,18 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="name">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecNameDesc">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 </div></div>
                                 </details>
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="images">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecProductImages">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -778,7 +779,7 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="links">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecLinkedPrototypes">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
@@ -805,9 +806,9 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4" id="material-combination-entry-card" data-hint-no-collapse="1">
                 <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="flex-grow-1 min-w-0">
-                        <h6 class="fw-semibold mb-0"><i class="bi bi-layout-split me-1 text-primary"></i>材料組合 <span class="text-muted fw-normal small">Material Combination</span></h6>
+                        <h6 class="fw-semibold mb-0"><i class="bi bi-layout-split me-1 text-primary"></i><span data-i18n="baseModels.tabMaterialCombo">材料組合</span> <span class="text-muted fw-normal small" data-i18n="materialCombo.pageTitleEn">Material Combination</span></h6>
                     </div>
-                    <a href="/client/material-dual-color.html" class="btn btn-primary flex-shrink-0 material-combination-entry-link"><i class="bi bi-box-arrow-up-right me-1"></i>開啟材料組合</a>
+                    <a href="/client/material-dual-color.html" class="btn btn-primary flex-shrink-0 material-combination-entry-link"><i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="baseModels.openMaterialComboTool">開啟材料組合</span></a>
                 </div>
             </div>
             <div class="card border-0 shadow-sm mb-3 border-start border-success border-4 catalog-groups-card" data-catalog-kind="material">
@@ -826,16 +827,16 @@
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
                             <label class="form-check form-check-inline small text-muted mb-0">
-                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="material">
+                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="material" checked>
                                 <span data-i18n="baseModels.catalogGroupsDefaultCollapsed">預設收起</span>
                             </label>
-                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="material" aria-expanded="true">
-                                <i class="bi bi-chevron-up catalog-groups-toggle-icon"></i>
-                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsCollapse">收起</span>
+                            <button type="button" class="btn btn-sm btn-primary btn-catalog-groups-toggle" data-catalog-kind="material" aria-expanded="false">
+                                <i class="bi bi-chevron-down catalog-groups-toggle-icon"></i>
+                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsExpand">展開</span>
                             </button>
                         </div>
                     </div>
-                    <div id="catalog-groups-panel-material" class="catalog-groups-panel mt-2">
+                    <div id="catalog-groups-panel-material" class="catalog-groups-panel catalog-groups-panel--collapsed mt-2">
                         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                             <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="material" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：丹寧布庫）">
                             <button type="button" class="btn btn-sm btn-success btn-add-catalog-group" data-catalog-kind="material"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
@@ -858,21 +859,21 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="category">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformMainCategory">主分類</span> <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料/顏色」專用自訂分類（如：色卡庫、皮革樣本）。</p></div>
                                 </div></div>
                                 </details>
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="name">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecNameDesc">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料/顏色」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
@@ -883,7 +884,7 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="images">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">參考圖</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecRefImages">參考圖</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -927,7 +928,7 @@
                                 </div>
                                 <div class="col-12">
                                 <details class="va-spec-block" data-va-card="links">
-                                <summary class="va-spec-summary"><span class="va-spec-kicker">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
+                                <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecLinkedPrototypes">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
@@ -951,43 +952,43 @@
             </div>
 
             <div id="panel-promo" class="asset-kind-panel d-none" hidden>
-                <div class="alert alert-warning border small py-2 mb-3" role="note">
-                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，多選角度／色款當產品參考，再<strong>重新拍攝／設計成廣告主視覺</strong>（不是原圖換背景）。<span id="promoVendorPricingHint">載入點數規則中…</span>；可多選參考圖（最多 8 張）。此分頁不影響上傳／編輯流程。
+                <div class="alert alert-warning border small py-2 mb-3" role="note" data-i18n-html="baseModels.promoTabIntro">
+                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡…
                 </div>
-                <div class="alert alert-info border small py-2 mb-3" role="note">
-                    生成紀錄在 <a href="/client/my-custom-products.html?tab=promo" class="alert-link fw-semibold">我的數位資產 → 情境圖</a>（不在「設計稿」、也不在下方素材列表）。要上首頁請在該頁勾「展示在媒體牆」，再到首頁點「情境圖」篩選。
+                <div class="alert alert-info border small py-2 mb-3" role="note" data-i18n-html="baseModels.promoTabRecords">
+                    生成紀錄在 <a href="/client/my-custom-products.html?tab=promo" class="alert-link fw-semibold">我的數位資產 → 情境圖</a>…
                 </div>
                 <div class="row g-3">
                     <div class="col-lg-5">
-                        <label class="form-label fw-semibold small mb-1">選擇產品卡</label>
+                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.promoPickProduct">選擇產品卡</label>
                         <div class="d-flex flex-wrap gap-2 mb-2">
                             <select id="promo-kind-filter" class="form-select form-select-sm" style="max-width:10rem">
-                                <option value="prototype">數位原型</option>
-                                <option value="part">配件／零件</option>
-                                <option value="all">原型＋配件</option>
+                                <option value="prototype" data-i18n="baseModels.promoFilterPrototype">數位原型</option>
+                                <option value="part" data-i18n="baseModels.promoFilterPart">配件／零件</option>
+                                <option value="all" data-i18n="baseModels.promoFilterAll">原型＋配件</option>
                             </select>
                         </div>
                         <div id="promo-asset-list" class="row g-2"></div>
-                        <p id="promo-asset-empty" class="text-muted small d-none mb-0">尚無可用產品卡，請先在「數位原型」或「配件」上傳。</p>
+                        <p id="promo-asset-empty" class="text-muted small d-none mb-0" data-i18n="baseModels.promoNoProducts">尚無可用產品卡，請先在「數位原型」或「配件」上傳。</p>
                     </div>
                     <div class="col-lg-7">
-                        <label class="form-label fw-semibold small mb-1">來源圖（可多選角度／色款／款式，最多 8 張；點縮圖切換。建議多選才像完整廣告參考）</label>
+                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.promoSourceImages">來源圖（可多選…）</label>
                         <div id="promo-source-thumbs" class="d-flex flex-wrap gap-2 mb-1"></div>
                         <p id="promo-source-selected-hint" class="small text-muted mb-2 d-none"></p>
-                        <p id="promo-source-empty" class="text-muted small">請先點左側產品卡</p>
+                        <p id="promo-source-empty" class="text-muted small" data-i18n="baseModels.promoPickProductFirst">請先點左側產品卡</p>
                         <div class="row g-2">
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorThemeSelect">主題</label>
+                                <label class="form-label small mb-1" for="promoVendorThemeSelect" data-i18n="baseModels.promoTheme">主題</label>
                                 <select id="promoVendorThemeSelect" class="form-select form-select-sm"></select>
                                 <p class="form-text small text-muted mb-0" id="promoVendorThemeHint"></p>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorEnvSelect">場景（選填）</label>
+                                <label class="form-label small mb-1" for="promoVendorEnvSelect" data-i18n="baseModels.promoSceneOptional">場景（選填）</label>
                                 <select id="promoVendorEnvSelect" class="form-select form-select-sm"></select>
                                 <p class="form-text small text-muted mb-0" id="promoVendorEnvHint"></p>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorRatioSelect">長寬比</label>
+                                <label class="form-label small mb-1" for="promoVendorRatioSelect" data-i18n="baseModels.promoAspectRatio">長寬比</label>
                                 <select id="promoVendorRatioSelect" class="form-select form-select-sm">
                                     <option value="1:1" selected>1:1</option>
                                     <option value="4:3">4:3</option>
@@ -1003,7 +1004,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorMpSelect">解析度</label>
+                                <label class="form-label small mb-1" for="promoVendorMpSelect" data-i18n="baseModels.promoResolution">解析度</label>
                                 <select id="promoVendorMpSelect" class="form-select form-select-sm">
                                     <option value="1" selected>1 MP（標準）</option>
                                     <option value="2">2 MP</option>
@@ -1013,19 +1014,19 @@
                                 <p class="form-text small text-muted mb-0" id="promoVendorDimsHint">1024×1024</p>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorPhotoSelect">攝影參數（選填）</label>
+                                <label class="form-label small mb-1" for="promoVendorPhotoSelect" data-i18n="baseModels.promoPhotoParams">攝影參數（選填）</label>
                                 <select id="promoVendorPhotoSelect" class="form-select form-select-sm"></select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorPrompt">額外描述（選填）</label>
-                                <input type="text" id="promoVendorPrompt" class="form-control form-control-sm" placeholder="例：皮革手提包，溫暖午後陽光" />
-                                <p class="form-text small text-muted mb-0 mt-1">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免誤判品項。</p>
+                                <label class="form-label small mb-1" for="promoVendorPrompt" data-i18n="baseModels.promoExtraPrompt">額外描述（選填）</label>
+                                <input type="text" id="promoVendorPrompt" class="form-control form-control-sm" data-i18n-placeholder="baseModels.promoExtraPromptPh" placeholder="例：皮革手提包，溫暖午後陽光" />
+                                <p class="form-text small text-muted mb-0 mt-1" data-i18n="baseModels.promoExtraPromptHint">請先寫產品名稱，再寫情境描述；參考圖較複雜時可避免誤判品項。</p>
                             </div>
                         </div>
                         <p class="small text-muted mt-2 mb-1" id="promoVendorPointsDisplay">每張 20 點</p>
                         <div id="promoVendorApplyWrap" class="d-inline-block">
                         <button type="button" class="btn btn-warning" id="promoVendorApplyBtn" disabled>
-                            <i class="bi bi-megaphone me-1"></i>生成情境圖
+                            <i class="bi bi-megaphone me-1"></i><span data-i18n="baseModels.promoGenerateBtn">生成情境圖</span>
                         </button>
                         </div>
                         <div id="promoVendorResultWrap" class="mt-3">
@@ -1079,17 +1080,17 @@
                         <input type="hidden" id="edit-id">
                         <input type="hidden" id="edit-asset-kind">
                         <details class="va-spec-block" data-va-card="category">
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="craft" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]">
-                            <div class="mb-2"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
+                            <div class="mb-2"><label class="form-label fw-semibold"><span data-i18n="baseModels.productionModeOptional">生產模式（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
                             <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
                             <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                             <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
@@ -1103,7 +1104,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="name">
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecNameDesc">名稱與說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
@@ -1112,7 +1113,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="proto-meta" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">訂製條件</span><span class="va-spec-value" data-va-spec="meta">未選</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecMeta">訂製條件</span><span class="va-spec-value" data-va-spec="meta">未選</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-prototype-meta-wrap">
                             <div class="mb-3"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control" id="edit-min-order-qty" min="1" step="1" inputmode="numeric" data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
@@ -1121,7 +1122,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="links" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">材料／配件聯結</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecPartMaterialLinks">材料／配件聯結</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-prototype-links-wrap">
                             <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">預設 材料／配件 聯結</span></label>
@@ -1136,7 +1137,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="share" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">官網嵌入</span><span class="va-spec-value" data-va-spec="share">載入中</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecEmbed">官網嵌入</span><span class="va-spec-value" data-va-spec="share">載入中</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-share-links-wrap">
                             <label class="form-label fw-semibold">MatchDO Engine · 官網嵌入（iframe）</label>
@@ -1208,7 +1209,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="linked" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecLinkedPrototypes">關聯主產品</span><span class="va-spec-value" data-va-spec="links">未選（可略過）</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -1219,7 +1220,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="desc">
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">簡短說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecShortDesc">簡短說明</span><span class="va-spec-value" data-va-spec="name">未填</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3">
                             <label class="form-label">簡短說明</label>
@@ -1238,7 +1239,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="images" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecProductImages">產品圖片</span><span class="va-spec-value" data-va-spec="images">未選</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-images-material-wrap">
                             <label class="form-label">參考圖</label>
@@ -1291,7 +1292,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="tags">
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">AI 標籤</span><span class="va-spec-value" data-va-spec="tags">無標籤</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecAiTags">AI 標籤</span><span class="va-spec-value" data-va-spec="tags">無標籤</span></summary>
                         <div class="va-spec-body">
                         <div id="edit-tags-panel" class="mb-3">
                             <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
@@ -1306,7 +1307,7 @@
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="image-options" data-va-hide-empty>
-                        <summary class="va-spec-summary"><span class="va-spec-kicker">重繪選項</span><span class="va-spec-value" data-va-spec="images">—</span></summary>
+                        <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecRedrawOpts">重繪選項</span><span class="va-spec-value" data-va-spec="images">—</span></summary>
                         <div class="va-spec-body">
                         <div id="edit-image-options" class="mb-3 d-none">
                             <div class="form-check mb-1">
@@ -1400,7 +1401,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'guide-links-multi-pick-20260928';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1555,7 +1556,7 @@
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'matchdo-hint-toggle';
-            btn.innerHTML = '<i class="bi bi-chevron-right me-1"></i>說明';
+            btn.innerHTML = '<i class="bi bi-chevron-right me-1"></i>' + tr('baseModels.hintToggle', '說明');
             var body = document.createElement('div');
             body.className = 'matchdo-hint-body';
             nodes.forEach(function (el) { body.appendChild(el); });
@@ -1563,7 +1564,7 @@
                 var open = wrap.classList.toggle('is-open');
                 var icon = btn.querySelector('.bi');
                 if (icon) icon.className = (open ? 'bi bi-chevron-down' : 'bi bi-chevron-right') + ' me-1';
-                btn.lastChild.textContent = open ? '收起說明' : '說明';
+                btn.lastChild.textContent = open ? tr('baseModels.hintToggleCollapse', '收起說明') : tr('baseModels.hintToggle', '說明');
             });
             wrap.appendChild(btn);
             wrap.appendChild(body);
@@ -1623,12 +1624,24 @@
         function initMatchdoCollapsibleHints() {
             if (matchdoHintsInited) return;
             matchdoHintsInited = true;
-            document.querySelectorAll('#main-content > .alert').forEach(function (el) {
-                if (!isMatchdoCollapsibleHintEl(el)) return;
-                var parent = el.parentNode;
-                if (!parent || el.closest('.matchdo-hint-group')) return;
-                insertMatchdoHintGroup(parent, [el]);
-            });
+            (function () {
+                var parent = document.getElementById('main-content');
+                if (!parent) return;
+                var batch = [];
+                function flush() {
+                    if (!batch.length) return;
+                    insertMatchdoHintGroup(parent, batch);
+                    batch = [];
+                }
+                Array.from(parent.children).forEach(function (el) {
+                    if (el.matches && el.matches('.alert.alert-warning, .alert.alert-light') && isMatchdoCollapsibleHintEl(el)) {
+                        batch.push(el);
+                    } else {
+                        flush();
+                    }
+                });
+                flush();
+            })();
             ['prototype', 'part', 'material'].forEach(function (kind) {
                 var panel = document.getElementById('panel-' + kind);
                 if (!panel) return;
@@ -2252,7 +2265,7 @@
         var catalogGroupsDbReady = true;
         var CATALOG_GROUPS_PREF_KEY = 'matchdo.catalogGroupsDefaultCollapsed';
         var CATALOG_GROUPS_COLLAPSE_AT = 5;
-        var catalogGroupsCollapsedByKind = { prototype: false, material: false, part: false };
+        var catalogGroupsCollapsedByKind = { prototype: true, material: true, part: true };
         var catalogGroupsCollapseInitedByKind = { prototype: false, material: false, part: false };
         var MATERIALS_PAGE_SIZE_KEY = 'matchdo.vendorMaterialsPageSize';
         var materialsListPageSize = 12;
@@ -2267,6 +2280,36 @@
                 if (v && v !== k) return v;
             }
             return fb || k;
+        }
+
+        function applyMaterialsPageI18n() {
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) {
+                var titleH4 = document.querySelector('.page-title-bar h4');
+                var titleSmall = document.querySelector('.page-title-bar small');
+                if (titleH4) titleH4.setAttribute('data-i18n', 'baseModels.officialLibraryPageTitle');
+                if (titleSmall) titleSmall.setAttribute('data-i18n', 'baseModels.officialLibraryPageIntro');
+            }
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            if (window.matchdoVaSpecSummaryUi && window.matchdoVaSpecSummaryUi.refresh) {
+                try { window.matchdoVaSpecSummaryUi.refresh(); } catch (e) {}
+            }
+            if (window.__MATCHDO_OFFICIAL_PLATFORM_LIB) {
+                document.title = tr('baseModels.officialLibraryPageTitle', document.title);
+            } else {
+                document.title = tr('baseModels.pageTitle', document.title);
+            }
+            if (typeof updateAddOpenButtonLabel === 'function') updateAddOpenButtonLabel();
+            document.querySelectorAll('.matchdo-hint-toggle').forEach(function (btn) {
+                var wrap = btn.closest('.matchdo-hint-group');
+                var open = wrap && wrap.classList.contains('is-open');
+                var label = open ? tr('baseModels.hintToggleCollapse', '收起說明') : tr('baseModels.hintToggle', '說明');
+                var icon = btn.querySelector('.bi');
+                if (icon) {
+                    btn.textContent = '';
+                    btn.appendChild(icon);
+                    btn.appendChild(document.createTextNode(label));
+                }
+            });
         }
 
         function normalizeKind(k) {
@@ -7792,7 +7835,7 @@
         function resolveCatalogGroupsCollapsed(kind) {
             var pref = getCatalogGroupsPrefCollapsed(kind);
             if (pref !== null) return pref;
-            return groupsForKind(kind).length >= CATALOG_GROUPS_COLLAPSE_AT;
+            return true;
         }
 
         function setCatalogGroupsCollapsed(kind, collapsed) {
@@ -7852,7 +7895,7 @@
             var toggleBtn = card.querySelector('.btn-catalog-groups-toggle[data-catalog-kind="' + kind + '"]');
             var pref = getCatalogGroupsPrefCollapsed(kind);
             if (prefCb) {
-                prefCb.checked = pref === true || (pref === null && groupsForKind(kind).length >= CATALOG_GROUPS_COLLAPSE_AT);
+                prefCb.checked = pref !== false;
                 prefCb.addEventListener('change', function () {
                     try {
                         localStorage.setItem(CATALOG_GROUPS_PREF_KEY + '.' + kind, prefCb.checked ? '1' : '0');
@@ -7880,7 +7923,6 @@
                 if (empty) empty.classList.remove('d-none');
                 updateCatalogGroupsCountBadge(kind);
                 initCatalogGroupsCollapse(kind);
-                if (catalogGroupsCollapsedByKind[kind]) setCatalogGroupsCollapsed(kind, false);
                 return;
             }
             if (empty) empty.classList.add('d-none');
@@ -11164,10 +11206,10 @@
                         btnOfficialBatchI18n.__bound = true;
                         btnOfficialBatchI18n.addEventListener('click', async function () {
                             var msgEl = document.getElementById('official-batch-i18n-en-msg');
-                            if (!confirm('將為官方版型庫全部素材與自訂分類補齊英文（已有英文的項目預設跳過）。\n\n確定繼續？')) return;
-                            var overwrite = confirm('是否覆寫已有英文？\n確定 = 覆寫全部\n取消 = 只補空白');
+                            if (!confirm(tr('baseModels.officialBatchConfirm', '將為官方版型庫全部素材與自訂分類補齊英文（已有英文的項目預設跳過）。\n\n確定繼續？'))) return;
+                            var overwrite = confirm(tr('baseModels.officialBatchOverwrite', '是否覆寫已有英文？\n確定 = 覆寫全部\n取消 = 只補空白'));
                             btnOfficialBatchI18n.disabled = true;
-                            if (msgEl) msgEl.textContent = '批次翻譯中…';
+                            if (msgEl) msgEl.textContent = tr('baseModels.officialBatchRunning', '批次翻譯中…');
                             try {
                                 var r = await fetch('/api/admin/official-platform/generate-i18n-en', {
                                     method: 'POST',
@@ -11180,8 +11222,8 @@
                                 (data.manufacturers || []).forEach(function (m) {
                                     if (m.assets && m.assets.updated) n += m.assets.updated;
                                 });
-                                if (msgEl) msgEl.textContent = '完成：已更新素材英文 ' + n + ' 筆（分類見 API 回傳）';
-                                showToast('官方版型英文批次完成', 'success');
+                                if (msgEl) msgEl.textContent = tr('baseModels.officialBatchDone', '完成：已更新素材英文 {n} 筆（分類見 API 回傳）').replace('{n}', String(n));
+                                showToast(tr('baseModels.officialBatchToast', '官方版型英文批次完成'), 'success');
                                 await loadMaterials();
                             } catch (e) {
                                 if (msgEl) msgEl.textContent = '';
@@ -11191,11 +11233,6 @@
                             }
                         });
                     }
-                    var titleH4 = document.querySelector('.page-title-bar h4');
-                    if (titleH4) titleH4.textContent = '官方版型庫（管理員）';
-                    var titleSmall = document.querySelector('.page-title-bar small');
-                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、情境圖、放大、產品關聯圖。';
-                    document.title = '官方版型庫（管理員）';
                 }
 
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
@@ -11225,8 +11262,7 @@
                 var materialsTask = loadMaterials();
                 var setupTask = Promise.all([
                     (window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve()).then(function () {
-                        if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-                        document.title = tr('baseModels.pageTitle', document.title);
+                        applyMaterialsPageI18n();
                     }),
                     loadCategories().then(function () {
                         if (materialsAll && materialsAll.length) renderGrid();
@@ -11255,6 +11291,6 @@
         init();
     })();
     </script>
-    <script src="/js/vendor-asset-spec-summary-ui.js?v=spec-links-check-20260824"></script>
+    <script src="/js/vendor-asset-spec-summary-ui.js?v=spec-i18n-20260929"></script>
 </body>
 </html>

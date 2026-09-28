@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>廠商控制台 - MatchDO 合做</title>
+    <title data-i18n="mfrDash.pageTitle">廠商控制台 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="noindex, nofollow">
     <link href="../img/favicon.ico" rel="icon">
@@ -54,15 +54,15 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h4 class="mb-0 fw-bold">廠商控制台</h4>
-                    <small class="text-muted" id="mfr-name">載入中…</small>
+                    <h4 class="mb-0 fw-bold" data-i18n="mfrDash.heading">廠商控制台</h4>
+                    <small class="text-muted" id="mfr-name" data-i18n="mfrDash.loading">載入中…</small>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <a href="#" class="btn btn-sm btn-primary d-none" id="btn-open-public-page" target="_blank" rel="noopener noreferrer">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>開啟公開廠商頁
+                        <i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="mfrDash.openPublicPage">開啟公開廠商頁</span>
                     </a>
                     <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-secondary" id="btn-edit-mfr">
-                        <i class="bi bi-pencil me-1"></i>聯絡與簡介
+                        <i class="bi bi-pencil me-1"></i><span data-i18n="mfrDash.contactAndProfile">聯絡與簡介</span>
                     </a>
                 </div>
             </div>
@@ -76,36 +76,36 @@
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
                     <div>
-                        <h5 class="card-title mb-1"><i class="bi bi-house-door text-primary me-2"></i>我的廠商首頁（公開）</h5>
-                        <p class="text-muted small mb-0">訪客看到的頁面；作品集與素材庫由此頁上傳的內容組成。建議流程：上傳展示案例 → 數位版型 → 聯絡方式。</p>
+                        <h5 class="card-title mb-1"><i class="bi bi-house-door text-primary me-2"></i><span data-i18n="mfrDash.publicPageTitle">我的廠商首頁（公開）</span></h5>
+                        <p class="text-muted small mb-0" data-i18n="mfrDash.publicPageHint">訪客看到的頁面；作品集與素材庫由此頁上傳的內容組成。建議流程：上傳展示案例 → 數位版型 → 聯絡方式。</p>
                     </div>
-                    <a href="#" id="btn-public-page-open" class="btn btn-primary btn-sm flex-shrink-0" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1"></i>開啟</a>
+                    <a href="#" id="btn-public-page-open" class="btn btn-primary btn-sm flex-shrink-0" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="mfrDash.open">開啟</span></a>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly placeholder="建立廠商資料後會顯示">
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i>複製</button>
+                    <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly data-i18n-placeholder="mfrDash.urlPlaceholder" placeholder="建立廠商資料後會顯示">
+                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i><span data-i18n="mfrDash.copy">複製</span></button>
                 </div>
-                <span id="copy-profile-url-msg" class="small text-success mt-1 d-none">已複製</span>
-                <p class="text-muted small mb-0 mt-2">官網嵌入試做（訪客免付點、由您扣點）：至 <a href="/client/manufacturer-materials.html">素材管理</a> → 編輯上架中的數位原型 →「分享與嵌入」複製 iframe。</p>
+                <span id="copy-profile-url-msg" class="small text-success mt-1 d-none" data-i18n="mfrDash.copied">已複製</span>
+                <p class="text-muted small mb-0 mt-2" data-i18n-html="mfrDash.embedHint">官網嵌入試做…</p>
             </div>
         </div>
         <!-- 未建立廠商資料：建立表單（僅在 404 時顯示） -->
         <div id="no-mfr-create" class="card border-0 shadow-sm mb-4 d-none">
             <div class="card-body p-4">
-                <h5 class="card-title mb-3"><i class="bi bi-building-add me-2"></i>建立廠商資料</h5>
-                <p class="text-muted small mb-3">請填寫下方欄位建立您的廠商頁面，建立後即可上傳作品並在靈感牆顯示「廠商詳情」。</p>
+                <h5 class="card-title mb-3"><i class="bi bi-building-add me-2"></i><span data-i18n="mfrDash.createTitle">建立廠商資料</span></h5>
+                <p class="text-muted small mb-3" data-i18n="mfrDash.createIntro">請填寫下方欄位建立您的廠商頁面，建立後即可上傳作品並在靈感牆顯示「廠商詳情」。</p>
                 <form id="create-mfr-form">
                     <div class="mb-3">
-                        <label for="create-mfr-name" class="form-label">廠商名稱 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="create-mfr-name" placeholder="公司或工作室名稱" required maxlength="200">
+                        <label for="create-mfr-name" class="form-label"><span data-i18n="mfrDash.vendorName">廠商名稱</span> <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="create-mfr-name" data-i18n-placeholder="mfrDash.vendorNamePh" placeholder="公司或工作室名稱" required maxlength="200">
                     </div>
                     <div class="mb-3">
-                        <label for="create-mfr-desc" class="form-label">簡短介紹</label>
-                        <textarea class="form-control" id="create-mfr-desc" rows="2" placeholder="選填，之後可再編輯"></textarea>
+                        <label for="create-mfr-desc" class="form-label" data-i18n="mfrDash.shortIntro">簡短介紹</label>
+                        <textarea class="form-control" id="create-mfr-desc" rows="2" data-i18n-placeholder="mfrDash.shortIntroPh" placeholder="選填，之後可再編輯"></textarea>
                     </div>
                     <div id="create-mfr-msg" class="small mb-2"></div>
                     <button type="submit" class="btn btn-primary" id="create-mfr-btn">
-                        <i class="bi bi-check-lg me-1"></i>建立廠商資料
+                        <i class="bi bi-check-lg me-1"></i><span data-i18n="mfrDash.createSubmit">建立廠商資料</span>
                     </button>
                 </form>
             </div>
@@ -119,7 +119,7 @@
                         <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
                         <div>
                             <div class="fs-4 fw-bold" id="stat-portfolio">—</div>
-                            <div class="text-muted small">廠商作品數</div>
+                            <div class="text-muted small" data-i18n="mfrDash.statPortfolio">廠商作品數</div>
                         </div>
                     </div>
                 </div>
@@ -130,7 +130,7 @@
                         <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-collection"></i></div>
                         <div>
                             <div class="fs-4 fw-bold" id="stat-collections">—</div>
-                            <div class="text-muted small">作品集數</div>
+                            <div class="text-muted small" data-i18n="mfrDash.statCollections">作品集數</div>
                         </div>
                     </div>
                 </div>
@@ -141,7 +141,7 @@
                         <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-folder2-open"></i></div>
                         <div>
                             <div class="fs-4 fw-bold" id="stat-base-models">—</div>
-                            <div class="text-muted small">數位版型數</div>
+                            <div class="text-muted small" data-i18n="mfrDash.statBaseModels">數位版型數</div>
                         </div>
                     </div>
                 </div>
@@ -152,7 +152,7 @@
                         <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-geo-alt"></i></div>
                         <div>
                             <div class="fs-4 fw-bold" id="stat-location">—</div>
-                            <div class="text-muted small">服務地區</div>
+                            <div class="text-muted small" data-i18n="mfrDash.statLocation">服務地區</div>
                         </div>
                     </div>
                 </div>
@@ -161,65 +161,65 @@
 
         <div class="row g-4">
             <div class="col-lg-5">
-                <div class="section-title">常用操作</div>
+                <div class="section-title" data-i18n="mfrDash.quickActions">常用操作</div>
                 <div class="d-flex flex-column gap-2">
                     <a href="/client/manufacturer-portfolio.html" class="quick-link">
                         <div class="icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
                         <div>
-                            <div class="fw-semibold">上傳展示案例</div>
-                            <div class="text-muted small">系列圖／對照圖 → 顯示於廠商頁「作品集」與靈感牆（非訂製者設計稿）</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickPortfolio">上傳展示案例</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickPortfolioHint">系列圖／對照圖 → 顯示於廠商頁「作品集」與靈感牆（非訂製者設計稿）</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/client/manufacturer-materials.html" class="quick-link">
                         <div class="icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-folder2-open"></i></div>
                         <div>
-                            <div class="fw-semibold">上傳數位版型</div>
-                            <div class="text-muted small">原型／材料/顏色 → 顯示於廠商頁「素材庫」，設計者可選為參考圖</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickMaterials">上傳數位版型</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickMaterialsHint">原型／材料/顏色 → 顯示於廠商頁「素材庫」，設計者可選為參考圖</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/client/vendor-prototype-insights.html" class="quick-link">
                         <div class="icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-bar-chart"></i></div>
                         <div>
-                            <div class="fw-semibold">主產品設計洞察</div>
-                            <div class="text-muted small">各款生圖次數、熱門搭配組合、訂製者近期成圖</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickInsights">主產品設計洞察</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickInsightsHint">各款生圖次數、熱門搭配組合、訂製者近期成圖</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/client/embed-design-records.html" class="quick-link">
                         <div class="icon" style="background:rgba(111,66,193,0.12);color:#6f42c1"><i class="bi bi-window-sidebar"></i></div>
                         <div>
-                            <div class="fw-semibold">Embed 訪客生圖紀錄</div>
-                            <div class="text-muted small">官網 iframe 訪客試做成圖、搭配與扣點明細</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickEmbed">Embed 訪客生圖紀錄</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickEmbedHint">官網 iframe 訪客試做成圖、搭配與扣點明細</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/client/demands.html" class="quick-link">
                         <div class="icon bg-info bg-opacity-10 text-info"><i class="bi bi-inbox"></i></div>
                         <div>
-                            <div class="fw-semibold">訂製需求（接案）</div>
-                            <div class="text-muted small">依分類查看訂製者開放的設計，主動聯絡洽談</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickDemands">訂製需求（接案）</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickDemandsHint">依分類查看訂製者開放的設計，主動聯絡洽談</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/profile/contact-info.html" class="quick-link">
                         <div class="icon bg-success bg-opacity-10 text-success"><i class="bi bi-chat-dots"></i></div>
                         <div>
-                            <div class="fw-semibold">聯絡方式與廠商資料</div>
-                            <div class="text-muted small">名稱、簡介、服務地區、Email／LINE／社群（顯示於公開廠商頁）</div>
+                            <div class="fw-semibold" data-i18n="mfrDash.quickContact">聯絡方式與廠商資料</div>
+                            <div class="text-muted small" data-i18n="mfrDash.quickContactHint">名稱、簡介、服務地區、Email／LINE／社群（顯示於公開廠商頁）</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                 </div>
-                <p class="text-muted small mt-3 mb-0"><a href="/vendors.html" class="text-muted">瀏覽其他廠商公開頁</a>（參考用）</p>
+                <p class="text-muted small mt-3 mb-0"><a href="/vendors.html" class="text-muted" data-i18n="mfrDash.browseVendors">瀏覽其他廠商公開頁（參考用）</a></p>
             </div>
 
             <div class="col-lg-7">
                 <div class="accordion" id="mfr-dash-accordion">
                     <div class="accordion-item border-0 shadow-sm mb-2">
                         <h2 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-summary">廠商資料摘要</button>
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-summary" data-i18n="mfrDash.accSummary">廠商資料摘要</button>
                         </h2>
                         <div id="mfr-panel-summary" class="accordion-collapse collapse show" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0" id="mfr-summary">
@@ -229,7 +229,7 @@
                     </div>
                     <div class="accordion-item border-0 shadow-sm mb-2">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-branding">LOGO 與社群（顯示於公開頁）</button>
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-branding" data-i18n="mfrDash.accBranding">LOGO 與社群（顯示於公開頁）</button>
                         </h2>
                         <div id="mfr-panel-branding" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
@@ -268,7 +268,7 @@
                     </div>
                     <div class="accordion-item border-0 shadow-sm mb-2">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-zh">中文版（公開頁預設）</button>
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-zh" data-i18n="mfrDash.accZh">中文版（公開頁預設）</button>
                         </h2>
                         <div id="mfr-panel-zh" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
@@ -288,7 +288,7 @@
                     </div>
                     <div class="accordion-item border-0 shadow-sm mb-2">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-i18n-en">英文版（公開頁 lang=en）</button>
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-i18n-en" data-i18n="mfrDash.accEn">英文版（公開頁 lang=en）</button>
                         </h2>
                         <div id="mfr-panel-i18n-en" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
@@ -315,7 +315,7 @@
                     </div>
                     <div class="accordion-item border-0 shadow-sm">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-recent">最新展示案例</button>
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-recent" data-i18n="mfrDash.accRecent">最新展示案例</button>
                         </h2>
                         <div id="mfr-panel-recent" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
@@ -323,7 +323,7 @@
                                     <div class="col-12 text-center py-2 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
                                 </div>
                                 <div class="mt-2 text-end">
-                                    <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary">全部作品 <i class="bi bi-arrow-right"></i></a>
+                                    <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary"><span data-i18n="mfrDash.allPortfolio">全部作品</span> <i class="bi bi-arrow-right"></i></a>
                                 </div>
                             </div>
                         </div>
@@ -340,6 +340,17 @@
     (function () {
         var token = null;
         var mfrId = null;
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+        function applyMfrDashI18n() {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            document.title = tr('mfrDash.pageTitle', document.title);
+        }
         async function applySeedVendorInfoBanner(vendorSource, locked) {
             var banner = document.getElementById('seed-vendor-banner');
             if (!banner) return;
@@ -350,11 +361,11 @@
             banner.classList.remove('d-none');
             if (locked) {
                 banner.className = 'alert alert-secondary border-0 rounded-0 mb-0';
-                banner.innerHTML = '<i class="bi bi-lock me-2"></i>種子展示期（唯讀）：不可修改素材／作品，但仍可瀏覽公開頁與試用。如需恢復編輯請聯繫 MatchDO 平台。';
+                banner.innerHTML = '<i class="bi bi-lock me-2"></i>' + tr('mfrDash.seedLocked', '種子展示期（唯讀）…');
                 return;
             }
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
-            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：請完成上架；交付試用前平台會關閉自助編輯，轉正式廠商後再交付帳密予廠商。';
+            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>' + tr('mfrDash.seedActive', '種子展示期…');
         }
 
         async function getToken() {
@@ -701,6 +712,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            localeReady.then(applyMfrDashI18n);
             var btnAddStoreUrl = document.getElementById('btnAddStoreUrl');
             if (btnAddStoreUrl) {
                 btnAddStoreUrl.addEventListener('click', function () {
@@ -1055,12 +1068,12 @@
                     try {
                         input.select();
                         document.execCommand('copy');
-                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = tr('mfrDash.copied', '已複製'); setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
                     } catch (e) {}
                 }
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(url).then(function () {
-                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = tr('mfrDash.copied', '已複製'); setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
                     }).catch(fallbackCopy);
                 } else {
                     fallbackCopy();
@@ -1081,7 +1094,7 @@
                     if (event === 'TOKEN_REFRESHED') return;
                     if (event === 'SIGNED_OUT') {
                         mfrLoadedOnce = false;
-                        document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>。</div>';
+                        document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">' + tr('mfrDash.authRequired', '請先登入') + '</div>';
                         document.getElementById('mfr-name').textContent = '';
                         return;
                     }
