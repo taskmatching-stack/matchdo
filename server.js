@@ -6727,9 +6727,18 @@ function resolveCustomProductDisplayTitlePair(p, genPromptOverride) {
             if (titlePair.zh) titleZh = titlePair.zh;
             else if (titlePair.en) titleZh = titlePair.en;
         }
-        const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
-            || customProductTextCopiedFromPrompt(titleEn, gp);
-        if (enNeeds && titlePair.en) titleEn = titlePair.en;
+        const enTrim = String(titleEn || '').trim();
+        const zhTrim = String(titleZh || '').trim();
+        const enNeeds = !enTrim || isGenericMediaWallTitle(enTrim)
+            || customProductTextCopiedFromPrompt(enTrim, gp);
+        const pairEn = titlePair.en ? String(titlePair.en).trim() : '';
+        const enMismatch = pairEn && (
+            enNeeds
+            || (enTrim === zhTrim && zhTrim && mediaWallTextHasCjk(zhTrim))
+            || (enTrim && mediaWallTextHasCjk(enTrim) && !mediaWallTextHasCjk(pairEn))
+        );
+        if (enMismatch && pairEn) titleEn = pairEn;
+        else if (enNeeds && titlePair.en) titleEn = titlePair.en;
         else if (enNeeds && titlePair.zh) titleEn = titlePair.zh;
     }
     return {
@@ -7283,8 +7292,9 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         const seen = new Set();
         const ingestUsers = async (rows) => {
             if (!rows || !rows.length) return;
-            const ownerMap = await fetchOwnerDisplayMap([...new Set(rows.map((p) => p.owner_id).filter(Boolean))]);
-            rows.forEach((p) => {
+            const hydrated = await mediaWallQueries.hydrateCustomProductListTitleSemantics(supabase, rows);
+            const ownerMap = await fetchOwnerDisplayMap([...new Set(hydrated.map((p) => p.owner_id).filter(Boolean))]);
+            hydrated.forEach((p) => {
                 if (!p || !p.id || seen.has(p.id)) return;
                 const item = mapUserRowToMediaWallItem(p, ownerMap, lang);
                 if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
@@ -11885,9 +11895,18 @@ function mergeCustomProductTitlePairIntoUpdates(updates, titlePair, currentTitle
         if (titlePair.zh) updates.title = titlePair.zh;
         else if (titlePair.en) updates.title = titlePair.en;
     }
-    const enNeeds = !String(currentTitleEn || '').trim() || isGenericMediaWallTitle(currentTitleEn)
-        || customProductTextCopiedFromPrompt(currentTitleEn, genPrompt);
-    if (titlePair.en && enNeeds) updates.title_en = titlePair.en;
+    const enTrim = String(currentTitleEn || '').trim();
+    const zhTrim = String(currentTitle || '').trim();
+    const enNeeds = !enTrim || isGenericMediaWallTitle(enTrim)
+        || customProductTextCopiedFromPrompt(enTrim, genPrompt);
+    const pairEn = titlePair.en ? String(titlePair.en).trim() : '';
+    const enMismatch = pairEn && (
+        enNeeds
+        || (enTrim === zhTrim && zhTrim && mediaWallTextHasCjk(zhTrim))
+        || (enTrim && mediaWallTextHasCjk(enTrim) && !mediaWallTextHasCjk(pairEn))
+    );
+    if (enMismatch && pairEn) updates.title_en = pairEn;
+    else if (enNeeds && titlePair.en) updates.title_en = titlePair.en;
     else if (enNeeds && titlePair.zh) updates.title_en = titlePair.zh;
 }
 
@@ -12109,14 +12128,28 @@ async function repairCustomProductTitleFromStoredSemantics(productId, ownerId) {
             .maybeSingle();
         if (error || !row) return false;
         const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
-        if (!shouldReplaceCustomProductTitleFromAi(row.title, gp)) return false;
         const titlePair = resolveCustomProductTitlePairFromRow(row);
         if (!titlePair || (!titlePair.zh && !titlePair.en)) return false;
         const updates = {};
-        if (titlePair.zh) updates.title = titlePair.zh;
-        else if (titlePair.en) updates.title = titlePair.en;
-        if (titlePair.en) updates.title_en = titlePair.en;
-        else if (titlePair.zh) updates.title_en = titlePair.zh;
+        const titleNeeds = shouldReplaceCustomProductTitleFromAi(row.title, gp);
+        if (titleNeeds) {
+            if (titlePair.zh) updates.title = titlePair.zh;
+            else if (titlePair.en) updates.title = titlePair.en;
+        }
+        const enTrim = String(row.title_en || '').trim();
+        const zhTrim = String(row.title || '').trim();
+        const enNeeds = !enTrim || isGenericMediaWallTitle(enTrim)
+            || customProductTextCopiedFromPrompt(enTrim, gp);
+        const pairEn = titlePair.en ? String(titlePair.en).trim() : '';
+        const enMismatch = pairEn && (
+            enNeeds
+            || (enTrim === zhTrim && zhTrim && mediaWallTextHasCjk(zhTrim))
+            || (enTrim && mediaWallTextHasCjk(enTrim) && !mediaWallTextHasCjk(pairEn))
+        );
+        if (enMismatch && pairEn) updates.title_en = pairEn;
+        else if (enNeeds && titlePair.en) updates.title_en = titlePair.en;
+        else if (enNeeds && titlePair.zh) updates.title_en = titlePair.zh;
+        if (!Object.keys(updates).length) return false;
         const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
         if (updErr && updErr.code === '42703' && updates.title_en) {
             delete updates.title_en;
@@ -29551,7 +29584,8 @@ app.get('/api/media-wall', async (req, res) => {
                     if (profs) profs.forEach(pr => { ownerDisplayMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                 } catch (_) {}
             }
-            userRows.forEach(p => {
+            const userRowsForTitles = await mediaWallQueries.hydrateCustomProductListTitleSemantics(supabase, userRows);
+            userRowsForTitles.forEach(p => {
                 out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });
         }
@@ -30050,7 +30084,8 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
                 if (prof) ownerDisplayMap[row.owner_id] = (prof.full_name && prof.full_name.trim()) || prof.email || '';
             }
-            const item = mapUserRowToMediaWallItem(row, ownerDisplayMap, contentLang);
+            const hydratedRows = await mediaWallQueries.hydrateCustomProductListTitleSemantics(supabase, [row]);
+            const item = mapUserRowToMediaWallItem(hydratedRows[0] || row, ownerDisplayMap, contentLang);
             await enrichMediaWallRefManufacturers([item]);
             return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }

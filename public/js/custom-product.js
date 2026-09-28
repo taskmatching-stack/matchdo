@@ -2502,7 +2502,7 @@ $(document).ready(function () {
                 var $og = $('<optgroup></optgroup>').attr('label', vendorPickerAreaLabel(country.zh, country.en) || country.code);
                 if (country.children && country.children.length) {
                     $og.append($('<option></option>').val(country.code).text(
-                        vendorPickerAreaLabel(country.zh, country.en) + (vendorPickerIsEn() ? ' (nationwide)' : '（全國）')
+                        vendorPickerAreaLabel(country.zh, country.en) + vendorPickerTr('customProduct.serviceAreaNationwideSuffix', '（全國）')
                     ));
                     appendVendorAreaTreeOptions($og, country.children, 1);
                 } else {
@@ -6519,6 +6519,13 @@ $(document).ready(function () {
         });
     }
 
+    function refreshVendorPickerChromeI18n() {
+        if ($('#vendorAssetsServiceArea option').length > 1) {
+            fillVendorServiceAreaSelect().catch(function () {});
+        }
+        updateVendorPickerDesignCategoryDisplay();
+    }
+
     function refreshDesignShellI18n() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
@@ -6528,6 +6535,7 @@ $(document).ready(function () {
         var $galleryTitle = $('.past-gallery-title');
         if ($galleryTitle.length) $galleryTitle.text(getGalleryTitle(galleryOwnerDisplay || ''));
         syncPastGalleryTabLabels();
+        if (typeof refreshVendorPickerChromeI18n === 'function') refreshVendorPickerChromeI18n();
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }

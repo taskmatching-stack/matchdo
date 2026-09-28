@@ -1502,6 +1502,7 @@
   "customProduct.colorPlaceholder": "e.g. white, beige, black",
   "customProduct.vendorNamePlaceholder": "Search vendor name",
   "customProduct.serviceAreaAll": "Service area — all",
+  "customProduct.serviceAreaNationwideSuffix": " (nationwide)",
   "customProduct.serviceAreaTaiwan": "Taiwan",
   "customProduct.clearFilter": "Clear",
   "customProduct.assetKindAll": "Type — all",
