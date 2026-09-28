@@ -1207,6 +1207,10 @@
                 if (window.i18n && window.i18n.t) return window.i18n.t('customProduct.defaultSaveTitle') || '產品設計稿';
                 return '產品設計稿';
             }
+            function userDesignHasGenerationPrompt(p) {
+                if (!p || p.type !== 'user_design') return true;
+                return !!String(p.generation_prompt || '').trim();
+            }
             function pickMediaWallLocalizedTitle(p) {
                 var lang = getMediaWallLang();
                 var useEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
@@ -1219,14 +1223,17 @@
                         else en = legacy;
                     }
                 }
+                var noPrompt = !userDesignHasGenerationPrompt(p);
                 if (useEn) {
                     if (en && !isGenericMediaWallCardTitle(en)) return en;
                     if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
+                    if (noPrompt) return homeT('customProduct.untitledDesign', '—');
                     return homeT('home.defaultDesignDraftEn', 'Product design draft');
                 }
                 if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
                 if (zh && mediaWallTextHasCjk(zh)) return zh;
                 if (en && !isGenericMediaWallCardTitle(en)) return en;
+                if (noPrompt) return homeT('customProduct.untitledDesign', '—');
                 return mediaWallDefaultDesignTitle();
             }
             function mediaWallCreatedDesc(a, b) {
@@ -1245,10 +1252,10 @@
                     var link = escAttr(p.link || '/custom/gallery.html');
                     var mwUseEn = String(getMediaWallLang() || '').toLowerCase().indexOf('zh') !== 0;
                     var titleRaw = pickMediaWallLocalizedTitle(p);
-                    if (p.type === 'user_design') {
-                        if (!mwUseEn && !mediaWallTextHasCjk(titleRaw) && isGenericMediaWallCardTitle(titleRaw)) {
-                            titleRaw = mediaWallDefaultDesignTitle();
-                        }
+                    if (p.type === 'user_design' && !titleRaw) {
+                        titleRaw = userDesignHasGenerationPrompt(p)
+                            ? (mwUseEn ? homeT('home.defaultDesignDraftEn', 'Product design draft') : mediaWallDefaultDesignTitle())
+                            : homeT('customProduct.untitledDesign', '—');
                     } else if (p.type === 'promo_scene') {
                         if (!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '推廣圖' || titleRaw === '未命名' || titleRaw === '情境圖' || titleRaw === 'Scene image' || titleRaw === 'Untitled') {
                             var pd = (p.scene_description || p.description || p.user_prompt || '').trim();

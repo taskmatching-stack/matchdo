@@ -176,6 +176,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D2** 設計稿 JS：數位資產 tab／modal／caption `tr()`；`refSourcesTitleCount`；`20260929-d2-gallery-js`。
 - 2026-09-29：**D2** 廠商素材 picker 服務區「全國」suffix、locale 切換重繪；`20260929-d2-vendor-picker`。
 - 2026-09-29：**D2** 參考槽總數 pill `refIntentTotalPill`；locale 切換重跑 `__renderIntentSlots`；`20260929-d2-ref-slots`。
+- 2026-09-29：**D2** 參考槽 tablist `refIntentTabsAria`；`untitledDesign`；`20260929-d2-untitled-ref`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 

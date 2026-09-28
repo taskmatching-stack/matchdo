@@ -1620,7 +1620,8 @@ $(document).ready(function () {
 
         var $wrap = $('<div class="ref-intent-tabs-wrap"></div>');
         var $navRow = $('<div class="ref-intent-tabs-nav"></div>');
-        var $scroll = $('<div class="ref-intent-tabs-scroll" role="tablist"></div>');
+        var $scroll = $('<div class="ref-intent-tabs-scroll" role="tablist"></div>')
+            .attr('aria-label', tr('customProduct.refIntentTabsAria', '參考圖類別'));
         var vendorLock = hasVendorPrototypeLock();
         REF_INTENT_SLOTS.forEach(function (def) {
             var n = countSlotRefImages(def.key);
@@ -5051,7 +5052,9 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = tr('customProduct.defaultSaveTitle', '產品設計稿');
+        var title = promptText
+            ? promptText.substring(0, 56) + (promptText.length > 56 ? '…' : '')
+            : tr('customProduct.untitledDesign', '未命名');
         var description = tr('customProduct.noDescription', '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {

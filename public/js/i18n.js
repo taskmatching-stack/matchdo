@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-ref-slots';
+    var LOCALE_CACHE_V = '20260929-d2-untitled-ref';
 
     function loadLocale(lang) {
         lang = lang || getLang();
