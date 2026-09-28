@@ -86,7 +86,9 @@ node scripts/audit-frontend-i18n.js
 | 頁面 | 狀態 |
 |------|------|
 | `profile/account.html`, `contact-info.html` | 部分 |
-| `subscription-plans.html`, `credits.html` | 部分 |
+| `subscription-plans.html` | 部分 |
+| `credits.html` | OK | `credits.*` 靜態 + 訂閱／寬限期 JS（2026-09-29） |
+| `custom-product.js` | 部分 | 設計頁 HTML 多已 `data-i18n`；JS 持續補 `tr()` |
 | `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
 | `folder-edit.html` | OK | `folderEdit.*`（2026-09-29） |
@@ -116,3 +118,4 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`no-access`、`embed/preview-simulator`、`custom/index`、legacy `manufacturer-inquiries`（轉址保留 `lang`）。
 - 2026-09-29：`custom/gallery` 語系與 `gallery.*` 鍵；`custom/collection`；`design-direction/analysis` 表單與 modal。
 - 2026-09-29：`vendors.html` 地區大區標籤 `vendors.areaGroup.*`；`industry-supplier-catalog` 登入提示。
+- 2026-09-29：`credits.html` 訂閱管理／寬限期／legacy 訂閱 URL 模式；`custom-product.js` 儲存／刪除／實境模擬 alert 一批。

@@ -47,12 +47,12 @@
       <div id="wallGraceReminder" class="alert alert-info border-0 shadow-sm mb-3 d-none" role="alert">
         <i class="bi bi-info-circle me-2"></i>
         <span id="wallGraceReminderText"></span>
-        <a href="/subscription-plans.html" class="alert-link ms-2">完成續訂</a>
+        <a href="/subscription-plans.html" class="alert-link ms-2" data-i18n="credits.completeRenewal">完成續訂</a>
       </div>
       <div id="subscriptionManagePanel" class="payment-section mb-3 d-none">
-        <h5 class="mb-2">目前方案</h5>
+        <h5 class="mb-2" data-i18n="credits.currentPlanTitle">目前方案</h5>
         <p id="subscriptionManageSummary" class="text-muted small mb-3"></p>
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAdjustToFree">調整為免費方案</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAdjustToFree" data-i18n="credits.adjustToFreeBtn">調整為免費方案</button>
       </div>
       <div class="credits-hero">
         <div class="small opacity-90" data-i18n="credits.currentBalance">目前餘額</div>
@@ -77,7 +77,7 @@
 
         <!-- 訂閱方案模式：僅顯示方案與金額（不與儲值混在一起） -->
         <div id="step1Subscription" style="display:none;">
-          <div class="step-label">訂閱方案</div>
+          <div class="step-label" data-i18n="credits.subscriptionStepLabel">訂閱方案</div>
           <p id="subscriptionSummary" class="mb-3"></p>
         </div>
 
@@ -133,7 +133,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="cancelSubscriptionModalLabel" data-i18n="credits.cancelModalTitle">調整為免費方案</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="home.close" aria-label="關閉"></button>
         </div>
         <div class="modal-body">
           <p data-i18n="credits.cancelModalLead">您將調整為<strong>免費方案</strong>。付費期間享有的上牆控制將結束：</p>
@@ -173,7 +173,7 @@
       var v = window.i18n.t(key);
       if (v && v !== key) return v;
     }
-    var fallback = { 'credits.typePurchase': '儲值', 'credits.typeConsumed': '消費', 'credits.typeGranted': '贈送', 'credits.errAmount': '請填寫金額與點數', 'credits.errProvider': '請選擇付款方式', 'credits.errCreate': '建立訂單失敗', 'credits.renewalReminder': '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。', 'credits.renewNow': '立即續訂' };
+    var fallback = { 'credits.typePurchase': '儲值', 'credits.typeConsumed': '消費', 'credits.typeGranted': '贈送', 'credits.errAmount': '請填寫金額與點數', 'credits.errProvider': '請選擇付款方式', 'credits.errCreate': '建立訂單失敗', 'credits.renewalReminder': '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。', 'credits.renewNow': '立即續訂', 'credits.wallGraceReminder': '付費方案已到期，您還有約 {days} 日可整理靈感牆公開設定或完成續訂；期滿後非人像作品將依免費方案展示。', 'credits.paidPlanFallback': '付費方案', 'credits.subscriptionManageSummary': '「{plan}」有效至 {date}{autoRenew}', 'credits.subscriptionAutoRenew': '（自動續訂）', 'credits.subscriptionCheckoutTitle': '訂閱方案付款', 'credits.billingYearly': '年繳', 'credits.billingMonthly': '月繳', 'credits.subscriptionSummary': '您正在訂閱方案（{billing}），金額與點數由方案固定，不可修改。訂閱與儲值為不同邏輯：此為方案月費／年費，非單次儲值。', 'credits.yearlyCreditsLabel': '年訂閱獲得點數', 'credits.periodCreditsLabel': '每期點數', 'credits.backPromoCamera': '返回商攝導演', 'credits.pointsInfoNote': '各方案用盡後可加購 {n} 點/月/分類（與後台點數規則同步）。' };
     return fallback[key] || key;
   }
 
@@ -367,7 +367,7 @@
         if (graceEl && graceText) {
           var daysLeft = data && data.wall_grace_days_left;
           if (daysLeft != null && daysLeft > 0) {
-            graceText.textContent = '付費方案已到期，您還有約 ' + daysLeft + ' 日可整理靈感牆公開設定或完成續訂；期滿後非人像作品將依免費方案展示。';
+            graceText.textContent = (t('credits.wallGraceReminder') || '').replace('{days}', daysLeft);
             graceEl.classList.remove('d-none');
           } else {
             graceEl.classList.add('d-none');
@@ -377,7 +377,10 @@
           if (data && data.can_cancel_to_free && data.subscriptions && data.subscriptions.length) {
             var sub = data.subscriptions[0];
             var endStr2 = sub.end_date ? new Date(sub.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
-            manageSummary.textContent = '「' + (sub.plan_name || '付費方案') + '」有效至 ' + endStr2 + (sub.auto_renew ? '（自動續訂）' : '');
+            manageSummary.textContent = (t('credits.subscriptionManageSummary') || '')
+              .replace('{plan}', sub.plan_name || t('credits.paidPlanFallback') || '付費方案')
+              .replace('{date}', endStr2)
+              .replace('{autoRenew}', sub.auto_renew ? (t('credits.subscriptionAutoRenew') || '（自動續訂）') : '');
             managePanel.classList.remove('d-none');
             lastRefundPreview = data.refund_preview || null;
             var previewEl = document.getElementById('cancelRefundPreview');
@@ -483,7 +486,7 @@
         })
         .catch(function () {
           btnConfirmCancel.disabled = false;
-          alert('調整失敗，請稍後再試');
+          alert(t('credits.cancelFailed') || '調整失敗，請稍後再試');
         });
     });
   }
@@ -609,17 +612,17 @@
     var isSubscriptionMode = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan;
 
     if (isSubscriptionMode) {
-      if (titleEl) titleEl.textContent = '訂閱方案付款';
+      if (titleEl) titleEl.textContent = t('credits.subscriptionCheckoutTitle') || '訂閱方案付款';
       if (step1TopUp) step1TopUp.style.display = 'none';
       if (step1Sub) step1Sub.style.display = 'block';
-      var billingText = urlBilling === 'yearly' ? '年繳' : '月繳';
-      if (summaryEl) summaryEl.textContent = '您正在訂閱方案（' + billingText + '），金額與點數由方案固定，不可修改。訂閱與儲值為不同邏輯：此為方案月費／年費，非單次儲值。';
+      var billingText = urlBilling === 'yearly' ? (t('credits.billingYearly') || '年繳') : (t('credits.billingMonthly') || '月繳');
+      if (summaryEl) summaryEl.textContent = (t('credits.subscriptionSummary') || '').replace('{billing}', billingText);
       var amountInput = document.getElementById('amount');
       var creditsInput = document.getElementById('credits');
       if (amountInput) { amountInput.value = amount || ''; amountInput.readOnly = true; amountInput.classList.add('bg-light'); }
       if (creditsInput) { creditsInput.value = credits || ''; creditsInput.readOnly = true; creditsInput.classList.add('bg-light'); }
       var credLabel = document.getElementById('creditsLabel');
-      if (credLabel) credLabel.textContent = urlBilling === 'yearly' ? '年訂閱獲得點數' : '每期點數';
+      if (credLabel) credLabel.textContent = urlBilling === 'yearly' ? (t('credits.yearlyCreditsLabel') || '年訂閱獲得點數') : (t('credits.periodCreditsLabel') || '每期點數');
       if (hintEl) {
         hintEl.textContent = urlBilling === 'monthly'
           ? (t('credits.subscriptionMonthlyHint') || '月訂閱：PayPal 自動扣款（美金），每月續扣並入點。')
@@ -645,16 +648,16 @@
       if (backLink && returnUrl && returnUrl.startsWith('/')) {
         backLink.href = returnUrl;
         backLink.textContent = returnUrl.indexOf('/promo-camera-app') === 0
-          ? (lang === 'en' ? 'Back to Promo Camera' : '返回商攝導演')
+          ? (t('credits.backPromoCamera') || '返回商攝導演')
           : t('credits.backHome');
       }
       fetch('/api/points-info').then(function (r) { return r.json(); }).then(function (data) {
         var n = (data && data.points_listing_per_category != null) ? data.points_listing_per_category : 200;
         var note = document.getElementById('pointsInfoNote');
-        if (note) { note.textContent = '各方案用盡後可加購 ' + n + ' 點/月/分類（與後台點數規則同步）。'; note.style.display = 'block'; }
+        if (note) { note.textContent = (t('credits.pointsInfoNote') || '').replace('{n}', n); note.style.display = 'block'; }
       }).catch(function () {
         var note = document.getElementById('pointsInfoNote');
-        if (note) { note.textContent = '各方案用盡後可加購 200 點/月/分類（與後台點數規則同步）。'; note.style.display = 'block'; }
+        if (note) { note.textContent = (t('credits.pointsInfoNote') || '').replace('{n}', 200); note.style.display = 'block'; }
       });
     }
   }

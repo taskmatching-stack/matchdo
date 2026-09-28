@@ -4675,7 +4675,7 @@ $(document).ready(function () {
         if (mainKey) categoryKeys.push(mainKey);
         if (subKey) categoryKeys.push(subKey);
         if (categoryKeys.length === 0) {
-            alert('請先選擇主分類（必選），會影響生成的產品類型。');
+            alert(tr('customProduct.needMainCategoryForGenerate', '請先選擇主分類（必選），會影響生成的產品類型。'));
             isGenerateInProgress = false;
             return;
         }
@@ -5018,8 +5018,8 @@ $(document).ready(function () {
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
         var title = promptText
             ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '')
-            : (staffDebugLangEn() ? 'Product design draft' : '產品設計稿');
-        var description = promptText || (staffDebugLangEn() ? '(No description)' : '（無描述）');
+            : tr('customProduct.defaultSaveTitle', '產品設計稿');
+        var description = promptText || tr('customProduct.noDescription', '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
             var seedInput = $('#generationSeed').val();
@@ -5030,14 +5030,12 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert(staffDebugLangEn()
-                ? 'No image to save yet. Generate a design draft first.'
-                : '尚無可儲存的生成圖，請先生成設計稿。');
+            alert(tr('customProduct.noImageToSaveYet', '尚無可儲存的生成圖，請先生成設計稿。'));
             return;
         }
         getAuthToken(function (token) {
             if (!token) {
-                alert(staffDebugLangEn() ? 'Please log in to save.' : '請先登入後再儲存。');
+                alert(tr('customProduct.loginToSave', '請先登入後再儲存。'));
                 return;
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
@@ -5057,7 +5055,7 @@ $(document).ready(function () {
             if (firstRefImageUrl) payload.reference_image_url = firstRefImageUrl;
             if (refSourcesList.length) payload.reference_sources = refSourcesList;
             payload.show_on_homepage = readDesignShowOnHomepageChecked();
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>儲存中...');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>' + tr('customProduct.savingBtn', '儲存中...'));
             fetch('/api/custom-products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -5070,20 +5068,20 @@ $(document).ready(function () {
                 }); })
                 .then(function (r) {
                     if (r.ok && r.data && r.data.success) {
-                        alert('已儲存至「我的訂製產品」。');
+                        alert(tr('customProduct.saveSuccessMyProducts', '已儲存至「我的訂製產品」。'));
                         invalidateGalleryCache();
                         setTimeout(function () {
                             try { refreshPastGeneratedGallery(undefined, { skipIfSame: true }); } catch (e) { console.warn(e); }
                         }, 1200);
                     } else {
-                        alert(r.data && r.data.error ? r.data.error : '儲存失敗');
+                        alert(r.data && r.data.error ? r.data.error : tr('customProduct.saveFailed', '儲存失敗'));
                     }
                 })
                 .catch(function (err) {
                     console.warn('save product:', err);
-                    alert('儲存失敗，請稍後再試');
+                    alert(tr('customProduct.saveFailedRetry', '儲存失敗，請稍後再試'));
                 })
-                .finally(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>儲存為我的訂製產品'); });
+                .finally(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>' + tr('customProduct.saveAsMyProductBtn', '儲存為我的訂製產品')); });
         });
     });
 
@@ -5689,11 +5687,11 @@ $(document).ready(function () {
                 if (r.ok && r.data && r.data.success) {
                     if (typeof cb === 'function') cb(true);
                 } else {
-                    alert((r.data && r.data.error) || '刪除失敗');
+                    alert((r.data && r.data.error) || tr('customProduct.deleteDesignFailed', '刪除失敗'));
                     if (typeof cb === 'function') cb(false);
                 }
             }).catch(function () {
-                alert('刪除失敗');
+                alert(tr('customProduct.deleteDesignFailed', '刪除失敗'));
                 if (typeof cb === 'function') cb(false);
             });
         });
@@ -5701,7 +5699,7 @@ $(document).ready(function () {
 
     function attachPastMaterialComboDeleteBtn($cell, comboId) {
         if (!comboId || !$cell || !$cell.length) return;
-        var label = '刪除';
+        var label = tr('customProduct.deleteDesign', '刪除');
         var $del = $('<button type="button" class="past-item-delete" aria-label="' + label + '" title="' + label + '">×</button>');
         $del.on('click', function (e) {
             e.preventDefault();
@@ -5716,7 +5714,7 @@ $(document).ready(function () {
 
     function deletePrintAssetById(printId, cb) {
         if (!printId) return;
-        if (!confirm('確定要刪除此印花？刪除後無法復原。')) return;
+        if (!confirm(tr('customProduct.deletePrintConfirm', '確定要刪除此印花？刪除後無法復原。'))) return;
         getAuthToken(function (token) {
             if (!token) {
                 alert(t('customProduct.loginToViewHistory') || '請先登入');
@@ -5735,11 +5733,11 @@ $(document).ready(function () {
                 if (r.ok && r.data && r.data.success) {
                     if (typeof cb === 'function') cb(true);
                 } else {
-                    alert((r.data && r.data.error) || '刪除失敗');
+                    alert((r.data && r.data.error) || tr('customProduct.deleteDesignFailed', '刪除失敗'));
                     if (typeof cb === 'function') cb(false);
                 }
             }).catch(function () {
-                alert('刪除失敗');
+                alert(tr('customProduct.deleteDesignFailed', '刪除失敗'));
                 if (typeof cb === 'function') cb(false);
             });
         });
@@ -6694,11 +6692,11 @@ $(document).ready(function () {
         var envUrl = window.sceneSimEnvImageDataUrl || '';
         var productUrl = getSceneSimPreviewUrl();
         if (!envUrl) {
-            alert('請上傳環境或人物圖片（左欄）');
+            alert(tr('customProduct.sceneSimNeedEnvImage', '請上傳環境或人物圖片（左欄）'));
             return;
         }
         if (!productUrl) {
-            alert('請選擇產品圖片（右欄，可點擊從數位資產選擇）');
+            alert(tr('customProduct.sceneSimNeedProductImage', '請選擇產品圖片（右欄，可點擊從數位資產選擇）'));
             return;
         }
         var $btn = $('#sceneSimApplyBtn');
@@ -7407,7 +7405,10 @@ $(document).ready(function () {
 // 聯繫廠商（全域函數）
 function contactManufacturer(id) {
     // TODO: 實作聯繫功能
-    alert('聯繫功能開發中，廠商 ID: ' + id);
+    var msgKey = 'customProduct.contactMfrDeveloping';
+    var msg = (window.i18n && window.i18n.t) ? window.i18n.t(msgKey) : msgKey;
+    if (!msg || msg === msgKey) msg = '聯繫功能開發中，廠商 ID: {id}';
+    alert(msg.replace('{id}', id));
 }
 
 // 重試生成圖片
