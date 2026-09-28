@@ -3,6 +3,13 @@
  * 檔案：public/js/remake-product.js，頁面：public/design-direction/analysis.html
  */
 $(document).ready(function () {
+    function rpTr(key, zhFallback) {
+        if (window.i18n && window.i18n.t) {
+            var v = window.i18n.t(key);
+            if (v && v !== key) return v;
+        }
+        return zhFallback != null ? zhFallback : '';
+    }
     let generatedImageData = null;
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）
@@ -268,7 +275,7 @@ $(document).ready(function () {
             renderRefSlots();
             renderRefCards();
         } catch (err) {
-            alert('讀取圖片失敗，請重試。');
+            alert(rpTr('remakeProduct.alertReadImageFail', '讀取圖片失敗，請重試。'));
         }
         e.target.value = '';
     });
@@ -289,10 +296,10 @@ $(document).ready(function () {
                 descArea.val(data.description);
                 refDescs[index] = data.description;
             } else {
-                alert(data.error || '無法產生描述');
+                alert(data.error || rpTr('remakeProduct.alertGenDescFail', '無法產生描述'));
             }
         } catch (e) {
-            alert('讀圖產生描述時發生錯誤');
+            alert(rpTr('remakeProduct.alertGenDescError', '讀圖產生描述時發生錯誤'));
         } finally {
             btn.prop('disabled', false).html(originalText);
         }
@@ -315,7 +322,7 @@ $(document).ready(function () {
         if (typeof window.gtag === 'function') { window.gtag('event', 'remake_generate_click', {}); }
         const prompt = $('#productPrompt').val().trim();
         if (!prompt) {
-            alert('請輸入文字描述');
+            alert(rpTr('remakeProduct.alertPromptRequired', '請輸入文字描述'));
             return;
         }
         if (refDataUrls.filter(Boolean).length === 0) {
@@ -328,7 +335,7 @@ $(document).ready(function () {
         if (mainKey) categoryKeys.push(mainKey);
         if (subKey) categoryKeys.push(subKey);
         if (categoryKeys.length === 0) {
-            alert('請選擇主分類');
+            alert(rpTr('remakeProduct.alertMainCategoryRequired', '請選擇主分類'));
             return;
         }
 
@@ -468,14 +475,12 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert(isEn
-                ? 'No image to save yet. Generate a design draft first.'
-                : '尚無可儲存的生成圖，請先生成設計稿。');
+            alert(rpTr('remakeProduct.alertNothingToSave', '尚無可儲存的生成圖，請先生成設計稿。'));
             return;
         }
         getAuthToken(function (token) {
             if (!token) {
-                alert(isEn ? 'Please log in to save.' : '請先登入後再儲存。');
+                alert(rpTr('remakeProduct.alertLoginToSave', '請先登入後再儲存。'));
                 return;
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
@@ -501,15 +506,15 @@ $(document).ready(function () {
                 }); })
                 .then(function (r) {
                     if (r.ok && r.data && r.data.success) {
-                        alert('已儲存至「我的設計風向」。可從選單「設計風向 → 我的設計風向」查看。');
+                        alert(rpTr('remakeProduct.alertSavedDirection', '已儲存至「我的設計風向」。可從選單「設計風向 → 我的設計風向」查看。'));
                         try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
                     } else {
-                        alert(r.data && r.data.error ? r.data.error : '儲存失敗');
+                        alert(r.data && r.data.error ? r.data.error : rpTr('remakeProduct.alertSaveFailed', '儲存失敗'));
                     }
                 })
                 .catch(function (err) {
                     console.warn('save product:', err);
-                    alert('儲存失敗，請稍後再試');
+                    alert(rpTr('remakeProduct.alertSaveRetry', '儲存失敗，請稍後再試'));
                 })
                 .finally(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>儲存為我的訂製產品'); });
         });

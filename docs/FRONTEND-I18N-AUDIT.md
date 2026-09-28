@@ -53,14 +53,14 @@ node scripts/audit-frontend-i18n.js
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
 | `custom-product.html` | 部分 | 大量 `data-i18n`；`formatMaterialComboAddon` 等 JS 持續補 |
-| `client/my-custom-products.html` | OK（UI） | 靜態 `data-i18n` + 各 Tab 卡片／收藏／toast JS；API 標籤／保留期 label 仍為內容 |
+| `client/my-custom-products.html` | OK（UI） | 小卡 `col-xl-2`；主按鈕「詳情／履歷」+「更多」收描述／標籤；`zh-TW`／`en` 分檔，勿互塞 |
 | `client/find-makers.html` | OK | `findMakers.*` + 列表 JS |
 | `client/custom-product-detail.html` | OK（UI） | `customProductDetail.*`；分類名等 API 內容仍原語 |
 | `client/print-asset.html` | OK | `printAsset.*` 靜態 + 提示詞預覽／存庫 JS |
 | `client/material-dual-color.html` | OK（UI） | `materialCombo.*`；色標由 `syncModeUi` 更新 |
 | `client/promo-camera.html` / `promo-camera-app.html` | 部分 | L3 凍結區慎改 |
 | `product-tree.html` | OK（UI） | 靜態 `data-i18n` + OG／Twitter meta 依 `lang`；`vendor-product-link-tree.js` 已 `tr()` |
-| `design-direction/*` | 部分 | |
+| `design-direction/*` | 部分 | `remake-product.js` alert 接 `remakeProduct.alert*`（持續補 UI 字串） |
 | `remake/*` | 缺／部分 | |
 | `embed/simulator.html` | 部分 | |
 
@@ -113,7 +113,7 @@ node scripts/audit-frontend-i18n.js
 | `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
 | `folder-edit.html` | OK | `folderEdit.*`（2026-09-29） |
-| 首頁 `iStudio-1.0.0/index.html` | 部分 |
+| 首頁 `iStudio-1.0.0/index.html` | 部分 | 媒體牆卡片語系 API+`pickMediaWallLocalizedTitle`；篩選 chip 用 `home.*` |
 
 ### G. 刻意不做 UI i18n
 

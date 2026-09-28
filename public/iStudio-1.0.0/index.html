@@ -1181,6 +1181,13 @@
                 if (!currentLang && window.i18n && typeof window.i18n.getLang === 'function') currentLang = window.i18n.getLang() || '';
                 return currentLang || 'zh-TW';
             }
+            function homeT(key, zhFallback) {
+                if (window.i18n && typeof window.i18n.t === 'function') {
+                    var v = window.i18n.t(key);
+                    if (v && v !== key) return v;
+                }
+                return zhFallback != null ? zhFallback : '';
+            }
             function isGenericMediaWallCardTitle(t) {
                 if (!t) return true;
                 var s = String(t).trim();
@@ -1626,7 +1633,7 @@
                 if (!el) return;
                 var chips = [];
                 if (currentQ) {
-                    chips.push({ kind: 'q', label: '\u641c\u7d22\uff1a' + currentQ, clear: function () {
+                    chips.push({ kind: 'q', label: homeT('home.filterSearchPrefix', '搜尋：') + currentQ, clear: function () {
                         currentQ = '';
                         if (searchInput) searchInput.value = '';
                         updateMediaWallURL({ q: '' });
@@ -1634,10 +1641,15 @@
                     } });
                 }
                 currentTagFilters.forEach(function (t) {
-                    chips.push({ kind: 'tag', label: '\u6a19\u7c64\uff1a' + t, clear: function () { toggleTagFilter(t); } });
+                    chips.push({ kind: 'tag', label: homeT('home.filterTagPrefix', '標籤：') + t, clear: function () { toggleTagFilter(t); } });
                 });
                 if (currentLayoutType) {
-                    var layoutLabels = { user_design: '\u8a2d\u8a08\u5716', comparison: '\u5c0d\u7167\u5716', series: '\u7cfb\u5217\u5716', promo_scene: '\u60c5\u5883\u5716' };
+                    var layoutLabels = {
+                        user_design: homeT('home.layoutDesign', '設計稿'),
+                        comparison: homeT('home.layoutComparison', '對照圖'),
+                        series: homeT('home.layoutSeries', '系列圖'),
+                        promo_scene: homeT('home.layoutPromoScene', '情境圖')
+                    };
                     chips.push({ kind: 'layout', label: layoutLabels[currentLayoutType] || currentLayoutType, clear: function () { setLayoutType(''); } });
                 }
                 if (currentLayoutType === 'promo_scene' && currentPromoKind) {
@@ -1663,7 +1675,7 @@
                 else {
                     el.classList.remove('d-none');
                     el.innerHTML = chips.map(function (c) {
-                        return '<span class="mw-active-filter-chip">' + esc(c.label) + '<button type="button" aria-label="\u79fb\u9664\u7be9\u9078">&times;</button></span>';
+                        return '<span class="mw-active-filter-chip">' + esc(c.label) + '<button type="button" aria-label="' + escAttr(homeT('home.clearFilterAria', '移除篩選')) + '">&times;</button></span>';
                     }).join('');
                     el.querySelectorAll('.mw-active-filter-chip').forEach(function (chip, i) {
                         var btn = chip.querySelector('button');
