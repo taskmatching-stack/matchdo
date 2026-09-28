@@ -1226,6 +1226,7 @@
                 }
                 if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
                 if (zh && mediaWallTextHasCjk(zh)) return zh;
+                if (en && !isGenericMediaWallCardTitle(en)) return en;
                 return mediaWallDefaultDesignTitle();
             }
             function mediaWallCreatedDesc(a, b) {

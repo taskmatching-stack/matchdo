@@ -6790,7 +6790,7 @@ async function hydrateCustomProductTitlesForList(list, ownerId) {
         });
         const { data: row } = await supabase
             .from('custom_products')
-            .select('title, title_en, description, description_en, image_semantics_json, ai_tags')
+            .select('title, title_en, description, image_semantics_json, ai_tags')
             .eq('id', p.id)
             .eq('owner_id', ownerId)
             .maybeSingle();
@@ -6826,10 +6826,18 @@ function localizeCustomProductForApiResponse(p, lang) {
     const sem = parseImageSemanticsJson(p.image_semantics_json);
     const titlePair = resolveCustomProductTitlePairFromRow(p);
     if (titlePair) {
-        if (shouldReplaceCustomProductTitleFromAi(titleZh, gp) && titlePair.zh) titleZh = titlePair.zh;
+        if (shouldReplaceCustomProductTitleFromAi(titleZh, gp)) {
+            if (titlePair.zh) titleZh = titlePair.zh;
+            else if (titlePair.en) titleZh = titlePair.en;
+        }
         const enNeeds = !String(titleEn || '').trim() || isGenericMediaWallTitle(titleEn)
             || customProductTextCopiedFromPrompt(titleEn, gp);
         if (enNeeds && titlePair.en) titleEn = titlePair.en;
+        else if (enNeeds && titlePair.zh) titleEn = titlePair.zh;
+    }
+    if (shouldReplaceCustomProductTitleFromAi(titleZh, gp) && gp) {
+        const fromPrompt = truncateMediaWallTitle(gp);
+        if (fromPrompt) titleZh = fromPrompt;
     }
     if (sem && shouldReplaceCustomProductDescriptionFromAi(descZh, gp)) {
         const dz = (sem.product_description_zh || '').trim();
@@ -6920,6 +6928,7 @@ function pickMediaWallLocalizedTitle(zh, en, lang, kind) {
     }
     if (zOk) return z;
     if (z && mediaWallTextHasCjk(z)) return z;
+    if (eOk) return e;
     return kind === 'promo' ? mediaWallPromoDefaultTitle(lang) : mediaWallUserDesignDefaultTitle(lang);
 }
 
@@ -6928,8 +6937,10 @@ function resolveUserDesignMediaWallTitlePair(p) {
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
     const genPrompt = (p.generation_prompt || (aj && aj.generation_prompt) || '').trim();
     const sem = parseImageSemanticsJson(p.image_semantics_json);
-    const fromSem = intentSummaryTitlePairFromSemantics(sem);
-    if (fromSem.zh || fromSem.en) return fromSem;
+    const fromStored = resolveCustomProductTitlePairFromRow(p);
+    if (fromStored && (fromStored.zh || fromStored.en)) {
+        return { zh: fromStored.zh || '', en: fromStored.en || '' };
+    }
 
     const fromDb = mediaWallTitlePairFromDbTitleFields(p.title, p.title_en);
     if (fromDb.zh || fromDb.en) return fromDb;
@@ -11857,9 +11868,58 @@ async function recordVisualSemanticsEvent(row) {
     }
 }
 
+/** 語意 UPDATE：缺欄位時分層降級，避免整筆失敗導致 title 永遠卡在「產品設計稿」 */
+async function persistCustomProductSemanticsUpdate(productId, updates) {
+    if (!productId || !updates || typeof updates !== 'object') return { ok: false, error: { message: 'empty' } };
+    function layer(full, omitKeys) {
+        const u = Object.assign({}, full);
+        (omitKeys || []).forEach(function (k) { delete u[k]; });
+        return u;
+    }
+    const attempts = [
+        updates,
+        layer(updates, ['title_en', 'description_en']),
+        layer(updates, ['title_en', 'description_en', 'ai_tags_by_dimension', 'prompt_semantics_json', 'semantics_generated_at']),
+        (function () {
+            const u = {};
+            if (updates.title != null) u.title = updates.title;
+            if (updates.title_en != null) u.title_en = updates.title_en;
+            if (updates.description != null) u.description = updates.description;
+            if (updates.ai_tags != null) u.ai_tags = updates.ai_tags;
+            if (updates.image_semantics_json != null) u.image_semantics_json = updates.image_semantics_json;
+            return u;
+        })(),
+        (function () {
+            const u = {};
+            if (updates.title != null) u.title = updates.title;
+            if (updates.description != null) u.description = updates.description;
+            if (updates.ai_tags != null) u.ai_tags = updates.ai_tags;
+            return u;
+        })(),
+        (function () {
+            const u = {};
+            if (updates.title != null) u.title = updates.title;
+            return u;
+        })()
+    ];
+    for (let i = 0; i < attempts.length; i++) {
+        const patch = attempts[i];
+        if (!patch || !Object.keys(patch).length) continue;
+        const { error } = await supabase.from('custom_products').update(patch).eq('id', productId);
+        if (!error) return { ok: true, layer: i, patchKeys: Object.keys(patch) };
+        if (error.code !== '42703' && !/column/i.test(String(error.message || ''))) {
+            return { ok: false, error };
+        }
+    }
+    return { ok: false, error: { message: 'all layers failed (missing custom_products semantics columns?)' } };
+}
+
 /** 設計頁生成圖（custom_products）→ ai_tags／語意；讀圖方式與情境圖 enrichPromoGenerationSemantics 相同 */
 async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
-    if (!productId || !process.env.GEMINI_API_KEY) return null;
+    if (!productId || !process.env.GEMINI_API_KEY) {
+        console.warn('enrichCustomProductSemantics skipped id=%s reason=no_gemini_key', productId);
+        return null;
+    }
     try {
         const deps = getVisualSemanticsDeps();
         let imagePart;
@@ -11896,14 +11956,12 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         let currentTitle = (ctx.title || '').trim();
         let currentTitleEn = (ctx.title_en || '').trim();
         let currentDescription = '';
-        let currentDescriptionEn = '';
         try {
-            const { data: row } = await supabase.from('custom_products').select('title, title_en, description, description_en, generation_prompt').eq('id', productId).maybeSingle();
+            const { data: row } = await supabase.from('custom_products').select('title, title_en, description, generation_prompt').eq('id', productId).maybeSingle();
             if (row) {
                 if (!currentTitle) currentTitle = (row.title) ? String(row.title).trim() : '';
                 if (!currentTitleEn) currentTitleEn = (row.title_en) ? String(row.title_en).trim() : '';
                 currentDescription = (row.description) ? String(row.description).trim() : '';
-                currentDescriptionEn = (row.description_en) ? String(row.description_en).trim() : '';
                 if (!genPrompt && row.generation_prompt) genPrompt = String(row.generation_prompt).trim();
             }
         } catch (_) {}
@@ -11915,10 +11973,14 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
             semantics_generated_at: new Date().toISOString()
         };
         if (titlePair) {
-            if (titlePair.zh && shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) updates.title = titlePair.zh;
+            if (shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) {
+                if (titlePair.zh) updates.title = titlePair.zh;
+                else if (titlePair.en) updates.title = titlePair.en;
+            }
             const enNeeds = !currentTitleEn || isGenericMediaWallTitle(currentTitleEn)
                 || customProductTextCopiedFromPrompt(currentTitleEn, genPrompt);
             if (titlePair.en && enNeeds) updates.title_en = titlePair.en;
+            else if (enNeeds && titlePair.zh) updates.title_en = titlePair.zh;
         }
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
         const descZh = (imgResult.semantics && imgResult.semantics.product_description_zh
@@ -11930,26 +11992,17 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         if (shouldReplaceCustomProductDescriptionFromAi(currentDescription, genPrompt) && descZh) {
             updates.description = descZh;
         }
-        if (shouldReplaceCustomProductDescriptionFromAi(currentDescriptionEn, genPrompt) && descEn) {
-            updates.description_en = descEn;
-        }
-        let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
-        if (updErr && updErr.code === '42703') {
-            const stripped = Object.assign({}, updates);
-            if (stripped.title_en) delete stripped.title_en;
-            if (stripped.description_en) delete stripped.description_en;
-            ({ error: updErr } = await supabase.from('custom_products').update(stripped).eq('id', productId));
-            if (!updErr && (updates.title_en || updates.description_en)) {
-                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-title-i18n.sql 以寫入 title_en／description_en');
-            }
-        }
-        if (updErr) {
-            if (updErr.code === '42703') {
-                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-semantics.sql 與 add-custom-products-semantics-taxonomy.sql');
-            } else {
-                console.warn('enrichCustomProductSemantics update:', updErr.message);
-            }
+        const persist = await persistCustomProductSemanticsUpdate(productId, updates);
+        if (!persist.ok) {
+            console.warn('enrichCustomProductSemantics update failed id=%s err=%s (run docs/add-custom-products-semantics.sql, add-custom-products-semantics-taxonomy.sql, add-custom-products-title-i18n.sql)',
+                productId, (persist.error && persist.error.message) || 'unknown');
             return null;
+        }
+        if (persist.layer > 0) {
+            console.warn('enrichCustomProductSemantics partial schema id=%s layer=%s keys=%s', productId, persist.layer, (persist.patchKeys || []).join(','));
+        }
+        if (updates.title) {
+            console.log('custom_products title from image semantics id=%s title=%s', productId, String(updates.title).substring(0, 48));
         }
         let lineageMeta = null;
         try {
@@ -28909,21 +28962,24 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, title_en, description, description_en, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
-            let { data, error } = await supabase
-                .from('custom_products')
-                .select(listSelect)
-                .eq('owner_id', user.id)
-                .order('created_at', { ascending: false })
-                .range(offsetN, rangeEnd);
-            if (error && error.code === '42703') {
-                const fallbackSelect = 'id, title, description, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags, generation_prompt';
-                ({ data, error } = await supabase
+            const listSelectCandidates = [
+                'id, title, title_en, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources',
+                'id, title, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources',
+                'id, title, description, generation_prompt, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags, reference_sources'
+            ];
+            let data = null;
+            let error = null;
+            for (let si = 0; si < listSelectCandidates.length; si++) {
+                const res = await supabase
                     .from('custom_products')
-                    .select(fallbackSelect)
+                    .select(listSelectCandidates[si])
                     .eq('owner_id', user.id)
                     .order('created_at', { ascending: false })
-                    .range(offsetN, rangeEnd));
+                    .range(offsetN, rangeEnd);
+                data = res.data;
+                error = res.error;
+                if (!error) break;
+                if (error.code !== '42703' && !/column/i.test(String(error.message || ''))) break;
             }
             if (error) {
                 console.error('查詢客製產品 list 失敗:', error);
