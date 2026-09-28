@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>靈感牆資料夾編輯 - MATCHDO 合做</title>
+  <title data-i18n="folderEdit.pageTitle">靈感牆資料夾編輯 - MATCHDO 合做</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="/css/theme-colors.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
@@ -18,75 +18,85 @@
 
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h4 mb-0">靈感牆資料夾編輯</h1>
-      <a href="/index.html" class="btn btn-outline-secondary btn-sm">返回首頁</a>
+      <h1 class="h4 mb-0" data-i18n="folderEdit.pageTitle">靈感牆資料夾編輯</h1>
+      <a href="/index.html" class="btn btn-outline-secondary btn-sm" data-i18n="folderEdit.backHome">返回首頁</a>
     </div>
 
-    <div id="loginRequired" class="alert alert-warning" style="display:none;">
+    <div id="loginRequired" class="alert alert-warning" style="display:none;" data-i18n="folderEdit.loginRequired">
       請先 <a href="/login.html">登入</a> 後使用資料夾編輯。
     </div>
-    <div id="forbiddenPanel" class="alert alert-info" style="display:none;">
+    <div id="forbiddenPanel" class="alert alert-info" style="display:none;" data-i18n="folderEdit.forbidden">
       僅 1800 方案或管理員可編輯靈感牆資料夾。若您已訂閱 1800 方案仍無法使用，請聯繫客服。
     </div>
 
     <div id="editorPanel" style="display:none;">
-      <p class="text-muted small mb-3">管理首頁靈感牆上的「系列」資料夾（標題、網址代碼、封面、描述、排序與啟用狀態）。</p>
+      <p class="text-muted small mb-3" data-i18n="folderEdit.intro">管理首頁靈感牆上的「系列」資料夾（標題、網址代碼、封面、描述、排序與啟用狀態）。</p>
 
       <div class="folder-edit-panel">
-        <h5 class="mb-3" id="formTitle">新增資料夾</h5>
+        <h5 class="mb-3" id="formTitle" data-i18n="folderEdit.formAddTitle">新增資料夾</h5>
         <input type="hidden" id="editId" value="" />
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label" for="folderTitle">標題 <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="folderTitle" placeholder="例：系列一" required />
+            <label class="form-label" for="folderTitle"><span data-i18n="folderEdit.titleLabel">標題</span> <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="folderTitle" data-i18n-placeholder="folderEdit.titlePlaceholder" placeholder="例：系列一" required />
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="folderSlug">網址代碼（slug）</label>
-            <input type="text" class="form-control" id="folderSlug" placeholder="例：collection-1" />
-            <div class="form-text">留空可自動依標題產生；不可與其他資料夾重複。</div>
+            <label class="form-label" for="folderSlug" data-i18n="folderEdit.slugLabel">網址代碼（slug）</label>
+            <input type="text" class="form-control" id="folderSlug" data-i18n-placeholder="folderEdit.slugPlaceholder" placeholder="例：collection-1" />
+            <div class="form-text" data-i18n="folderEdit.slugHint">留空可自動依標題產生；不可與其他資料夾重複。</div>
           </div>
           <div class="col-12">
-            <label class="form-label" for="folderCover">封面圖片網址</label>
+            <label class="form-label" for="folderCover" data-i18n="folderEdit.coverLabel">封面圖片網址</label>
             <input type="url" class="form-control" id="folderCover" placeholder="https://..." />
           </div>
           <div class="col-12">
-            <label class="form-label" for="folderDesc">描述</label>
-            <textarea class="form-control" id="folderDesc" rows="2" placeholder="選填"></textarea>
+            <label class="form-label" for="folderDesc" data-i18n="folderEdit.descLabel">描述</label>
+            <textarea class="form-control" id="folderDesc" rows="2" data-i18n-placeholder="folderEdit.descPlaceholder" placeholder="選填"></textarea>
           </div>
           <div class="col-md-4">
-            <label class="form-label" for="folderSort">排序數字</label>
+            <label class="form-label" for="folderSort" data-i18n="folderEdit.sortLabel">排序數字</label>
             <input type="number" class="form-control" id="folderSort" value="0" />
-            <div class="form-text">數字越小越前面。</div>
+            <div class="form-text" data-i18n="folderEdit.sortHint">數字越小越前面。</div>
           </div>
           <div class="col-md-4 d-flex align-items-end">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="folderActive" checked />
-              <label class="form-check-label" for="folderActive">啟用（顯示於靈感牆）</label>
+              <label class="form-check-label" for="folderActive" data-i18n="folderEdit.activeLabel">啟用（顯示於靈感牆）</label>
             </div>
           </div>
           <div class="col-12">
-            <label class="form-label">顯示於哪些分類（可複選）</label>
+            <label class="form-label" data-i18n="folderEdit.categoriesLabel">顯示於哪些分類（可複選）</label>
             <div id="folderCategoryChecks" class="d-flex flex-wrap gap-2"></div>
-            <div class="form-text">勾選的分類在首頁篩選時會顯示此資料夾；不勾選任何一個表示「全部分類都顯示」。</div>
+            <div class="form-text" data-i18n="folderEdit.categoriesHint">勾選的分類在首頁篩選時會顯示此資料夾；不勾選任何一個表示「全部分類都顯示」。</div>
           </div>
           <div class="col-12">
-            <button type="button" class="btn btn-primary" id="btnSaveFolder">儲存</button>
-            <button type="button" class="btn btn-outline-secondary ms-2" id="btnCancelEdit" style="display:none;">取消編輯</button>
+            <button type="button" class="btn btn-primary" id="btnSaveFolder" data-i18n="folderEdit.save">儲存</button>
+            <button type="button" class="btn btn-outline-secondary ms-2" id="btnCancelEdit" style="display:none;" data-i18n="folderEdit.cancelEdit">取消編輯</button>
             <span id="saveStatus" class="ms-2 small"></span>
           </div>
         </div>
       </div>
 
-      <h6 class="mb-2">現有資料夾</h6>
+      <h6 class="mb-2" data-i18n="folderEdit.listTitle">現有資料夾</h6>
       <div id="folderList"></div>
-      <p id="folderListEmpty" class="text-muted small">尚無資料夾，請在上方新增。</p>
+      <p id="folderListEmpty" class="text-muted small" data-i18n="folderEdit.listEmpty">尚無資料夾，請在上方新增。</p>
     </div>
   </div>
 
   <script src="/config/auth-config.js"></script>
+  <script src="/js/i18n.js"></script>
   <script src="/js/site-header.js"></script>
   <script>
 (function () {
+  var i18nReady = (window.i18n && window.i18n.loadLocale) ? window.i18n.loadLocale() : Promise.resolve();
+  function tr(k, fb) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+      var v = window.i18n.t(k);
+      if (v && v !== k) return v;
+    }
+    return fb != null ? fb : k;
+  }
+
   var session = null;
   var items = [];
   var categories = [];
@@ -111,7 +121,7 @@
       var name = c.name || key;
       var checked = selectedKeys.indexOf(key) !== -1;
       return '<div class="form-check form-check-inline"><input type="checkbox" class="form-check-input folder-cat-check" data-key="' + key.replace(/"/g, '&quot;') + '" id="folderCat-' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '" ' + (checked ? 'checked' : '') + ' /><label class="form-check-label small" for="folderCat-' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '">' + (name || key).replace(/</g, '&lt;') + '</label></div>';
-    }).join('') || '<span class="text-muted small">尚無分類，請先至後台設定訂製品分類。</span>';
+    }).join('') || '<span class="text-muted small">' + tr('folderEdit.noCategories', '尚無分類，請先至後台設定訂製品分類。') + '</span>';
   }
 
   function getSelectedCategoryKeys() {
@@ -125,7 +135,7 @@
 
   function clearForm() {
     document.getElementById('editId').value = '';
-    document.getElementById('formTitle').textContent = '新增資料夾';
+    document.getElementById('formTitle').textContent = tr('folderEdit.formAddTitle', '新增資料夾');
     document.getElementById('folderTitle').value = '';
     document.getElementById('folderSlug').value = '';
     document.getElementById('folderCover').value = '';
@@ -155,18 +165,27 @@
           return;
         }
         show(emptyEl, false);
+        var noCover = tr('folderEdit.noCover', '無封面');
+        var metaSort = tr('folderEdit.metaSort', '排序');
+        var metaActive = tr('folderEdit.metaActive', '啟用');
+        var yes = tr('folderEdit.metaYes', '是');
+        var no = tr('folderEdit.metaNo', '否');
+        var allCat = tr('folderEdit.metaAllCategories', ' · 全部分類');
+        var editBtn = tr('folderEdit.editBtn', '編輯');
         listEl.innerHTML = items.map(function (p) {
-          var cover = p.cover_image_url ? '<img class="cover-thumb" src="' + p.cover_image_url + '" alt="" />' : '<span class="text-muted small">無封面</span>';
-          var active = p.is_active ? '是' : '否';
-          var keysLabel = Array.isArray(p.category_keys) && p.category_keys.length ? ' · 分類 ' + p.category_keys.length + ' 個' : ' · 全部分類';
+          var cover = p.cover_image_url ? '<img class="cover-thumb" src="' + p.cover_image_url + '" alt="" />' : '<span class="text-muted small">' + noCover + '</span>';
+          var active = p.is_active ? yes : no;
+          var keysLabel = Array.isArray(p.category_keys) && p.category_keys.length
+            ? tr('folderEdit.metaCategoriesN', ' · 分類 {n} 個').replace(/\{n\}/g, String(p.category_keys.length))
+            : allCat;
           return '<div class="folder-card d-flex align-items-center flex-wrap gap-3" data-id="' + p.id + '">' +
             '<div class="flex-shrink-0">' + cover + '</div>' +
             '<div class="flex-grow-1">' +
               '<strong>' + (p.title || '-') + '</strong>' +
               (p.slug ? ' <code class="small">' + p.slug + '</code>' : '') +
-              '<br /><span class="small text-muted">排序 ' + (p.sort_order != null ? p.sort_order : 0) + ' · 啟用 ' + active + keysLabel + '</span>' +
+              '<br /><span class="small text-muted">' + metaSort + ' ' + (p.sort_order != null ? p.sort_order : 0) + ' · ' + metaActive + ' ' + active + keysLabel + '</span>' +
             '</div>' +
-            '<button type="button" class="btn btn-sm btn-outline-primary edit-folder-btn" data-id="' + p.id + '">編輯</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-primary edit-folder-btn" data-id="' + p.id + '">' + editBtn + '</button>' +
             '</div>';
         }).join('');
 
@@ -176,7 +195,7 @@
             var p = items.find(function (x) { return x.id === id; });
             if (!p) return;
             document.getElementById('editId').value = p.id;
-            document.getElementById('formTitle').textContent = '編輯資料夾';
+            document.getElementById('formTitle').textContent = tr('folderEdit.formEditTitle', '編輯資料夾');
             document.getElementById('folderTitle').value = p.title || '';
             document.getElementById('folderSlug').value = p.slug || '';
             document.getElementById('folderCover').value = p.cover_image_url || '';
@@ -191,7 +210,7 @@
         });
       })
       .catch(function () {
-        setStatus('載入失敗', true);
+        setStatus(tr('folderEdit.loadFailed', '載入失敗'), true);
       });
   }
 
@@ -203,14 +222,14 @@
     var desc = document.getElementById('folderDesc').value.trim();
     var sortOrder = parseInt(document.getElementById('folderSort').value, 10) || 0;
     var isActive = document.getElementById('folderActive').checked;
-    if (!title) { setStatus('請填寫標題', true); return; }
+    if (!title) { setStatus(tr('folderEdit.titleRequired', '請填寫標題'), true); return; }
 
     var categoryKeys = getSelectedCategoryKeys();
     var payload = { title: title, slug: slug || undefined, cover_image_url: cover || null, description: desc || null, sort_order: sortOrder, is_active: isActive, category_keys: categoryKeys };
     var url = id ? '/api/media-collections/' + id : '/api/media-collections';
     var method = id ? 'PUT' : 'POST';
 
-    setStatus('儲存中…', false);
+    setStatus(tr('folderEdit.saving', '儲存中…'), false);
     fetch(url, {
       method: method,
       headers: getAuthHeaders(),
@@ -221,12 +240,12 @@
         return r.json();
       })
       .then(function () {
-        setStatus('已儲存', false);
+        setStatus(tr('folderEdit.saved', '已儲存'), false);
         clearForm();
         loadList();
       })
       .catch(function (err) {
-        setStatus(err.message || '儲存失敗', true);
+        setStatus(err.message || tr('folderEdit.saveFailed', '儲存失敗'), true);
       });
   }
 
@@ -234,6 +253,8 @@
   document.getElementById('btnCancelEdit').addEventListener('click', clearForm);
 
   async function init() {
+    await i18nReady;
+    if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
     try {
       session = await (window.AuthService && AuthService.getSessionForApi ? AuthService.getSessionForApi() : (AuthService && AuthService.getSession ? AuthService.getSession() : Promise.resolve(null)));
       if (!session || !session.access_token) {

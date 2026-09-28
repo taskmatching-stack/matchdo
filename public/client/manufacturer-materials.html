@@ -533,14 +533,14 @@
                                 <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
-                                    <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
-                                    <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
+                                    <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add" data-i18n="baseModels.addCraftRow">+ 新增工藝</button>
                                     <div class="mt-3">
-                                        <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                        <label class="form-label small text-muted mb-1" data-i18n="baseModels.otherCraftsLabel">其他工藝（自填，選填）</label>
                                         <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add" data-i18n="baseModels.addOtherCraftRow">+ 新增其他工藝</button>
                                     </div>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2"></div></div>
@@ -701,14 +701,14 @@
                                 <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
-                                    <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
-                                    <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
+                                    <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add" data-i18n="baseModels.addCraftRow">+ 新增工藝</button>
                                     <div class="mt-3">
-                                        <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                        <label class="form-label small text-muted mb-1" data-i18n="baseModels.otherCraftsLabel">其他工藝（自填，選填）</label>
                                         <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add" data-i18n="baseModels.addOtherCraftRow">+ 新增其他工藝</button>
                                     </div>
                                 </div>
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.partMatchHint">媒合僅用平台主分類；零件類型請用上方「配件／零件」專用自訂分類（如：拉鍊、扣具）。</p></div>
@@ -1091,14 +1091,14 @@
                         <div class="va-spec-body">
                         <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]">
                             <div class="mb-2"><label class="form-label fw-semibold"><span data-i18n="baseModels.productionModeOptional">生產模式（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
-                            <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
-                            <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
+                            <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
+                            <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                             <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add" data-i18n="baseModels.addCraftRow">+ 新增工藝</button>
                             <div class="mt-3">
-                                <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                <label class="form-label small text-muted mb-1" data-i18n="baseModels.otherCraftsLabel">其他工藝（自填，選填）</label>
                                 <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add" data-i18n="baseModels.addOtherCraftRow">+ 新增其他工藝</button>
                             </div>
                         </div>
                         </div>
@@ -7196,7 +7196,7 @@
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm btn-outline-danger add-capability-row-remove';
-            btn.textContent = '移除';
+            btn.textContent = tr('baseModels.removeImage', '移除');
             row.appendChild(rootSel);
             row.appendChild(parentSel);
             row.appendChild(leafSel);
@@ -7220,12 +7220,12 @@
             inp.type = 'text';
             inp.className = 'form-control form-control-sm add-capability-custom-input';
             inp.style.maxWidth = '20rem';
-            inp.placeholder = '其他工藝名稱';
+            inp.placeholder = tr('baseModels.otherCraftNamePlaceholder', '其他工藝名稱');
             if (value) inp.value = value;
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm btn-outline-danger add-capability-custom-row-remove';
-            btn.textContent = '移除';
+            btn.textContent = tr('baseModels.removeImage', '移除');
             row.appendChild(inp);
             row.appendChild(btn);
             inp.addEventListener('input', function () { syncCapabilityStateFromRows(block); });

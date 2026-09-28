@@ -343,7 +343,7 @@
             }
             banner.classList.remove('d-none');
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
-            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：系列／對照圖<strong>不會</strong>出現在訪客靈感牆，僅管理員／測試員內部預覽；轉正式廠商後再交付帳密。';
+            banner.innerHTML = tr('portfolio.seedVendorBanner', '<i class="bi bi-seedling me-2"></i>種子展示期：系列／對照圖<strong>不會</strong>出現在訪客靈感牆，僅管理員／測試員內部預覽；轉正式廠商後再交付帳密。');
             var btnAdd = document.getElementById('btn-add-open');
             if (btnAdd) btnAdd.classList.remove('d-none');
             applySeedMediaWallToggleUi();
@@ -643,7 +643,7 @@
                 }
                 if (!r.ok) {
                     var errBody = await r.json().catch(function () { return {}; });
-                    throw new Error(errBody.error || '載入廠商資料失敗');
+                    throw new Error(errBody.error || tr('portfolio.loadMfrFailed', '載入廠商資料失敗'));
                 }
                 const mfr = await r.json();
                 mfrId = mfr.id;
@@ -755,7 +755,7 @@
             if (canUploadSeries) {
                 if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeOptional');
                 if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
-                if (addAfterMarker) { addAfterMarker.textContent = (document.documentElement.lang === 'en' ? ' (optional)' : '（可選）'); addAfterMarker.className = 'text-muted'; }
+                if (addAfterMarker) { addAfterMarker.textContent = tr('portfolio.fieldOptional', '（可選）'); addAfterMarker.className = 'text-muted'; }
             } else {
                 if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeLabel') + ' *';
                 if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
@@ -809,7 +809,7 @@
             var dragTitle = tr('portfolio.sortDrag', '拖曳排序');
             grid.innerHTML = portfolioItems.map(function (p) {
                 var pubBadge = isSeedVendor
-                    ? ('<span class="badge bg-warning text-dark me-1">僅內部預覽</span>')
+                    ? ('<span class="badge bg-warning text-dark me-1">' + esc(tr('portfolio.internalPreviewBadge', '僅內部預覽')) + '</span>')
                     : ((p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>'));
                 var moqN = p.min_order_quantity;
                 var moqLine = (moqN != null && moqN !== '' && Number(moqN) >= 1)

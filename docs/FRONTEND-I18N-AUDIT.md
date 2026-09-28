@@ -82,6 +82,7 @@ node scripts/audit-frontend-i18n.js
 | `subscription-plans.html`, `credits.html` | 部分 |
 | `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
+| `folder-edit.html` | OK | `folderEdit.*`（2026-09-29） |
 | 首頁 `iStudio-1.0.0/index.html` | 部分 |
 
 ### G. 刻意不做 UI i18n
@@ -98,3 +99,4 @@ node scripts/audit-frontend-i18n.js
 ## 進度 log
 
 - 2026-09-29：建立本檔 + `scripts/audit-frontend-i18n.js`；素材上傳／供應商上架 UI 補強；廠商控制台 `mfrDash`；Embed 紀錄／設計洞察／登入頁 `authPage`。
+- 2026-09-29：`folder-edit.html` 掛 i18n；素材「可執行工藝」區塊 `baseModels.executableCrafts*`；作品頁種子橫幅／載入錯誤 EN。
