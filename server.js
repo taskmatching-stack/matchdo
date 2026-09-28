@@ -8928,6 +8928,36 @@ function pickVendorLocalizedText(primary, enValue, lang) {
     return primary != null ? String(primary).trim() : '';
 }
 
+/** 圖庫 label 常為「中文-English」；lang=en 時取英文段（無 label_en 時的 fallback） */
+function localizeVendorGalleryLabel(label, lang) {
+    const t = String(label || '').trim();
+    if (!t || normalizeVendorContentLang(lang) !== 'en') return t;
+    const mDisplay = t.match(/\((Display[^)]*)\)/i);
+    if (mDisplay) {
+        let inner = String(mDisplay[1] || '').trim();
+        if (inner.endsWith('...')) inner = inner.slice(0, -3).trim();
+        return inner || t;
+    }
+    const mDash = t.match(/^[\s\S]*?[-–—]\s*(.+)$/);
+    if (mDash) {
+        const tail = String(mDash[1] || '').trim();
+        if (/[A-Za-z]/.test(tail)) return tail;
+    }
+    return t;
+}
+
+function localizeVendorAssetImageItemsForLang(items, lang) {
+    if (!Array.isArray(items) || !items.length) return items || [];
+    const l = normalizeVendorContentLang(lang);
+    if (l !== 'en') return items;
+    return items.map((it) => {
+        if (!it || typeof it !== 'object') return it;
+        const next = localizeVendorGalleryLabel(it.label, l);
+        if (next === it.label) return it;
+        return { ...it, label: next };
+    });
+}
+
 /** contact_json.store_urls：{ label?, url }[]，最多 20 筆 */
 function parseManufacturerContactJson(raw) {
     if (raw == null) return {};
@@ -9366,7 +9396,7 @@ function mapVendorAssetForApi(row, lang) {
     const multiImageKind = vendorAssetSupportsGalleryImages(kind);
     const gallery = multiImageKind ? parseGalleryImages(row.gallery_images) : [];
     // image_items 須讀 raw gallery_images（含封面 __cover_designer_selectable meta）
-    const imageItems = buildVendorAssetImageItems(row);
+    const imageItems = localizeVendorAssetImageItemsForLang(buildVendorAssetImageItems(row), lang);
     const imageUrls = multiImageKind
         ? getVendorAssetAllImageUrls(row)
         : (row.image_url ? [row.image_url] : []);
@@ -13218,9 +13248,10 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
         } else {
             assetKind = 'prototype';
         }
-        const { resolvePublicLang } = require('./lib/public-lang');
+        const { resolvePublicLang, parseLangFromCookieHeader } = require('./lib/public-lang');
         const lang = resolvePublicLang({
-            queryLang: req.query && req.query.lang
+            queryLang: req.query && req.query.lang,
+            cookieLang: parseLangFromCookieHeader(req.get('cookie'))
             /* 版型列表預設中文；勿用 Accept-Language 把英文選單 SSR 進中文頁 */
         });
         const catalog = await listOfficialPublicCatalogForPage({
@@ -13265,9 +13296,10 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
         const qText = String((req.query && req.query.q) || '').trim();
         const manufacturerName = String((req.query && req.query.manufacturer_name) || '').trim();
         const manufacturerId = String((req.query && req.query.manufacturer_id) || '').trim();
-        const { resolvePublicLang } = require('./lib/public-lang');
+        const { resolvePublicLang, parseLangFromCookieHeader } = require('./lib/public-lang');
         const lang = resolvePublicLang({
-            queryLang: req.query && req.query.lang
+            queryLang: req.query && req.query.lang,
+            cookieLang: parseLangFromCookieHeader(req.get('cookie'))
             /* 版型列表預設中文；勿用 Accept-Language 把英文選單 SSR 進中文頁 */
         });
         const catalog = await listVendorPublicCatalogForPage({
@@ -13277,7 +13309,8 @@ app.get(['/vendor-styles', '/vendor-styles/'], async (req, res) => {
             manufacturer_name: manufacturerName,
             manufacturer_id: manufacturerId,
             limit: 72,
-            offset: 0
+            offset: 0,
+            lang
         });
         const { buildVendorStylesHtml } = require('./lib/vendor-styles-browse-page');
         const html = buildVendorStylesHtml({
@@ -14119,7 +14152,7 @@ async function listOfficialPublicCatalogForPage(opts) {
     }
     const items = list.map((r) => {
         const kind = normalizeVendorAssetKind(r.asset_kind);
-        const mapped = mapVendorAssetForApi(r);
+        const mapped = mapVendorAssetForApi(r, contentLang);
         const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
         const linkCount = kind === 'prototype'
             ? ((counts.material_count || 0) + (counts.part_count || 0))
@@ -14162,9 +14195,10 @@ async function listVendorPublicCatalogForPage(opts) {
     const manufacturerId = String(opts.manufacturer_id || '').trim();
     const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 72, 1), 120);
     const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+    const contentLang = normalizeVendorContentLang(opts.lang);
     const categories = await loadBrowseCatalogCategoriesWithSubs();
     const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));
-    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
     async function runQ(cols) {
         let q = supabase
             .from('vendor_assets')
@@ -14235,7 +14269,7 @@ async function listVendorPublicCatalogForPage(opts) {
         const kind = typeof normalizeVendorAssetKind === 'function'
             ? normalizeVendorAssetKind(r.asset_kind)
             : 'prototype';
-        const mapped = mapVendorAssetForApi(r);
+        const mapped = mapVendorAssetForApi(r, contentLang);
         const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
         const linkCount = (counts.material_count || 0) + (counts.part_count || 0);
         const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
@@ -14249,8 +14283,10 @@ async function listVendorPublicCatalogForPage(opts) {
                 : null,
             category_key: r.category_key,
             subcategory_key: r.subcategory_key,
-            title: r.title || '',
-            description: r.description || '',
+            title: pickVendorLocalizedText(r.title, r.title_en, contentLang),
+            description: pickVendorLocalizedText(r.description, r.description_en, contentLang),
+            title_zh: r.title || '',
+            title_en: r.title_en || '',
             image_url: r.image_url,
             gallery_images: mapped.gallery_images,
             image_urls: mapped.image_urls,
@@ -33960,9 +33996,9 @@ async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
 function mapVendorAssetLinkTreeNode(r, contentLang) {
     if (!r) return null;
     const kind = normalizeVendorAssetKind(r.asset_kind);
-    const imageItems = buildVendorAssetImageItems(r);
-    const imageUrls = imageItems.map((it) => it.url).filter(Boolean);
     const lang = normalizeVendorContentLang(contentLang);
+    const imageItems = localizeVendorAssetImageItemsForLang(buildVendorAssetImageItems(r), lang);
+    const imageUrls = imageItems.map((it) => it.url).filter(Boolean);
     return {
         id: r.id,
         title: pickVendorLocalizedText(r.title, r.title_en, lang) || '',

@@ -50,8 +50,14 @@
             var stored = localStorage.getItem(STORAGE_KEY);
             if (stored) return normalizeLang(stored);
         } catch (e) {}
-        /* 版型列表 SSR 預設中文：勿因瀏覽器英文語系把選單翻成英文 */
-        if (typeof window !== 'undefined' && window.__MATCHDO_BROWSE_DEFAULT_ZH__) return DEFAULT_LANG;
+        /* 版型列表 SSR 預設中文：勿因瀏覽器英文語系把選單翻成英文；但使用者已手動選英文仍尊重 */
+        if (typeof window !== 'undefined' && window.__MATCHDO_BROWSE_DEFAULT_ZH__) {
+            try {
+                var storedBrowse = localStorage.getItem(STORAGE_KEY);
+                if (storedBrowse && normalizeLang(storedBrowse) === 'en') return 'en';
+            } catch (e) {}
+            return DEFAULT_LANG;
+        }
         return detectBrowserLang();
     }
 
@@ -59,6 +65,9 @@
         lang = normalizeLang(lang);
         try {
             localStorage.setItem(STORAGE_KEY, lang);
+        } catch (e) {}
+        try {
+            document.cookie = 'lang=' + encodeURIComponent(lang) + '; path=/; max-age=31536000; SameSite=Lax';
         } catch (e) {}
         var search = (window.location.search || '').replace(/\?lang=[^&]+&?|&?lang=[^&]+/g, '').replace(/^\?&/, '');
         var url = window.location.pathname + (search || '');
