@@ -31,3 +31,51 @@
 
 - [ ] `payment-orders.html` 顯示 `metadata.campaign_id`／牌價 vs 實付
 - [ ] 結帳 URL 僅帶 `plan` + `billing`（完全移除 amount query）
+
+---
+
+## 待辦（使用者 2026-09-29 — **前台英文化收斂後再實作**）
+
+### A. 優惠／特價是否「終身」有效
+
+**需求**：後台優惠功能要能標示該方案優惠是 **僅本次購買的訂閱期間**（預設、正常狀態），還是 **終身持續**（特殊案，例如老客戶鎖價）。
+
+**現況（2026-09-29 程式）**：
+
+| 機制 | 語意 | 是否支援「終身」 |
+|------|------|------------------|
+| **限時檔期年付特價** `pricing_campaigns` + `pricing_campaign_yearly_rules`（`/admin/pricing-campaigns.html`） | 檔期內成交的年付單，**整段該年訂閱**依活動價；活動結束只影響**新單** | 否；無 per-user 鎖價 |
+| **常態方案** `subscription_plans`（`/admin/membership.html`） | 月費／權益由 DB 維護 | 否；改價影響新訂閱邏輯，非「個人終身優惠」旗標 |
+| **內部優惠方案** `docs/seed-promo-subscription-plans.sql`（`sort_order ≥ 10`） | 與公開檔期分開的隱藏 tier | 需另查是否僅手動指派；**無**後台 UI 勾「終身」 |
+
+**建議實作方向（規劃用，未開工）**：
+
+1. 產品先定案「終身」定義：鎖 **成交價**、鎖 **tier 權益**、或鎖 **年付特價規則** 至帳號？
+2. 資料：訂閱／`payment_orders.metadata` 或新表 `user_pricing_entitlements`（`user_id`, `plan_key`, `price_lock`, `benefit_scope`, `expires_at` null=終身）。
+3. 後台：在檔期活動或方案指派 UI 加 **優惠有效期** = `subscription_term` | `lifetime`（預設前者）。
+4. 續約／換方案：`quote` 與 PayPal／綠界驗價須讀鎖價，避免被常態牌價覆蓋。
+
+相關規劃：`docs/PLAN-pricing-campaigns.md` §1（特價語意僅年訂閱期）。
+
+### B. 年付金額能否從後台設定？還是硬編碼 ×10？
+
+**簡答**：
+
+| 價格類型 | 後台能否直接填「年付」？ | 實際來源 |
+|----------|-------------------------|----------|
+| **牌價年付**（無活動時前台顯示的年付） | **否**（沒有獨立「年付欄位」） | 程式 **`月費 × 10`**：`lib/pricing-campaigns.js` → `computeListYearlyPrices()`；月費 TWD = `subscription_plans.price`，USD = `price_usd_monthly`（`/admin/membership.html` 可改月費） |
+| **活動年付特價** | **是** | `/admin/pricing-campaigns.html` 每 tier 填 `yearly_price_twd` / `yearly_price_usd`；檔期內 `POST /api/payment/quote` 採用 |
+
+定案文件已寫：牌價年付 = 月費 ×10（約 10 個月價、相對月付 ×12 的結構折扣），見 `docs/PLAN-pricing-campaigns.md` §1。
+
+**牌價年付脫離 ×10（使用者 2026-09-29 定案，排英文化後實作）**：新增 `subscription_plans.yearly_price_twd` / `yearly_price_usd`（或後台「年付倍率」欄，預設 10）；`computeListYearlyPrices` 有填年付則用 DB，否則 fallback 月費×倍率；`/admin/membership.html` 可編輯；`quote`／方案頁／PayPal／綠界驗價一致。
+
+### C. 目前有「打折％」嗎？終身鎖折數
+
+**現況：沒有百分比折扣欄位。**
+
+- 限時年付特價：後台每 tier 填 **整年絕對金額** `yearly_price_twd` / `yearly_price_usd`（`/admin/pricing-campaigns.html`），未填則該 tier 檔期內仍用牌價年付（月費×10）。
+- `lib/pricing-campaigns.js` 無 `discount_percent`、無「在牌價上打 X 折」的演算；規劃檔 v1 曾寫「填特價金額或折扣％二選一」，**實作只做了特價金額**。
+- 「終身鎖價／鎖折數」：**尚未實作**（見 §A）。若要做，需另定：鎖的是 **牌價年付×折數**、還是鎖 **活動絕對價**、續約／換 tier 時是否重算。
+
+**待做（英文化後）**：後台可選「僅本訂閱期」vs「終身」；並支援 **折數（% off 牌價年付或月費）** 與／或維持現有「整年特價金額」兩種輸入方式。

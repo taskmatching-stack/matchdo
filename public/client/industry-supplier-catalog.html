@@ -183,7 +183,8 @@
                     : '/login.html';
                 document.getElementById('catalog-loading').classList.add('d-none');
                 var gateEl = document.getElementById('gate-alert');
-                gateEl.innerHTML = '請先 <a href="' + loginUrl + '" class="alert-link">登入</a> 後瀏覽並匯入品項。';
+                gateEl.innerHTML = tr('supplierCatalog.authRequiredHtml', '請先 <a href="{url}" class="alert-link">登入</a> 後瀏覽並匯入品項。')
+                    .replace(/\{url\}/g, String(loginUrl).replace(/"/g, '&quot;'));
                 gateEl.classList.remove('d-none');
                 return;
             }

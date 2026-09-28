@@ -385,6 +385,8 @@
   "supplierCatalog.importBtn": "匯入",
   "supplierCatalog.importOk": "已匯入，可至供應商引用管理查看",
   "supplierCatalog.loadFailed": "載入失敗",
+  "supplierCatalog.authRequiredHtml": "請先 <a href=\"{url}\" class=\"alert-link\">登入</a> 後瀏覽並匯入品項。",
+  "vendors.areaCountryAll": "（全國）",
   "supplierManage.heading": "上架數位產品庫",
   "supplierManage.intro": "填寫完整品項資訊；製造商在「產業供應商目錄」依分類瀏覽並匯入。",
   "supplierManage.pageIntro": "對稱製造商「上傳數位版型」流程：分頁上架材料、數位原型、配件／零件。製造商在產業供應商目錄匯入。",

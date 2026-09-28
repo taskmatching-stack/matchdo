@@ -97,6 +97,12 @@ node scripts/audit-frontend-i18n.js
 - `/admin/*` — 後台維持中文
 - 舊版 `client/demands.html`（根目錄）— 非主要入口
 
+## 與 i18n 並行、但**排在本輪英文化之後**的產品待辦
+
+- 訂閱優惠是否「終身」vs「僅本訂閱期」：見 `docs/PROGRESS-pricing-campaigns.md` §待辦 A。
+- 年付牌價 ×10 vs 後台可設年付：見同檔 §待辦 B。
+- 廠商服務地區／列表篩選與排序：尚未開規劃檔（使用者 2026-09-29 備忘）。
+
 ## Agent 必守（避免再說「全站好了」）
 
 1. 改任一 `public/client/*.html` 或公開工具頁前：跑 `node scripts/audit-frontend-i18n.js`，確認該檔是否在 **缺 i18n** 或 **highRisk** 列表。
@@ -109,3 +115,4 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`folder-edit.html` 掛 i18n；素材「可執行工藝」區塊 `baseModels.executableCrafts*`；作品頁種子橫幅／載入錯誤 EN。
 - 2026-09-29：`no-access`、`embed/preview-simulator`、`custom/index`、legacy `manufacturer-inquiries`（轉址保留 `lang`）。
 - 2026-09-29：`custom/gallery` 語系與 `gallery.*` 鍵；`custom/collection`；`design-direction/analysis` 表單與 modal。
+- 2026-09-29：`vendors.html` 地區大區標籤 `vendors.areaGroup.*`；`industry-supplier-catalog` 登入提示。

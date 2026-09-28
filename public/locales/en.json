@@ -385,6 +385,8 @@
   "supplierCatalog.importBtn": "Import",
   "supplierCatalog.importOk": "Imported — see Supplier references",
   "supplierCatalog.loadFailed": "Load failed",
+  "supplierCatalog.authRequiredHtml": "Please <a href=\"{url}\" class=\"alert-link\">sign in</a> to browse and import catalog items.",
+  "vendors.areaCountryAll": " (All)",
   "supplierManage.pageTitle": "Manage industry supplier catalog - MatchDO",
   "supplierManage.heading": "Manage digital catalog (industry supplier)",
   "supplierManage.intro": "Industry suppliers publish here. Manufacturers browse via Industry suppliers directory. Customizers never see this catalog.",

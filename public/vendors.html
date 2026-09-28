@@ -599,9 +599,18 @@
         var _expandedCountry = {};   // 第一層：台灣/國家展開
         var _expandedState   = {};   // 第二層：海外州展開
 
-        var TW_GROUP_NAMES_V = { 'TW-N':'北部','TW-C':'中部','TW-S':'南部','TW-E':'東部','TW-O':'離島' };
-        var TW_GROUP_NAMES_EN = { 'TW-N':'North','TW-C':'Central','TW-S':'South','TW-E':'East','TW-O':'Islands' };
         var TW_GROUP_ORDER_V = ['TW-N','TW-C','TW-S','TW-E','TW-O'];
+        var TW_GROUP_I18N = {
+            'TW-N': ['vendors.areaGroup.north', '北部'],
+            'TW-C': ['vendors.areaGroup.central', '中部'],
+            'TW-S': ['vendors.areaGroup.south', '南部'],
+            'TW-E': ['vendors.areaGroup.east', '東部'],
+            'TW-O': ['vendors.areaGroup.outlying', '離島']
+        };
+        function twRegionGroupLabel(gk) {
+            var pair = TW_GROUP_I18N[gk];
+            return pair ? tr(pair[0], pair[1]) : gk;
+        }
 
         function countSelV(node) {
             var n = state.selectedAreas.indexOf(node.code) >= 0 ? 1 : 0;
@@ -644,7 +653,7 @@
                     });
                     TW_GROUP_ORDER_V.forEach(function(gk) {
                         if (!grouped[gk]) return;
-                        var gName = lang==='en' ? (TW_GROUP_NAMES_EN[gk]||gk) : (TW_GROUP_NAMES_V[gk]||gk);
+                        var gName = twRegionGroupLabel(gk);
                         html += '<span class="text-muted me-1" style="font-size:.7rem;">' + gName + '：</span>';
                         grouped[gk].forEach(function(city) {
                             var isAct = state.selectedAreas.indexOf(city.code) >= 0;
@@ -662,7 +671,7 @@
                     if (!states.length) {
                         var isAct = state.selectedAreas.indexOf(country.code) >= 0;
                         html += '<span class="filter-tag filter-sub' + (isAct?' active':'') + '" role="button" tabindex="0" data-area="' + country.code + '">'
-                              + countryLbl + (lang==='en'?' (All)':'（全國）') + '</span>';
+                              + countryLbl + esc(tr('vendors.areaCountryAll', '（全國）')) + '</span>';
                     } else {
                         states.forEach(function(st) {
                             var hasCities = st.children && st.children.length > 0;
