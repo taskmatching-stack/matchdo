@@ -57,23 +57,23 @@
                 <table class="table table-sm table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="width:88px">成圖</th>
-                            <th>主產品／搭配</th>
-                            <th>描述</th>
-                            <th>來源網域</th>
-                            <th>扣點</th>
-                            <th>時間</th>
+                            <th style="width:88px" data-i18n="embedRecords.colImage">成圖</th>
+                            <th data-i18n="embedRecords.colCombo">主產品／搭配</th>
+                            <th data-i18n="embedRecords.colPrompt">描述</th>
+                            <th data-i18n="embedRecords.colDomain">來源網域</th>
+                            <th data-i18n="embedRecords.colPoints">扣點</th>
+                            <th data-i18n="embedRecords.colTime">時間</th>
                         </tr>
                     </thead>
                     <tbody id="records-body">
-                        <tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-4" data-i18n="embedRecords.loadingRow">載入中…</td></tr>
                     </tbody>
                 </table>
             </div>
             <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
-                <button class="btn btn-outline-secondary btn-sm" id="btn-prev" disabled>上一頁</button>
-                <span class="small text-muted" id="page-label">第 1 頁</span>
-                <button class="btn btn-outline-secondary btn-sm" id="btn-next" disabled>下一頁</button>
+                <button class="btn btn-outline-secondary btn-sm" id="btn-prev" disabled data-i18n="embedRecords.prevPage">上一頁</button>
+                <span class="small text-muted" id="page-label"></span>
+                <button class="btn btn-outline-secondary btn-sm" id="btn-next" disabled data-i18n="embedRecords.nextPage">下一頁</button>
             </div>
         </div>
     </div>
@@ -82,14 +82,14 @@
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">MatchDO Engine 生圖詳情</h5>
+                    <h5 class="modal-title" data-i18n="embedRecords.modalTitle">MatchDO Engine 生圖詳情</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detail-body"></div>
                 <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
-                    <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnEmbedResume">履歷</button>
-                    <button type="button" class="btn btn-primary btn-sm d-none" id="btnEmbedResumePdf">匯出 PDF</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="embedRecords.close">關閉</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnEmbedResume" data-i18n="embedRecords.resume">履歷</button>
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="btnEmbedResumePdf" data-i18n="embedRecords.exportPdf">匯出 PDF</button>
                 </div>
             </div>
         </div>
@@ -108,6 +108,14 @@
         var total = 0;
         var records = [];
         var detailModal = null;
+
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
 
         function esc(s) {
             return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -135,7 +143,7 @@
             var items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
             var sel = document.getElementById('filter-proto');
             if (!sel) return;
-            sel.innerHTML = '<option value="">全部主產品</option>';
+            sel.innerHTML = '<option value="">' + esc(tr('embedRecords.filterAll', '全部主產品')) + '</option>';
             items.forEach(function (p) {
                 var opt = document.createElement('option');
                 opt.value = p.id;
@@ -146,28 +154,29 @@
 
         function formatTime(iso) {
             if (!iso) return '—';
-            try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
+            var loc = (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') ? 'en-US' : 'zh-TW';
+            try { return new Date(iso).toLocaleString(loc, { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
         }
 
         function renderTable() {
             var body = document.getElementById('records-body');
             if (!body) return;
             if (!records.length) {
-                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">尚無 MatchDO Engine 生圖紀錄</td></tr>';
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">' + esc(tr('embedRecords.empty', '尚無紀錄')) + '</td></tr>';
                 return;
             }
             body.innerHTML = records.map(function (row, idx) {
                 var url = row.ai_generated_image_url || '';
                 var img = url
                     ? '<img src="' + esc(url) + '" class="rec-thumb matchdo-enlarge-trigger" alt="" data-image-urls="' + esc(JSON.stringify([url])) + '">'
-                    : '<span class="text-muted small">無圖</span>';
+                    : '<span class="text-muted small">' + esc(tr('embedRecords.noImage', '無圖')) + '</span>';
                 return '<tr class="rec-row" data-idx="' + idx + '">' +
                     '<td>' + img + '</td>' +
                     '<td><div class="fw-semibold small">' + esc(row.prototype_title || '—') + '</div>' +
                     '<div class="text-muted small text-truncate" style="max-width:220px" title="' + esc(row.combo_label) + '">' + esc(row.combo_label || '') + '</div></td>' +
                     '<td class="small text-truncate" style="max-width:180px" title="' + esc(row.prompt) + '">' + esc(row.prompt || '—') + '</td>' +
                     '<td class="small">' + esc(row.referrer_host || '—') + '</td>' +
-                    '<td class="small">' + (row.points_charged ? (row.points_charged + ' 點') : '—') + '</td>' +
+                    '<td class="small">' + (row.points_charged ? esc(tr('embedRecords.pointsUnit', '{n} 點').replace('{n}', String(row.points_charged))) : '—') + '</td>' +
                     '<td class="small text-nowrap">' + esc(formatTime(row.created_at)) + '</td></tr>';
             }).join('');
             body.querySelectorAll('.rec-row').forEach(function (tr) {
@@ -188,21 +197,21 @@
             var refHtml = refs.map(function (s) {
                 if (!s) return '';
                 var t = (s.title || s.asset_kind || s.intent || '').trim();
-                return '<span class="ref-chip">' + esc(t || '參考') + '</span>';
+                return '<span class="ref-chip">' + esc(t || tr('embedRecords.refFallback', '參考')) + '</span>';
             }).join('') || '<span class="text-muted small">—</span>';
             var url = row.ai_generated_image_url || '';
             document.getElementById('detail-body').innerHTML =
                 (url ? '<img src="' + esc(url) + '" class="rec-detail-img mb-3 matchdo-enlarge-trigger" alt="" data-image-urls="' + esc(JSON.stringify([url])) + '">' : '') +
                 '<dl class="row small mb-0">' +
-                '<dt class="col-sm-3">主產品</dt><dd class="col-sm-9">' + esc(row.prototype_title || row.prototype_asset_id || '—') + '</dd>' +
-                '<dt class="col-sm-3">搭配</dt><dd class="col-sm-9">' + esc(row.combo_label || '—') + '</dd>' +
-                '<dt class="col-sm-3">訪客描述</dt><dd class="col-sm-9">' + esc(row.prompt || '—') + '</dd>' +
-                '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
-                '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? (row.points_charged + ' 點（' + esc(row.billing_type || '') + '）') : '—') + '</dd>' +
-                '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>' +
-                '<dt class="col-sm-3">iframe 實例</dt><dd class="col-sm-9">' + esc(row.embed_instance_name || row.embed_instance_id || '—') + '</dd>' +
-                '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(formatTime(row.created_at)) + '</dd>' +
-                '<dt class="col-sm-3">參考來源</dt><dd class="col-sm-9">' + refHtml + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtPrototype', '主產品')) + '</dt><dd class="col-sm-9">' + esc(row.prototype_title || row.prototype_asset_id || '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtCombo', '搭配')) + '</dt><dd class="col-sm-9">' + esc(row.combo_label || '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtPrompt', '訪客描述')) + '</dt><dd class="col-sm-9">' + esc(row.prompt || '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtDomain', '來源網域')) + '</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtPoints', '扣點')) + '</dt><dd class="col-sm-9">' + (row.points_charged ? esc(tr('embedRecords.pointsBilling', '{n} 點（{type}）').replace('{n}', String(row.points_charged)).replace('{type}', String(row.billing_type || ''))) : '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtSeed', 'Seed')) + '</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtEmbed', 'iframe 實例')) + '</dt><dd class="col-sm-9">' + esc(row.embed_instance_name || row.embed_instance_id || '—') + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.colTime', '時間')) + '</dt><dd class="col-sm-9">' + esc(formatTime(row.created_at)) + '</dd>' +
+                '<dt class="col-sm-3">' + esc(tr('embedRecords.dtRefs', '參考來源')) + '</dt><dd class="col-sm-9">' + refHtml + '</dd>' +
                 '</dl>';
             if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {
                 window.MatchdoImageLightbox.wire(document.getElementById('detail-body'));
@@ -231,14 +240,14 @@
 
         async function loadRecords() {
             var tok = await getToken();
-            if (!tok) { showAlert('請先登入', 'danger'); return; }
+            if (!tok) { showAlert(tr('embedRecords.authRequired', '請先登入'), 'danger'); return; }
             var proto = (document.getElementById('filter-proto').value || '').trim();
             var qs = '?limit=' + perPage + '&offset=' + (page * perPage);
             if (proto) qs += '&prototype_asset_id=' + encodeURIComponent(proto);
             var r = await fetch('/api/me/embed-designs' + qs, { headers: { Authorization: 'Bearer ' + tok } });
             var data = await r.json().catch(function () { return {}; });
             if (r.status === 503) {
-                showAlert('Embed 資料表尚未建立，請聯絡平台。', 'warning');
+                showAlert(tr('embedRecords.dbMissing', 'Embed 資料表尚未建立'), 'warning');
                 records = [];
                 renderTable();
                 return;
@@ -251,7 +260,7 @@
             records = data.items || [];
             total = data.total || 0;
             document.getElementById('total-label').textContent = '共 ' + total + ' 筆';
-            document.getElementById('page-label').textContent = '第 ' + (page + 1) + ' 頁';
+            document.getElementById('page-label').textContent = tr('embedRecords.pageLabel', '第 {n} 頁').replace('{n}', String(page + 1));
             document.getElementById('btn-prev').disabled = page <= 0;
             document.getElementById('btn-next').disabled = (page + 1) * perPage >= total;
             renderTable();

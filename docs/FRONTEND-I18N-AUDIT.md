@@ -97,4 +97,4 @@ node scripts/audit-frontend-i18n.js
 
 ## 進度 log
 
-- 2026-09-29：建立本檔 + `scripts/audit-frontend-i18n.js`；素材上傳／供應商上架 UI 補強；廠商控制台 `mfrDash` 開工。
+- 2026-09-29：建立本檔 + `scripts/audit-frontend-i18n.js`；素材上傳／供應商上架 UI 補強；廠商控制台 `mfrDash`；Embed 紀錄／設計洞察／登入頁 `authPage`。

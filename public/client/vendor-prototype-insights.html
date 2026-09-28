@@ -62,15 +62,15 @@
             </div>
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
-                    <h5 class="card-title mb-3"><i class="bi bi-pie-chart me-2 text-primary"></i>最常搭配方式</h5>
-                    <div id="combos-empty" class="text-muted small d-none">尚無搭配統計（需有訂製者以此主產品參考生圖並儲存）。</div>
+                    <h5 class="card-title mb-3"><i class="bi bi-pie-chart me-2 text-primary"></i><span data-i18n="protoInsights.topCombos">最常搭配方式</span></h5>
+                    <div id="combos-empty" class="text-muted small d-none" data-i18n="protoInsights.combosEmpty">尚無搭配統計…</div>
                     <div id="combos-list"></div>
                 </div>
             </div>
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title mb-3"><i class="bi bi-images me-2 text-primary"></i>使用者生成圖（近期）</h5>
-                    <div id="gens-empty" class="text-muted small d-none">尚無成圖紀錄。</div>
+                    <h5 class="card-title mb-3"><i class="bi bi-images me-2 text-primary"></i><span data-i18n="protoInsights.recentGens">使用者生成圖（近期）</span></h5>
+                    <div id="gens-empty" class="text-muted small d-none" data-i18n="protoInsights.gensEmpty">尚無成圖紀錄。</div>
                     <div class="row g-3" id="gens-grid"></div>
                 </div>
             </div>
@@ -84,6 +84,14 @@
         'use strict';
         var token = null;
         var prototypes = [];
+
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
 
         function qs(name) {
             return new URLSearchParams(window.location.search).get(name) || '';
@@ -117,11 +125,11 @@
                     ? AuthService.getLoginUrl(window.location.pathname + window.location.search)
                     : '/login.html';
                 var sel = document.getElementById('proto-select');
-                if (sel) sel.innerHTML = '<option value="">請先登入</option>';
+                if (sel) sel.innerHTML = '<option value="">' + esc(tr('protoInsights.loginOption', '請先登入')) + '</option>';
                 var el = document.getElementById('load-alert');
                 if (el) {
                     el.className = 'alert alert-warning';
-                    el.innerHTML = '請先 <a href="' + esc(loginUrl) + '" class="alert-link">登入</a> 後查看設計洞察。';
+                    el.innerHTML = tr('protoInsights.loginRequiredHtml', '請先登入').replace('{url}', esc(loginUrl));
                     el.classList.remove('d-none');
                 }
                 return;
@@ -131,7 +139,7 @@
             });
             var data = await r.json().catch(function () { return []; });
             if (!r.ok) {
-                showAlert((data && data.error) || '載入失敗', 'danger');
+                showAlert((data && data.error) || tr('supplierDash.loadFailed', '載入失敗'), 'danger');
                 return;
             }
             prototypes = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
@@ -139,8 +147,8 @@
             if (!sel) return;
             sel.innerHTML = '';
             if (!prototypes.length) {
-                sel.innerHTML = '<option value="">尚無主產品</option>';
-                showAlert('請先在數位版型上傳主產品。', 'info');
+                sel.innerHTML = '<option value="">' + esc(tr('protoInsights.noProtos', '尚無主產品')) + '</option>';
+                showAlert(tr('protoInsights.uploadFirst', '請先上傳主產品'), 'info');
                 return;
             }
             prototypes.forEach(function (p) {
@@ -164,7 +172,7 @@
             });
             var data = await r.json().catch(function () { return {}; });
             if (!r.ok) {
-                showAlert(data.error || '查詢失敗', 'danger');
+                showAlert(data.error || tr('protoInsights.queryFailed', '查詢失敗'), 'danger');
                 document.getElementById('insights-body').classList.add('d-none');
                 return;
             }
@@ -174,7 +182,7 @@
             document.getElementById('proto-title').textContent = (data.prototype && data.prototype.title) || '—';
             var note = document.getElementById('proto-scan-note');
             if (note) {
-                note.textContent = '掃描最近 ' + (data.scanned_products || 0) + ' 筆含參考血緣的設計稿';
+                note.textContent = tr('protoInsights.scannedNote', '掃描最近 {n} 筆').replace('{n}', String(data.scanned_products || 0));
             }
             var thumb = document.getElementById('proto-thumb');
             if (thumb && data.prototype && data.prototype.image_url) {
@@ -198,7 +206,7 @@
                     row.innerHTML =
                         '<div class="d-flex justify-content-between small mb-1">' +
                         '<span>' + esc(c.combo_label) + '</span>' +
-                        '<span class="text-muted">' + c.count + ' 次 · ' + (c.share_pct || 0) + '%</span></div>' +
+                        '<span class="text-muted">' + esc(tr('protoInsights.timesShare', '{count} 次 · {pct}%').replace('{count}', String(c.count)).replace('{pct}', String(c.share_pct || 0))) + '</span></div>' +
                         '<div class="combo-bar" style="width:' + Math.max(8, Math.round((c.count / maxCount) * 100)) + '%"></div>';
                     combosList.appendChild(row);
                 });
@@ -224,7 +232,7 @@
                         ? '<img src="' + esc(url) + '" class="gen-thumb matchdo-enlarge-trigger" alt="" loading="lazy" data-image-urls="' + esc(JSON.stringify([url])) + '">' +
                           '<div class="small text-truncate mt-1" title="' + esc(cap) + '">' + srcBadge + esc(cap) + '</div>' +
                           '<div class="text-muted small">' + esc(dateStr) + '</div>'
-                        : '<div class="text-muted small">無圖</div>';
+                        : '<div class="text-muted small">' + esc(tr('protoInsights.noImage', '無圖')) + '</div>';
                     grid.appendChild(col);
                 });
                 if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {

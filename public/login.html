@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>登入 - MatchDO 合做</title>
+    <title data-i18n="authPage.loginTitle">登入 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="description" content="登入 MATCHDO 合做，管理您的客製產品、廠商媒合與訂閱方案。">
     <link rel="canonical" href="https://matchdo.cc/login.html">
@@ -161,8 +161,8 @@
     <div class="login-container">
         <div class="login-card">
             <div class="text-center mb-4">
-                <h2>歡迎回到 MatchDO</h2>
-                <p class="subtitle">合做 - 讓專案找到對的人</p>
+                <h2 data-i18n="authPage.loginWelcome">歡迎回到 MatchDO</h2>
+                <p class="subtitle" data-i18n="authPage.loginTagline">合做 - 讓專案找到對的人</p>
             </div>
 
             <div id="alertContainer"></div>
@@ -176,11 +176,11 @@
                     <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
                     <path fill="none" d="M0 0h48v48H0z"/>
                 </svg>
-                使用 Google 帳號登入
+                <span data-i18n="authPage.googleLogin">使用 Google 帳號登入</span>
             </button>
 
             <div class="divider">
-                <span>或使用 Email 登入</span>
+                <span data-i18n="authPage.orEmail">或使用 Email 登入</span>
             </div>
 
             <!-- Email 登入表單 -->
@@ -191,28 +191,28 @@
                 </div>
                 <div class="mb-4">
                     <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label mb-0">密碼</label>
-                    <a href="#" id="forgotPasswordLink" class="small">忘記密碼？</a>
+                    <label class="form-label mb-0" data-i18n="authPage.password">密碼</label>
+                    <a href="#" id="forgotPasswordLink" class="small" data-i18n="authPage.forgotPassword">忘記密碼？</a>
                     </div>
                     <input type="password" class="form-control mt-1" id="password" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">登入</button>
+                <button type="submit" class="btn btn-primary w-100" data-i18n="authPage.submitLogin">登入</button>
             </form>
 
             <div id="forgotPasswordBox" class="mt-3" style="display:none;">
-                <p class="small text-muted mb-2">輸入註冊 Email，我們會寄重設連結。Google 註冊的帳號也可以用這封信<strong>補設密碼</strong>，之後 Google 與 Email＋密碼都能登入。</p>
+                <p class="small text-muted mb-2" data-i18n-html="authPage.forgotHint">輸入註冊 Email…</p>
                 <div class="input-group">
                     <input type="email" class="form-control" id="forgotEmail" placeholder="your@email.com">
-                    <button type="button" class="btn btn-outline-primary" id="forgotPasswordBtn">寄出</button>
+                    <button type="button" class="btn btn-outline-primary" id="forgotPasswordBtn" data-i18n="authPage.forgotSend">寄出</button>
                 </div>
             </div>
 
             <div class="text-center mt-4">
-                <small class="text-muted">還沒有帳號？ <a href="register.html" class="text-primary fw-bold">立即註冊</a></small>
+                <small class="text-muted"><span data-i18n="authPage.noAccount">還沒有帳號？</span> <a href="register.html" class="text-primary fw-bold" data-i18n="authPage.registerNow">立即註冊</a></small>
             </div>
 
             <div class="back-home">
-                <a href="/index.html"><i class="bi bi-arrow-left"></i> 返回首頁</a>
+                <a href="/index.html"><i class="bi bi-arrow-left"></i> <span data-i18n="authPage.backHome">返回首頁</span></a>
             </div>
         </div>
     </div>
@@ -222,14 +222,29 @@
     
     <!-- Auth Config -->
     <script src="config/auth-config.js"></script>
+    <script src="/js/i18n.js"></script>
 
     <script>
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+        function applyLoginI18n() {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            document.title = tr('authPage.loginTitle', document.title);
+        }
+        var _loginI18nReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        _loginI18nReady.then(applyLoginI18n);
+
         // Google 登入
         document.getElementById('googleLoginBtn').addEventListener('click', async () => {
             try {
                 await AuthService.signInWithGoogle();
             } catch (error) {
-                showAlert('登入失敗：' + error.message, 'danger');
+                showAlert(tr('authPage.loginFailPrefix', '登入失敗：') + error.message, 'danger');
             }
         });
 
@@ -243,7 +258,7 @@
             try {
                 const result = await AuthService.signInWithEmail(email, password);
                 if (!result?.session) throw new Error('登入後未取得 session');
-                showAlert('登入成功，正在導向…', 'success');
+                showAlert(tr('authPage.loginSuccess', '登入成功，正在導向…'), 'success');
                 setTimeout(() => {
                     var url = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_return_url')) || '/index.html';
                     if (!url.startsWith('/')) url = '/' + url;
@@ -265,13 +280,13 @@
 
         document.getElementById('forgotPasswordBtn').addEventListener('click', async function () {
             var email = (document.getElementById('forgotEmail').value || '').trim();
-            if (!email) { showAlert('請輸入 Email', 'warning'); return; }
+            if (!email) { showAlert(tr('authPage.enterEmail', '請輸入 Email'), 'warning'); return; }
             this.disabled = true;
             try {
                 await AuthService.resetPasswordForEmail(email);
-                showAlert('若此 Email 已註冊，稍後會收到重設信。請到信箱點連結設定密碼；設定後 Google 登入仍然可用。', 'success');
+                showAlert(tr('authPage.resetSent', '若此 Email 已註冊…'), 'success');
             } catch (err) {
-                showAlert((err && err.message) || '寄送失敗', 'danger');
+                showAlert((err && err.message) || tr('authPage.sendFail', '寄送失敗'), 'danger');
             } finally {
                 this.disabled = false;
             }
@@ -280,12 +295,12 @@
         function loginFailMessage(error) {
             var m = (error && error.message) || '';
             if (/Invalid login credentials/i.test(m) || /invalid_credentials/i.test(m)) {
-                return '帳號或密碼不正確。若您是用 Google 註冊、尚未設定密碼，請先用 Google 登入，再到「帳號資訊」設定密碼；之後 Google 與 Email＋密碼都可登入。也可點「忘記密碼」寄信補設。';
+                return tr('authPage.invalidCredentials', '帳號或密碼不正確…');
             }
             if (/Email not confirmed/i.test(m)) {
-                return '此 Email 尚未完成驗證，請先到信箱點選確認信，或改用 Google 登入。';
+                return tr('authPage.emailNotConfirmed', '此 Email 尚未完成驗證…');
             }
-            return '登入失敗：' + m;
+            return tr('authPage.loginFailPrefix', '登入失敗：') + m;
         }
 
         function getReturnUrl() {
