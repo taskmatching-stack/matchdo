@@ -2958,7 +2958,9 @@ $(document).ready(function () {
         var $title = $sec.find('.detail-label').first();
         if ($title.length) {
             var base = tr('customProduct.refSourcesTitle', '引用參考圖');
-            $title.text(list.length ? (base + '（' + list.length + '）') : base);
+            $title.text(list.length
+                ? tf('customProduct.refSourcesTitleCount', '{title}（{count}）', { title: base, count: list.length })
+                : base);
         }
         var html = buildPastItemModalRefSourcesHtml(list);
         if (html) {
@@ -5262,7 +5264,7 @@ $(document).ready(function () {
             $(this).addClass('past-item-img-error');
         });
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
-        var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
+        var caption = (promptText ? promptText.substring(0, 120) : tr('customProduct.noPromptCaption', '（無提示詞）')) + (seedStr ? ' · Seed: ' + seedStr : '');
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(caption));
         attachPastItemDeleteBtn($cell, p.id || '');
         return $cell;
@@ -5286,7 +5288,7 @@ $(document).ready(function () {
         var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
         attachPastItemImageUrl($cell, url);
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: url, alt: '' })));
-        var caption = (prompt ? prompt.substring(0, 120) : t('customProduct.thisGeneration')) + (seed ? ' · Seed: ' + seed : '');
+        var caption = (prompt ? prompt.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + (seed ? ' · Seed: ' + seed : '');
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
         return $cell;
     }
@@ -5324,7 +5326,7 @@ $(document).ready(function () {
             : window.MatchdoDigitalAssetPicker.TABS)) || [
             { key: 'designs', label: (typeof t === 'function' ? tr('myCustomProducts.tabDesigns', '設計稿') : '設計稿') },
             { key: 'promo', label: (typeof t === 'function' ? tr('myCustomProducts.tabPromo', '情境圖') : '情境圖') },
-            { key: 'favorites', label: (typeof t === 'function' ? (tr('home.myFavorites', '我的最愛')) : '我的最愛') }
+            { key: 'favorites', label: (typeof t === 'function' ? tr('myCustomProducts.tabFavs', '我的最愛') : '我的最愛') }
         ];
         $tabsEl.html(tabs.map(function (t) {
             return '<button type="button" class="dap-tab' + (t.key === galleryActiveTab ? ' active' : '') + '" data-gallery-tab="' + t.key + '">' + t.label + '</button>';
@@ -5967,7 +5969,7 @@ $(document).ready(function () {
         if (inner) inner.innerHTML = url ? '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">' : '';
         $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
-        $('#pastItemModalOwner').text(t('customProduct.thisGeneration'));
+        $('#pastItemModalOwner').text(tr('customProduct.thisGeneration', '本次生成'));
         applyPastItemModalRefSources(getActiveRefSourcesList());
         $('#pastItemModalShowSection').addClass('d-none');
         $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
@@ -5995,11 +5997,11 @@ $(document).ready(function () {
         $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : tr('customProduct.pastItemModalTitle', '設計稿'));
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) {
-            inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">' + t('home.noImage') + '</p>';
+            inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">' + tr('home.noImage', '無圖片') + '</p>';
         }
         $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
-        $('#pastItemModalOwner').text(ownerDisplay || tf('customProduct.pastOwnerGenerationWrap', '（{label}）', { label: t('customProduct.thisGeneration') }));
+        $('#pastItemModalOwner').text(ownerDisplay || tf('customProduct.pastOwnerGenerationWrap', '（{label}）', { label: tr('customProduct.thisGeneration', '本次生成') }));
         var refSourcesList = readPastItemRefSources(wrap);
         applyPastItemModalRefSources(Array.isArray(refSourcesList) ? refSourcesList : []);
         var $showSection = $('#pastItemModalShowSection');
@@ -6014,10 +6016,10 @@ $(document).ready(function () {
             var applyShowCheckbox = function (canControl) {
                 if (canControl) {
                     $checkbox.prop('checked', showOnHomepage).prop('disabled', false).data('product-id', productId).data('source-wrap', wrap);
-                    $('#pastItemModalShowOnHomepageHint').text(t('customProduct.paidUserShowHint')).css('color', '');
+                    $('#pastItemModalShowOnHomepageHint').text(tr('customProduct.paidUserShowHint', '付費會員可取消勾選；未勾選的設計稿不會出現在首頁媒體牆')).css('color', '');
                 } else {
                     $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
-                    $('#pastItemModalShowOnHomepageHint').text(t('customProduct.freeUserShowHint')).css('color', '');
+                    $('#pastItemModalShowOnHomepageHint').text(tr('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消')).css('color', '');
                 }
             };
             if (typeof canControlDesignShowOnHomepage === 'function') {
@@ -6178,7 +6180,7 @@ $(document).ready(function () {
             attachPastItemImageUrl($cell, imageDataUrl);
             attachPastItemRefSources($cell, rs);
             $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: imageDataUrl, alt: '' })));
-            var caption = (promptStr ? promptStr.substring(0, 120) : t('customProduct.thisGeneration')) + (seedStr ? ' · Seed: ' + seedStr : '');
+            var caption = (promptStr ? promptStr.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + (seedStr ? ' · Seed: ' + seedStr : '');
             $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
             var inner = wrap.find('.past-gallery-inner');
             if (!inner.length) {
@@ -6449,11 +6451,11 @@ $(document).ready(function () {
             $(tabEl).addClass('active').attr('aria-selected', 'true');
         }
         var titles = {
-            'product-design': t('customProduct.pageTitle'),
-            'pattern-extract': t('customProduct.patternExtractTab'),
-            'design-to-physical': t('customProduct.designToPhysicalTab'),
-            'scene-sim': t('home.sceneSim'),
-            'promo-image': t('customProduct.promoImageTab')
+            'product-design': tr('customProduct.pageTitle', '產品設計'),
+            'pattern-extract': tr('customProduct.patternExtractTab', '圖樣提取'),
+            'design-to-physical': tr('customProduct.designToPhysicalTab', '設計轉實物'),
+            'scene-sim': tr('home.sceneSim', '實境模擬'),
+            'promo-image': tr('customProduct.promoImageTab', '情境圖')
         };
         if (titles[tabParam] && document.title) {
             var suffix = (window.i18n && window.i18n.getLang && window.i18n.getLang() === 'en') ? ' - MATCHDO' : ' - MATCHDO 合做';
@@ -6501,6 +6503,22 @@ $(document).ready(function () {
     }
     // 初次載入：依獨立 path／舊 ?tab= 顯示對應面板
     applyTabFromUrl();
+    function syncPastGalleryTabLabels() {
+        var $tabs = $('#pastGalleryTabs');
+        if (!$tabs.length) return;
+        var labelByKey = {
+            designs: tr('myCustomProducts.tabDesigns', '設計稿'),
+            promo: tr('myCustomProducts.tabPromo', '情境圖'),
+            favorites: tr('myCustomProducts.tabFavs', '我的最愛'),
+            material_combo: tr('nav.materialCombination', '材料組合'),
+            print: tr('myCustomProducts.tabPrint', '印花')
+        };
+        $tabs.find('[data-gallery-tab]').each(function () {
+            var key = $(this).attr('data-gallery-tab');
+            if (labelByKey[key]) $(this).text(labelByKey[key]);
+        });
+    }
+
     function refreshDesignShellI18n() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
@@ -6509,6 +6527,7 @@ $(document).ready(function () {
         syncVendorRefButtonLabel();
         var $galleryTitle = $('.past-gallery-title');
         if ($galleryTitle.length) $galleryTitle.text(getGalleryTitle(galleryOwnerDisplay || ''));
+        syncPastGalleryTabLabels();
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }
@@ -6825,7 +6844,7 @@ $(document).ready(function () {
         var mode = $('#patternExtractSizeMode').val();
         var hasImage = !!window.patternExtractImageDataUrl;
         if (mode === 'same' && !hasImage) {
-            $('#patternExtractResolutionDisplay').text('—').attr('title', t('customProduct.patternExtractResolutionHint'));
+            $('#patternExtractResolutionDisplay').text('—').attr('title', tr('customProduct.patternExtractResolutionHint', '選圖後顯示解析度'));
             var defaultPts = 20;
             var fromLabel = tr('customProduct.patternExtractPointsFrom', '20 點起，依匯出解析度而定');
             var ptsLabel = (tr('customProduct.patternExtractPointsAbout', '約 {n} 點')).replace('{n}', defaultPts);
@@ -6834,7 +6853,7 @@ $(document).ready(function () {
             return;
         }
         var dims = getPatternExtractWidthHeight();
-        $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', t('customProduct.currentResolution'));
+        $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', tr('customProduct.currentResolution', '目前解析度'));
         var pts = patternExtractPointsFromResolution(dims.w, dims.h);
         var fromLabel = tr('customProduct.patternExtractPointsFrom', '20 點起，依匯出解析度而定');
         var ptsLabel = (tr('customProduct.patternExtractPointsAbout', '約 {n} 點')).replace('{n}', pts);
@@ -7000,12 +7019,12 @@ $(document).ready(function () {
                 if (data.success && data.imageData) {
                     renderPatternExtractResult(data.imageData);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '載入失敗')) + '</p>' + noteHtml);
                 }
             })
             .catch(function (err) {
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
+                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '載入失敗') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
                 console.warn('pattern-extract:', err);
             });
     });
@@ -7154,12 +7173,12 @@ $(document).ready(function () {
                 if (data.success && data.imageData) {
                     renderDesignToPhysicalResult(data.imageData, data.ai_prompt);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>');
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '載入失敗')) + '</p>');
                 }
             })
             .catch(function (err) {
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>');
+                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '載入失敗') + '</p>');
                 console.warn('design-to-physical:', err);
             });
     });
@@ -7426,11 +7445,11 @@ $(document).ready(function () {
                 };
                 renderPromoImageResult(data.imageData, promoMeta);
             } else {
-                $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+                $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '載入失敗')) + '</p>' + noteHtml);
             }
         }).catch(function (err) {
             $btn.prop('disabled', false);
-            $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>' + noteHtml);
+            $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '載入失敗') + '</p>' + noteHtml);
             console.warn('promo-image:', err);
         });
     });
@@ -7472,6 +7491,8 @@ $(document).ready(function () {
         if ($tabs.length) {
             $tabs.attr('aria-label', tr('customProduct.pastGalleryTabsAria', '數位資產分類'));
         }
+        if (typeof syncPastGalleryTabLabels === 'function') syncPastGalleryTabLabels();
+        if (typeof syncDesignTabActiveUi === 'function') syncDesignTabActiveUi(getTabParamFromPathname());
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }
@@ -7487,8 +7508,9 @@ function contactManufacturer(id) {
     // TODO: 實作聯繫功能
     var msgKey = 'customProduct.contactMfrDeveloping';
     var v = (window.i18n && window.i18n.t) ? window.i18n.t(msgKey) : '';
-    var msg = (v && v !== msgKey) ? v : '聯繫功能開發中，廠商 ID: {id}';
-    alert(msg.replace('{id}', id));
+    var fb = '聯繫功能開發中，廠商 ID: {id}';
+    var msg = (v && v !== msgKey) ? v : fb;
+    alert(String(msg).replace('{id}', id));
 }
 
 // 重試生成圖片

@@ -1139,6 +1139,8 @@
   "customProduct.networkFailTitle": "網路連線失敗",
   "customProduct.networkFailBody": "請檢查網路連線或稍後再試",
   "customProduct.noneValue": "（無）",
+  "customProduct.noPromptCaption": "（無提示詞）",
+  "customProduct.refSourcesTitleCount": "{title}（{count}）",
   "customProduct.thisGenerationZoom": "本次生成（點擊放大）",
   "customProduct.historyRelogin": "請重新登入後查看歷史生成的圖",
   "customProduct.pastGalleryTabsAria": "數位資產分類",

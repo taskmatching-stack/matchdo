@@ -1138,6 +1138,8 @@
   "customProduct.networkFailTitle": "Network error",
   "customProduct.networkFailBody": "Check your connection or try again later.",
   "customProduct.noneValue": "(none)",
+  "customProduct.noPromptCaption": "(no prompt)",
+  "customProduct.refSourcesTitleCount": "{title} ({count})",
   "customProduct.thisGenerationZoom": "This generation (click to enlarge)",
   "customProduct.historyRelogin": "Please log in again to view generation history.",
   "customProduct.pastGalleryTabsAria": "Digital asset categories",
