@@ -11842,14 +11842,108 @@ async function persistCustomProductSemanticsUpdate(productId, updates) {
     return { ok: false, error: { message: 'all layers failed (missing custom_products semantics columns?)' } };
 }
 
+function resolveCustomProductTitlePairFromEnrichSemantics(semantics, mergedTags) {
+    let pair = visualSemantics.buildCustomProductTitlePairFromSemantics(semantics);
+    if ((!pair || (!pair.zh && !pair.en)) && Array.isArray(mergedTags) && mergedTags.length) {
+        pair = visualSemantics.buildCustomProductTitlePairFromSemantics({ tags: mergedTags });
+    }
+    return pair;
+}
+
+function mergeCustomProductTitlePairIntoUpdates(updates, titlePair, currentTitle, currentTitleEn, genPrompt) {
+    if (!titlePair || (!titlePair.zh && !titlePair.en)) return;
+    if (shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) {
+        if (titlePair.zh) updates.title = titlePair.zh;
+        else if (titlePair.en) updates.title = titlePair.en;
+    }
+    const enNeeds = !String(currentTitleEn || '').trim() || isGenericMediaWallTitle(currentTitleEn)
+        || customProductTextCopiedFromPrompt(currentTitleEn, genPrompt);
+    if (titlePair.en && enNeeds) updates.title_en = titlePair.en;
+    else if (enNeeds && titlePair.zh) updates.title_en = titlePair.zh;
+}
+
+/** 讀圖 enrich 後：若 title 仍為佔位，單獨 UPDATE title（語意已在上一筆寫入） */
+async function ensureCustomProductTitlePersistedAfterEnrich(productId, ownerId, opts) {
+    if (!productId) return;
+    let gp = (opts && opts.genPrompt) ? String(opts.genPrompt).trim() : '';
+    let currentTitle = opts && opts.currentTitle != null ? String(opts.currentTitle).trim() : '';
+    try {
+        const { data: row } = await supabase
+            .from('custom_products')
+            .select('title, generation_prompt, image_semantics_json, ai_tags')
+            .eq('id', productId)
+            .maybeSingle();
+        if (row) {
+            if (!currentTitle) currentTitle = row.title ? String(row.title).trim() : '';
+            if (!gp && row.generation_prompt) gp = String(row.generation_prompt).trim();
+            if (!shouldReplaceCustomProductTitleFromAi(currentTitle, gp)) return;
+            let pair = opts && opts.titlePair;
+            if (!pair || (!pair.zh && !pair.en)) pair = resolveCustomProductTitlePairFromRow(row);
+            if (!pair || (!pair.zh && !pair.en)) {
+                console.warn('ensureCustomProductTitlePersistedAfterEnrich no pair id=%s', productId);
+                return;
+            }
+            const patch = {};
+            if (pair.zh) patch.title = pair.zh;
+            else if (pair.en) patch.title = pair.en;
+            if (pair.en) patch.title_en = pair.en;
+            else if (pair.zh) patch.title_en = pair.zh;
+            let q = supabase.from('custom_products').update(patch).eq('id', productId);
+            if (ownerId) q = q.eq('owner_id', ownerId);
+            let { error } = await q;
+            if (error && error.code === '42703' && patch.title_en) {
+                delete patch.title_en;
+                q = supabase.from('custom_products').update(patch).eq('id', productId);
+                if (ownerId) q = q.eq('owner_id', ownerId);
+                ({ error } = await q);
+            }
+            if (error) {
+                console.warn('ensureCustomProductTitlePersistedAfterEnrich id=%s err=%s', productId, error.message);
+            } else if (patch.title) {
+                console.log('custom_products title persisted id=%s title=%s', productId, String(patch.title).substring(0, 48));
+            }
+        }
+    } catch (e) {
+        console.warn('ensureCustomProductTitlePersistedAfterEnrich:', e.message);
+    }
+}
+
+/**
+ * 生圖後 enrich 是否還需要跑 Gemini：
+ * skip＝語意與標題皆完成；repair_title_only＝已有語意但 title 仍佔位；run_gemini＝尚未讀圖
+ */
+async function resolvePostGenerateCustomProductEnrichAction(productId) {
+    if (!productId) return 'run_gemini';
+    try {
+        const { data: row } = await supabase
+            .from('custom_products')
+            .select('semantics_generated_at, image_semantics_json, ai_tags, title, generation_prompt')
+            .eq('id', productId)
+            .maybeSingle();
+        if (!row || !row.semantics_generated_at) return 'run_gemini';
+        const hasSem = !!row.image_semantics_json || (Array.isArray(row.ai_tags) && row.ai_tags.length > 0);
+        if (!hasSem) return 'run_gemini';
+        const gp = row.generation_prompt != null ? String(row.generation_prompt).trim() : '';
+        if (shouldReplaceCustomProductTitleFromAi(row.title, gp)) return 'repair_title_only';
+        return 'skip';
+    } catch (_) {
+        return 'run_gemini';
+    }
+}
+
 /** 設計頁生成圖（custom_products）→ ai_tags／語意；讀圖方式與情境圖 enrichPromoGenerationSemantics 相同 */
 async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
     if (!productId || !process.env.GEMINI_API_KEY) {
         console.warn('enrichCustomProductSemantics skipped id=%s reason=no_gemini_key', productId);
         return null;
     }
-    if (!ctx.force && await customProductImageSemanticsAlreadyStored(productId)) {
-        return null;
+    if (!ctx.force) {
+        const action = await resolvePostGenerateCustomProductEnrichAction(productId);
+        if (action === 'skip') return null;
+        if (action === 'repair_title_only') {
+            await repairCustomProductTitleFromStoredSemantics(productId, ownerId);
+            return null;
+        }
     }
     try {
         const deps = getVisualSemanticsDeps();
@@ -11896,23 +11990,14 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
                 if (!genPrompt && row.generation_prompt) genPrompt = String(row.generation_prompt).trim();
             }
         } catch (_) {}
-        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(imgResult.semantics);
+        const titlePair = resolveCustomProductTitlePairFromEnrichSemantics(imgResult.semantics, mergedTags);
         const updates = {
             ai_tags: mergedTags,
             image_semantics_json: imgResult.semantics,
             ai_tags_by_dimension: tagsByDim,
             semantics_generated_at: new Date().toISOString()
         };
-        if (titlePair) {
-            if (shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) {
-                if (titlePair.zh) updates.title = titlePair.zh;
-                else if (titlePair.en) updates.title = titlePair.en;
-            }
-            const enNeeds = !currentTitleEn || isGenericMediaWallTitle(currentTitleEn)
-                || customProductTextCopiedFromPrompt(currentTitleEn, genPrompt);
-            if (titlePair.en && enNeeds) updates.title_en = titlePair.en;
-            else if (enNeeds && titlePair.zh) updates.title_en = titlePair.zh;
-        }
+        mergeCustomProductTitlePairIntoUpdates(updates, titlePair, currentTitle, currentTitleEn, genPrompt);
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
         const descZh = (imgResult.semantics && imgResult.semantics.product_description_zh
             ? String(imgResult.semantics.product_description_zh).trim()
@@ -11934,6 +12019,13 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         }
         if (updates.title) {
             console.log('custom_products title from image semantics id=%s title=%s', productId, String(updates.title).substring(0, 48));
+        }
+        if (shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) {
+            await ensureCustomProductTitlePersistedAfterEnrich(productId, ownerId, {
+                titlePair,
+                currentTitle,
+                genPrompt
+            });
         }
         let lineageMeta = null;
         try {
@@ -12002,13 +12094,15 @@ async function repairCustomProductTitleFromStoredSemantics(productId, ownerId) {
         if (!titlePair || (!titlePair.zh && !titlePair.en)) return false;
         const updates = {};
         if (titlePair.zh) updates.title = titlePair.zh;
+        else if (titlePair.en) updates.title = titlePair.en;
         if (titlePair.en) updates.title_en = titlePair.en;
+        else if (titlePair.zh) updates.title_en = titlePair.zh;
         const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
         if (updErr && updErr.code === '42703' && updates.title_en) {
             delete updates.title_en;
             await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
         }
-        return true;
+        return !updErr;
     } catch (e) {
         console.warn('repairCustomProductTitleFromStoredSemantics:', e.message);
         return false;
@@ -12022,22 +12116,6 @@ function scheduleRepairCustomProductTitleFromStoredSemantics(productId, ownerId)
     });
 }
 
-async function customProductImageSemanticsAlreadyStored(productId) {
-    if (!productId) return false;
-    try {
-        const { data: row } = await supabase
-            .from('custom_products')
-            .select('semantics_generated_at, image_semantics_json, ai_tags')
-            .eq('id', productId)
-            .maybeSingle();
-        if (!row || !row.semantics_generated_at) return false;
-        if (row.image_semantics_json) return true;
-        return Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
-    } catch (_) {
-        return false;
-    }
-}
-
 /** 僅在生圖寫入 custom_products 後呼叫一次（setImmediate）；列表／首頁不得觸發 */
 function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     if (!productId) return;
@@ -12048,8 +12126,13 @@ function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     const runCtx = ctx || {};
     setImmediate(function () {
         (async function () {
-            if (!runCtx.force && await customProductImageSemanticsAlreadyStored(productId)) {
-                return;
+            if (!runCtx.force) {
+                const action = await resolvePostGenerateCustomProductEnrichAction(productId);
+                if (action === 'skip') return;
+                if (action === 'repair_title_only') {
+                    await repairCustomProductTitleFromStoredSemantics(productId, ownerId);
+                    return;
+                }
             }
             await enrichCustomProductSemantics(productId, ownerId, runCtx);
         })().catch(function (e) {
