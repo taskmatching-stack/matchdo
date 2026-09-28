@@ -887,17 +887,14 @@
     }
 
     function isGuidePartSectionExpanded(assetId) {
-        if (!assetId) return true;
-        if (Object.prototype.hasOwnProperty.call(state.guidePartSectionExpanded, assetId)) {
-            return state.guidePartSectionExpanded[assetId] === true;
-        }
-        return true;
+        if (!assetId) return false;
+        return state.guidePartSectionExpanded[assetId] === true;
     }
 
     function setGuidePartSectionExpanded(assetId, expanded) {
         if (!assetId) return;
-        if (expanded) delete state.guidePartSectionExpanded[assetId];
-        else state.guidePartSectionExpanded[assetId] = false;
+        if (expanded) state.guidePartSectionExpanded[assetId] = true;
+        else delete state.guidePartSectionExpanded[assetId];
     }
 
     function syncGuidePartSectionDom(section) {
