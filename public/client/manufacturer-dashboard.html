@@ -223,7 +223,7 @@
                         </h2>
                         <div id="mfr-panel-summary" class="accordion-collapse collapse show" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0" id="mfr-summary">
-                                <div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                                <div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div><span data-i18n="mfrDash.loadingInline">載入中…</span></div>
                             </div>
                         </div>
                     </div>
@@ -238,11 +238,11 @@
                                         <i class="bi bi-building text-muted fs-4"></i>
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
-                                        <label class="form-label small mb-1">上傳 LOGO 圖片</label>
+                                        <label class="form-label small mb-1" data-i18n="mfrDash.uploadLogo">上傳 LOGO 圖片</label>
                                         <input type="file" class="form-control form-control-sm" id="logo-file" accept="image/jpeg,image/png,image/webp,image/gif">
-                                        <p class="form-text small text-muted mb-2">建議正方形、至少 200×200；JPG／PNG／WebP，單檔 5MB 以內。</p>
-                                        <button type="button" class="btn btn-sm btn-primary" id="btnSaveLogo">上傳並儲存 LOGO</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-1 d-none" id="btnClearLogo">移除 LOGO</button>
+                                        <p class="form-text small text-muted mb-2" data-i18n="mfrDash.logoHint">建議正方形、至少 200×200；JPG／PNG／WebP，單檔 5MB 以內。</p>
+                                        <button type="button" class="btn btn-sm btn-primary" id="btnSaveLogo" data-i18n="mfrDash.saveLogo">上傳並儲存 LOGO</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-1 d-none" id="btnClearLogo" data-i18n="mfrDash.clearLogo">移除 LOGO</button>
                                         <span id="logoSaveMsg" class="small ms-2"></span>
                                     </div>
                                 </div>
@@ -253,15 +253,15 @@
                                     <div class="col-6"><label class="form-label small mb-1">X</label><input type="url" class="form-control form-control-sm" id="soc-twitter"></div>
                                     <div class="col-6"><label class="form-label small mb-1">YouTube</label><input type="url" class="form-control form-control-sm" id="soc-youtube" placeholder="https://youtube.com/@…"></div>
                                     <div class="col-6"><label class="form-label small mb-1">LINE</label><input type="text" class="form-control form-control-sm" id="soc-line"></div>
-                                    <div class="col-6"><label class="form-label small mb-1">官網</label><input type="url" class="form-control form-control-sm" id="soc-url"></div>
+                                    <div class="col-6"><label class="form-label small mb-1" data-i18n="mfrDash.officialSite">官網</label><input type="url" class="form-control form-control-sm" id="soc-url"></div>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label small mb-1">賣場網址</label>
-                                    <p class="form-text small mb-1">可新增多個連結；名稱由您自訂。請填寫網址後按下方<strong>儲存社群</strong>（僅按「新增賣場」不會寫入）。</p>
+                                    <label class="form-label small mb-1" data-i18n="mfrDash.storeUrls">賣場網址</label>
+                                    <p class="form-text small mb-1" data-i18n-html="mfrDash.storeUrlsHint">可新增多個連結；名稱由您自訂。請填寫網址後按下方<strong>儲存社群</strong>（僅按「新增賣場」不會寫入）。</p>
                                     <div id="store-urls-list" class="d-flex flex-column gap-2"></div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnAddStoreUrl"><i class="bi bi-plus-lg me-1"></i>新增賣場</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnAddStoreUrl"><i class="bi bi-plus-lg me-1"></i><span data-i18n="mfrDash.addStoreUrl">新增賣場</span></button>
                                 </div>
-                                <button class="btn btn-sm btn-primary" id="btnSaveSocial">儲存社群</button>
+                                <button class="btn btn-sm btn-primary" id="btnSaveSocial" data-i18n="mfrDash.saveSocial">儲存社群</button>
                                 <span id="socialSaveMsg" class="small ms-2"></span>
                             </div>
                         </div>
@@ -272,16 +272,16 @@
                         </h2>
                         <div id="mfr-panel-zh" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
-                                <p class="text-muted small">訪客未切換英文時顯示下列內容；英文版請展開下方「英文版」區塊。</p>
+                                <p class="text-muted small" data-i18n="mfrDash.zhPanelHint">訪客未切換英文時顯示下列內容；英文版請展開下方「英文版」區塊。</p>
                                 <div class="mb-2">
-                                    <label class="form-label small mb-1" for="mfr-name-zh">廠商名稱</label>
-                                    <input type="text" class="form-control form-control-sm" id="mfr-name-zh" maxlength="200" placeholder="公司或工作室名稱">
+                                    <label class="form-label small mb-1" for="mfr-name-zh" data-i18n="mfrDash.vendorName">廠商名稱</label>
+                                    <input type="text" class="form-control form-control-sm" id="mfr-name-zh" maxlength="200" data-i18n-placeholder="mfrDash.vendorNamePh" placeholder="公司或工作室名稱">
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label small mb-1" for="mfr-desc-zh">簡短介紹</label>
-                                    <textarea class="form-control form-control-sm" id="mfr-desc-zh" rows="3" placeholder="介紹服務特色、工藝或產品方向…"></textarea>
+                                    <label class="form-label small mb-1" for="mfr-desc-zh" data-i18n="mfrDash.shortIntro">簡短介紹</label>
+                                    <textarea class="form-control form-control-sm" id="mfr-desc-zh" rows="3" data-i18n-placeholder="mfrDash.descZhPh" placeholder="介紹服務特色、工藝或產品方向…"></textarea>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrZh">儲存中文</button>
+                                <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrZh" data-i18n="mfrDash.saveZh">儲存中文</button>
                                 <span id="mfrZhMsg" class="small text-muted ms-2"></span>
                             </div>
                         </div>
@@ -292,7 +292,7 @@
                         </h2>
                         <div id="mfr-panel-i18n-en" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
-                                <p class="text-muted small">訪客切換英文時顯示下列內容；可手動編輯，或使用 AI 依中文名稱／簡介生成並寫入資料庫。</p>
+                                <p class="text-muted small" data-i18n="mfrDash.enPanelHint">訪客切換英文時顯示下列內容；可手動編輯，或使用 AI 依中文名稱／簡介生成並寫入資料庫。</p>
                                 <div class="mb-2">
                                     <label class="form-label small mb-1" for="mfr-name-en">Company name (English)</label>
                                     <input type="text" class="form-control form-control-sm" id="mfr-name-en" maxlength="200" placeholder="e.g. Grantclassic Leather">
@@ -302,14 +302,14 @@
                                     <textarea class="form-control form-control-sm" id="mfr-desc-en" rows="3" placeholder="Brief intro for international buyers…"></textarea>
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrEn">儲存英文</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateMfrEn">AI 生成簡介英文</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateAllMfrEn">AI 生成全部英文</button>
+                                    <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrEn" data-i18n="mfrDash.saveEn">儲存英文</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateMfrEn" data-i18n="mfrDash.aiGenEnIntro">AI 生成簡介英文</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateAllMfrEn" data-i18n="mfrDash.aiGenAllEn">AI 生成全部英文</button>
                                     <span id="mfrEnMsg" class="small text-muted"></span>
                                 </div>
-                                <p class="text-muted small mb-0 mt-1">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="mfrDash.aiAllEnNote">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
                                 <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
-                                <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer">預覽英文公開頁 ↗</a>
+                                <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer" data-i18n="mfrDash.previewEnPage">預覽英文公開頁 ↗</a>
                             </div>
                         </div>
                     </div>
@@ -320,7 +320,7 @@
                         <div id="mfr-panel-recent" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
                             <div class="accordion-body pt-0">
                                 <div class="row g-2" id="recent-portfolio">
-                                    <div class="col-12 text-center py-2 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                                    <div class="col-12 text-center py-2 text-muted"><div class="spinner-border spinner-border-sm me-2"></div><span data-i18n="mfrDash.loadingInline">載入中…</span></div>
                                 </div>
                                 <div class="mt-2 text-end">
                                     <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary"><span data-i18n="mfrDash.allPortfolio">全部作品</span> <i class="bi bi-arrow-right"></i></a>

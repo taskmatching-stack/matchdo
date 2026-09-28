@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>註冊 - MatchDO 合做</title>
+    <title data-i18n="authPage.registerTitle">註冊 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="description" content="註冊 MATCHDO 合做會員，開始使用客製產品設計與廠商媒合服務。">
     <link rel="canonical" href="https://matchdo.cc/register.html">
@@ -169,44 +169,44 @@
 <body>
     <div class="register-container">
         <div class="register-card">
-            <h2>歡迎加入 MatchDO 合做！</h2>
-            <p class="subtitle">登入或註冊後即可使用發案、接案等所有功能，無需選擇身份。</p>
+            <h2 data-i18n="authPage.registerHeadline">歡迎加入 MatchDO 合做！</h2>
+            <p class="subtitle" data-i18n="authPage.registerSubtitle">登入或註冊後即可使用發案、接案等所有功能，無需選擇身份。</p>
 
             <!-- 未登入時：登入/註冊 -->
             <div id="pleaseLogin">
-                <p class="text-center text-muted mb-3">Google 與 Email＋密碼都可註冊／登入，同一個 Email 是同一個帳號。</p>
+                <p class="text-center text-muted mb-3" data-i18n="authPage.registerDualLogin">Google 與 Email＋密碼都可註冊／登入，同一個 Email 是同一個帳號。</p>
                 <div class="text-center mb-4">
                 <button type="button" class="btn btn-outline-primary" onclick="signUpWithGoogle()">
-                    <i class="bi bi-google me-1"></i>使用 Google 註冊／登入
+                    <i class="bi bi-google me-1"></i><span data-i18n="authPage.googleRegister">使用 Google 註冊／登入</span>
                 </button>
                 </div>
-                <div class="text-center text-muted small mb-3">或用 Email 註冊</div>
+                <div class="text-center text-muted small mb-3" data-i18n="authPage.orEmailRegister">或用 Email 註冊</div>
                 <form id="emailRegisterForm">
                     <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" id="regEmail" required placeholder="your@email.com" autocomplete="email">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">密碼（至少 6 字）</label>
+                        <label class="form-label" data-i18n="authPage.passwordMinLabel">密碼（至少 6 字）</label>
                         <input type="password" class="form-control" id="regPassword" required minlength="6" autocomplete="new-password">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">再輸入一次密碼</label>
+                        <label class="form-label" data-i18n="authPage.passwordAgain">再輸入一次密碼</label>
                         <input type="password" class="form-control" id="regPassword2" required minlength="6" autocomplete="new-password">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100" id="regBtn">Email 註冊</button>
+                    <button type="submit" class="btn btn-primary w-100" id="regBtn" data-i18n="authPage.emailRegisterSubmit">Email 註冊</button>
                     <div id="regAlert" class="mt-3"></div>
                 </form>
             </div>
 
             <!-- 已登入：顯示歡迎並導向首頁 -->
             <div id="welcomeDone" class="text-center py-4" style="display: none;">
-                <p class="mb-3">已完成，正在為您導向首頁…</p>
+                <p class="mb-3" data-i18n="authPage.registerRedirecting">已完成，正在為您導向首頁…</p>
                 <div class="spinner-border text-primary" role="status"></div>
             </div>
 
             <div class="text-center mt-4">
-                <small class="text-muted">已有帳號？ <a href="login.html" class="text-primary fw-bold">立即登入</a></small>
+                <small class="text-muted"><span data-i18n="authPage.haveAccount">已有帳號？</span> <a href="login.html" class="text-primary fw-bold" data-i18n="authPage.signInLink">立即登入</a></small>
             </div>
         </div>
     </div>
@@ -216,14 +216,29 @@
     
     <!-- Auth Config -->
     <script src="config/auth-config.js"></script>
+    <script src="/js/i18n.js"></script>
 
     <script>
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+        function applyRegisterI18n() {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            document.title = tr('authPage.registerTitle', document.title);
+        }
+        var _regI18nReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        _regI18nReady.then(applyRegisterI18n);
+
         async function signUpWithGoogle() {
             try {
                 await AuthService.signInWithGoogle();
             } catch (e) {
                 console.error('Google 註冊失敗:', e);
-                alert('Google 註冊失敗：' + (e?.message || e));
+                alert(tr('authPage.googleRegisterFail', 'Google 註冊失敗：') + (e?.message || e));
             }
         }
 
@@ -258,24 +273,24 @@
             function msg(html, kind) {
                 box.innerHTML = '<div class="alert alert-' + (kind || 'info') + ' py-2 mb-0">' + html + '</div>';
             }
-            if (pw.length < 6) { msg('密碼至少 6 個字元', 'warning'); return; }
-            if (pw !== pw2) { msg('兩次密碼不一致', 'warning'); return; }
+            if (pw.length < 6) { msg(tr('profile.passwordTooShort', '密碼至少 6 個字元'), 'warning'); return; }
+            if (pw !== pw2) { msg(tr('profile.passwordMismatch', '兩次密碼不一致'), 'warning'); return; }
             var btn = document.getElementById('regBtn');
             btn.disabled = true;
             try {
                 var result = await AuthService.signUpWithEmail(email, pw);
                 if (result && result.session) {
-                    msg('註冊成功，正在進入…', 'success');
+                    msg(tr('authPage.registerSuccess', '註冊成功，正在進入…'), 'success');
                     setTimeout(function () { location.href = '/index.html'; }, 400);
                     return;
                 }
-                msg('已送出。若此站有開 Email 驗證，請到信箱點確認信後再登入。之後仍可再綁 Google。', 'success');
+                msg(tr('authPage.registerVerifyEmail', '已送出。若此站有開 Email 驗證…'), 'success');
             } catch (err) {
                 var m = (err && err.message) || '';
                 if (/already registered/i.test(m) || /User already registered/i.test(m)) {
-                    msg('此 Email 已有帳號。若當初用 Google 註冊，請到<a href="/login.html">登入頁</a>用 Google 登入，再到帳號資訊設定密碼；之後兩種方式都能用。', 'warning');
+                    msg(tr('authPage.registerAlreadyExists', '此 Email 已有帳號…'), 'warning');
                 } else {
-                    msg('註冊失敗：' + m, 'danger');
+                    msg(tr('authPage.registerFailPrefix', '註冊失敗：') + m, 'danger');
                 }
             } finally {
                 btn.disabled = false;

@@ -62,7 +62,7 @@
                                         <input type="text" class="form-control" id="companyName" data-i18n-placeholder="profile.optional" placeholder="選填">
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label">服務地區 <small class="text-muted">（可複選）</small></label>
+                                        <label class="form-label" data-i18n-html="profile.serviceAreaMulti">服務地區 <small class="text-muted">（可複選）</small></label>
                                         <div id="serviceAreaSelector" class="border rounded p-2" style="background:#fafafa;">
                                             <!-- 由 JS 渲染分組標籤 -->
                                         </div>
@@ -70,88 +70,88 @@
                                         <div class="mt-1 small text-muted" id="selectedAreaPreview"></div>
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label">自我介紹</label>
-                                        <textarea class="form-control" id="bio" rows="3" placeholder="簡單介紹您的服務特色或專長..."></textarea>
+                                        <label class="form-label" data-i18n="profile.bio">自我介紹</label>
+                                        <textarea class="form-control" id="bio" rows="3" data-i18n-placeholder="profile.placeholderBio" placeholder="簡單介紹您的服務特色或專長..."></textarea>
                                     </div>
                                 </div>
 
                                 <!-- 電話資訊 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-phone me-2"></i>電話資訊</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-phone me-2"></i><span data-i18n="profile.phoneSection">電話資訊</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
-                                        <label class="form-label">市話</label>
-                                        <input type="tel" class="form-control" id="phone" placeholder="例：02-12345678">
+                                        <label class="form-label" data-i18n="profile.phone">市話</label>
+                                        <input type="tel" class="form-control" id="phone" data-i18n-placeholder="profile.placeholderPhone" placeholder="例：02-12345678">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="phoneVisible">
                                             <label class="form-check-label" for="phoneVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">手機</label>
-                                        <input type="tel" class="form-control" id="mobile" placeholder="例：0912-345678">
+                                        <label class="form-label" data-i18n="profile.mobile">手機</label>
+                                        <input type="tel" class="form-control" id="mobile" data-i18n-placeholder="profile.placeholderMobile" placeholder="例：0912-345678">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="mobileVisible">
                                             <label class="form-check-label" for="mobileVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- 即時通訊 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-comments me-2"></i>即時通訊</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-comments me-2"></i><span data-i18n="profile.imSection">即時通訊</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-4">
-                                        <label class="form-label">LINE ID</label>
-                                        <input type="text" class="form-control" id="lineId" placeholder="您的 LINE ID">
+                                        <label class="form-label" data-i18n="profile.lineId">LINE ID</label>
+                                        <input type="text" class="form-control" id="lineId" data-i18n-placeholder="profile.lineIdPh" placeholder="您的 LINE ID">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="lineVisible">
                                             <label class="form-check-label" for="lineVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">WeChat ID</label>
-                                        <input type="text" class="form-control" id="wechatId" placeholder="選填">
+                                        <input type="text" class="form-control" id="wechatId" data-i18n-placeholder="profile.optional" placeholder="選填">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="wechatVisible">
                                             <label class="form-check-label" for="wechatVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Telegram</label>
-                                        <input type="text" class="form-control" id="telegramId" placeholder="選填">
+                                        <input type="text" class="form-control" id="telegramId" data-i18n-placeholder="profile.optional" placeholder="選填">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="telegramVisible">
                                             <label class="form-check-label" for="telegramVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Email -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-envelope me-2"></i>Email</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-envelope me-2"></i><span data-i18n="profile.emailSection">Email</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
-                                        <label class="form-label">聯絡 Email</label>
-                                        <input type="email" class="form-control" id="email" placeholder="例：contact@example.com">
+                                        <label class="form-label" data-i18n="profile.contactEmail">聯絡 Email</label>
+                                        <input type="email" class="form-control" id="email" data-i18n-placeholder="profile.placeholderContactEmail" placeholder="例：contact@example.com">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="emailVisible">
                                             <label class="form-check-label" for="emailVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- 社群網站 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fab fa-facebook me-2"></i>社群網站</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fab fa-facebook me-2"></i><span data-i18n="profile.socialSection">社群網站</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
                                         <label class="form-label"><i class="fab fa-facebook text-primary me-1"></i>Facebook</label>
@@ -159,7 +159,7 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="facebookVisible">
                                             <label class="form-check-label" for="facebookVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
@@ -169,7 +169,7 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="instagramVisible">
                                             <label class="form-check-label" for="instagramVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
@@ -179,7 +179,7 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="threadsVisible">
                                             <label class="form-check-label" for="threadsVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
@@ -189,7 +189,7 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="twitterVisible">
                                             <label class="form-check-label" for="twitterVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
@@ -199,7 +199,7 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="youtubeVisible">
                                             <label class="form-check-label" for="youtubeVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
@@ -209,44 +209,44 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="linkedinVisible">
                                             <label class="form-check-label" for="linkedinVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- 專業連結 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-globe me-2"></i>專業連結（建議公開）</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-globe me-2"></i><span data-i18n="profile.proLinksSuggested">專業連結（建議公開）</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
-                                        <label class="form-label">官方網站</label>
+                                        <label class="form-label" data-i18n="profile.officialWebsite">官方網站</label>
                                         <input type="url" class="form-control" id="websiteUrl" placeholder="https://...">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="websiteVisible" checked>
                                             <label class="form-check-label" for="websiteVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">作品集</label>
+                                        <label class="form-label" data-i18n="profile.portfolio">作品集</label>
                                         <input type="url" class="form-control" id="portfolioUrl" placeholder="https://...">
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="portfolioVisible" checked>
                                             <label class="form-check-label" for="portfolioVisible">
-                                                <small>✅ 公開顯示（建議）</small>
+                                                <small data-i18n="profile.publicShowSuggested">✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- 偏好聯絡方式 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-star me-2"></i>偏好聯絡方式（可複選）</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-star me-2"></i><span data-i18n="profile.preferContact">偏好聯絡方式（可複選）</span></h6>
                                 <div class="row g-2 mb-4">
                                     <div class="col-md-3">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" value="phone" id="prefer_phone">
-                                            <label class="form-check-label" for="prefer_phone">電話</label>
+                                            <label class="form-check-label" for="prefer_phone" data-i18n="profile.preferPhone">電話</label>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -270,22 +270,22 @@
                                 </div>
 
                                 <!-- 營業時間 -->
-                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-clock me-2"></i>營業時間</h6>
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-clock me-2"></i><span data-i18n="profile.businessHours">營業時間</span></h6>
                                 <div class="row g-3 mb-4">
                                     <div class="col-md-6">
-                                        <label class="form-label">平日</label>
-                                        <input type="text" class="form-control" id="weekdaysHours" placeholder="例：09:00-18:00">
+                                        <label class="form-label" data-i18n="profile.weekdays">平日</label>
+                                        <input type="text" class="form-control" id="weekdaysHours" data-i18n-placeholder="profile.placeholderHoursWeekday" placeholder="例：09:00-18:00">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">假日</label>
-                                        <input type="text" class="form-control" id="weekendHours" placeholder="例：10:00-17:00 或 休息">
+                                        <label class="form-label" data-i18n="profile.weekend">假日</label>
+                                        <input type="text" class="form-control" id="weekendHours" data-i18n-placeholder="profile.placeholderHoursWeekend" placeholder="例：10:00-17:00 或 休息">
                                     </div>
                                 </div>
 
                                 <!-- 儲存按鈕 -->
                                 <div class="text-center">
                                     <button type="submit" class="btn btn-primary btn-lg px-5">
-                                        <i class="fas fa-save me-2"></i>儲存設定
+                                        <i class="fas fa-save me-2"></i><span data-i18n="profile.saveContactSettings">儲存設定</span>
                                     </button>
                                 </div>
                             </form>
