@@ -6257,7 +6257,7 @@ $(document).ready(function () {
             if (!cached) {
                 wrap.empty();
                 var loadingGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-                loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p>');
+                loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + tr('home.loading', '載入中…') + '</p>');
                 updatePastGalleryTabsActive(galleryActiveTab);
             }
             $('#generatedImagePlaceholder').hide();
@@ -6275,7 +6275,7 @@ $(document).ready(function () {
         var wrap = $('#pastGeneratedGallery');
         wrap.empty();
         var loadingGrid = ensurePastGalleryShell(wrap, '');
-        loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p>');
+        loadingGrid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + tr('home.loading', '載入中…') + '</p>');
         updatePastGalleryTabsActive('designs');
     })();
     $('#generatedImagePlaceholder').hide();
@@ -7435,11 +7435,45 @@ $(document).ready(function () {
         });
     });
 
+    function applyCustomProductJsonLd() {
+        var wp = document.getElementById('custom-product-ld-webpage');
+        var bc = document.getElementById('custom-product-ld-breadcrumb');
+        if (!wp && !bc) return;
+        var pageName = tr('customProduct.ogTitle', '產品設計 - MATCHDO 合做');
+        var pageDesc = tr('customProduct.metaDescription', '設計客製產品，上傳參考圖或文字描述，選擇材質與尺寸，直接媒合廠商生產。');
+        var siteName = tr('customProduct.ogSiteName', 'MATCHDO 合做');
+        if (wp) {
+            wp.textContent = JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'WebPage',
+                name: pageName,
+                url: 'https://matchdo.cc/custom-product.html',
+                description: pageDesc,
+                isPartOf: { '@type': 'WebSite', name: siteName, url: 'https://matchdo.cc' }
+            });
+        }
+        if (bc) {
+            bc.textContent = JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                    { '@type': 'ListItem', position: 1, name: tr('nav.home', '首頁'), item: 'https://matchdo.cc/' },
+                    { '@type': 'ListItem', position: 2, name: tr('customProduct.breadcrumbCustomHub', '客製產品'), item: 'https://matchdo.cc/custom/' },
+                    { '@type': 'ListItem', position: 3, name: tr('customProduct.pageTitle', '產品設計'), item: 'https://matchdo.cc/custom-product.html' }
+                ]
+            });
+        }
+    }
+
     function customProductOnLocaleReady() {
+        applyCustomProductJsonLd();
         if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
         var $tabs = $('#pastGalleryTabs');
         if ($tabs.length) {
             $tabs.attr('aria-label', tr('customProduct.pastGalleryTabsAria', '數位資產分類'));
+        }
+        if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
+            window.CustomProductSpecSummary.refresh();
         }
     }
     window.customProductOnLocaleReady = customProductOnLocaleReady;
