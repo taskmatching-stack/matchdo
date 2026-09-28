@@ -1063,6 +1063,12 @@
   "home.filterSearchPrefix": "搜尋：",
   "home.filterTagPrefix": "標籤：",
   "home.clearFilterAria": "移除篩選",
+  "home.filterSubcategoryLabel": "子分類：",
+  "home.filterBackMain": "← 上一層",
+  "home.filterBackMainTitle": "回到大分類",
+  "home.comparisonSliderHint": "左＝設計稿、右＝作品圖",
+  "home.comparisonAltWork": "作品圖：",
+  "home.comparisonAltDesign": "設計稿：",
 
   "auth.login": "登入",
   "auth.register": "註冊",

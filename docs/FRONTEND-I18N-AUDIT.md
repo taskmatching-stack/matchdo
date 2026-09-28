@@ -143,7 +143,29 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`custom-product.js` 材料組合刪除 confirm、色卡／配件選用、參考圖移除 aria-label（`e069481`）。
 - 2026-09-29：`my-custom-products.html` 設計風向 view、`uiTf`、材料組合／印花／情境圖刪除與描述編輯 EN（`03878f8`）。
 - 2026-09-29：設計頁手機分類 Bottom Sheet i18n；數位資產情境圖／印花空狀態／設計卡引用與標籤 EN（`25afac1`）。
-- 2026-09-29：數位資產收藏 Tab、媒合／完成 confirm、情境圖媒體牆切換（本機待 push）。
+- 2026-09-29：數位資產收藏 Tab、媒合／完成 confirm、情境圖媒體牆切換（`9e9e030`）。
 - 2026-09-29：`client/find-makers.html`、`client/custom-product-detail.html` 全頁 UI + 動態 JS（`findMakers.*`、`customProductDetail.*`）（`9e9e030`）。
 - 2026-09-29：`print-asset.html` 剩餘 JS／meta；`material-dual-color` 存庫失敗提示與 a11y；設計頁材料組合摘要 `customProduct.materialCombo*`（`8279834`）。
-- 2026-09-29：設計頁 `refSlotsFull` 占位符、資產庫 Tab 標籤；`product-tree.html` SEO meta EN。
+- 2026-09-29：設計頁 `refSlotsFull` 占位符、資產庫 Tab 標籤；`product-tree.html` SEO meta EN（`dbfc6a2`）。
+- 2026-09-29：**修混用** — 媒體牆繁中標題 API、`zh-TW.json` 誤英（sizeMode、myProjects 等）；數位資產小卡「更多」選單（`691eed9`）。
+- 2026-09-29：首頁篩選 chip／分類列 `home.*`；設計風向 alert `remakeProduct.alert*`（`7a915a0` 起）。
+
+## 本輪批次到哪裡（給接手的狀態表）
+
+| 批次 | 範圍 | 狀態 |
+|------|------|------|
+| **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
+| **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
+| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照滑桿 hint） | 🔄 進行中（`home.*` 持續補；lightbox 內仍有硬編碼） |
+| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 僅 alert 一批；其餘中文 UI 待補 |
+| **C～F** | 圖庫、廠商列表、控制台、供應商區（稽核腳本 **部分／缺**） | ⏳ 未開本輪 |
+
+## 已知混用／風險（2026-09-29 盤點）
+
+| 類型 | 現況 | 處理方式 |
+|------|------|----------|
+| **`zh-TW.json` 寫英文 UI** | 已修一批（`sizeMode`、`myProjects.sectionTitle`、`pageTitleEn` 等改回繁中） | 新鍵必雙檔；勿再抄 `en.json` 進繁中檔 |
+| **鍵名 `*En` 但用在 `data-i18n`** | 如 `printAsset.pageTitleEn` — 繁中檔值已是中文副標，英文檔才是英文 | 可接受；驗收看 `?lang=` 勿只看鍵名 |
+| **JS `isEn ?` 硬編兩套字** | 首頁分類列已改 `homeT()`；`remake-product.js` 儲存標題等仍有 `isEn` | 改為 `rpTr` + 雙檔鍵 |
+| **媒體牆卡片 title** | API `pickMediaWallLocalizedTitle` 繁中不再 fallback 英文預設 | ✅ `691eed9` |
+| **DB 內容英文、UI 中文** | 正常（內容管線）；不是 bug | 用 API `lang` 或後台 `*_en` |

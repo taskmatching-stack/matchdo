@@ -1286,7 +1286,7 @@
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
-                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(imageSrcForShare(compAfter)) + '" alt="' + escAttr('作品圖：' + titleRaw) + '" loading="lazy"><img class="slider-fg" src="' + escAttr(imageSrcForShare(compBefore)) + '" alt="' + escAttr('設計稿：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計稿、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(imageSrcForShare(compAfter)) + '" alt="' + escAttr(homeT('home.comparisonAltWork', '作品圖：') + titleRaw) + '" loading="lazy"><img class="slider-fg" src="' + escAttr(imageSrcForShare(compBefore)) + '" alt="' + escAttr(homeT('home.comparisonAltDesign', '設計稿：') + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">' + esc(homeT('home.comparisonSliderHint', '左＝設計稿、右＝作品圖')) + '</span><input type="range" min="0" max="100" value="50"></div></div>';
                     } else if (p.type === 'series' || p.type === 'collection') {
                         var urls = (p.series_image_urls && Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls
                             : (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : ((p.cover_image_url && p.cover_image_url.trim()) ? [p.cover_image_url.trim()] : (p.image_url ? [p.image_url] : [])));
@@ -2105,10 +2105,9 @@
                 var filterEl = document.getElementById('media-wall-filter');
                 if (!mainRow) return;
                 mainRow.innerHTML = '';
-                var isEn = categoriesLang && String(categoriesLang).toLowerCase().indexOf('zh') !== 0;
                 var allMain = document.createElement('span');
                 allMain.className = 'filter-tag' + (currentCategoryKey === '' ? ' active' : '');
-                allMain.textContent = isEn ? 'All' : '全部';
+                allMain.textContent = homeT('home.layoutAll', '全部');
                 allMain.role = 'button';
                 allMain.tabIndex = 0;
                 allMain.addEventListener('click', function () { runFilterMain(''); });
@@ -2133,20 +2132,20 @@
                         subRow.innerHTML = '';
                         var subLabel = document.createElement('span');
                         subLabel.className = 'filter-sub-label';
-                        subLabel.textContent = isEn ? 'Subcategory: ' : '子分類：';
+                        subLabel.textContent = homeT('home.filterSubcategoryLabel', '子分類：');
                         subLabel.style.cssText = 'font-size:0.75rem;color:#5c6470;margin-right:0.25rem;align-self:center;';
                         subRow.appendChild(subLabel);
                         var backTag = document.createElement('span');
                         backTag.className = 'filter-tag filter-sub';
-                        backTag.textContent = isEn ? '← Back' : '← 上一層';
+                        backTag.textContent = homeT('home.filterBackMain', '← 上一層');
                         backTag.role = 'button';
-                        backTag.title = '回到大分類';
+                        backTag.title = homeT('home.filterBackMainTitle', '回到大分類');
                         backTag.addEventListener('click', function () { runFilterMain(''); });
                         backTag.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterMain(''); } });
                         subRow.appendChild(backTag);
                         var allSub = document.createElement('span');
                         allSub.className = 'filter-tag filter-sub' + (currentSubcategoryKey === '' ? ' active' : '');
-                        allSub.textContent = isEn ? 'All' : '全部';
+                        allSub.textContent = homeT('home.layoutAll', '全部');
                         allSub.role = 'button';
                         allSub.addEventListener('click', function () { runFilterSub(''); });
                         allSub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterSub(''); } });

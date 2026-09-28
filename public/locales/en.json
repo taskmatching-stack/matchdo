@@ -1025,6 +1025,12 @@
   "home.filterSearchPrefix": "Search: ",
   "home.filterTagPrefix": "Tags: ",
   "home.clearFilterAria": "Remove filter",
+  "home.filterSubcategoryLabel": "Subcategory: ",
+  "home.filterBackMain": "← Back",
+  "home.filterBackMainTitle": "Back to main categories",
+  "home.comparisonSliderHint": "Left = design draft, right = finished work",
+  "home.comparisonAltWork": "Work: ",
+  "home.comparisonAltDesign": "Design draft: ",
 
   "auth.login": "Log in",
   "auth.register": "Register",
