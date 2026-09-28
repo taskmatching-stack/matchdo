@@ -2814,8 +2814,7 @@ $(document).ready(function () {
             return;
         }
         var names = keys.map(function (k) { return byId[k]; }).join('、');
-        var tpl = t('customProduct.multiVendorPickerHint') ||
-            '參考圖已含多家廠商（{names}）。混用可能無法由單一廠商生產，建議先與廠商溝通後再下單。';
+        var tpl = tr('customProduct.multiVendorPickerHint', '參考圖已含多家廠商（{names}）的原型／材料／零件。混用可能無法由單一廠商生產，建議先與廠商溝通後再下單。');
         $hint.removeClass('d-none').text(tpl.replace('{names}', names));
     }
 
@@ -5300,7 +5299,7 @@ $(document).ready(function () {
         if (!wrap.find('.past-gallery-inner').length) {
             wrap.html(
                 '<p class="past-gallery-title"></p>' +
-                '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="數位資產分類"></div>' +
+                '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="' + escapeHtmlText(tr('customProduct.pastGalleryTabsAria', '數位資產分類')) + '"></div>' +
                 '<div class="past-gallery-inner"></div>' +
                 '<div id="pastGalleryScrollSentinel" class="past-gallery-sentinel" aria-hidden="true"></div>'
             );
@@ -5427,7 +5426,7 @@ $(document).ready(function () {
             if (!token) {
                 wrap.html(
                     '<p class="past-gallery-title">' + getGalleryTitle('') + '</p>' +
-                    '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="數位資產分類"></div>' +
+                    '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="' + escapeHtmlText(tr('customProduct.pastGalleryTabsAria', '數位資產分類')) + '"></div>' +
                     '<div class="past-gallery-inner"><p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
                     '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
                 );
@@ -6002,7 +6001,7 @@ $(document).ready(function () {
         }
         $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
-        $('#pastItemModalOwner').text(ownerDisplay || ('（' + t('customProduct.thisGeneration') + '）'));
+        $('#pastItemModalOwner').text(ownerDisplay || tf('customProduct.pastOwnerGenerationWrap', '（{label}）', { label: t('customProduct.thisGeneration') }));
         var refSourcesList = readPastItemRefSources(wrap);
         applyPastItemModalRefSources(Array.isArray(refSourcesList) ? refSourcesList : []);
         var $showSection = $('#pastItemModalShowSection');
@@ -7434,6 +7433,18 @@ $(document).ready(function () {
             console.warn('promo-image:', err);
         });
     });
+
+    function customProductOnLocaleReady() {
+        if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
+        var $tabs = $('#pastGalleryTabs');
+        if ($tabs.length) {
+            $tabs.attr('aria-label', tr('customProduct.pastGalleryTabsAria', '數位資產分類'));
+        }
+    }
+    window.customProductOnLocaleReady = customProductOnLocaleReady;
+    if (window.i18n && window.i18n.ready) {
+        window.i18n.ready.then(customProductOnLocaleReady).catch(function () {});
+    }
 });
 
 // 聯繫廠商（全域函數）

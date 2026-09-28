@@ -125,9 +125,17 @@ node scripts/audit-locale-mix.js
 
 ## 與 i18n 並行、但**排在本輪英文化之後**的產品待辦
 
-- 訂閱優惠是否「終身」vs「僅本訂閱期」：見 `docs/PROGRESS-pricing-campaigns.md` §待辦 A。
-- 年付牌價 ×10 vs 後台可設年付：見同檔 §待辦 B。
-- 廠商服務地區／列表篩選與排序：尚未開規劃檔（使用者 2026-09-29 備忘）。
+（i18n 主流程收斂後再開工；勿與 D2～F 批次混在同一 PR。）
+
+| 優先 | 項目 | 文件／位置 |
+|------|------|------------|
+| P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | `docs/PROGRESS-pricing-campaigns.md` §待辦 A |
+| P1 | 年付牌價 ×10 vs 後台可設年付 | 同檔 §待辦 B |
+| P2 | 廠商服務地區／列表篩選與排序（規劃檔待寫） | 使用者 2026-09-29 備忘 |
+| P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | `docs/SEO-PROGRESS.md`、`docs/SEO-AUDIT-PLAN-2026-08-06.md` |
+| P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 後台 + `admin-content-multilang` 規則；**≠** UI i18n |
+| P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
+| P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
 
 ## Agent 必守（避免再說「全站好了」）
 
@@ -170,7 +178,8 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（生圖成功／失敗、歷史、首頁展示 hint、FLUX debug） |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（生圖區、歷史 aria、locale 重繪 sheet；參考圖 scope／商攝 tab 等仍 `tr` fallback） |
+| **F（片段）** | `subscription-plans.html` 載入文案 | 🔄 `pricing.loading`（2026-09-29） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
 | **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
