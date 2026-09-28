@@ -812,8 +812,8 @@
                 var faved = isFavorite(favId);
                 btn.dataset.favId = favId;
                 try { btn.dataset.favItem = JSON.stringify(item); } catch(e) {}
-                var tFav     = (window.i18n && window.i18n.t) ? window.i18n.t('home.fav')     : '收藏';
-                var tFavDone = (window.i18n && window.i18n.t) ? window.i18n.t('home.favAdded') : '已收藏';
+                var tFav     = homeT('home.fav', '收藏');
+                var tFavDone = homeT('home.favAdded', '已收藏');
                 if (faved) {
                     btn.className = 'btn btn-danger btn-sm';
                     var ic = btn.querySelector('i'); if (ic) ic.className = 'bi bi-heart-fill';
@@ -1058,20 +1058,20 @@
                 var mfrId = item.manufacturer_id || null;
                 if (isVendorItem && mUserId) {
                     contactBtn.classList.remove('d-none');
-                    contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>聯絡廠商';
+                    contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>' + homeT('home.contactVendor', '聯絡廠商');
                     contactBtn.onclick = function () {
                         if (!favUserLoggedIn) { showLoginToast(); return; }
                         window.location.href = '/client/messages.html?open=' + encodeURIComponent(mUserId);
                     };
                 } else if (isVendorItem && mfrId) {
                     contactBtn.classList.remove('d-none');
-                    contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商';
+                    contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>' + homeT('home.viewVendorDetail', '廠商詳情');
                     contactBtn.onclick = function () {
                         window.location.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
                     };
                 } else if (isVendorItem) {
                     contactBtn.classList.remove('d-none');
-                    contactBtn.innerHTML = '<i class="bi bi-building me-1"></i>瀏覽廠商';
+                    contactBtn.innerHTML = '<i class="bi bi-building me-1"></i>' + homeT('home.browseVendors', '瀏覽廠商列表');
                     contactBtn.onclick = function () { window.location.href = '/vendors.html'; };
                 } else {
                     contactBtn.classList.add('d-none');
@@ -1094,7 +1094,7 @@
                     return;
                 }
                 var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
-                var mfrName = (item.ref_manufacturer_name || '').trim() || '廠商';
+                var mfrName = (item.ref_manufacturer_name || '').trim() || homeT('vendor.defaultName', '廠商');
                 nameEl.textContent = mfrName;
                 nameEl.href = profileUrl;
                 nameEl.title = mfrName;
@@ -2270,7 +2270,8 @@
                     var after = item.image_url || placeholdAfter;
                     var before = item.image_url_before || placeholdBefore;
                     bodyEl.dataset.designImageUrl = before;
-                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + imageSrcForShare(after).replace(/"/g, '&quot;') + '" alt="作品圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + imageSrcForShare(before).replace(/"/g, '&quot;') + '" alt="設計稿" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#7A8FA3;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #7A8FA3;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#7A8FA3">⇄</div><span class="slider-hint" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">左＝設計稿、右＝作品圖</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
+                    var lbCompTitle = (item.title || '').trim();
+                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + imageSrcForShare(after).replace(/"/g, '&quot;') + '" alt="' + escAttr(homeT('home.comparisonAltWork', '作品圖：') + lbCompTitle) + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + imageSrcForShare(before).replace(/"/g, '&quot;') + '" alt="' + escAttr(homeT('home.comparisonAltDesign', '設計稿：') + lbCompTitle) + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#7A8FA3;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #7A8FA3;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#7A8FA3">⇄</div><span class="slider-hint" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">' + esc(homeT('home.comparisonSliderHint', '左＝設計稿、右＝作品圖')) + '</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
                     var compWrap = bodyEl.querySelector('.comparison-slider-wrap');
                     var range = compWrap && compWrap.querySelector('input[type="range"]');
                     if (range && compWrap) {
@@ -2589,9 +2590,9 @@
             var _copyToast = (function() {
                 var el = document.createElement('div');
                 el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:7px 18px;border-radius:20px;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';
-                el.textContent = '連結已複製！';
                 document.body.appendChild(el);
                 return function() {
+                    el.textContent = homeT('home.linkCopied', '連結已複製！');
                     el.style.opacity = '1';
                     setTimeout(function(){ el.style.opacity = '0'; }, 2000);
                 };

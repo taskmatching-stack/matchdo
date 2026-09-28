@@ -63,8 +63,8 @@ node scripts/audit-locale-mix.js
 | `client/material-dual-color.html` | OK（UI） | `materialCombo.*`；色標由 `syncModeUi` 更新 |
 | `client/promo-camera.html` / `promo-camera-app.html` | 部分 | L3 凍結區慎改 |
 | `product-tree.html` | OK（UI） | 靜態 `data-i18n` + OG／Twitter meta 依 `lang`；`vendor-product-link-tree.js` 已 `tr()` |
-| `design-direction/*` | 部分 | `remake-product.js` alert 接 `remakeProduct.alert*`（持續補 UI 字串） |
-| `remake/*` | 缺／部分 | |
+| `design-direction/*` | **凍結（測試中）** | 舊 `/remake` 改殼；**分析內容尚未建立**；中英混用可接受至正式上線前。**勿**再排 i18n 批次改 `remake-product.js` |
+| `remake/*` | 僅 301 | → `/design-direction/` |
 | `embed/simulator.html` | 部分 | |
 
 ### C. 公開目錄／廠商首頁（SEO）
@@ -116,7 +116,7 @@ node scripts/audit-locale-mix.js
 | `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
 | `folder-edit.html` | OK | `folderEdit.*`（2026-09-29） |
-| 首頁 `iStudio-1.0.0/index.html` | 部分 | 媒體牆 API+`homeT`；lightbox／收藏／類型 badge 接 `home.*`（2026-09-29） |
+| 首頁 `iStudio-1.0.0/index.html` | OK（主流程） | 媒體牆 API+`homeT`；lightbox 聯絡／分享 toast／對照滑桿（2026-09-29） |
 
 ### G. 刻意不做 UI i18n
 
@@ -134,6 +134,10 @@ node scripts/audit-locale-mix.js
 1. 改任一 `public/client/*.html` 或公開工具頁前：跑 `node scripts/audit-frontend-i18n.js`，確認該檔是否在 **缺 i18n** 或 **highRisk** 列表。
 2. 新 UI 字串：**同 PR** 加 `en.json` / `zh-TW.json` 鍵，禁止只改中文 HTML。
 3. 回覆使用者時區分 **UI** vs **DB 內容**，勿把「批次補 title_en」稱為全站掃描。
+4. **設計風向（`/design-direction/`、`remake-product.js`）— 勿當 i18n 主線**  
+   - 導覽已標 **測試中**；頁面由舊再製路徑改來，**產品／分析流程尚未建完**，中英對齊成本高、效益低。  
+   - **禁止**為「全站英文化」連續改 `remake-product.js` 或大掃 `remakeProduct.*`（除非使用者明確要求此功能上線並做 EN）。  
+   - 主戰場：**設計稿** `custom-product.html`、`my-custom-products`、首頁媒體牆、廠商公開頁、控制台。
 
 ## 進度 log
 
@@ -154,6 +158,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：首頁篩選 chip／分類列 `home.*`；設計風向 alert `remakeProduct.alert*`（`7a915a0` 起）。
 - 2026-09-29：`custom/gallery.html` 完成批次 C；首頁 lightbox／收藏／類型 badge `home.*`。
 - 2026-09-29：`vendor-profile` 服務地區、`vendors` meta；`remake-product.js` 參考圖 UI／趨勢摘要。
+- 2026-09-29：**B4 凍結**（設計風向測試中）；首頁 B3 lightbox 聯絡／分享 toast 收尾。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -161,11 +166,27 @@ node scripts/audit-locale-mix.js
 |------|------|------|
 | **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
 | **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
-| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏） | 🔄 lightbox 主流程已 `home.*`；分享 toast／部分 lightbox 動態行仍補 |
-| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 參考圖槽／趨勢摘要／儲存按鈕 `remakeProduct.*`；生圖錯誤面板仍中文 |
+| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏／分享） | ✅ 主流程（2026-09-29）；剩餘：首頁 meta／JSON-LD 英文（低優先） |
+| **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **C～F** | 控制台、供應商區 | ⏳ 下一批：廠商控制台／供應商上架頁 |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | ⏳ 下一批建議 |
+| **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
+| **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
+| **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
+| **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | ⏳ 與 D2 可併 |
+
+### 還有多少批？（使用者問答用，2026-09-29 估）
+
+不含 **凍結 B4 設計風向**、不含 **/admin**、不含 **DB 內容 `*_en`**：
+
+| 估計 | 內容 |
+|------|------|
+| **約 4～6 次 push 批次** | 若每批 1～2 個「部分」區塊（設計稿 JS、廠商控制台、供應商上架、帳號／方案／help、browse SSR） |
+| **已大致 OK** | B1/B2、圖庫 C、數位資產庫 UI、find-makers、登入、credits、首頁媒體牆主流程 B3 |
+| **不算「全站完成」** | `custom-product.js` 仍大、`manufacturer-materials` 表單多、內容欄靠 API／後台英文 |
+
+驗收標準仍是：**`?lang=en` 主流程可讀**（設計、資產庫、首頁、廠商列表／詳情、常見控制台），不是每個角落零中文。
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 
@@ -175,7 +196,7 @@ node scripts/audit-locale-mix.js
 | `client/find-makers.html`、`custom-product-detail.html` | 無 `isEn` 硬編；靠 locale 鍵 |
 | `print-asset.html`、`material-dual-color.html` | 無 `isEn`；修正 HTML fallback 勿寫英文 |
 | `public/js/custom-product.js` | 廠商 picker 雙語欄位用 `vendorPickerIsEn`（內容語意，非 UI 混塞） |
-| `public/js/remake-product.js` | 已去掉儲存標題 `isEn`；趨勢區接 `remakeProduct.market*` |
+| `public/js/remake-product.js` | **凍結** — 測試中功能；全站 i18n **不掃**（除非使用者指定此功能上線） |
 | `public/iStudio-1.0.0/index.html` | 媒體牆 API + `homeT`；仍有 badge／lightbox 硬編碼 |
 | `public/locales/*.json` | `audit-locale-mix.js`；缺鍵已補 category／supplierManage |
 
@@ -185,6 +206,6 @@ node scripts/audit-locale-mix.js
 |------|------|----------|
 | **`zh-TW.json` 寫英文 UI** | 已修一批（`sizeMode`、`myProjects.sectionTitle`、`pageTitleEn` 等改回繁中） | 新鍵必雙檔；勿再抄 `en.json` 進繁中檔 |
 | **鍵名 `*En` 但用在 `data-i18n`** | 如 `printAsset.pageTitleEn` — 繁中檔值已是中文副標，英文檔才是英文 | 可接受；驗收看 `?lang=` 勿只看鍵名 |
-| **JS `isEn ?` 硬編兩套字** | 首頁分類列已改 `homeT()`；`remake-product.js` 儲存標題等仍有 `isEn` | 改為 `rpTr` + 雙檔鍵 |
+| **JS `isEn ?` 硬編兩套字** | 首頁已改 `homeT()`；`remake-product.js` 若有殘留 | **設計風向凍結**，不為此檔開工；其餘主線頁改 `tr()` |
 | **媒體牆卡片 title** | API `pickMediaWallLocalizedTitle` 繁中不再 fallback 英文預設 | ✅ `691eed9` |
 | **DB 內容英文、UI 中文** | 正常（內容管線）；不是 bug | 用 API `lang` 或後台 `*_en` |

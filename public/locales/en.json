@@ -1100,6 +1100,8 @@
   "home.adminHideFail": "Could not hide item",
   "home.adminDeleteConfirm": "Permanently delete this work? This cannot be undone.",
   "home.adminDeleteFail": "Could not delete",
+  "home.linkCopied": "Link copied!",
+  "home.browseVendors": "Browse vendors",
 
   "auth.login": "Log in",
   "auth.register": "Register",

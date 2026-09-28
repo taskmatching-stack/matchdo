@@ -1101,6 +1101,8 @@
   "home.adminHideFail": "無法關閉顯示",
   "home.adminDeleteConfirm": "確定要永久刪除這張作品？刪除後無法復原。",
   "home.adminDeleteFail": "無法刪除",
+  "home.linkCopied": "連結已複製！",
+  "home.browseVendors": "瀏覽廠商列表",
 
   "auth.login": "登入",
   "auth.register": "註冊",
