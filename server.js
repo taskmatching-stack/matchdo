@@ -6733,7 +6733,9 @@ async function persistCustomProductTitlePairIfStale(productId, ownerId, currentT
     if (!titlePair.zh && !titlePair.en) return false;
     const updates = {};
     if (titlePair.zh) updates.title = titlePair.zh;
+    else if (titlePair.en) updates.title = titlePair.en;
     if (titlePair.en) updates.title_en = titlePair.en;
+    else if (titlePair.zh) updates.title_en = titlePair.zh;
     let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
     if (updErr && updErr.code === '42703' && updates.title_en) {
         delete updates.title_en;
@@ -6773,7 +6775,28 @@ function localizeCustomProductForApiResponse(p, lang) {
     if (localizedTitle) out.title = localizedTitle;
     const localizedDesc = pickVendorLocalizedText(descZh, descEn, lang);
     if (localizedDesc) out.description = localizedDesc;
+    delete out.image_semantics_json;
+    delete out.semantics_generated_at;
+    delete out.prompt_semantics_json;
     return out;
+}
+
+/** 列表載入後背景把 DB title 從已存語意寫回（僅 SQL，不呼叫 Gemini） */
+function scheduleBatchRepairCustomProductTitlesFromList(list, ownerId) {
+    if (!ownerId || !Array.isArray(list) || !list.length) return;
+    setImmediate(function () {
+        for (let i = 0; i < list.length; i++) {
+            const p = list[i];
+            if (!p || !p.id) continue;
+            const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
+            if (!shouldReplaceCustomProductTitleFromAi(p.title, gp)) continue;
+            const pair = resolveCustomProductTitlePairFromRow(p);
+            if (!pair || (!pair.zh && !pair.en)) continue;
+            const pid = p.id;
+            const curTitle = p.title;
+            persistCustomProductTitlePairIfStale(pid, ownerId, curTitle, gp, pair).catch(function () {});
+        }
+    });
 }
 
 function mediaWallTextHasCjk(text) {
@@ -29005,6 +29028,7 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
+            scheduleBatchRepairCustomProductTitlesFromList(list, user.id);
             const productsWithOwner = list.map(function (p) {
                 const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
@@ -29039,6 +29063,7 @@ app.get('/api/custom-products', async (req, res) => {
         if (summaryOnly) {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
         }
+        scheduleBatchRepairCustomProductTitlesFromList(list, user.id);
         const productsWithOwner = list.map(function (p) {
             const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                 ...p,
