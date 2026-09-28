@@ -33957,15 +33957,16 @@ async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
     return (data || []).map((r) => r.prototype_asset_id);
 }
 
-function mapVendorAssetLinkTreeNode(r) {
+function mapVendorAssetLinkTreeNode(r, contentLang) {
     if (!r) return null;
     const kind = normalizeVendorAssetKind(r.asset_kind);
     const imageItems = buildVendorAssetImageItems(r);
     const imageUrls = imageItems.map((it) => it.url).filter(Boolean);
+    const lang = normalizeVendorContentLang(contentLang);
     return {
         id: r.id,
-        title: r.title || '',
-        description: (r.description != null ? String(r.description) : '').trim(),
+        title: pickVendorLocalizedText(r.title, r.title_en, lang) || '',
+        description: pickVendorLocalizedText(r.description, r.description_en, lang),
         image_url: r.image_url || null,
         asset_kind: kind,
         is_public: !!r.is_public,
@@ -34037,23 +34038,41 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
     };
 }
 
-async function buildPublicPrototypeLinkTree(prototypeAssetId) {
-    const { data: proto, error: protoErr } = await supabase
+async function buildPublicPrototypeLinkTree(prototypeAssetId, contentLang) {
+    const lang = normalizeVendorContentLang(contentLang);
+    const assetCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels';
+    let { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels')
+        .select(assetCols)
         .eq('id', prototypeAssetId)
         .maybeSingle();
+    if (protoErr && protoErr.code === '42703') {
+        ({ data: proto, error: protoErr } = await supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels')
+            .eq('id', prototypeAssetId)
+            .maybeSingle());
+    }
     if (protoErr) throw protoErr;
     if (!proto || normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') {
         return { error: 'not_found' };
     }
     const internalPreview = false;
     if (!proto.is_public) return { error: 'not_public' };
-    let mfrName = '廠商';
-    const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', proto.manufacturer_id).eq('is_active', true).maybeSingle();
+    let mfrName = lang === 'en' ? 'Vendor' : '廠商';
+    let mfrSel = await supabase.from('manufacturers').select('id, name, name_en, is_active').eq('id', proto.manufacturer_id).eq('is_active', true).maybeSingle();
+    if (mfrSel.error && mfrSel.error.code === '42703') {
+        mfrSel = await supabase.from('manufacturers').select('id, name, is_active').eq('id', proto.manufacturer_id).eq('is_active', true).maybeSingle();
+    }
+    const mfr = mfrSel.data;
     if (!mfr) return { error: 'not_found' };
-    mfrName = mfr.name || mfrName;
-    
+    const officialIds = new Set((await listOfficialPlatformManufacturerIds()).map((id) => String(id)));
+    if (officialIds.has(String(proto.manufacturer_id))) {
+        mfrName = lang === 'en' ? 'Official templates' : OFFICIAL_ASSET_DISPLAY_NAME;
+    } else {
+        mfrName = pickVendorLocalizedText(mfr.name, mfr.name_en, lang) || mfr.name || mfrName;
+    }
+
     // 查詢工藝能力
     const capabilityMap = await batchVendorAssetCapabilities([proto]);
     const capabilities = capabilityMap[proto.id] || [];
@@ -34066,15 +34085,23 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const linkedIds = [...new Set(cardLinkedIds.concat(imageOverrideIds))];
     let linkedAssets = [];
     if (linkedIds.length) {
-        const { data: rows } = await supabase
+        let linkSel = 'id, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, is_public';
+        let { data: rows, error: linkRowsErr } = await supabase
             .from('vendor_assets')
-            .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+            .select(linkSel)
             .eq('manufacturer_id', proto.manufacturer_id)
             .in('id', linkedIds);
+        if (linkRowsErr && linkRowsErr.code === '42703') {
+            ({ data: rows } = await supabase
+                .from('vendor_assets')
+                .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                .eq('manufacturer_id', proto.manufacturer_id)
+                .in('id', linkedIds));
+        }
         const byId = {};
         (rows || []).forEach((r) => {
             const kind = normalizeVendorAssetKind(r.asset_kind);
-            if (kind === 'material' || kind === 'part') byId[r.id] = mapVendorAssetLinkTreeNode(r);
+            if (kind === 'material' || kind === 'part') byId[r.id] = mapVendorAssetLinkTreeNode(r, lang);
         });
         linkedAssets = linkedIds.map((id, idx) => {
             const node = byId[id];
@@ -34091,13 +34118,14 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     }
     if (linkedAssets.length) {
         try {
-            linkedAssets = await attachCatalogGroupIdsToAssets(linkedAssets);
+            linkedAssets = await attachCatalogGroupIdsToAssets(linkedAssets, lang);
         } catch (catErr) {
             console.warn('buildPublicPrototypeLinkTree catalog_groups:', catErr && catErr.message);
         }
     }
-    const protoNode = mapVendorAssetLinkTreeNode(proto) || {};
+    const protoNode = mapVendorAssetLinkTreeNode(proto, lang) || {};
     return {
+        lang,
         prototype: {
             ...protoNode,
             manufacturer_id: proto.manufacturer_id,
@@ -34471,8 +34499,9 @@ async function setVendorAssetCatalogGroups(assetId, manufacturerId, groupIds) {
     }
 }
 
-async function attachCatalogGroupIdsToAssets(items) {
+async function attachCatalogGroupIdsToAssets(items, contentLang) {
     if (!(await vendorCatalogGroupsTableReady()) || !(await vendorAssetGroupLinksTableReady()) || !items || !items.length) return items;
+    const lang = normalizeVendorContentLang(contentLang);
     const assetIds = items.map((r) => r.id).filter(Boolean);
     if (!assetIds.length) return items;
     const { data: links, error: linkErr } = await supabaseSelectIn(
@@ -34488,7 +34517,7 @@ async function attachCatalogGroupIdsToAssets(items) {
     if (groupIds.length) {
         let { data: groups, error: grpErr } = await supabase
             .from('vendor_catalog_groups')
-            .select('id, name, parent_id, asset_kind')
+            .select('id, name, name_en, parent_id, asset_kind')
             .in('id', groupIds);
         if (grpErr && grpErr.code === '42703') {
             ({ data: groups, error: grpErr } = await supabase
@@ -34498,15 +34527,16 @@ async function attachCatalogGroupIdsToAssets(items) {
         }
         if (grpErr) throw grpErr;
         (groups || []).forEach((g) => {
-            const name = (g.name != null) ? String(g.name).trim() : '';
-            if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
+            const nameZh = (g.name != null) ? String(g.name).trim() : '';
+            const name = pickVendorLocalizedText(nameZh, g.name_en, lang) || nameZh;
+            if (g.id && nameZh) groupsById[g.id] = { id: g.id, name, name_zh: nameZh, name_en: g.name_en || null, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
         });
         const parentIds = [...new Set(Object.values(groupsById).map((g) => g.parent_id).filter(Boolean))];
         const missingParentIds = parentIds.filter((id) => !groupsById[id]);
         if (missingParentIds.length) {
             let { data: parents, error: parentErr } = await supabase
                 .from('vendor_catalog_groups')
-                .select('id, name, parent_id, asset_kind')
+                .select('id, name, name_en, parent_id, asset_kind')
                 .in('id', missingParentIds);
             if (parentErr && parentErr.code === '42703') {
                 ({ data: parents, error: parentErr } = await supabase
@@ -34516,8 +34546,9 @@ async function attachCatalogGroupIdsToAssets(items) {
             }
             if (!parentErr) {
                 (parents || []).forEach((g) => {
-                    const name = (g.name != null) ? String(g.name).trim() : '';
-                    if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
+                    const nameZh = (g.name != null) ? String(g.name).trim() : '';
+                    const name = pickVendorLocalizedText(nameZh, g.name_en, lang) || nameZh;
+                    if (g.id && nameZh) groupsById[g.id] = { id: g.id, name, name_zh: nameZh, name_en: g.name_en || null, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
                 });
             }
         }
@@ -34538,7 +34569,8 @@ async function attachCatalogGroupIdsToAssets(items) {
                 id: g.id,
                 name: g.name,
                 parent_id: g.parent_id,
-                parent_name: g.parent_id && groupsById[g.parent_id] ? groupsById[g.parent_id].name : null
+                parent_name: g.parent_id && groupsById[g.parent_id] ? groupsById[g.parent_id].name : null,
+                parent_name_zh: g.parent_id && groupsById[g.parent_id] ? (groupsById[g.parent_id].name_zh || groupsById[g.parent_id].name) : null
             }))
         };
     });
@@ -34967,7 +34999,8 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
         const id = (req.params.id || '').trim();
         if (!id) return res.status(400).json({ error: '缺少 id' });
         const internalPreview = await getRequestInternalPreviewFlag(req);
-        const payload = await buildPublicPrototypeLinkTree(id);
+        const contentLang = normalizeVendorContentLang(req.query.lang);
+        const payload = await buildPublicPrototypeLinkTree(id, contentLang);
         if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
         if (payload.error === 'not_public') {
             if (!internalPreview) return res.status(404).json({ error: '此主產品未公開' });
@@ -36418,7 +36451,8 @@ app.get('/api/vendor-assets/:id/link-tree/export.pdf', async (req, res) => {
         const id = (req.params.id || '').trim();
         if (!id) return res.status(400).json({ error: '缺少 id' });
         const internalPreview = await getRequestInternalPreviewFlag(req);
-        let payload = await buildPublicPrototypeLinkTree(id);
+        const contentLang = normalizeVendorContentLang(req.query.lang);
+        let payload = await buildPublicPrototypeLinkTree(id, contentLang);
         if (payload.error === 'not_public' && internalPreview) {
             const { data: protoRow } = await supabase.from('vendor_assets').select('manufacturer_id').eq('id', id).maybeSingle();
             if (protoRow && protoRow.manufacturer_id) {

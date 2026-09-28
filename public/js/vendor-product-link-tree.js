@@ -41,6 +41,13 @@
         return new URLSearchParams(window.location.search).get(name) || '';
     }
 
+    function guideContentLangQuery() {
+        if (window.i18n && typeof window.i18n.getLang === 'function' && window.i18n.getLang() === 'en') {
+            return '?lang=en';
+        }
+        return '';
+    }
+
     function esc(s) {
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     }
@@ -1806,7 +1813,7 @@
             btn.href = '#';
             btn.classList.remove('d-none');
         } else {
-            btn.href = '/api/vendor-assets/' + encodeURIComponent(prototypeId) + '/link-tree/export.pdf';
+            btn.href = '/api/vendor-assets/' + encodeURIComponent(prototypeId) + '/link-tree/export.pdf' + guideContentLangQuery();
             btn.removeAttribute('target');
             btn.classList.remove('d-none');
         }
@@ -1979,7 +1986,7 @@
             window.location.replace('/vendor-styles/');
             return;
         }
-        var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree', { cache: 'no-store' });
+        var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree' + guideContentLangQuery(), { cache: 'no-store' });
         var data = await r.json().catch(function () { return {}; });
         if (!r.ok) {
             showAlert(data.error || tr('productTree.loadFailed', '載入失敗'), 'danger');
@@ -2089,11 +2096,16 @@
         }
     }
 
-    function init() {
+    async function init() {
+        try {
+            if (window.i18n && typeof window.i18n.loadLocale === 'function') {
+                await window.i18n.loadLocale(window.i18n.getLang());
+            }
+        } catch (localeErr) { /* ignore */ }
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         wireVariantSheetUi();
-        if (IS_VENDOR) initVendor();
-        else initGuide();
+        if (IS_VENDOR) await initVendor();
+        else await initGuide();
     }
 
     if (document.readyState === 'loading') {

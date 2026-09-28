@@ -73,7 +73,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260917-proration-refund';
+    var LOCALE_CACHE_V = '20260928-product-tree-pdf';
 
     function loadLocale(lang) {
         lang = lang || getLang();
