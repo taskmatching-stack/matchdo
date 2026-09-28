@@ -148,7 +148,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
-                    <div id="sceneSimAssetPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
+                    <div id="sceneSimAssetPickerTabs" class="dap-tabs" role="tablist" data-i18n-aria-label="customProduct.pastGalleryTabsAria" aria-label="數位資產分類"></div>
                     <div id="sceneSimAssetList" class="row g-2"></div>
                     <p id="sceneSimAssetEmpty" class="text-muted small mb-0 d-none" data-i18n="customProduct.noDigitalAssetsHint">尚無數位資產，請先在產品設計中生成設計稿並儲存。</p>
                     <p id="sceneSimAssetLoading" class="text-muted small mb-0" data-i18n="home.loading">載入中…</p>
@@ -215,11 +215,11 @@
                         <div class="row g-2 align-items-end">
                             <div class="col-6">
                                 <label class="form-label small text-muted mb-0" for="vendorAssetsPickerMainSelect" data-i18n="customProduct.categoryMainRequired">主分類（必選）</label>
-                                <select class="form-select form-select-sm" id="vendorAssetsPickerMainSelect" aria-label="主分類"></select>
+                                <select class="form-select form-select-sm" id="vendorAssetsPickerMainSelect" data-i18n-aria-label="customProduct.categoryMainRequired" aria-label="主分類"></select>
                             </div>
                             <div class="col-6">
                                 <label class="form-label small text-muted mb-0" for="vendorAssetsPickerSubSelect" id="vendorAssetsPickerSubLabel" data-i18n="customProduct.categorySubRequired">子分類（數位原型）</label>
-                                <select class="form-select form-select-sm" id="vendorAssetsPickerSubSelect" aria-label="子分類"></select>
+                                <select class="form-select form-select-sm" id="vendorAssetsPickerSubSelect" data-i18n-aria-label="customProduct.categorySubRequired" aria-label="子分類"></select>
                             </div>
                         </div>
                         <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
@@ -1781,14 +1781,14 @@
                             <div class="create-panel-left">
                                 <div class="form-row full">
                                     <label class="label" for="sceneSimPrompt" data-i18n="customProduct.promptOptional">提示詞（選填）</label>
-                                    <input type="text" id="sceneSimPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.promptOptional" placeholder="選填，可描述想放的位置或穿戴方式" />
+                                    <input type="text" id="sceneSimPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.sceneSimPromptPlaceholder" placeholder="選填，可描述想放的位置或穿戴方式" />
                                 </div>
                                 <div class="form-row full scene-sim-images-row">
                                     <span class="label w-100 mb-1" data-i18n="customProduct.imagesLabel">圖片</span>
                                     <div class="scene-sim-two-col">
                                         <div class="scene-sim-col">
                                             <span class="scene-sim-col-label" data-i18n="customProduct.environmentPerson">環境／人物</span>
-                                            <div id="sceneSimUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" aria-label="Upload environment or person image">
+                                            <div id="sceneSimUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" data-i18n-aria-label="customProduct.sceneSimEnvUploadAria" aria-label="上傳環境或人物圖片">
                                                 <input type="file" id="sceneSimFile" accept="image/*" class="d-none">
                                                 <label for="sceneSimFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text" data-i18n="customProduct.clickOrDrag">點擊或拖曳</span></label>
                                                 <img id="sceneSimUploadImg" src="" alt="" class="scene-sim-upload-img d-none">
@@ -1809,7 +1809,7 @@
                                     <button type="button" class="btn btn-primary btn-generate" id="sceneSimApplyBtn">
                                         <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.applyToScene">套用至實境</span>
                                     </button>
-                                    <span class="points-hint text-muted small" id="sceneSimPointsDisplay" data-i18n="customProduct.sceneSimPointsAbout" title="每次約 20 點">約 20 點</span>
+                                    <span class="points-hint text-muted small" id="sceneSimPointsDisplay" data-i18n="customProduct.sceneSimPointsAbout" data-i18n-title="customProduct.sceneSimPointsTooltip" title="每次約 20 點">約 20 點</span>
                                 </div>
                             </div>
                             <div class="create-panel-right" id="sceneSimResultWrap">
@@ -1828,7 +1828,7 @@
                                 <div class="form-row full scene-sim-images-row">
                                     <span class="label w-100 mb-1" data-i18n="customProduct.patternExtractSelectFromAssets">從數位資產選擇圖片</span>
                                     <div class="scene-sim-col" style="max-width: 280px;">
-                                        <div id="patternExtractPreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" aria-label="從數位資產選擇圖片" data-i18n-title="customProduct.clickToSelectFromAssets" title="點擊可從數位資產選擇圖片">
+                                        <div id="patternExtractPreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" data-i18n-aria-label="customProduct.patternExtractSelectFromAssets" data-i18n-title="customProduct.clickToSelectFromAssets" aria-label="從數位資產選擇圖片" title="點擊可從數位資產選擇圖片">
                                             <div id="patternExtractPreviewInner" class="scene-sim-preview-inner">
                                                 <span class="scene-sim-preview-hint" data-i18n="customProduct.clickToSelect">點擊選擇</span>
                                             </div>
@@ -1882,9 +1882,9 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <span class="resolution-display small align-self-center" id="patternExtractResolutionDisplay" title="目前解析度">1024×1024</span>
+                                    <span class="resolution-display small align-self-center" id="patternExtractResolutionDisplay" data-i18n-title="customProduct.currentResolution" title="目前解析度">1024×1024</span>
                                     <span class="small text-muted align-self-center ms-1" id="patternExtractPointsDisplay" title="20 點起，依匯出解析度而定">20 點起，依匯出解析度 · 約 20 點</span>
-                                    <span id="patternExtractPointsHelp" class="align-self-center ms-1 d-inline-block" role="button" tabindex="0" aria-label="點數計價說明" title=""><i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.85rem;opacity:0.8;"></i></span>
+                                    <span id="patternExtractPointsHelp" class="align-self-center ms-1 d-inline-block" role="button" tabindex="0" data-i18n-aria-label="customProduct.patternExtractPointsHelpLabel" data-i18n-title="customProduct.patternExtractPointsTooltip" aria-label="點數計價說明" title=""><i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.85rem;opacity:0.8;"></i></span>
                                     <div>
                                         <label class="form-label small mb-0" data-i18n="customProduct.outputFormat">輸出格式</label>
                                         <select id="patternExtractOutputFormat" class="form-select form-select-sm" style="width:100px;">
@@ -2102,7 +2102,7 @@
     <script src="/js/design-workspace-tabs.js?v=7"></script>
     <script src="/js/media-wall-gen-links.js?v=20260917b" defer></script>
     <script src="/js/backup-generate-confirm.js?v=20260903" defer></script>
-    <script src="/js/custom-product.js?v=170" defer></script>
+    <script src="/js/custom-product.js?v=171" defer></script>
     <script src="/js/custom-product-spec-summary-ui.js?v=20260917d" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {

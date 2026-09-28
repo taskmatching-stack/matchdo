@@ -5408,9 +5408,9 @@ $(document).ready(function () {
             if (!items.length) {
                 var emptyMsg = (window.MatchdoDigitalAssetPicker && window.MatchdoDigitalAssetPicker.emptyMessage)
                     ? window.MatchdoDigitalAssetPicker.emptyMessage(tab)
-                    : t('customProduct.noHistoryYet');
+                    : tr('customProduct.noHistoryYet', '尚無歷史生成的圖（儲存後的圖會保留，重整後仍可看到）');
                 grid.append($('<p class="text-muted small mb-0">').text(emptyMsg));
-                grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
+                grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(tr('customProduct.reload', '重新載入')));
             } else {
                 items.forEach(function (item) {
                     var $cell = buildPastItemWrapFromAltAsset(item, tab);
@@ -5425,8 +5425,8 @@ $(document).ready(function () {
                 wrap.html(
                     '<p class="past-gallery-title">' + getGalleryTitle('') + '</p>' +
                     '<div id="pastGalleryTabs" class="dap-tabs past-gallery-tabs" role="tablist" aria-label="' + escapeHtmlText(tr('customProduct.pastGalleryTabsAria', '數位資產分類')) + '"></div>' +
-                    '<div class="past-gallery-inner"><p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
+                    '<div class="past-gallery-inner"><p class="text-muted small mb-0">' + tr('customProduct.loginToViewHistory', '請登入後查看歷史生成的圖') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + tr('customProduct.reload', '重新載入') + '</button></div>'
                 );
                 initPastGalleryTabs(wrap.find('#pastGalleryTabs'));
                 updatePastGalleryTabsActive(tab);
@@ -5442,7 +5442,7 @@ $(document).ready(function () {
                 if (myGen !== galleryPaging.fetchGen) return;
                 if (!res.ok) {
                     var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-                    grid.html('<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>');
+                    grid.html('<p class="text-warning small mb-0">' + tr('customProduct.loadHistoryError', '無法載入歷史，請按「重新載入」再試') + '</p>');
                     $('#generatedImagePlaceholder').hide();
                     return;
                 }
@@ -5450,7 +5450,7 @@ $(document).ready(function () {
             }).catch(function () {
                 if (myGen !== galleryPaging.fetchGen) return;
                 var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-                grid.html('<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>');
+                grid.html('<p class="text-warning small mb-0">' + tr('customProduct.loadHistoryError', '無法載入歷史，請按「重新載入」再試') + '</p>');
                 $('#generatedImagePlaceholder').hide();
             });
         }
@@ -5807,8 +5807,8 @@ $(document).ready(function () {
                 wrap.empty();
                 var loginGrid = ensurePastGalleryShell(wrap, '');
                 loginGrid.html(
-                    '<p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
+                    '<p class="text-muted small mb-0">' + tr('customProduct.loginToViewHistory', '請登入後查看歷史生成的圖') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + tr('customProduct.reload', '重新載入') + '</button>'
                 );
                 updatePastGalleryTabsActive(galleryActiveTab);
                 $('#generatedImagePlaceholder').hide();
@@ -5826,8 +5826,8 @@ $(document).ready(function () {
                 wrap.empty();
                 var emptyGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
                 emptyGrid.html(
-                    '<p class="text-muted small mb-0">' + t('customProduct.noHistoryYet') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
+                    '<p class="text-muted small mb-0">' + tr('customProduct.noHistoryYet', '尚無歷史生成的圖（儲存後的圖會保留，重整後仍可看到）') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + tr('customProduct.reload', '重新載入') + '</button>'
                 );
                 updatePastGalleryTabsActive('designs');
                 $('#generatedImagePlaceholder').hide();
@@ -5836,8 +5836,8 @@ $(document).ready(function () {
                 wrap.empty();
                 var errGrid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
                 errGrid.html(
-                    '<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
+                    '<p class="text-warning small mb-0">' + tr('customProduct.loadHistoryError', '無法載入歷史，請按「重新載入」再試') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + tr('customProduct.reload', '重新載入') + '</button>'
                 );
                 updatePastGalleryTabsActive('designs');
                 $('#generatedImagePlaceholder').hide();
@@ -5874,8 +5874,8 @@ $(document).ready(function () {
                 });
                 appendGalleryProducts(grid, products || [], true);
                 if (sessionThumbs.length === 0 && (!products || products.length === 0)) {
-                    grid.append($('<p class="text-muted small mb-0">').text(t('customProduct.noHistoryYet')));
-                    grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
+                    grid.append($('<p class="text-muted small mb-0">').text(tr('customProduct.noHistoryYet', '尚無歷史生成的圖（儲存後的圖會保留，重整後仍可看到）')));
+                    grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(tr('customProduct.reload', '重新載入')));
                     setGallerySentinelState('hidden');
                 } else {
                     galleryPaging.offset = (products || []).length;
@@ -5962,7 +5962,7 @@ $(document).ready(function () {
         $('#pastItemModal').data('redesignCategoryKey', ck).data('redesignSubcategoryKey', sk);
         $('#pastItemModal').data('import-url', url || '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
+        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : tr('customProduct.pastItemModalTitle', '設計稿'));
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) inner.innerHTML = url ? '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">' : '';
         $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
@@ -5992,7 +5992,7 @@ $(document).ready(function () {
         $('#pastItemModal').data('import-url', url || '').data('material-combo', comboRaw).data('print-asset', isPrintAsset ? '1' : '');
         $('#pastItemModal').data('redesignCategoryKey', wrap.attr('data-category-key') || '').data('redesignSubcategoryKey', wrap.attr('data-subcategory-key') || '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
+        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : tr('customProduct.pastItemModalTitle', '設計稿'));
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) {
             inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">' + t('home.noImage') + '</p>';
@@ -6216,8 +6216,8 @@ $(document).ready(function () {
             setGallerySentinelState('hidden');
         }
         if (products.length === 0) {
-            grid.append($('<p class="text-muted small mb-0">').text(t('customProduct.noHistoryYet')));
-            grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
+            grid.append($('<p class="text-muted small mb-0">').text(tr('customProduct.noHistoryYet', '尚無歷史生成的圖（儲存後的圖會保留，重整後仍可看到）')));
+            grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(tr('customProduct.reload', '重新載入')));
         }
         $('#generatedImagePlaceholder').hide();
     }
@@ -6231,8 +6231,8 @@ $(document).ready(function () {
                 wrap.empty();
                 var loginGrid = ensurePastGalleryShell(wrap, '');
                 loginGrid.html(
-                    '<p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button>'
+                    '<p class="text-muted small mb-0">' + tr('customProduct.loginToViewHistory', '請登入後查看歷史生成的圖') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + tr('customProduct.reload', '重新載入') + '</button>'
                 );
                 updatePastGalleryTabsActive(galleryActiveTab);
                 $('#generatedImagePlaceholder').hide();
@@ -6645,7 +6645,7 @@ $(document).ready(function () {
         $loading.removeClass('d-none');
         if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
             $loading.addClass('d-none');
-            $empty.removeClass('d-none').text(t('customProduct.loadFailed'));
+            $empty.removeClass('d-none').text(tr('customProduct.loadFailed', '無法載入'));
             return;
         }
         window.__sceneSimAssetPickerMount = window.MatchdoDigitalAssetPicker.mount({
@@ -6687,12 +6687,12 @@ $(document).ready(function () {
     function renderSceneSimResult(imageDataUrl) {
         if (!imageDataUrl) return;
         var wrap = $('#sceneSimResultWrap');
-        var noteText = t('customProduct.sceneSimResultNote');
+        var noteText = tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + noteText + '</p>';
-        var resultLabel = t('customProduct.sceneSimResult');
+        var resultLabel = tr('customProduct.sceneSimResult', '實境模擬結果');
         var $inner = $('<div class="scene-sim-result-inner"></div>');
         $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', resultLabel).addClass('img-fluid rounded').css('maxWidth', '100%'));
-        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
+        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>' + tr('customProduct.downloadImage', '下載圖片') + '</a>');
         $btn.on('click', function (e) {
             e.preventDefault();
             try {
@@ -6734,7 +6734,7 @@ $(document).ready(function () {
         var $wrap = $('#sceneSimResultWrap');
         var prompt = ($('#sceneSimPrompt').val() || '').trim();
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (tr('customProduct.sceneSimLoading', '場景配置中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
+        $wrap.html('<p class="text-muted small mb-0">' + (tr('customProduct.sceneSimLoading', '場景配置中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -6756,24 +6756,27 @@ $(document).ready(function () {
             .then(function (result) {
                 $btn.prop('disabled', false);
                 var data = result.data;
-                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>';
+                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>';
                 if (result.status === 401) {
                     $wrap.html('<p class="text-warning small mb-0">' + (tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點，目前餘額 ' + (data.balance != null ? data.balance : 0) + ' 點）')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tf('customProduct.sceneSimInsufficientPoints', '點數不足（需要 {required} 點，目前餘額 {balance} 點）', {
+                        required: data.required || 20,
+                        balance: data.balance != null ? data.balance : 0
+                    })) + '</p>' + noteHtml);
                     return;
                 }
                 if (data.success && data.imageData) {
                     renderSceneSimResult(data.imageData);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '無法載入')) + '</p>' + noteHtml);
                 }
             })
             .catch(function (err) {
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
+                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '無法載入') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>');
                 console.warn('scene-simulate:', err);
             });
     });
