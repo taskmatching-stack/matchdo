@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="custom">
 <head>
     <meta charset="utf-8">
-    <title>廠商詳情 - MATCHDO 合做</title>
+    <title data-i18n="vendor.pageTitle">廠商詳情 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
     <meta name="description" content="在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。">
@@ -261,13 +261,13 @@
     <!-- Hero -->
     <div class="profile-hero" id="profileHero" style="display:none;">
         <div class="container">
-            <a href="/vendors.html" class="btn btn-sm btn-outline-light mb-3"><i class="bi bi-arrow-left me-1"></i>返回廠商列表</a>
+            <a href="/vendors.html" class="btn btn-sm btn-outline-light mb-3"><i class="bi bi-arrow-left me-1"></i><span data-i18n="vendor.backToList">返回廠商列表</span></a>
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <div class="profile-avatar" id="heroAvatar"><i class="bi bi-building"></i></div>
                 <div>
                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                         <h1 class="h3 mb-0 fw-bold" id="heroName">—</h1>
-                        <span class="verified-badge d-none" id="heroBadge"><i class="bi bi-patch-check-fill"></i> 認證廠商</span>
+                        <span class="verified-badge d-none" id="heroBadge"><i class="bi bi-patch-check-fill"></i> <span data-i18n="vendor.verifiedBadge">認證廠商</span></span>
                     </div>
                     <div class="d-flex align-items-center gap-3 flex-wrap opacity-85 small">
                         <span class="rating-stars" id="heroRating"></span>
@@ -281,13 +281,13 @@
     <!-- 載入中 -->
     <div id="pageLoading" class="text-center py-5">
         <div class="spinner-border text-primary mb-3" style="width:2.5rem;height:2.5rem;" role="status"></div>
-        <p class="text-muted">載入廠商資料中…</p>
+        <p class="text-muted" data-i18n="vendor.loading">載入廠商資料中…</p>
     </div>
     <!-- 錯誤 -->
     <div id="pageError" class="container py-5 text-center d-none">
         <i class="bi bi-exclamation-circle display-4 text-muted"></i>
-        <p class="mt-3 text-muted">找不到此廠商，或已下架。</p>
-        <a href="/vendors.html" class="btn btn-outline-primary mt-1">返回廠商列表</a>
+        <p class="mt-3 text-muted" id="pageErrorMsg" data-i18n="vendor.notFound">找不到此廠商，或已下架。</p>
+        <a href="/vendors.html" class="btn btn-outline-primary mt-1" data-i18n="vendor.backToList">返回廠商列表</a>
     </div>
 
     <!-- 主內容 -->
@@ -301,7 +301,7 @@
                 <div class="card-section" id="sectionContact">
                     <div class="d-grid gap-2">
                         <button id="btnContactVendor" class="btn btn-success d-none" onclick="contactVendor()">
-                            <i class="bi bi-chat-dots me-2"></i>站內聯絡廠商
+                            <i class="bi bi-chat-dots me-2"></i><span data-i18n="vendor.contactInApp">站內聯絡廠商</span>
                         </button>
                         <a id="btnDesignWithVendorBase" href="#" class="btn btn-primary btn-sm d-none">
                             <i class="bi bi-grid-3x3-gap me-1"></i><span data-i18n="vendor.designWithBaseModels">瀏覽此廠款式訂製</span>
@@ -314,7 +314,7 @@
 
                 <!-- 簡介 -->
                 <div class="card-section" id="sectionDesc" style="display:none;">
-                    <div class="section-title"><i class="bi bi-person-lines-fill me-1"></i>廠商簡介</div>
+                    <div class="section-title"><i class="bi bi-person-lines-fill me-1"></i><span data-i18n="vendor.introSection">廠商簡介</span></div>
                     <p id="vendorDesc" class="mb-0 text-secondary" style="font-size:.9rem;line-height:1.7;"></p>
                 </div>
 
@@ -326,13 +326,13 @@
 
                 <!-- 專業能力 -->
                 <div class="card-section" id="sectionCaps" style="display:none;">
-                    <div class="section-title"><i class="bi bi-tools me-1"></i>專業能力</div>
+                    <div class="section-title"><i class="bi bi-tools me-1"></i><span data-i18n="vendor.capabilities">專業能力</span></div>
                     <div id="vendorCaps" class="d-flex flex-wrap gap-2"></div>
                 </div>
 
                 <!-- 聯繫方式 & 社群 -->
                 <div class="card-section" id="sectionSocial" style="display:none;">
-                    <div class="section-title"><i class="bi bi-share-fill me-1"></i>聯繫 & 社群</div>
+                    <div class="section-title"><i class="bi bi-share-fill me-1"></i><span data-i18n="vendor.contactSocial">聯繫 & 社群</span></div>
                     <div class="social-links" id="vendorSocial"></div>
                 </div>
 
@@ -340,10 +340,10 @@
 
             <!-- 右欄：作品集 -->
             <div class="col-lg-8" id="sectionPortfolio">
-                <div class="section-title"><i class="bi bi-images me-1"></i>作品集</div>
+                <div class="section-title"><i class="bi bi-images me-1"></i><span data-i18n="vendor.portfolio">作品集</span></div>
                 <div id="portfolioEmpty" class="text-center py-5 text-muted d-none">
                     <i class="bi bi-image display-4"></i>
-                    <p class="mt-3">此廠商尚未上傳作品。</p>
+                    <p class="mt-3" data-i18n="vendor.portfolioEmpty">此廠商尚未上傳作品。</p>
                 </div>
                 <div id="portfolioGrid" class="row g-3"></div>
 
@@ -408,6 +408,14 @@
         var id = new URLSearchParams(location.search).get('id');
         if (!id) { showError(); return; }
 
+        function vpTr(k, fb) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+
         function profileContentLang() {
             var qp = new URLSearchParams(location.search).get('lang');
             if (qp && String(qp).toLowerCase().indexOf('en') === 0) return 'en';
@@ -439,7 +447,7 @@
             p.then(function (r) {
                 if (r.ok) return r.json();
                 return r.json().catch(function () { return {}; }).then(function (body) {
-                    return Promise.reject({ status: r.status, message: (body && body.error) || '無法載入' });
+                    return Promise.reject({ status: r.status, message: (body && body.error) || vpTr('vendor.loadFail', '無法載入') });
                 });
             })
             .then(function (data) {
@@ -462,19 +470,20 @@
             document.getElementById('pageLoading').classList.add('d-none');
             var errEl = document.getElementById('pageError');
             errEl.classList.remove('d-none');
-            var msgEl = errEl.querySelector('p');
+            var msgEl = document.getElementById('pageErrorMsg') || errEl.querySelector('p');
             if (msgEl) {
                 var is404 = status === 404 || (detail && String(detail).indexOf('不存在') !== -1);
                 var is500 = status === 500;
                 if (is500) {
-                    msgEl.innerHTML = '暫時無法載入廠商資料，請稍後再試。';
+                    msgEl.textContent = vpTr('vendor.error500', '暫時無法載入廠商資料，請稍後再試。');
                 } else {
-                    msgEl.innerHTML = '找不到此廠商，或已下架。';
+                    msgEl.textContent = vpTr('vendor.notFound', '找不到此廠商，或已下架。');
                 }
                 var safeId = (id || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                msgEl.innerHTML += '<br><small class="d-block mt-2 text-muted">此連結的廠商 ID：' + (safeId ? '<code class="user-select-all">' + safeId + '</code>' : '—') + '</small>';
-                msgEl.innerHTML += '<br><small class="d-block mt-1">若您是廠商，請至首頁「我的功能」→「製作方」→「建立廠商資料」先建立一筆廠商；建立後用同一個網址即可開啟此頁。</small>';
+                msgEl.innerHTML += '<br><small class="d-block mt-2 text-muted">' + vpTr('vendor.errorVendorId', '此連結的廠商 ID：') + ' ' + (safeId ? '<code class="user-select-all">' + safeId + '</code>' : '—') + '</small>';
+                msgEl.innerHTML += '<br><small class="d-block mt-1">' + vpTr('vendor.errorVendorHint', '若您是廠商…') + '</small>';
             }
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
         }
 
         function starsHTML(rating) {
@@ -513,7 +522,7 @@
             document.getElementById('profileHero').style.display = '';
 
             // 更新頁籤標題
-            var pageTitle = (v.name || '廠商詳情') + ' - MATCHDO 合做';
+            var pageTitle = (v.name || vpTr('vendor.pageTitle', '廠商詳情')) + vpTr('vendor.pageTitleSuffix', ' - MATCHDO 合做');
             document.title = pageTitle;
 
             // 動態更新 SEO meta
@@ -610,7 +619,7 @@
                     heroAvatar.innerHTML = '<i class="bi bi-building"></i>';
                 }
             }
-            document.getElementById('heroName').textContent = v.name || '廠商';
+            document.getElementById('heroName').textContent = v.name || vpTr('vendor.defaultName', '廠商');
             if (v.verified) document.getElementById('heroBadge').classList.remove('d-none');
             if (v.rating) document.getElementById('heroRating').innerHTML = starsHTML(v.rating);
             if (v.location) {
@@ -622,7 +631,7 @@
             var specialty = (v.specialty || v.description || '').trim();
             var descEl = document.getElementById('vendorDesc');
             var sectionDescEl = document.getElementById('sectionDesc');
-            if (descEl) descEl.textContent = specialty || '此廠商尚未填寫簡介。';
+            if (descEl) descEl.textContent = specialty || vpTr('vendor.noBio', '此廠商尚未填寫簡介。');
             if (sectionDescEl) sectionDescEl.style.display = '';
 
             // 服務地區（contact.service_area 陣列 or 字串，分組顯示）
@@ -694,9 +703,9 @@
                 { key: 'youtube',   cls: 'yt',     icon: 'bi-youtube',        label: 'YouTube',  prefix: 'https://youtube.com/' },
                 { key: 'line_id',   cls: 'line',   icon: 'bi-line',           label: 'LINE',     prefix: 'https://line.me/ti/p/~' },
                 { key: 'whatsapp',  cls: 'wa',     icon: 'bi-whatsapp',       label: 'WhatsApp', prefix: 'https://wa.me/' },
-                { key: 'url',       cls: 'web',    icon: 'bi-globe2',         label: '官網',     prefix: '' },
+                { key: 'url',       cls: 'web',    icon: 'bi-globe2',         label: vpTr('vendor.socialWebsite', '官網'),     prefix: '' },
                 { key: 'email',     cls: 'email',  icon: 'bi-envelope-fill',  label: 'Email',    prefix: 'mailto:' },
-                { key: 'phone',     cls: 'phone',  icon: 'bi-telephone-fill', label: '電話',     prefix: 'tel:' }
+                { key: 'phone',     cls: 'phone',  icon: 'bi-telephone-fill', label: vpTr('vendor.socialPhone', '電話'),     prefix: 'tel:' }
             ];
             var hasSocial = false;
             socialDefs.forEach(function (def) {
@@ -781,12 +790,12 @@
                         itemType = 'comparison';
                         content =
                             '<div class="comparison-slider-wrap">' +
-                            '<img class="slider-bg" src="' + escHtml(afterUrl) + '" alt="' + escHtml('作品圖：' + titleRaw) + '" loading="lazy">' +
-                            '<img class="slider-fg" src="' + escHtml(beforeUrl) + '" alt="' + escHtml('設計稿：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy">' +
+                            '<img class="slider-bg" src="' + escHtml(afterUrl) + '" alt="' + escHtml(vpTr('vendor.portfolioAltWork', '作品圖：{title}').replace('{title}', titleRaw)) + '" loading="lazy">' +
+                            '<img class="slider-fg" src="' + escHtml(beforeUrl) + '" alt="' + escHtml(vpTr('vendor.portfolioAltDraft', '設計稿：{title}').replace('{title}', titleRaw)) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy">' +
                             '<div class="slider-overlay">' +
                             '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
                             '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
-                            '<span class="slider-hint">左＝設計稿、右＝作品圖</span>' +
+                            '<span class="slider-hint">' + escHtml(vpTr('vendor.sliderHint', '左＝設計稿、右＝作品圖')) + '</span>' +
                             '<input type="range" min="0" max="100" value="50">' +
                             '</div></div>';
                     } else if (seriesUrls.length >= 4) {
@@ -821,7 +830,7 @@
                     var zoomCls = itemType ? ' is-zoomable' : '';
                     if (itemType === 'comparison') zoomCls += ' is-comparison';
                     var zoomBtn = itemType
-                        ? '<button type="button" class="vp-zoom-btn" title="放大查看" aria-label="放大查看"><i class="bi bi-zoom-in"></i></button>'
+                        ? '<button type="button" class="vp-zoom-btn" title="' + escHtml(vpTr('vendor.zoomView', '放大查看')) + '" aria-label="' + escHtml(vpTr('vendor.zoomView', '放大查看')) + '"><i class="bi bi-zoom-in"></i></button>'
                         : '';
                     var cardTagOpen = detailUrl
                         ? ('<a class="portfolio-card h-100 text-decoration-none d-block' + zoomCls + '" href="' + escHtml(detailUrl) + '">')
@@ -929,12 +938,12 @@
                 var before = (item.image_url_before || '').trim();
                 bodyEl.innerHTML =
                     '<div class="comparison-slider-wrap">' +
-                    '<img class="slider-bg" src="' + escHtml(after) + '" alt="作品圖">' +
-                    '<img class="slider-fg" src="' + escHtml(before) + '" alt="設計稿" style="clip-path:inset(0 50% 0 0)">' +
+                    '<img class="slider-bg" src="' + escHtml(after) + '" alt="' + escHtml(vpTr('vendor.portfolioAltWork', '作品圖').replace('{title}', '')) + '">' +
+                    '<img class="slider-fg" src="' + escHtml(before) + '" alt="' + escHtml(vpTr('vendor.portfolioAltDraft', '設計稿').replace('{title}', '')) + '" style="clip-path:inset(0 50% 0 0)">' +
                     '<div class="slider-overlay">' +
                     '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
                     '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
-                    '<span class="slider-hint">左＝設計稿、右＝作品圖</span>' +
+                    '<span class="slider-hint">' + escHtml(vpTr('vendor.sliderHint', '左＝設計稿、右＝作品圖')) + '</span>' +
                     '<input type="range" min="0" max="100" value="50">' +
                     '</div></div>';
                 wirePortfolioLightboxSlider(bodyEl.querySelector('.comparison-slider-wrap'));
@@ -946,7 +955,7 @@
                 var imgUrl = (item.image_url || series[0] || '').trim();
                 bodyEl.innerHTML = imgUrl
                     ? '<div class="text-center"><img src="' + escHtml(imgUrl) + '" alt=""></div>'
-                    : '<p class="text-muted py-4 mb-0 text-center">無圖</p>';
+                    : '<p class="text-muted py-4 mb-0 text-center">' + escHtml(vpTr('vendor.noImage', '無圖')) + '</p>';
             }
             modal.show();
         }
@@ -1049,14 +1058,6 @@
             document.querySelectorAll('.vendor-profile-page-size-btn').forEach(function (btn) {
                 btn.classList.toggle('active', parseInt(btn.getAttribute('data-size'), 10) === n);
             });
-        }
-
-        function vpTr(k, fb) {
-            if (window.i18n && typeof window.i18n.t === 'function') {
-                var v = window.i18n.t(k);
-                if (v && v !== k) return v;
-            }
-            return fb || k;
         }
 
         function updateVendorProfileListPager(total, offset, limit) {
@@ -1292,7 +1293,7 @@
                 var designUrl = buildVendorAssetDesignUrl(item);
                 var guideUrl = buildVendorAssetGuideUrl(item);
                 var multiBadge = imageItems.length > 1
-                    ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem;">' + imageItems.length + ' 張</span>' : '';
+                    ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem;">' + escHtml(vpTr('vendor.imagesCount', '{n} 張').replace('{n}', String(imageItems.length))) + '</span>' : '';
                 var thumbHtml = imgUrl
                     ? '<div class="position-relative"><a href="' + escHtml(detailUrl) + '" class="vendor-asset-thumb-link d-block">' + multiBadge +
                     '<img src="' + escHtml(imgUrl) + '" class="vendor-asset-thumb" loading="lazy" alt=""></a></div>'
@@ -1308,7 +1309,7 @@
                     (capBadges ? '<div class="mb-1">' + capBadges + '</div>' : '') +
                     (cats ? '<div class="mb-1">' + cats + '</div>' : '') +
                     '<div class="d-grid gap-1 mt-auto pt-2">' +
-                    '<a href="' + escHtml(detailUrl) + '" class="btn btn-sm btn-outline-primary w-100">查看詳情</a>' +
+                    '<a href="' + escHtml(detailUrl) + '" class="btn btn-sm btn-outline-primary w-100">' + escHtml(vpTr('vendor.viewDetail', '查看詳情')) + '</a>' +
                     '<a href="' + escHtml(designUrl) + '" class="btn btn-sm btn-primary w-100">' + escHtml(designLbl) + '</a>' +
                     guideBtn +
                     '</div></div></div>';
@@ -1342,6 +1343,13 @@
             vpNext.addEventListener('click', function () {
                 vendorProfileOffset += vendorProfilePageSize;
                 renderVendorAssetsGrid(vendorProfileListItems);
+            });
+        }
+
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function () {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+                document.title = vpTr('vendor.pageTitle', document.title);
             });
         }
     })();

@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="custom">
 <head>
     <meta charset="utf-8">
-    <title>廠商列表 - MATCHDO 合做</title>
+    <title data-i18n="vendors.pageTitle">廠商列表 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
     <meta name="description" content="瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。">
@@ -172,7 +172,7 @@
                     <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="text" id="vendorKeyword" class="form-control border-start-0 ps-0"
                         data-i18n-placeholder="vendors.searchPlaceholder"
-                        placeholder="搜尋廠商名稱或專長…" autocomplete="off">
+                        data-i18n-placeholder="vendors.searchPlaceholder" placeholder="搜尋廠商名稱或專長…" autocomplete="off">
                 </div>
                 <button type="button" id="vendorSearchBtn" class="btn btn-primary px-3" data-i18n="vendors.searchBtn">搜尋</button>
                 <button type="button" id="vendorClearBtn" class="btn btn-outline-secondary px-3 d-none" data-i18n="vendors.clearBtn">清除</button>
@@ -191,7 +191,7 @@
             <div class="filter-wrap mt-2" id="areaFilterWrap">
                 <div class="d-flex align-items-center justify-content-between mb-1">
                     <span class="small text-muted" style="font-size:.75rem;" id="areaFilterLabel"><i class="bi bi-geo-alt me-1"></i>服務地區（可複選）</span>
-                    <span role="button" tabindex="0" id="areaClearBtn" class="small text-primary d-none" style="font-size:.75rem;cursor:pointer;">清除選擇</span>
+                    <span role="button" tabindex="0" id="areaClearBtn" class="small text-primary d-none" style="font-size:.75rem;cursor:pointer;" data-i18n="vendors.areaClear">清除選擇</span>
                 </div>
                 <div id="filterAreaGroups"></div>
             </div>
@@ -241,6 +241,17 @@
     <script>
     (function () {
         'use strict';
+
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+        function isEnLang() {
+            return getLang().toLowerCase().indexOf('zh') !== 0;
+        }
 
         /* ── 地區資料：從 area-codes.js 讀取，勿在此硬寫 ── */
         function getAreaData(lang) {
@@ -310,7 +321,7 @@
                 coverImg = '<div class="no-img"><i class="bi bi-building"></i></div>';
             }
             var verified = v.verified
-                ? '<span class="verified-badge"><i class="bi bi-patch-check-fill me-1"></i>認證</span>'
+                ? '<span class="verified-badge"><i class="bi bi-patch-check-fill me-1"></i>' + esc(tr('vendors.verified', '認證')) + '</span>'
                 : '';
             var ratingHtml = v.rating
                 ? '<span class="vendor-rating">' + stars(v.rating) + '</span><span class="ms-1">' + esc(Number(v.rating).toFixed(1)) + '</span>'
@@ -327,7 +338,7 @@
 
             // 聯絡按鈕：有站內帳號（user_id）才顯示「站內聯絡廠商」，否則不顯示
             var contactBtn = userId
-                ? '<button class="btn btn-success btn-contact-vendor" data-uid="' + esc(userId) + '"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</button>'
+                ? '<button class="btn btn-success btn-contact-vendor" data-uid="' + esc(userId) + '"><i class="bi bi-chat-dots me-1"></i>' + esc(tr('vendors.contactVendor', '聯絡廠商')) + '</button>'
                 : '';
 
             return '<div class="col-sm-6 col-lg-4">' +
@@ -344,7 +355,7 @@
                         '</div>' +
                     '</a>' +
                     '<div class="vendor-card-actions">' +
-                        '<a href="' + esc(url) + '" class="btn btn-outline-primary"><i class="bi bi-person-badge me-1"></i>查看詳情</a>' +
+                        '<a href="' + esc(url) + '" class="btn btn-outline-primary"><i class="bi bi-person-badge me-1"></i>' + esc(tr('vendors.viewDetail', '查看詳情')) + '</a>' +
                         contactBtn +
                     '</div>' +
                 '</div>' +
@@ -415,7 +426,10 @@
                     /* 結果計數（只在有篩選時顯示） */
                     var total = data.total || null;
                     if (state.keyword || state.categoryKey) {
-                        $count.textContent = total ? ('共 ' + total + ' 家廠商') : ('已顯示 ' + $grid.querySelectorAll('.col-sm-6').length + ' 家廠商');
+                        var shown = $grid.querySelectorAll('.col-sm-6').length;
+                        $count.textContent = total
+                            ? tr('vendors.countTotal', '共 {n} 家廠商').replace('{n}', String(total))
+                            : tr('vendors.countShown', '已顯示 {n} 家廠商').replace('{n}', String(shown));
                         $count.classList.remove('d-none');
                     }
 
@@ -428,7 +442,7 @@
                     state.loading = false;
                     if (!append) {
                         $empty.style.display = '';
-                        $empty.querySelector('p').textContent = '載入失敗，請重新整理頁面。';
+                        $empty.querySelector('p').textContent = tr('vendors.loadFail', '載入失敗，請重新整理頁面。');
                     }
                 });
         }
@@ -471,7 +485,7 @@
 
             var allTag = document.createElement('span');
             allTag.className = 'filter-tag' + (state.categoryKey === '' ? ' active' : '');
-            allTag.textContent = getLang().toLowerCase().indexOf('zh') !== 0 ? 'All' : '全部';
+            allTag.textContent = tr('vendors.filterAll', '全部');
             allTag.role = 'button';
             allTag.tabIndex = 0;
             allTag.addEventListener('click', function() { selectMain(''); });
@@ -498,12 +512,10 @@
                 return;
             }
 
-            var isEn = getLang().toLowerCase().indexOf('zh') !== 0;
-
             /* 返回按鈕 */
             var backTag = document.createElement('span');
             backTag.className = 'filter-tag filter-sub';
-            backTag.textContent = isEn ? '← Back' : '← 上一層';
+            backTag.textContent = tr('vendors.filterBack', '← 上一層');
             backTag.role = 'button';
             backTag.addEventListener('click', function() { selectMain(''); });
             $filterSub.appendChild(backTag);
@@ -511,8 +523,9 @@
             /* 全部子分類 */
             var allSub = document.createElement('span');
             allSub.className = 'filter-tag filter-sub' + (state.subcategoryKey === '' ? ' active' : '');
-            allSub.textContent = isEn ? 'All' : '全部';
+            allSub.textContent = tr('vendors.filterAll', '全部');
             allSub.role = 'button';
+            allSub.setAttribute('data-all-sub', '1');
             allSub.addEventListener('click', function() { selectSub(''); });
             $filterSub.appendChild(allSub);
 
@@ -551,7 +564,7 @@
                 tag.classList.toggle('active', tag.textContent === (categoriesData
                     .flatMap(function(c){ return c.subcategories||[]; })
                     .find(function(s){ return s.key === subKey; })
-                    || {name: ''}).name || (subKey === '' && tag.textContent === '全部'));
+                    || {name: ''}).name || (subKey === '' && tag.getAttribute('data-all-sub') === '1'));
             });
             /* 重新渲染子標籤 active */
             var cat = categoriesData.find(function(c){ return c.key === state.categoryKey; });
@@ -580,7 +593,7 @@
 
         /* ── 服務地區多選標籤（依語言動態產生） ── */
         function getCurrentLang() {
-            return (document.documentElement.lang || 'zh-TW').startsWith('en') ? 'en' : 'zh';
+            return isEnLang() ? 'en' : 'zh';
         }
 
         var _expandedCountry = {};   // 第一層：台灣/國家展開
@@ -602,9 +615,7 @@
             var $label = document.getElementById('areaFilterLabel');
             var $clear = document.getElementById('areaClearBtn');
             var countries = (window.AreaCodes && window.AreaCodes.countries) || [];
-            if ($label) $label.innerHTML = lang === 'en'
-                ? '<i class="bi bi-geo-alt me-1"></i>Service Area'
-                : '<i class="bi bi-geo-alt me-1"></i>服務地區';
+            if ($label) $label.innerHTML = '<i class="bi bi-geo-alt me-1"></i>' + esc(tr('vendors.areaFilterLabel', '服務地區（可複選）'));
             if (!$wrap) return;
 
             // 第一層：台灣 + 海外國家同級
@@ -734,8 +745,16 @@
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(function() {
                 if (window.i18n.applyPage) window.i18n.applyPage();
+                document.title = tr('vendors.pageTitle', document.title);
+                renderMainTags();
+                var cat = categoriesData.find(function(c) { return c.key === state.categoryKey; });
+                if (cat) renderSubTags(cat);
+                renderAreaFilter();
             });
         }
+        document.addEventListener('i18n:applied', function () {
+            document.title = tr('vendors.pageTitle', document.title);
+        });
         renderAreaFilter();
         loadCategories();   // loadCategories 結束後會呼叫 renderCategoryTags，再根據 state.categoryKey 標記 active
         loadVendors(false);

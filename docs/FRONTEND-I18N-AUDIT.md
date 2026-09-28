@@ -48,15 +48,15 @@ node scripts/audit-frontend-i18n.js
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
 | SSR 版型列表 `/official-templates/`、`/vendor-styles/` 等 | 部分 | `browse-page-i18n.js`、cookie `lang` |
-| `vendor-profile.html` | 部分 | 內容靠 `name_en` |
-| `vendors.html` | 部分 | |
+| `vendor-profile.html` | 部分 | UI `vendor.*` + JS `vpTr`；內容靠 `name_en` |
+| `vendors.html` | 部分 | `vendors.*` + 列表 JS `tr()` |
 | `inspiration/*` SSR | 內容 | `title_en` |
 
 ### D. 廠商工作區（① 製造商）
 
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
-| `client/manufacturer-dashboard.html` | **進行中** | 已接 `i18n`；需 `mfrDash.*` + `applyPage` |
+| `client/manufacturer-dashboard.html` | 部分 | 手風琴內文 2026-09-29 補 `mfrDash.*` |
 | `client/manufacturer-materials.html` | 部分 | 2026-09-29 大幅補 UI |
 | `client/manufacturer-portfolio.html` | 部分 | |
 | `client/vendor-product-link-tree.html` | 部分 | |
