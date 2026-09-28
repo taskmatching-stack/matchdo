@@ -1181,14 +1181,43 @@
                 if (!currentLang && window.i18n && typeof window.i18n.getLang === 'function') currentLang = window.i18n.getLang() || '';
                 return currentLang || 'zh-TW';
             }
+            function isGenericMediaWallCardTitle(t) {
+                if (!t) return true;
+                var s = String(t).trim();
+                if (!s) return true;
+                var generic = ['產品設計稿', '產品設計圖', '未命名', '推廣圖', '情境圖', 'Untitled', 'Product design', 'Product design draft', 'Design draft', 'Design drafts'];
+                for (var gi = 0; gi < generic.length; gi++) {
+                    if (s === generic[gi] || s.toLowerCase() === generic[gi].toLowerCase()) return true;
+                }
+                return false;
+            }
+            function mediaWallTextHasCjk(text) {
+                return /[\u4e00-\u9fff\u3400-\u4dbf]/.test(String(text || ''));
+            }
+            function mediaWallDefaultDesignTitle() {
+                if (window.i18n && window.i18n.t) return window.i18n.t('customProduct.defaultSaveTitle') || '產品設計稿';
+                return '產品設計稿';
+            }
             function pickMediaWallLocalizedTitle(p) {
                 var lang = getMediaWallLang();
                 var useEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-                var zh = ((p && p.title_zh != null) ? p.title_zh : (p && p.title) || '').trim();
-                var en = (p && p.title_en || '').trim();
-                if (useEn && en) return en;
-                if (zh) return zh;
-                return en || '';
+                var zh = (p && p.title_zh != null) ? String(p.title_zh).trim() : '';
+                var en = (p && p.title_en != null) ? String(p.title_en).trim() : '';
+                if (!zh && !en && p && p.title) {
+                    var legacy = String(p.title).trim();
+                    if (!isGenericMediaWallCardTitle(legacy)) {
+                        if (mediaWallTextHasCjk(legacy)) zh = legacy;
+                        else en = legacy;
+                    }
+                }
+                if (useEn) {
+                    if (en && !isGenericMediaWallCardTitle(en)) return en;
+                    if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
+                    return 'Product design draft';
+                }
+                if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
+                if (zh && mediaWallTextHasCjk(zh)) return zh;
+                return mediaWallDefaultDesignTitle();
             }
             function mediaWallCreatedDesc(a, b) {
                 var ta = (a && a.created_at) ? new Date(a.created_at).getTime() : 0;
@@ -1204,11 +1233,15 @@
                     wrap.setAttribute('data-type', p.type || '');
                     if (p.id) wrap.setAttribute('data-id', p.id);
                     var link = escAttr(p.link || '/custom/gallery.html');
+                    var mwUseEn = String(getMediaWallLang() || '').toLowerCase().indexOf('zh') !== 0;
                     var titleRaw = pickMediaWallLocalizedTitle(p);
                     if (p.type === 'user_design') {
                         var udPrompt = ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
-                        if ((!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '未命名' || titleRaw === 'Untitled') && udPrompt) {
+                        if (isGenericMediaWallCardTitle(titleRaw) && udPrompt) {
                             titleRaw = udPrompt.length > 56 ? udPrompt.slice(0, 56) + '\u2026' : udPrompt;
+                        }
+                        if (!mwUseEn && !mediaWallTextHasCjk(titleRaw) && isGenericMediaWallCardTitle(titleRaw)) {
+                            titleRaw = mediaWallDefaultDesignTitle();
                         }
                     } else if (p.type === 'promo_scene') {
                         if (!titleRaw || titleRaw === '產品設計稿' || titleRaw === '產品設計圖' || titleRaw === 'Product design draft' || titleRaw === 'Product design' || titleRaw === 'Design draft' || titleRaw === 'Design drafts' || titleRaw === '推廣圖' || titleRaw === '未命名' || titleRaw === '情境圖' || titleRaw === 'Scene image' || titleRaw === 'Untitled') {
@@ -1804,7 +1837,7 @@
                 if (!list || list.length === 0) return;
                 var baseUrl = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://matchdo.cc';
                 var elements = list.slice(0, 50).map(function (p, i) {
-                    var name = pickMediaWallLocalizedTitle(p) || (p.title || '').trim();
+                    var name = pickMediaWallLocalizedTitle(p);
                     var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : (p.type === 'promo_scene' ? (p.scene_description || p.user_prompt) : p.description)) || p.title || '';
                     var img = (p.image_url || p.cover_image_url || '').trim();
                     var pagePath = (p.inspiration_url && String(p.inspiration_url).trim())

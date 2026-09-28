@@ -6680,6 +6680,37 @@ function isGenericMediaWallTitle(title) {
     return generic.some((g) => t === g || t.toLowerCase() === g.toLowerCase());
 }
 
+function mediaWallTextHasCjk(text) {
+    return /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(String(text || ''));
+}
+
+/** custom_products.title 常混存英文預設；拆成 zh／en，勿把 Product design draft 當繁中 title */
+function mediaWallTitlePairFromDbTitleFields(title, titleEn) {
+    const raw = String(title || '').trim();
+    const rawEn = String(titleEn || '').trim();
+    let zh = '';
+    let en = '';
+    if (raw && !isGenericMediaWallTitle(raw)) {
+        const t = truncateMediaWallTitle(raw);
+        if (mediaWallTextHasCjk(t)) zh = t;
+        else en = t;
+    }
+    if (rawEn && !isGenericMediaWallTitle(rawEn)) {
+        const t = truncateMediaWallTitle(rawEn);
+        if (!en) en = t;
+        else if (!zh && mediaWallTextHasCjk(t)) zh = t;
+    }
+    return { zh, en };
+}
+
+function mediaWallUserDesignDefaultTitle(lang) {
+    return normalizeVendorContentLang(lang) === 'en' ? 'Product design draft' : '產品設計稿';
+}
+
+function mediaWallPromoDefaultTitle(lang) {
+    return normalizeVendorContentLang(lang) === 'en' ? 'Scene image' : '情境圖';
+}
+
 function truncateMediaWallTitle(text, maxLen = 56) {
     const s = String(text || '').replace(/\s+/g, ' ').trim();
     if (!s) return '';
@@ -6712,8 +6743,20 @@ function intentSummaryTitlePairFromSemantics(sem) {
     return { zh: '', en: '' };
 }
 
-function pickMediaWallLocalizedTitle(zh, en, lang) {
-    return pickVendorLocalizedText(zh, en, lang) || String(zh || en || '').trim();
+function pickMediaWallLocalizedTitle(zh, en, lang, kind) {
+    const isEn = normalizeVendorContentLang(lang) === 'en';
+    const z = String(zh || '').trim();
+    const e = String(en || '').trim();
+    const zOk = z && !isGenericMediaWallTitle(z);
+    const eOk = e && !isGenericMediaWallTitle(e);
+    if (isEn) {
+        if (eOk) return e;
+        if (zOk) return z;
+        return kind === 'promo' ? mediaWallPromoDefaultTitle(lang) : mediaWallUserDesignDefaultTitle(lang);
+    }
+    if (zOk) return z;
+    if (z && mediaWallTextHasCjk(z)) return z;
+    return kind === 'promo' ? mediaWallPromoDefaultTitle(lang) : mediaWallUserDesignDefaultTitle(lang);
 }
 
 function resolveUserDesignMediaWallTitlePair(p) {
@@ -6724,13 +6767,14 @@ function resolveUserDesignMediaWallTitlePair(p) {
     const fromSem = intentSummaryTitlePairFromSemantics(sem);
     if (fromSem.zh || fromSem.en) return fromSem;
 
-    const dbZh = (p.title || '').trim();
-    const dbEn = (p.title_en || '').trim();
-    const zhOk = dbZh && !isGenericMediaWallTitle(dbZh) ? truncateMediaWallTitle(dbZh) : '';
-    const enOk = dbEn && !isGenericMediaWallTitle(dbEn) ? truncateMediaWallTitle(dbEn) : '';
-    if (zhOk || enOk) return { zh: zhOk, en: enOk };
+    const fromDb = mediaWallTitlePairFromDbTitleFields(p.title, p.title_en);
+    if (fromDb.zh || fromDb.en) return fromDb;
 
-    if (genPrompt) return { zh: truncateMediaWallTitle(genPrompt), en: '' };
+    if (genPrompt) {
+        const t = truncateMediaWallTitle(genPrompt);
+        if (mediaWallTextHasCjk(t)) return { zh: t, en: '' };
+        return { zh: '', en: t };
+    }
 
     const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
     const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
@@ -6740,14 +6784,12 @@ function resolveUserDesignMediaWallTitlePair(p) {
             en: enDesc ? truncateMediaWallTitle(enDesc) : ''
         };
     }
-    return { zh: dbZh || '未命名', en: dbEn || '' };
+    return { zh: '', en: '' };
 }
 
 function resolveUserDesignMediaWallTitle(p, lang) {
     const pair = resolveUserDesignMediaWallTitlePair(p);
-    const localized = pickMediaWallLocalizedTitle(pair.zh, pair.en, lang);
-    if (localized) return localized;
-    return pair.zh || pair.en || '未命名';
+    return pickMediaWallLocalizedTitle(pair.zh, pair.en, lang, 'user_design');
 }
 
 function resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap) {
@@ -6792,7 +6834,7 @@ function resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, 
 
 function resolvePromoSceneCardTitle(row, ownerDisplayMap, sourceProductMap, templateNameMap, lang) {
     const pair = resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap);
-    return pickMediaWallLocalizedTitle(pair.zh, pair.en, lang) || pair.zh || pair.en || '情境圖';
+    return pickMediaWallLocalizedTitle(pair.zh, pair.en, lang, 'promo');
 }
 
 function firstSentenceFromText(text) {
@@ -6821,7 +6863,7 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
         id,
         type: 'user_design',
         size: '1x1',
-        title: pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang) || titlePair.zh || titlePair.en || '未命名',
+        title: pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang, 'user_design'),
         title_zh: titlePair.zh || null,
         title_en: titlePair.en || null,
         image_url: p.ai_generated_image_url || p.reference_image_url,
@@ -6954,7 +6996,7 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
     const ownerName = (ownerDisplayMap && row.user_id) ? String(ownerDisplayMap[row.user_id] || '').trim() : '';
     const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
     const titlePair = resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap);
-    const title = pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang) || titlePair.zh || titlePair.en || '情境圖';
+    const title = pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang, 'promo');
     const userPrompt = row.user_prompt ? String(row.user_prompt).trim() : '';
     const sceneDescription = resolvePromoSceneDescriptionFromRow(row, templateNameMap);
     const themeKey = row.scene_template_key ? String(row.scene_template_key).trim() : '';

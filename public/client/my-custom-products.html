@@ -45,16 +45,56 @@
         .product-card .card-body {
             padding: 0.35rem 0.45rem 0.45rem;
         }
-        .asset-card-btns {
+        /* 小卡（col-xl-2）底部按鈕：兩欄 grid（與 a504387 同欄寬，勿用 design-actions 單行 flex） */
+        .asset-card-btns,
+        .design-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.22rem;
+            width: 100%;
+            min-width: 0;
+        }
+        .asset-card-btns {
             margin-top: auto;
         }
-        .asset-card-btns .btn {
+        .design-actions.mb-2 {
+            margin-top: 0;
+        }
+        .asset-card-btns .btn,
+        .design-actions .btn {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
             font-size: 0.68rem;
             padding: 0.18rem 0.25rem;
+            line-height: 1.2;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .asset-card-btns .dropdown,
+        .design-actions .dropdown {
+            grid-column: 1 / -1;
+        }
+        .asset-card-btns .dropdown .dropdown-toggle,
+        .design-actions .dropdown .dropdown-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .design-actions.mb-2 .btn:only-of-type {
+            grid-column: 1 / -1;
+        }
+        .asset-card-btns .dropdown-toggle::after,
+        .design-actions .dropdown-toggle::after {
+            margin-left: 0.2rem;
+            flex-shrink: 0;
+        }
+        .asset-card-btns .dropdown-menu,
+        .design-actions .dropdown-menu {
+            font-size: 0.8rem;
+            min-width: 9rem;
         }
         .promo-show-homepage-wrap { margin-bottom: 0.35rem !important; }
         .promo-show-homepage-hint { font-size: 0.65rem; margin-bottom: 0.35rem !important; line-height: 1.3; }
@@ -210,26 +250,6 @@
             width: 2rem;
             height: 1.05rem;
             margin-top: 0;
-        }
-        .design-actions {
-            display: flex;
-            flex-wrap: nowrap;
-            gap: 0.25rem;
-            align-items: center;
-        }
-        .design-actions .btn {
-            flex: 1 1 0;
-            min-width: 0;
-            font-size: 0.68rem;
-            padding: 0.22rem 0.25rem;
-            white-space: nowrap;
-        }
-        .design-actions .dropdown-toggle::after {
-            margin-left: 0.2rem;
-        }
-        .design-actions .dropdown-menu {
-            font-size: 0.8rem;
-            min-width: 9rem;
         }
         /* 情境圖：唯一允許裁切（cover）；其餘資產一律 1:1 contain */
         .promo-asset-thumb-wrap {
@@ -1956,14 +1976,15 @@
                             ` : ''}
                         </div>
 
-                        <div class="design-actions mt-auto">
+                        <div class="asset-card-btns mt-auto">
                             <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">${escapeHtml(uiT('myCustomProducts.viewDetail', '詳情', 'Details'))}</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-provenance-resume" data-kind="user_design" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.genDescTitle', '產生／更新描述（1 點）', 'Generate or update description (1 credit)'))}"><i class="bi bi-card-text me-1"></i>${escapeHtml(uiT('myCustomProducts.genDescBtn', '描述 1點', 'Description (1 pt)'))}</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.regenTagsTitle', '產生／更新標籤（1 點）', 'Generate or update tags (1 credit)'))}"><i class="bi bi-tags me-1"></i>${escapeHtml(uiT('myCustomProducts.regenTagsBtn', '標籤 1點', 'Tags (1 pt)'))}</button>
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">${escapeHtml(uiT('myCustomProducts.more', '更多', 'More'))}</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><button type="button" class="dropdown-item btn-gen-desc" data-id="${product.id}"><i class="bi bi-card-text me-1"></i>${escapeHtml(uiT('myCustomProducts.genDescBtn', '描述 1點', 'Desc 1pt'))}</button></li>
+                                    <li><button type="button" class="dropdown-item btn-regen-tags" data-id="${product.id}"><i class="bi bi-tags me-1"></i>${escapeHtml(uiT('myCustomProducts.regenTagsBtn', '標籤 1點', 'Tags 1pt'))}</button></li>
+                                    <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="${makersHref}"><i class="bi bi-shop me-1"></i>${escapeHtml(uiT('myCustomProducts.findMakers', '找製作方', 'Find makers'))}</a></li>
                                     ${!isCompleted ? `<li><button type="button" class="dropdown-item btn-mark-done" data-id="${product.id}"><i class="bi bi-check-circle me-1"></i>${escapeHtml(uiT('myCustomProducts.markDone', '標記完成', 'Mark complete'))}</button></li>` : ''}
                                     <li><hr class="dropdown-divider"></li>
@@ -2425,7 +2446,7 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'asset-manual-desc-20260823';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'design-more-menu-20260929';
     </script>
     <div class="modal fade" id="assetMetaEditModal" tabindex="-1" aria-labelledby="assetMetaEditLabel" aria-hidden="true">
         <div class="modal-dialog">
