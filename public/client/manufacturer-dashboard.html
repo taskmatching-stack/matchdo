@@ -347,6 +347,10 @@
             }
             return fb != null ? fb : k;
         }
+        function dashDateLocale() {
+            var l = (window.i18n && window.i18n.getLang) ? String(window.i18n.getLang()).toLowerCase() : 'zh';
+            return l.indexOf('zh') === 0 ? 'zh-TW' : 'en-US';
+        }
         function applyMfrDashI18n() {
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             document.title = tr('mfrDash.pageTitle', document.title);
@@ -463,7 +467,7 @@
                 var label = (row.querySelector('.store-url-label') && row.querySelector('.store-url-label').value || '').trim();
                 var urlRaw = (row.querySelector('.store-url-url') && row.querySelector('.store-url-url').value || '').trim();
                 if (label && !urlRaw) {
-                    return '第 ' + (i + 1) + ' 筆賣場已填名稱，請補上網址';
+                    return tr('mfrDash.storeUrlMissingUrl', '第 {n} 筆賣場已填名稱，請補上網址').replace('{n}', String(i + 1));
                 }
             }
             return '';
@@ -483,7 +487,7 @@
                 var labelInput = document.createElement('input');
                 labelInput.type = 'text';
                 labelInput.className = 'form-control form-control-sm store-url-label';
-                labelInput.placeholder = '賣場名稱';
+                labelInput.placeholder = tr('mfrDash.storeUrlNamePh', '賣場名稱');
                 labelInput.value = storeUrlItemName(item);
                 labelCol.appendChild(labelInput);
                 var urlCol = document.createElement('div');
@@ -491,7 +495,7 @@
                 var urlInput = document.createElement('input');
                 urlInput.type = 'text';
                 urlInput.className = 'form-control form-control-sm store-url-url';
-                urlInput.placeholder = '網址（必填）例：shopee.tw/…';
+                urlInput.placeholder = tr('mfrDash.storeUrlPh', '網址（必填）例：shopee.tw/…');
                 urlInput.value = (item && item.url) ? String(item.url) : '';
                 urlCol.appendChild(urlInput);
                 var btnCol = document.createElement('div');
@@ -499,7 +503,7 @@
                 var removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
                 removeBtn.className = 'btn btn-sm btn-outline-danger store-url-remove';
-                removeBtn.title = '移除';
+                removeBtn.title = tr('mfrDash.removeRow', '移除');
                 removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
                 removeBtn.addEventListener('click', function () {
                     if (list.querySelectorAll('.store-url-row').length <= 1) {
@@ -560,8 +564,8 @@
                 '<div class="row g-2">',
                 '<div class="col-12"><div class="fw-semibold fs-5">' + esc(mfr.name || '—') + '</div></div>',
                 mfr.description ? '<div class="col-12 text-muted small">' + esc(mfr.description).substring(0, 120) + (mfr.description.length > 120 ? '…' : '') + '</div>' : '',
-                '<div class="col-sm-6"><span class="text-muted small">分類：</span>' + ((mfr.categories || []).map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('') || '<span class="text-muted">—</span>') + '</div>',
-                '<div class="col-sm-6"><span class="text-muted small">地點：</span>' + esc(mfr.location || '—') + '</div>',
+                '<div class="col-sm-6"><span class="text-muted small">' + esc(tr('mfrDash.summaryCategories', '分類：')) + '</span>' + ((mfr.categories || []).map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('') || '<span class="text-muted">—</span>') + '</div>',
+                '<div class="col-sm-6"><span class="text-muted small">' + esc(tr('mfrDash.summaryLocation', '地點：')) + '</span>' + esc(mfr.location || '—') + '</div>',
                 contact.email ? '<div class="col-sm-6"><i class="bi bi-envelope me-1 text-muted"></i>' + esc(contact.email) + '</div>' : '',
                 contact.phone ? '<div class="col-sm-6"><i class="bi bi-telephone me-1 text-muted"></i>' + esc(contact.phone) + '</div>' : '',
                 contact.url ? '<div class="col-sm-6"><i class="bi bi-link-45deg me-1 text-muted"></i><a href="' + esc(contact.url) + '" target="_blank">' + esc(contact.url) + '</a></div>' : '',
@@ -589,7 +593,7 @@
         async function loadMfr() {
             token = await getToken();
             if (!token) {
-                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>以使用廠商控制台。</div>';
+                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">' + tr('mfrDash.authRequired', '請先登入') + '</div>';
                 document.getElementById('mfr-name').textContent = '';
                 return;
             }
@@ -597,13 +601,13 @@
                 const res = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
                 if (res.status === 404) {
                     document.getElementById('no-mfr-create').classList.remove('d-none');
-                    document.getElementById('mfr-summary').innerHTML = '<div class="text-muted">尚未建立廠商資料。請在上方表單建立。</div>';
-                    document.getElementById('mfr-name').textContent = '（尚未建立廠商資料）';
+                    document.getElementById('mfr-summary').innerHTML = '<div class="text-muted">' + esc(tr('mfrDash.noProfileYet', '尚未建立廠商資料。請在上方表單建立。')) + '</div>';
+                    document.getElementById('mfr-name').textContent = tr('mfrDash.noProfileName', '（尚未建立廠商資料）');
                     return;
                 }
                 const mfr = await res.json();
                 mfrId = mfr.id;
-                document.getElementById('mfr-name').textContent = mfr.name || '廠商';
+                document.getElementById('mfr-name').textContent = mfr.name || tr('mfrDash.defaultVendorName', '廠商');
                 var publicUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
                 var btnPreviewEn = document.getElementById('btn-preview-en-page');
                 if (btnPreviewEn) btnPreviewEn.href = publicUrl + '&lang=en';
@@ -644,14 +648,14 @@
                 var metaEnEl = document.getElementById('mfrEnMeta');
                 if (metaEnEl) {
                     metaEnEl.textContent = mfr.i18n_en_generated_at
-                        ? ('上次 AI 生成：' + new Date(mfr.i18n_en_generated_at).toLocaleString('zh-TW'))
-                        : '尚未 AI 生成英文';
+                        ? tr('mfrDash.aiGenAt', '上次 AI 生成：{dt}').replace('{dt}', new Date(mfr.i18n_en_generated_at).toLocaleString(dashDateLocale()))
+                        : tr('mfrDash.aiNotGenerated', '尚未 AI 生成英文');
                 }
 
                 await loadStats(mfr);
                 await loadRecentPortfolio();
             } catch (e) {
-                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-danger mb-0">載入失敗：' + esc(e.message) + '</div>';
+                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-danger mb-0">' + esc(tr('mfrDash.loadFailedPrefix', '載入失敗：')) + esc(e.message) + '</div>';
             }
         }
 
@@ -688,9 +692,9 @@
                 const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
                 const d = await r.json();
                 const items = (d.items || []).slice(0, 4);
-                if (!items.length) { el.innerHTML = '<div class="col-12 text-muted small py-2">尚無作品，<a href="/client/manufacturer-portfolio.html">立即新增</a>。</div>'; return; }
-                el.innerHTML = items.map(p => '<div class="col-6 col-md-3"><div class="ratio ratio-1x1 rounded overflow-hidden border bg-light"><img src="' + esc(p.image_url) + '" class="object-fit-cover w-100 h-100" loading="lazy" alt="' + esc(p.title || '') + '"></div><div class="small mt-1 text-truncate">' + esc(p.title || '作品') + '</div></div>').join('');
-            } catch (e) { el.innerHTML = '<div class="col-12 text-muted small">載入失敗。</div>'; }
+                if (!items.length) { el.innerHTML = '<div class="col-12 text-muted small py-2">' + tr('mfrDash.recentPortfolioEmpty', '尚無作品…') + '</div>'; return; }
+                el.innerHTML = items.map(p => '<div class="col-6 col-md-3"><div class="ratio ratio-1x1 rounded overflow-hidden border bg-light"><img src="' + esc(p.image_url) + '" class="object-fit-cover w-100 h-100" loading="lazy" alt="' + esc(p.title || '') + '"></div><div class="small mt-1 text-truncate">' + esc(p.title || tr('mfrDash.portfolioItemFallback', '作品')) + '</div></div>').join('');
+            } catch (e) { el.innerHTML = '<div class="col-12 text-muted small">' + esc(tr('mfrDash.recentLoadFail', '載入失敗。')) + '</div>'; }
         }
 
         function renderLogoPreview(url) {
@@ -733,10 +737,10 @@
                         msg.className = 'small text-danger';
                         return;
                     }
-                    msg.textContent = '儲存中…';
+                    msg.textContent = tr('mfrDash.saving', '儲存中…');
                     msg.className = 'small text-muted';
                     var t = await getToken();
-                    if (!t) { msg.textContent = '請先登入'; msg.className = 'small text-danger'; return; }
+                    if (!t) { msg.textContent = tr('mfrDash.signInFirst', '請先登入'); msg.className = 'small text-danger'; return; }
                     btnSaveSocial.disabled = true;
                     try {
                         var contact_json = {
@@ -755,7 +759,7 @@
                             body: JSON.stringify({ contact_json: contact_json })
                         });
                         var data = await r.json().catch(function () { return {}; });
-                        if (!r.ok) throw new Error(data.error || '儲存失敗');
+                        if (!r.ok) throw new Error(data.error || tr('mfrDash.saveFailed', '儲存失敗'));
                         var savedContact = applyContactJsonToSocialUi(data.contact_json || contact_json);
                         renderMfrSummaryCard({
                             name: data.name,
@@ -763,7 +767,7 @@
                             location: data.location,
                             categories: data.categories
                         }, savedContact);
-                        msg.textContent = '✅ 已儲存（含賣場名稱）';
+                        msg.textContent = tr('mfrDash.savedWithStores', '✅ 已儲存（含賣場名稱）');
                         msg.className = 'small text-success';
                         setTimeout(function(){ msg.textContent = ''; }, 4000);
                     } catch (e) {
@@ -791,19 +795,19 @@
             var logoSaveMsg = document.getElementById('logoSaveMsg');
             if (btnSaveLogo && logoSaveMsg) {
                 btnSaveLogo.addEventListener('click', async function () {
-                    logoSaveMsg.textContent = '上傳中…';
+                    logoSaveMsg.textContent = tr('mfrDash.uploading', '上傳中…');
                     logoSaveMsg.className = 'small text-muted';
                     var t = await getToken();
-                    if (!t) { logoSaveMsg.textContent = '請先登入'; logoSaveMsg.className = 'small text-danger'; return; }
+                    if (!t) { logoSaveMsg.textContent = tr('mfrDash.signInFirst', '請先登入'); logoSaveMsg.className = 'small text-danger'; return; }
                     var fileInput = document.getElementById('logo-file');
                     var file = fileInput && fileInput.files && fileInput.files[0];
                     if (!file) {
-                        logoSaveMsg.textContent = '請選擇圖片檔案';
+                        logoSaveMsg.textContent = tr('mfrDash.pickImageFile', '請選擇圖片檔案');
                         logoSaveMsg.className = 'small text-danger';
                         return;
                     }
                     if (file.size > 5 * 1024 * 1024) {
-                        logoSaveMsg.textContent = '檔案請小於 5MB';
+                        logoSaveMsg.textContent = tr('mfrDash.fileMax5mb', '檔案請小於 5MB');
                         logoSaveMsg.className = 'small text-danger';
                         return;
                     }
@@ -817,10 +821,10 @@
                             body: fd
                         });
                         var data = await r.json().catch(function () { return {}; });
-                        if (!r.ok) throw new Error(data.error || '上傳失敗');
+                        if (!r.ok) throw new Error(data.error || tr('mfrDash.uploadFailed', '上傳失敗'));
                         renderLogoPreview(data.logo_url || '');
                         if (fileInput) fileInput.value = '';
-                        logoSaveMsg.textContent = '✅ 已上傳';
+                        logoSaveMsg.textContent = tr('mfrDash.uploaded', '✅ 已上傳');
                         logoSaveMsg.className = 'small text-success';
                         setTimeout(function () { logoSaveMsg.textContent = ''; }, 3000);
                     } catch (e) {
@@ -835,11 +839,11 @@
             var btnClearLogo = document.getElementById('btnClearLogo');
             if (btnClearLogo && logoSaveMsg) {
                 btnClearLogo.addEventListener('click', async function () {
-                    if (!confirm('確定移除 LOGO？')) return;
-                    logoSaveMsg.textContent = '處理中…';
+                    if (!confirm(tr('mfrDash.removeLogoConfirm', '確定移除 LOGO？'))) return;
+                    logoSaveMsg.textContent = tr('mfrDash.processing', '處理中…');
                     logoSaveMsg.className = 'small text-muted';
                     var t = await getToken();
-                    if (!t) { logoSaveMsg.textContent = '請先登入'; logoSaveMsg.className = 'small text-danger'; return; }
+                    if (!t) { logoSaveMsg.textContent = tr('mfrDash.signInFirst', '請先登入'); logoSaveMsg.className = 'small text-danger'; return; }
                     btnClearLogo.disabled = true;
                     try {
                         var r = await fetch('/api/me/manufacturer', {
@@ -848,11 +852,11 @@
                             body: JSON.stringify({ logo_url: null })
                         });
                         var data = await r.json().catch(function () { return {}; });
-                        if (!r.ok) throw new Error(data.error || '移除失敗');
+                        if (!r.ok) throw new Error(data.error || tr('mfrDash.removeFailed', '移除失敗'));
                         renderLogoPreview('');
                         var fileInput = document.getElementById('logo-file');
                         if (fileInput) fileInput.value = '';
-                        logoSaveMsg.textContent = '✅ 已移除';
+                        logoSaveMsg.textContent = tr('mfrDash.removed', '✅ 已移除');
                         logoSaveMsg.className = 'small text-success';
                         setTimeout(function () { logoSaveMsg.textContent = ''; }, 3000);
                     } catch (e) {
@@ -875,10 +879,10 @@
             if (btnSaveMfrZh) {
                 btnSaveMfrZh.addEventListener('click', async function () {
                     var nameVal = (document.getElementById('mfr-name-zh') && document.getElementById('mfr-name-zh').value || '').trim();
-                    if (!nameVal) { setMfrZhMsg('請填寫廠商名稱', 'text-danger'); return; }
-                    setMfrZhMsg('儲存中…', 'text-muted');
+                    if (!nameVal) { setMfrZhMsg(tr('mfrDash.fillVendorName', '請填寫廠商名稱'), 'text-danger'); return; }
+                    setMfrZhMsg(tr('mfrDash.saving', '儲存中…'), 'text-muted');
                     var t = await getToken();
-                    if (!t) { setMfrZhMsg('請先登入', 'text-danger'); return; }
+                    if (!t) { setMfrZhMsg(tr('mfrDash.signInFirst', '請先登入'), 'text-danger'); return; }
                     btnSaveMfrZh.disabled = true;
                     try {
                         var r = await fetch('/api/me/manufacturer', {
@@ -890,9 +894,9 @@
                             })
                         });
                         var data = await r.json().catch(function () { return {}; });
-                        if (!r.ok) throw new Error(data.error || '儲存失敗');
+                        if (!r.ok) throw new Error(data.error || tr('mfrDash.saveFailed', '儲存失敗'));
                         document.getElementById('mfr-name').textContent = nameVal;
-                        setMfrZhMsg('✅ 已儲存', 'text-success');
+                        setMfrZhMsg(tr('mfrDash.savedOk', '✅ 已儲存'), 'text-success');
                         await loadMfr();
                         setTimeout(function () { setMfrZhMsg(''); }, 3000);
                     } catch (e) {
@@ -914,9 +918,9 @@
             }
             if (btnSaveMfrEn) {
                 btnSaveMfrEn.addEventListener('click', async function () {
-                    setMfrEnMsg('儲存中…', 'text-muted');
+                    setMfrEnMsg(tr('mfrDash.saving', '儲存中…'), 'text-muted');
                     var t = await getToken();
-                    if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
+                    if (!t) { setMfrEnMsg(tr('mfrDash.signInFirst', '請先登入'), 'text-danger'); return; }
                     btnSaveMfrEn.disabled = true;
                     try {
                         var r = await fetch('/api/me/manufacturer', {
@@ -928,8 +932,8 @@
                             })
                         });
                         var data = await r.json().catch(function () { return {}; });
-                        if (!r.ok) throw new Error(data.error || '儲存失敗');
-                        setMfrEnMsg('✅ 已儲存', 'text-success');
+                        if (!r.ok) throw new Error(data.error || tr('mfrDash.saveFailed', '儲存失敗'));
+                        setMfrEnMsg(tr('mfrDash.savedOk', '✅ 已儲存'), 'text-success');
                         setTimeout(function () { setMfrEnMsg(''); }, 3000);
                     } catch (e) {
                         setMfrEnMsg('❌ ' + e.message, 'text-danger');
@@ -940,31 +944,31 @@
             }
             if (btnGenerateMfrEn) {
                 btnGenerateMfrEn.addEventListener('click', async function () {
-                    await runMfrEnGenerate({ scope: 'profile', label: '簡介' });
+                    await runMfrEnGenerate({ scope: 'profile', label: tr('mfrDash.aiGenProfileLabel', '簡介') });
                 });
             }
             var btnGenerateAllMfrEn = document.getElementById('btnGenerateAllMfrEn');
             if (btnGenerateAllMfrEn) {
                 btnGenerateAllMfrEn.addEventListener('click', async function () {
-                    await runMfrEnGenerate({ scope: 'all', label: '全部內容' });
+                    await runMfrEnGenerate({ scope: 'all', label: tr('mfrDash.aiGenAllLabel', '全部內容') });
                 });
             }
 
             async function runMfrEnGenerate(opts) {
                 var scope = (opts && opts.scope) || 'profile';
                 var label = (opts && opts.label) || '英文';
-                setMfrEnMsg('AI 生成' + label + '中…', 'text-muted');
+                setMfrEnMsg(tr('mfrDash.aiGenerating', 'AI 生成{label}中…').replace('{label}', label), 'text-muted');
                 var t = await getToken();
-                if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
+                if (!t) { setMfrEnMsg(tr('mfrDash.signInFirst', '請先登入'), 'text-danger'); return; }
                 var overwrite = false;
                 if (scope === 'profile') {
                     var hasExisting = (document.getElementById('mfr-name-en') && document.getElementById('mfr-name-en').value.trim())
                         || (document.getElementById('mfr-desc-en') && document.getElementById('mfr-desc-en').value.trim());
-                    if (hasExisting && !confirm('已有英文簡介，確定要重新生成並覆蓋？')) return;
+                    if (hasExisting && !confirm(tr('mfrDash.confirmOverwriteEn', '已有英文簡介，確定要重新生成並覆蓋？'))) return;
                     if (hasExisting) overwrite = true;
                 } else if (scope === 'all') {
-                    if (!confirm('將為簡介、素材、作品、分類補齊英文（已有英文的項目預設跳過）。若要覆寫全部請在下一個對話框選「確定」。\n\n確定繼續？')) return;
-                    overwrite = confirm('是否覆寫已有英文內容？\n確定 = 覆寫全部\n取消 = 只補空白英文');
+                    if (!confirm(tr('mfrDash.confirmAllEn', '將為簡介、素材…'))) return;
+                    overwrite = confirm(tr('mfrDash.confirmOverwriteAll', '是否覆寫已有英文內容？'));
                 }
                 var btn = scope === 'all' ? btnGenerateAllMfrEn : btnGenerateMfrEn;
                 if (btn) btn.disabled = true;
@@ -977,7 +981,7 @@
                     });
                     var data = await r.json().catch(function () { return {}; });
                     if (r.status === 409 && scope === 'profile' && !overwrite) {
-                        if (!confirm('已有英文內容，要覆蓋重新生成嗎？')) {
+                        if (!confirm(tr('mfrDash.confirmOverwriteExisting', '已有英文內容，要覆蓋重新生成嗎？'))) {
                             setMfrEnMsg('');
                             return;
                         }
@@ -988,7 +992,7 @@
                         });
                         data = await r.json().catch(function () { return {}; });
                     }
-                    if (!r.ok) throw new Error(data.error || '生成失敗');
+                    if (!r.ok) throw new Error(data.error || tr('mfrDash.genFailed', '生成失敗'));
                     if (data.name_en != null || (data.profile && data.profile.name_en != null)) {
                         var ne = document.getElementById('mfr-name-en');
                         var de = document.getElementById('mfr-desc-en');
@@ -998,15 +1002,15 @@
                         var metaEnEl = document.getElementById('mfrEnMeta');
                         var genAt = data.generated_at || (p && p.generated_at);
                         if (metaEnEl && genAt) {
-                            metaEnEl.textContent = '上次 AI 生成：' + new Date(genAt).toLocaleString('zh-TW');
+                            metaEnEl.textContent = tr('mfrDash.aiGenAt', '上次 AI 生成：{dt}').replace('{dt}', new Date(genAt).toLocaleString(dashDateLocale()));
                         }
                     }
                     var parts = [];
-                    if (data.assets && !data.assets.error) parts.push('素材 ' + (data.assets.updated || 0) + ' 筆');
-                    if (data.portfolio && !data.portfolio.error) parts.push('作品 ' + (data.portfolio.updated || 0) + ' 筆');
-                    if (data.catalog_groups && !data.catalog_groups.error) parts.push('分類 ' + (data.catalog_groups.updated || 0) + ' 筆');
+                    if (data.assets && !data.assets.error) parts.push(tr('mfrDash.genStatsAssets', '素材 {n} 筆').replace('{n}', String(data.assets.updated || 0)));
+                    if (data.portfolio && !data.portfolio.error) parts.push(tr('mfrDash.genStatsPortfolio', '作品 {n} 筆').replace('{n}', String(data.portfolio.updated || 0)));
+                    if (data.catalog_groups && !data.catalog_groups.error) parts.push(tr('mfrDash.genStatsCatalog', '分類 {n} 筆').replace('{n}', String(data.catalog_groups.updated || 0)));
                     var extra = parts.length ? '（' + parts.join('、') + '）' : '';
-                    setMfrEnMsg('✅ 已生成並寫入' + extra, 'text-success');
+                    setMfrEnMsg(tr('mfrDash.genSaved', '✅ 已生成並寫入') + extra, 'text-success');
                     setTimeout(function () { setMfrEnMsg(''); }, 6000);
                 } catch (e) {
                     setMfrEnMsg('❌ ' + e.message, 'text-danger');
@@ -1027,16 +1031,16 @@
                     var btnEl = document.getElementById('create-mfr-btn');
                     var name = (nameEl && nameEl.value || '').trim();
                     if (!name) {
-                        if (msgEl) { msgEl.textContent = '請填寫廠商名稱'; msgEl.className = 'small text-danger mb-2'; }
+                        if (msgEl) { msgEl.textContent = tr('mfrDash.fillVendorName', '請填寫廠商名稱'); msgEl.className = 'small text-danger mb-2'; }
                         return;
                     }
                     var t = await getToken();
                     if (!t) {
-                        if (msgEl) { msgEl.textContent = '請先登入'; msgEl.className = 'small text-danger mb-2'; }
+                        if (msgEl) { msgEl.textContent = tr('mfrDash.signInFirst', '請先登入'); msgEl.className = 'small text-danger mb-2'; }
                         return;
                     }
                     if (msgEl) msgEl.textContent = '';
-                    if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>建立中…'; }
+                    if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + esc(tr('mfrDash.creating', '建立中…')); }
                     try {
                         var r = await fetch('/api/me/manufacturer', {
                             method: 'POST',
@@ -1048,12 +1052,12 @@
                         });
                         var data = await r.json().catch(function () { return {}; });
                         if (!r.ok) {
-                            throw new Error(data.error || '建立失敗');
+                            throw new Error(data.error || tr('mfrDash.createFailed', '建立失敗'));
                         }
                         window.location.reload();
                     } catch (err) {
-                        if (msgEl) { msgEl.textContent = '❌ ' + (err.message || '建立失敗'); msgEl.className = 'small text-danger mb-2'; }
-                        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="bi bi-check-lg me-1"></i>建立廠商資料'; }
+                        if (msgEl) { msgEl.textContent = '❌ ' + (err.message || tr('mfrDash.createFailed', '建立失敗')); msgEl.className = 'small text-danger mb-2'; }
+                        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + esc(tr('mfrDash.createSubmit', '建立廠商資料')); }
                     }
                 });
             }
