@@ -6742,79 +6742,7 @@ async function persistCustomProductTitlePairIfStale(productId, ownerId, currentT
     return !updErr;
 }
 
-async function runPool(items, concurrency, fn) {
-    if (!items || !items.length) return;
-    let idx = 0;
-    async function worker() {
-        while (idx < items.length) {
-            const i = idx++;
-            try { await fn(items[i], i); } catch (e) { /* per-item */ }
-        }
-    }
-    const n = Math.min(Math.max(1, concurrency), items.length);
-    await Promise.all(Array.from({ length: n }, function () { return worker(); }));
-}
-
-/** 資產庫列表：佔位標題當次請求內修復（有語意／標籤）或同步讀圖（無語意，上限防打爆 Gemini） */
-async function hydrateCustomProductTitlesForList(list, ownerId) {
-    if (!Array.isArray(list) || !list.length || !ownerId) return;
-    const needGemini = [];
-    for (let i = 0; i < list.length; i++) {
-        const p = list[i];
-        if (!p || !p.id) continue;
-        const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
-        if (!shouldReplaceCustomProductTitleFromAi(p.title, gp)) continue;
-        const img = p.ai_generated_image_url ? String(p.ai_generated_image_url).trim() : '';
-        if (!img || img.indexOf('data:') === 0) continue;
-        const pair = resolveCustomProductTitlePairFromRow(p);
-        if (pair && (pair.zh || pair.en)) {
-            await persistCustomProductTitlePairIfStale(p.id, ownerId, p.title, gp, pair);
-            if (pair.zh) p.title = pair.zh;
-            if (pair.en) p.title_en = pair.en;
-            continue;
-        }
-        needGemini.push({ p: p, gp: gp, img: img });
-    }
-    const SYNC_ENRICH_MAX = 12;
-    const syncBatch = needGemini.slice(0, SYNC_ENRICH_MAX);
-    await runPool(syncBatch, 2, async function (item) {
-        const p = item.p;
-        const gp = item.gp;
-        const img = item.img;
-        if (!process.env.GEMINI_API_KEY) return;
-        await enrichCustomProductSemantics(p.id, ownerId, {
-            imageUrl: img,
-            generationPrompt: gp || null,
-            title: p.title,
-            categoryKey: p.category || null
-        });
-        const { data: row } = await supabase
-            .from('custom_products')
-            .select('title, title_en, description, image_semantics_json, ai_tags')
-            .eq('id', p.id)
-            .eq('owner_id', ownerId)
-            .maybeSingle();
-        if (row) {
-            if (row.title) p.title = row.title;
-            if (row.title_en != null) p.title_en = row.title_en;
-            if (row.description != null) p.description = row.description;
-            if (row.description_en != null) p.description_en = row.description_en;
-            if (row.image_semantics_json) p.image_semantics_json = row.image_semantics_json;
-            if (row.ai_tags) p.ai_tags = row.ai_tags;
-        }
-    });
-    for (let j = SYNC_ENRICH_MAX; j < needGemini.length; j++) {
-        const item = needGemini[j];
-        scheduleCustomProductSemanticsEnrich(item.p.id, ownerId, {
-            imageUrl: item.img,
-            generationPrompt: item.gp || null,
-            title: item.p.title,
-            categoryKey: item.p.category || null
-        });
-    }
-}
-
-/** API 列表：lang=en 時用 title_en／description_en；佔位標題可從 image_semantics_json 推顯示用文案 */
+/** API 列表：lang=en 時用 title_en；佔位標題由 image_semantics_json／ai_tags 推顯示（禁止列表請求觸發 Gemini） */
 function localizeCustomProductForApiResponse(p, lang) {
     if (!p || typeof p !== 'object') return p;
     const out = Object.assign({}, p);
@@ -11920,6 +11848,9 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         console.warn('enrichCustomProductSemantics skipped id=%s reason=no_gemini_key', productId);
         return null;
     }
+    if (!ctx.force && await customProductImageSemanticsAlreadyStored(productId)) {
+        return null;
+    }
     try {
         const deps = getVisualSemanticsDeps();
         let imagePart;
@@ -12091,15 +12022,37 @@ function scheduleRepairCustomProductTitleFromStoredSemantics(productId, ownerId)
     });
 }
 
-/** 設計圖生圖後背景打標（setImmediate）；情境圖已改為僅按鈕觸發，不再自動 schedule */
+async function customProductImageSemanticsAlreadyStored(productId) {
+    if (!productId) return false;
+    try {
+        const { data: row } = await supabase
+            .from('custom_products')
+            .select('semantics_generated_at, image_semantics_json, ai_tags')
+            .eq('id', productId)
+            .maybeSingle();
+        if (!row || !row.semantics_generated_at) return false;
+        if (row.image_semantics_json) return true;
+        return Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
+    } catch (_) {
+        return false;
+    }
+}
+
+/** 僅在生圖寫入 custom_products 後呼叫一次（setImmediate）；列表／首頁不得觸發 */
 function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
     if (!productId) return;
     if (!process.env.GEMINI_API_KEY) {
         console.warn('scheduleCustomProductSemanticsEnrich skipped: GEMINI_API_KEY not set id=%s', productId);
         return;
     }
+    const runCtx = ctx || {};
     setImmediate(function () {
-        enrichCustomProductSemantics(productId, ownerId, ctx || {}).catch(function (e) {
+        (async function () {
+            if (!runCtx.force && await customProductImageSemanticsAlreadyStored(productId)) {
+                return;
+            }
+            await enrichCustomProductSemantics(productId, ownerId, runCtx);
+        })().catch(function (e) {
             console.warn('enrichCustomProductSemantics failed id=%s', productId, e && e.message);
         });
     });
@@ -28988,7 +28941,6 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
-            await hydrateCustomProductTitlesForList(list, user.id);
             const productsWithOwner = list.map(function (p) {
                 const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
@@ -29022,9 +28974,6 @@ app.get('/api/custom-products', async (req, res) => {
         const list = data || [];
         if (summaryOnly) {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
-        }
-        if (!summaryOnly && list.length) {
-            await hydrateCustomProductTitlesForList(list, user.id);
         }
         const productsWithOwner = list.map(function (p) {
             const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
