@@ -1468,7 +1468,7 @@ $(document).ready(function () {
             var $cell = $('<div class="ref-intent-thumb-cell"></div>');
             var $thumb = $('<div class="ref-intent-thumb"></div>');
             $thumb.append($('<img alt="">').attr('src', item.url).attr('title', capText));
-            $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="移除">×</button>').on('click', function (e) {
+            $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="' + escapeHtmlText(tr('customProduct.refThumbRemoveAria', '移除')) + '">×</button>').on('click', function (e) {
                 e.stopPropagation();
                 removeRefImageFromSlot(slotKey, ii);
                 renderIntentSlots();
@@ -3432,7 +3432,7 @@ $(document).ready(function () {
                 alert(assetKind === 'material' || targetKey === 'material'
                     ? tr('customProduct.materialNoSelectableSwatches',
                         '此材料沒有可選用的色卡（封面多色色卡僅展示）。請先在素材庫上傳至少一張單色樣張。')
-                    : tr('customProduct.prototypeNoSelectableAngles', '此配件沒有可引用的圖片（皆設為僅展示）。'));
+                    : tr('customProduct.partNoSelectableImages', '此配件沒有可引用的圖片（皆設為僅展示）。'));
                 return;
             }
         }
@@ -5668,7 +5668,7 @@ $(document).ready(function () {
 
     function deleteMaterialComboById(comboId, cb) {
         if (!comboId) return;
-        if (!confirm('確定要刪除此材料組合？刪除後無法復原。')) return;
+        if (!confirm(tr('customProduct.deleteMaterialComboConfirm', '確定要刪除此材料組合？刪除後無法復原。'))) return;
         getAuthToken(function (token) {
             if (!token) {
                 alert(t('customProduct.loginToViewHistory') || '請先登入');
@@ -5745,7 +5745,7 @@ $(document).ready(function () {
 
     function attachPastPrintDeleteBtn($cell, printId) {
         if (!printId || !$cell || !$cell.length) return;
-        var label = '刪除';
+        var label = tr('customProduct.deleteDesign', '刪除');
         var $del = $('<button type="button" class="past-item-delete" aria-label="' + label + '" title="' + label + '">×</button>');
         $del.on('click', function (e) {
             e.preventDefault();
