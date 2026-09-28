@@ -11900,11 +11900,55 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
     }
 }
 
+/** 已有 image_semantics_json 但 DB title 仍為佔位 → 只寫 title／title_en（不扣點、不重打 Gemini） */
+async function repairCustomProductTitleFromStoredSemantics(productId, ownerId) {
+    if (!productId || !ownerId) return false;
+    try {
+        const { data: row, error } = await supabase
+            .from('custom_products')
+            .select('id, title, title_en, generation_prompt, image_semantics_json')
+            .eq('id', productId)
+            .eq('owner_id', ownerId)
+            .maybeSingle();
+        if (error || !row) return false;
+        const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
+        if (!shouldReplaceCustomProductTitleFromAi(row.title, gp)) return false;
+        const sem = parseImageSemanticsJson(row.image_semantics_json);
+        const titlePair = sem ? visualSemantics.buildCustomProductTitlePairFromSemantics(sem) : null;
+        if (!titlePair || (!titlePair.zh && !titlePair.en)) return false;
+        const updates = {};
+        if (titlePair.zh) updates.title = titlePair.zh;
+        if (titlePair.en) updates.title_en = titlePair.en;
+        const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
+        if (updErr && updErr.code === '42703' && updates.title_en) {
+            delete updates.title_en;
+            await supabase.from('custom_products').update(updates).eq('id', productId).eq('owner_id', ownerId);
+        }
+        return true;
+    } catch (e) {
+        console.warn('repairCustomProductTitleFromStoredSemantics:', e.message);
+        return false;
+    }
+}
+
+function scheduleRepairCustomProductTitleFromStoredSemantics(productId, ownerId) {
+    if (!productId || !ownerId) return;
+    setImmediate(function () {
+        repairCustomProductTitleFromStoredSemantics(productId, ownerId).catch(function () {});
+    });
+}
+
 /** 設計圖生圖後背景打標（setImmediate）；情境圖已改為僅按鈕觸發，不再自動 schedule */
 function scheduleCustomProductSemanticsEnrich(productId, ownerId, ctx) {
-    if (!productId || !process.env.GEMINI_API_KEY) return;
+    if (!productId) return;
+    if (!process.env.GEMINI_API_KEY) {
+        console.warn('scheduleCustomProductSemanticsEnrich skipped: GEMINI_API_KEY not set id=%s', productId);
+        return;
+    }
     setImmediate(function () {
-        enrichCustomProductSemantics(productId, ownerId, ctx || {}).catch(function () {});
+        enrichCustomProductSemantics(productId, ownerId, ctx || {}).catch(function (e) {
+            console.warn('enrichCustomProductSemantics failed id=%s', productId, e && e.message);
+        });
     });
 }
 
@@ -28765,7 +28809,7 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const listSelect = 'id, title, title_en, description, description_en, generation_prompt, image_semantics_json, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
+            const listSelect = 'id, title, title_en, description, description_en, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources';
             let { data, error } = await supabase
                 .from('custom_products')
                 .select(listSelect)
@@ -28788,16 +28832,21 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
-            let reEnrichBudget = 2;
+            let reEnrichBudget = 6;
+            let repairBudget = 12;
             list.forEach(function (p) {
-                if (reEnrichBudget <= 0 || !p || !p.id) return;
+                if (!p || !p.id) return;
                 const img = p.ai_generated_image_url ? String(p.ai_generated_image_url).trim() : '';
                 if (!img || img.indexOf('data:') === 0) return;
                 const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
                 const staleTitle = shouldReplaceCustomProductTitleFromAi(p.title, gp);
-                const needsEnrich = !p.semantics_generated_at
-                    || (staleTitle && !p.image_semantics_json);
-                if (!needsEnrich) return;
+                if (!staleTitle) return;
+                if (p.image_semantics_json && repairBudget > 0) {
+                    scheduleRepairCustomProductTitleFromStoredSemantics(p.id, user.id);
+                    repairBudget -= 1;
+                    return;
+                }
+                if (reEnrichBudget <= 0) return;
                 scheduleCustomProductSemanticsEnrich(p.id, user.id, {
                     imageUrl: img,
                     generationPrompt: gp || null,
@@ -30513,7 +30562,8 @@ async function updateCustomProductSemanticsFields(productId, ownerId, updates) {
         semantics_generated_at: true,
         ai_tags_by_dimension: true,
         title: true,
-        title_en: true
+        title_en: true,
+        description_en: true
     };
     const base = {};
     Object.keys(updates || {}).forEach(function (k) {
