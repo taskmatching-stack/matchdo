@@ -372,7 +372,7 @@
                             <div class="detail-row" id="media-wall-lightbox-prompt-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="media-wall-lightbox-prompt" class="detail-value"></span></div>
                             <div class="detail-row d-none" id="media-wall-lightbox-promo-desc-wrap">
                                 <details class="mw-lb-promo-desc-details">
-                                    <summary><i class="bi bi-card-text" aria-hidden="true"></i><span>情境描述</span></summary>
+                                    <summary><i class="bi bi-card-text" aria-hidden="true"></i><span data-i18n="home.sceneDescription">情境描述</span></summary>
                                     <div id="media-wall-lightbox-promo-desc-full" class="mw-lb-promo-desc-full"></div>
                                 </details>
                             </div>
@@ -385,31 +385,31 @@
                                 </details>
                             </div>
                             <div class="detail-row d-none" id="media-wall-lightbox-ref-cards-row">
-                                <span class="detail-label">引用版型</span>
+                                <span class="detail-label" data-i18n="home.referenceTemplate">引用版型</span>
                                 <div id="media-wall-lightbox-ref-cards" class="mw-lb-ref-cards"></div>
                             </div>
                         </div>
                         <div id="media-wall-lightbox-detail-portfolio" class="d-none" style="position:absolute;left:0;right:0;bottom:0;padding:0.4rem 0.6rem 0.5rem;background:linear-gradient(transparent, rgba(45,64,89,.95));color:#fff;text-align:left;font-size:0.7rem;">
-                            <div class="detail-row" id="media-wall-lightbox-highlight-row" style="display:none;"><span class="detail-label">作品亮點</span><span id="media-wall-lightbox-highlight" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-highlight-row" style="display:none;"><span class="detail-label" data-i18n="home.workHighlight">作品亮點</span><span id="media-wall-lightbox-highlight" class="detail-value"></span></div>
                             <div class="detail-row" id="media-wall-lightbox-tags-row" style="display:none;">
                                 <details class="mw-lb-tags">
                                     <summary><i class="bi bi-tags" aria-hidden="true"></i><span data-i18n="home.tags">標籤</span> (<span id="media-wall-lightbox-portfolio-tags-n">0</span>)</summary>
                                     <div id="media-wall-lightbox-tags" class="mw-lb-tags-inner"></div>
                                 </details>
                             </div>
-                            <div class="detail-row" id="media-wall-lightbox-description-row" style="display:none;"><span class="detail-label">描述</span><span id="media-wall-lightbox-description" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-description-row" style="display:none;"><span class="detail-label" data-i18n="home.lbDescription">描述</span><span id="media-wall-lightbox-description" class="detail-value"></span></div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer py-2 flex-wrap gap-2">
                     <!-- 左側群組：收藏 + 分享（me-auto 推右側按鈕到最右） -->
                     <div class="d-flex align-items-center gap-1 me-auto">
-                        <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm" title="加入收藏">
+                        <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm" data-i18n-title="home.favAddTitle" title="加入收藏">
                             <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label" data-i18n="home.fav">收藏</span>
                         </button>
                         <!-- 分享下拉（分享圖片連結到社群）-->
                         <div class="dropdown">
-                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="mwShareDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="分享圖片">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="mwShareDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-i18n-title="home.shareImageTitle" title="分享圖片">
                                 <i class="bi bi-share me-1"></i><span data-i18n="home.share">分享</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-start" aria-labelledby="mwShareDropdown">
@@ -429,14 +429,14 @@
                         </div>
                     </div>
                     <!-- 廠商作品專用：站內聯絡按鈕（comparison 類型才顯示） -->
-                    <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" title="聯絡廠商">
+                    <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" data-i18n-title="home.contactVendor" title="聯絡廠商">
                         <i class="bi bi-chat-dots me-1"></i><span data-i18n="home.contactVendor">聯絡廠商</span>
                     </button>
-                    <button type="button" id="media-wall-lightbox-page" class="btn btn-outline-secondary btn-sm" title="開啟此圖的獨立作品頁">
+                    <button type="button" id="media-wall-lightbox-page" class="btn btn-outline-secondary btn-sm" data-i18n-title="home.viewFullPageTitle" title="開啟此圖的獨立作品頁">
                         <i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="home.viewFullPage">查看作品頁</span>
                     </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
-                    <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm">找廠商訂製</button>
+                    <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm" data-i18n="home.findVendor">找廠商訂製</button>
                     <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
                 </div>
@@ -616,6 +616,14 @@
             var searchBtn = document.getElementById('media-wall-search-btn');
             if (!grid) return;
 
+            function homeT(key, zhFallback) {
+                if (window.i18n && typeof window.i18n.t === 'function') {
+                    var v = window.i18n.t(key);
+                    if (v && v !== key) return v;
+                }
+                return zhFallback != null ? zhFallback : '';
+            }
+
             /* ═══ 我的最愛（登入才可用，同步雲端） ═══ */
             var favCache = null;          // 記憶體快取，null 表示尚未從 DB 載入
             var favUserLoggedIn = false;  // 是否已登入
@@ -637,7 +645,7 @@
                 var t = document.createElement('div');
                 t.id = 'mw-login-toast';
                 t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#7A8FA3;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:0.9rem;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;align-items:center;gap:10px;';
-                t.innerHTML = '<i class="bi bi-person-circle"></i> 請先登入才能使用收藏功能 <a href="/login.html" style="color:#ffd;text-decoration:underline;white-space:nowrap;">前往登入</a>';
+                t.innerHTML = '<i class="bi bi-person-circle"></i> ' + homeT('home.loginFavRequired', '請先登入才能使用收藏功能') + ' <a href="/login.html" style="color:#ffd;text-decoration:underline;white-space:nowrap;">' + homeT('home.goLogin', '前往登入') + '</a>';
                 document.body.appendChild(t);
                 setTimeout(function() { if (t.parentNode) t.remove(); }, 3500);
             }
@@ -683,7 +691,7 @@
                     btn.classList.toggle('active', faved);
                     var icon = btn.querySelector('i');
                     if (icon) icon.className = faved ? 'bi bi-heart-fill' : 'bi bi-heart';
-                    btn.title = faved ? '已加入收藏' : '加入收藏';
+                    btn.title = faved ? homeT('home.favAddedTitle', '已加入收藏') : homeT('home.favAddTitle', '加入收藏');
                 });
             }
 
@@ -706,7 +714,7 @@
                     btn.classList.toggle('active', isNowFaved);
                     var icon = btn.querySelector('i');
                     if (icon) icon.className = isNowFaved ? 'bi bi-heart-fill' : 'bi bi-heart';
-                    btn.title = isNowFaved ? '已加入收藏' : '加入收藏';
+                    btn.title = isNowFaved ? homeT('home.favAddedTitle', '已加入收藏') : homeT('home.favAddTitle', '加入收藏');
                 }
                 // 若正在顯示收藏模式且取消收藏，即時移除卡片
                 if (showingFavoritesOnly && !isNowFaved) {
@@ -790,7 +798,7 @@
                 if (loadMoreBtn) loadMoreBtn.classList.add('d-none');
             }
             function renderFavoritesEmptyState() {
-                grid.innerHTML = '<div class="text-center py-5 text-muted w-100"><i class="bi bi-heart display-4 d-block mb-3"></i><div>尚無收藏作品</div><div class="small mt-1">在作品左上角按愛心即可加入收藏</div></div>';
+                grid.innerHTML = '<div class="text-center py-5 text-muted w-100"><i class="bi bi-heart display-4 d-block mb-3"></i><div>' + homeT('home.favEmptyTitle', '尚無收藏作品') + '</div><div class="small mt-1">' + homeT('home.favEmptyHint', '在作品左上角按愛心即可加入收藏') + '</div></div>';
                 grid.classList.remove('d-none');
                 if (empty) empty.classList.add('d-none');
                 if (loadMoreBtn) loadMoreBtn.classList.add('d-none');
@@ -829,7 +837,7 @@
                 syncLightboxInspirationPageBtn(item);
                 syncLightboxContactBtn(item);
                 var imgUrl = item.image_url || item.cover_image_url || '';
-                if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
+                if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">' + homeT('home.noImage', '無圖') + '</p>';
                 var detailWrap = document.getElementById('media-wall-lightbox-detail');
                 if (detailWrap) detailWrap.classList.add('d-none');
                 var favId = item.id || (item.title + item.type);
@@ -905,8 +913,8 @@
                 var hideBtn = document.createElement('button');
                 hideBtn.type = 'button';
                 hideBtn.className = 'media-wall-admin-hide';
-                hideBtn.textContent = '隱藏';
-                hideBtn.title = '從首頁隱藏，可還原';
+                hideBtn.textContent = homeT('home.adminHide', '隱藏');
+                hideBtn.title = homeT('home.adminHideTitle', '從首頁隱藏，可還原');
                 hideBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -914,39 +922,39 @@
                     var id = wrap.getAttribute('data-id');
                     if (!type || !id) return;
                     (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
-                        if (!token) { alert('請先登入'); return; }
+                        if (!token) { alert(homeT('home.loginRequired', '請先登入')); return; }
                         fetch('/api/admin/media-wall-item', {
                             method: 'PATCH',
                             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ type: type, id: id, show: false })
                         }).then(function (r) { return r.json(); }).then(function (data) {
                             if (data.success) wrap.remove();
-                            else alert((data.error || '無法關閉顯示') + (data.hint ? '\n\n' + data.hint : ''));
-                        }).catch(function () { alert('無法關閉顯示'); });
+                            else alert((data.error || homeT('home.adminHideFail', '無法關閉顯示')) + (data.hint ? '\n\n' + data.hint : ''));
+                        }).catch(function () { alert(homeT('home.adminHideFail', '無法關閉顯示')); });
                     });
                 });
                 var deleteBtn = document.createElement('button');
                 deleteBtn.type = 'button';
                 deleteBtn.className = 'media-wall-admin-hide media-wall-admin-delete';
-                deleteBtn.textContent = '刪除';
-                deleteBtn.title = '用戶設計與情境圖會永久刪除；對比/系列僅從首頁隱藏';
+                deleteBtn.textContent = homeT('home.adminDelete', '刪除');
+                deleteBtn.title = homeT('home.adminDeleteTitle', '用戶設計與情境圖會永久刪除；對比/系列僅從首頁隱藏');
                 deleteBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     var type = wrap.getAttribute('data-type');
                     var id = wrap.getAttribute('data-id');
                     if (!type || !id) return;
-                    if ((type === 'user_design' || type === 'promo_scene') && !confirm('確定要永久刪除這張作品？刪除後無法復原。')) return;
+                    if ((type === 'user_design' || type === 'promo_scene') && !confirm(homeT('home.adminDeleteConfirm', '確定要永久刪除這張作品？刪除後無法復原。'))) return;
                     (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
-                        if (!token) { alert('請先登入'); return; }
+                        if (!token) { alert(homeT('home.loginRequired', '請先登入')); return; }
                         fetch('/api/admin/media-wall-item', {
                             method: 'DELETE',
                             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ type: type, id: id })
                         }).then(function (r) { return r.json(); }).then(function (data) {
                             if (data.success) wrap.remove();
-                            else alert((data.error || '無法刪除') + (data.hint ? '\n\n' + data.hint : ''));
-                        }).catch(function () { alert('無法刪除'); });
+                            else alert((data.error || homeT('home.adminDeleteFail', '無法刪除')) + (data.hint ? '\n\n' + data.hint : ''));
+                        }).catch(function () { alert(homeT('home.adminDeleteFail', '無法刪除')); });
                     });
                 });
                 actions.appendChild(hideBtn);
@@ -1119,8 +1127,9 @@
                     var href = (c.inspiration_url || c.manufacturer_profile_url || '').trim();
                     if (!href) return '';
                     var img = imageSrcForShare(c.image_url || '');
-                    var label = esc(c.title || c.manufacturer_name || '引用版型');
-                    var tip = escAttr((c.title || '') + (c.manufacturer_name ? (' · ' + c.manufacturer_name) : '') || '引用版型');
+                    var refFb = homeT('home.referenceTemplate', '引用版型');
+                    var label = esc(c.title || c.manufacturer_name || refFb);
+                    var tip = escAttr((c.title || '') + (c.manufacturer_name ? (' · ' + c.manufacturer_name) : '') || refFb);
                     return '<a class="mw-lb-ref-card" href="' + escAttr(href) + '" target="_blank" rel="noopener" title="' + tip + '">' +
                         (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '') +
                         '<span>' + label + '</span></a>';
@@ -1138,34 +1147,34 @@
                 var mfrId = item.manufacturer_id || null;
                 if (isVendorItem && mfrId) {
                     var destUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                    var viewVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
+                    var viewVendorText = homeT('home.viewVendorDetail', '廠商詳情');
                     linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>' + viewVendorText;
                     linkEl.onclick = function () { window.location.href = destUrl; };
                     linkEl.style.display = 'inline-block';
                     return;
                 }
                 if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
-                    linkEl.innerHTML = '<i class="bi bi-images me-1"></i>查看系列圖片';
+                    linkEl.innerHTML = '<i class="bi bi-images me-1"></i>' + homeT('home.viewSeriesImages', '查看系列圖片');
                     linkEl.onclick = function () { window.location.href = item.link; };
                     linkEl.style.display = 'inline-block';
                     return;
                 }
                 if (item.type === 'promo_scene' && item.inspiration_url) {
                     var promoPageUrl = (item.inspiration_url || '').trim();
-                    linkEl.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>' + ((window.i18n && window.i18n.t) ? (window.i18n.t('home.viewFullPage') || '查看完整頁面') : '查看完整頁面');
+                    linkEl.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>' + homeT('home.viewFullPage', '查看完整頁面');
                     linkEl.onclick = function () { if (promoPageUrl) window.location.href = promoPageUrl; };
                     linkEl.style.display = 'inline-block';
                     return;
                 }
                 if (item.type === 'user_design') {
-                    var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                    var findVendorText = homeT('home.findVendor', '找廠商訂製');
                     var destUrl = resolveUserDesignFindVendorUrl(item);
                     linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText;
                     linkEl.onclick = function () { window.location.href = destUrl; };
                     linkEl.style.display = 'inline-block';
                     return;
                 }
-                var findVendorText2 = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                var findVendorText2 = homeT('home.findVendor', '找廠商訂製');
                 var fallUrl = resolveUserDesignFindVendorUrl(item);
                 linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText2;
                 linkEl.onclick = function () { window.location.href = fallUrl; };
@@ -1180,13 +1189,6 @@
                 if (!currentLang) try { currentLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || ''; } catch (err) {}
                 if (!currentLang && window.i18n && typeof window.i18n.getLang === 'function') currentLang = window.i18n.getLang() || '';
                 return currentLang || 'zh-TW';
-            }
-            function homeT(key, zhFallback) {
-                if (window.i18n && typeof window.i18n.t === 'function') {
-                    var v = window.i18n.t(key);
-                    if (v && v !== key) return v;
-                }
-                return zhFallback != null ? zhFallback : '';
             }
             function isGenericMediaWallCardTitle(t) {
                 if (!t) return true;
@@ -1220,7 +1222,7 @@
                 if (useEn) {
                     if (en && !isGenericMediaWallCardTitle(en)) return en;
                     if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
-                    return 'Product design draft';
+                    return homeT('home.defaultDesignDraftEn', 'Product design draft');
                 }
                 if (zh && !isGenericMediaWallCardTitle(zh)) return zh;
                 if (zh && mediaWallTextHasCjk(zh)) return zh;
@@ -1257,7 +1259,7 @@
                                 var pl = pd.replace(/\s+/g, ' ').split(/[。.\n]/)[0].trim();
                                 titleRaw = pl.length > 56 ? pl.slice(0, 56) + '\u2026' : pl;
                             } else {
-                                titleRaw = (getMediaWallLang() && String(getMediaWallLang()).toLowerCase().indexOf('zh') !== 0) ? 'Scene image' : '情境圖';
+                                titleRaw = (getMediaWallLang() && String(getMediaWallLang()).toLowerCase().indexOf('zh') !== 0) ? homeT('home.promoSceneDefaultTitleEn', 'Scene image') : homeT('home.promoSceneDefaultTitle', '情境圖');
                             }
                         }
                     }
@@ -1278,10 +1280,10 @@
                     var placeholdBefore = 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5';
                     if (p.type === 'user_design') {
                         var img = (p.image_url || '').trim();
-                        content = (img ? '<img src="' + escAttr(imageSrcForShare(img)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                        content = (img ? '<img src="' + escAttr(imageSrcForShare(img)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>' + esc(homeT('home.noImage', '無圖')) + '</span></div>');
                     } else if (p.type === 'promo_scene') {
                         var promoImg = (p.image_url || '').trim();
-                        content = (promoImg ? '<img class="mw-promo-contain-img" src="' + escAttr(imageSrcForShare(promoImg)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                        content = (promoImg ? '<img class="mw-promo-contain-img" src="' + escAttr(imageSrcForShare(promoImg)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>' + esc(homeT('home.noImage', '無圖')) + '</span></div>');
                         wrapExtra = ' card-img-wrap-promo';
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
@@ -1365,28 +1367,29 @@
                     }
                     var isFaved = isFavorite(p.id || (p.title + p.type));
                     var typeBadge = '';
-                    if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
-                    else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
+                    if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="' + escAttr(homeT('home.typeBadgeComparisonTitle', '對照圖（滑桿）')) + '">' + esc(homeT('home.typeBadgeComparison', '對照')) + '</span>';
+                    else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="' + escAttr(homeT('home.typeBadgeSeriesTitle', '系列圖（多圖）')) + '">' + esc(homeT('home.typeBadgeSeries', '系列')) + '</span>';
                     else if (p.type === 'promo_scene') {
                         var promoLbl = String(p.promo_asset_kind_label || '').trim();
                         typeBadge = promoLbl
                             ? ('<span class="media-wall-type-badge media-wall-type-promo" title="' + escAttr(promoLbl) + '">' + esc(promoLbl) + '</span>')
                             : '';
                     }
-                    else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
+                    else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="' + escAttr(homeT('home.typeBadgeVendorRefTitle', '生圖時使用了廠商公開素材')) + '">' + esc(homeT('home.typeBadgeVendorRef', '實品素材')) + '</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = resolveInspirationPath(Object.assign({}, p, { id: p.id || itemId }));
                     dataItem.inspiration_url = inspirationHref;
                     dataItem.id = p.id || dataItem.id;
                     dataItem.type = p.type || dataItem.type;
                     wrap.setAttribute('data-item', JSON.stringify(dataItem));
-                    var seoDescSpan = seoDescFull ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(seoDescFull) + '</span>') : '';
-                    var seoTagsSpan = displayTags.length ? ('<span class="media-wall-seo-desc">\u6a19\u7c64\uff1a' + esc(displayTags.join(' ')) + '</span>') : '';
+                    var seoDescSpan = seoDescFull ? ('<span class="media-wall-seo-desc">' + esc(homeT('home.seoDescPrefix', '描述：')) + esc(seoDescFull) + '</span>') : '';
+                    var seoTagsSpan = displayTags.length ? ('<span class="media-wall-seo-desc">' + esc(homeT('home.seoTagsPrefix', '標籤：')) + esc(displayTags.join(' ')) + '</span>') : '';
                     var tagsBtnHtml = displayTags.length
-                        ? ('<button type="button" class="mw-tags-btn" title="' + escAttr((window.i18n && window.i18n.t) ? window.i18n.t('home.tags') : '標籤') + '" aria-expanded="false"><i class="bi bi-tags"></i><span class="mw-tags-count">' + displayTags.length + '</span></button><div class="mw-tags-panel" role="region" aria-hidden="true">' + buildTagsBadgesHtml(displayTags) + '</div>')
+                        ? ('<button type="button" class="mw-tags-btn" title="' + escAttr(homeT('home.tags', '標籤')) + '" aria-expanded="false"><i class="bi bi-tags"></i><span class="mw-tags-count">' + displayTags.length + '</span></button><div class="mw-tags-panel" role="region" aria-hidden="true">' + buildTagsBadgesHtml(displayTags) + '</div>')
                         : '';
+                    var favTitle = isFaved ? homeT('home.favAddedTitle', '已加入收藏') : homeT('home.favAddTitle', '加入收藏');
                     // 站內：左鍵仍開 lightbox（preventDefault）；href 供爬蟲／新分頁直達 /inspiration/*
-                    wrap.innerHTML = '<article class="card"><a href="' + escAttr(inspirationHref) + '" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
+                    wrap.innerHTML = '<article class="card"><a href="' + escAttr(inspirationHref) + '" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + escAttr(favTitle) + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     var tagsBtn = wrap.querySelector('.mw-tags-btn');

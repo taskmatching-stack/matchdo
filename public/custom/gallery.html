@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="custom">
 <head>
     <meta charset="utf-8">
-    <title>圖庫找廠商 - 客製產品 | MatchDO 合做</title>
+    <title data-i18n-doc-title="gallery.docTitle">圖庫找廠商 - 客製產品 | MatchDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="瀏覽台灣製造廠商作品圖庫，依分類、地區、關鍵字多重篩選，一鍵聯繫廠商洽談客製訂單。Browse manufacturer portfolios on MATCHDO.">
     <meta property="og:type" content="website">
@@ -197,11 +197,25 @@
         }
         return fb != null ? fb : k;
     }
+    function trReplace(k, fb, vars) {
+        let s = tr(k, fb);
+        if (vars && typeof vars === 'object') {
+            Object.keys(vars).forEach(function (key) {
+                s = s.split('{' + key + '}').join(String(vars[key]));
+            });
+        }
+        return s;
+    }
+    /** API 回傳 zh/en 欄位時依目前 UI 語系選字（非混塞 locale 檔） */
+    function apiBilingualLabel(zh, en) {
+        refreshGalleryLang();
+        return _isEn ? (en || zh || '') : (zh || en || '');
+    }
     const T = {
         get modalTitle() { return tr('gallery.modalTitle', '作品詳情'); },
         get highlight() { return tr('gallery.designHighlight', '作品重點'); },
         get vendor() { return tr('gallery.vendor', '廠商'); },
-        get contact() { return tr('gallery.contactVendor', '站內聯絡廠商'); },
+        get contact() { return tr('gallery.contactVendorInApp', '站內聯絡廠商'); },
         get viewVendor() { return tr('gallery.viewVendor', '查看廠商'); },
         get browseVendors() { return tr('gallery.browseVendors', '瀏覽廠商列表'); },
         get browseCategory() { return tr('gallery.browseCategoryVendors', '瀏覽此分類廠商'); },
@@ -514,11 +528,11 @@
         const kw = ($keyword ? $keyword.value : '').trim();
         const countEl = document.getElementById('filterResultCount');
         if (countEl) {
-            if (!total) countEl.textContent = _isEn ? '0 matches' : '共 0 件符合';
+            if (!total) countEl.textContent = tr('gallery.resultCountZero', '共 0 件符合');
             else if (portCount && assetCount) {
-                countEl.textContent = (_isEn ? '' : '共 ') + portCount + (_isEn ? ' works · ' : ' 件作品 · ') + assetCount + (_isEn ? ' assets' : ' 件素材');
+                countEl.textContent = trReplace('gallery.resultCountSplit', '共 {port} 件作品 · {assets} 件素材', { port: portCount, assets: assetCount });
             } else {
-                countEl.textContent = (_isEn ? '' : '共 ') + total + (_isEn ? ' matches' : ' 件符合');
+                countEl.textContent = trReplace('gallery.resultCountTotal', '共 {total} 件符合', { total: total });
             }
         }
         const statusRow = document.getElementById('filterStatusRow');
@@ -549,7 +563,8 @@
     }
 
     function buildPortfolioCardHtml(p) {
-        const title = esc(p.title || '未命名作品');
+        const title = esc(p.title || tr('gallery.unnamedWork', '未命名作品'));
+        const noImgAltJs = JSON.stringify(tr('gallery.noImageAlt', '無圖'));
         const mfr = esc(p.manufacturer_name || '');
         const loc = esc(p.manufacturer_location || '');
         const img = p.image_url ? esc(p.image_url) : '';
@@ -557,7 +572,7 @@
         return '<div class="col-sm-6 col-md-4 col-lg-3 gallery-col-portfolio" data-id="' + esc(p.id) + '">' +
             '<div class="card h-100 border-0 shadow-sm gallery-card" data-id="' + esc(p.id) + '" style="cursor:pointer;">' +
             '<div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">' +
-            (img ? '<img src="' + img + '" alt="' + title + '" class="object-fit-cover" loading="lazy" decoding="async" onerror="this.style.background=\'#eee\';this.alt=\'無圖\';" />' :
+            (img ? '<img src="' + img + '" alt="' + title + '" class="object-fit-cover" loading="lazy" decoding="async" onerror="this.style.background=\'#eee\';this.alt=' + noImgAltJs + ';" />' :
                 '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>') +
             '</div><div class="card-body py-2">' +
             '<h6 class="card-title small text-truncate mb-0">' + title + '</h6>' +
@@ -774,7 +789,7 @@
             // 台灣群組：北中南東離島
             const twGroups = (d.taiwan_groups || []).map(g => ({
                 code: g.code,
-                label: _isEn ? (g.en||g.zh) : (g.zh||g.en),
+                label: apiBilingualLabel(g.zh, g.en),
                 countryCode: 'TW',
                 cityCodes: (g.cities||[]).flatMap(c => [c.code, c.zh, c.en].filter(Boolean))
             }));
@@ -784,7 +799,7 @@
                 .filter(c => c.code !== 'TW')
                 .map(c => ({
                     code: c.code,
-                    label: _isEn ? (c.en||c.zh) : (c.zh||c.en),
+                    label: apiBilingualLabel(c.zh, c.en),
                     countryCode: c.code,
                     cityCodes: [c.code, c.zh, c.en, ...((c.children||[]).flatMap(x=>[x.code,x.zh,x.en]))].filter(Boolean)
                 }));
@@ -829,6 +844,7 @@
 
     function buildAssetCardHtml(a) {
         const title = esc(a.title || T.modalAssetTitle);
+        const noImgAltJs = JSON.stringify(tr('gallery.noImageAlt', '無圖'));
         const mfr = esc(a.manufacturer_name || '');
         const loc = esc(a.manufacturer_location || '');
         const img = a.image_url ? esc(a.image_url) : '';
@@ -837,7 +853,7 @@
         return `<div class="col-sm-6 col-md-4 col-lg-3">
             <div class="card h-100 border-0 shadow-sm gallery-card gallery-card-asset" data-id="${esc(a.id)}" style="cursor:pointer;">
                 <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
-                    ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
+                    ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt=${noImgAltJs};" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
                 </div>
                 <div class="card-body py-2">
                     <span class="badge bg-success-subtle text-success border mb-1">${esc(kindLabel)}</span>
@@ -882,7 +898,7 @@
         const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
         document.getElementById('modalImage').src = p.image_url||'';
         document.getElementById('modalImage').alt = p.title||'';
-        document.getElementById('modalTitle').textContent = p.title||'未命名作品';
+        document.getElementById('modalTitle').textContent = p.title || tr('gallery.unnamedWork', '未命名作品');
         document.getElementById('modalDescription').textContent = p.description||'';
         const hi = (p.design_highlight||'').trim();
         const $hb = document.getElementById('modalDesignHighlightBlock');
@@ -897,7 +913,7 @@
         if (contact.email) ch += `<div><i class="bi bi-envelope me-1"></i><a href="mailto:${esc(contact.email)}">${esc(contact.email)}</a></div>`;
         if (contact.phone) ch += `<div><i class="bi bi-telephone me-1"></i><a href="tel:${esc(contact.phone)}">${esc(contact.phone)}</a></div>`;
         if (contact.line)  ch += `<div><i class="bi bi-chat me-1"></i>LINE: ${esc(contact.line)}</div>`;
-        if (contact.url)   ch += `<div><i class="bi bi-link-45deg me-1"></i><a href="${esc(contact.url)}" target="_blank" rel="noopener">前往賣場/官網</a></div>`;
+        if (contact.url)   ch += `<div><i class="bi bi-link-45deg me-1"></i><a href="${esc(contact.url)}" target="_blank" rel="noopener">${esc(tr('gallery.visitStoreOrSite', '前往賣場/官網'))}</a></div>`;
         document.getElementById('modalContact').innerHTML = ch||`<span class="text-muted">${T.noContact}</span>`;
         document.getElementById('modalTags').innerHTML = (p.tags||[]).map(t=>`<span class="badge bg-secondary me-1">${esc(t)}</span>`).join('');
 
@@ -972,10 +988,10 @@
 
     async function loadCategories() {
         try {
-            const lang = new URLSearchParams(window.location.search).get('lang')
-                      || (window.i18n && window.i18n.currentLang)
-                      || document.documentElement.getAttribute('lang')
-                      || 'zh';
+            refreshGalleryLang();
+            const lang = (window.i18n && typeof window.i18n.getLang === 'function')
+                ? window.i18n.getLang()
+                : (_isEn ? 'en' : 'zh-TW');
             const r = await fetch(CATEGORIES_API + '?lang=' + encodeURIComponent(lang));
             const d = await r.json();
             // 全部分類從資料庫來，含子分類
@@ -1000,7 +1016,7 @@
         if ($grid)    $grid.classList.add('d-none');
         try {
             if (window.location.protocol === 'file:') {
-                if ($empty) { const fp=$empty.querySelector('p'); if(fp) fp.textContent='請用網址開啟：http://localhost:3000/custom/gallery.html'; $empty.classList.remove('d-none'); }
+                if ($empty) { const fp=$empty.querySelector('p'); if(fp) fp.textContent=tr('gallery.openViaLocalhost', '請用網址開啟：http://localhost:3000/custom/gallery.html'); $empty.classList.remove('d-none'); }
                 return;
             }
             // 1. portfolio 作品（含 categories 欄位）
@@ -1039,7 +1055,7 @@
             // 4. 完全沒資料才顯示 demo
             if (!_rawItems.length) _rawItems = [DEMO_ITEM];
         } catch(err) {
-            console.error('圖庫載入失敗', err);
+            console.error(tr('gallery.loadFailedConsole', '圖庫載入失敗'), err);
             _rawItems = [DEMO_ITEM];
         }
     }
@@ -1054,6 +1070,7 @@
         refreshGalleryLang();
         if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
         applyModalI18n();
+        if (!scopeMfrId) document.title = tr('gallery.docTitle', '圖庫找廠商 - 客製產品 | MatchDO 合做');
         const params = new URLSearchParams(window.location.search);
         scopeMfrId = (params.get('manufacturer_id') || '').trim();
         try { scopeMfrName = decodeURIComponent(params.get('vendor_name') || ''); } catch (_) { scopeMfrName = params.get('vendor_name') || ''; }

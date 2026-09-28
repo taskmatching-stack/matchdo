@@ -90,7 +90,7 @@ node scripts/audit-locale-mix.js
 | `no-access.html` | OK | `noAccess.*` |
 | `embed/preview-simulator.html` | OK | `embedPreview.*` |
 | `custom/index.html` | OK | `customIndex.*`（轉址頁） |
-| `custom/gallery.html` | 部分 | 篩選／Modal 接 `gallery.*` + `i18n.getLang` |
+| `custom/gallery.html` | OK（UI） | 篩選／Modal／動態卡 `gallery.*` + `i18n.getLang`（2026-09-29） |
 | `custom/collection.html` | OK | `customCollection.*` |
 | `design-direction/analysis.html` | 部分 | `remakeProduct.*` + 設計稿 modal |
 | `client/my-supplier-references.html` | 部分 | |
@@ -116,7 +116,7 @@ node scripts/audit-locale-mix.js
 | `login.html`, `register.html`, `reset-password.html` | OK | `authPage.*` |
 | `help/index.html`, `about.html`, `contact.html` | 部分 |
 | `folder-edit.html` | OK | `folderEdit.*`（2026-09-29） |
-| 首頁 `iStudio-1.0.0/index.html` | 部分 | 媒體牆卡片語系 API+`pickMediaWallLocalizedTitle`；篩選 chip 用 `home.*` |
+| 首頁 `iStudio-1.0.0/index.html` | 部分 | 媒體牆 API+`homeT`；lightbox／收藏／類型 badge 接 `home.*`（2026-09-29） |
 
 ### G. 刻意不做 UI i18n
 
@@ -152,6 +152,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：設計頁 `refSlotsFull` 占位符、資產庫 Tab 標籤；`product-tree.html` SEO meta EN（`dbfc6a2`）。
 - 2026-09-29：**修混用** — 媒體牆繁中標題 API、`zh-TW.json` 誤英（sizeMode、myProjects 等）；數位資產小卡「更多」選單（`691eed9`）。
 - 2026-09-29：首頁篩選 chip／分類列 `home.*`；設計風向 alert `remakeProduct.alert*`（`7a915a0` 起）。
+- 2026-09-29：`custom/gallery.html` 完成批次 C；首頁 lightbox／收藏／類型 badge `home.*`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -159,9 +160,10 @@ node scripts/audit-locale-mix.js
 |------|------|------|
 | **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
 | **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
-| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照滑桿 hint） | 🔄 進行中（`home.*` 持續補；lightbox 內仍有硬編碼） |
+| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏） | 🔄 lightbox 主流程已 `home.*`；分享 toast／部分 lightbox 動態行仍補 |
 | **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 alert + 趨勢區 + 儲存標題改 `t()`；參考圖 UI 等仍中文 |
-| **C～F** | 圖庫、廠商列表、控制台、供應商區（稽核腳本 **部分／缺**） | ⏳ 下一批：`custom/gallery.html` 等 `_isEn` |
+| **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
+| **C～F** | 廠商列表、控制台、供應商區 | ⏳ 下一批：`vendor-profile` 服務地區標籤、`vendors.html` 靜態 meta |
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 
