@@ -4872,6 +4872,17 @@ $(document).ready(function () {
         }
 
         // 更新分類按鈕標籤（產品設計 #catMobileBtn、廠商版型 #bs-cat-mobile-btn）
+        function syncCatSheetChromeI18n() {
+            var backLbl = (t('nav.back') || '返回');
+            var $back = $('#catBsBack');
+            if ($back.length) {
+                $back.attr('aria-label', backLbl);
+                $back.find('.cat-bs-back-label').text('‹ ' + backLbl);
+            }
+            var $close = $('#catBsClose');
+            if ($close.length) $close.text(t('customProduct.categorySheetDone') || '完成');
+        }
+
         function updateBtnLabel() {
             var mainText = $('#imageCategoryMainList .cat-option.selected').text().trim();
             var subText  = $('#imageCategorySubList  .cat-option.selected').text().trim();
@@ -4884,6 +4895,8 @@ $(document).ready(function () {
             else $mobileBtn.removeClass('has-value');
         }
         window.updateCategoryMobileBtnLabels = updateBtnLabel;
+        window.syncCatSheetChromeI18n = syncCatSheetChromeI18n;
+        syncCatSheetChromeI18n();
 
         // 用 MutationObserver 監聽 subList 內容/class 變動，同步更新按鈕
         function watchList(id) {
@@ -4901,7 +4914,7 @@ $(document).ready(function () {
         function showMainStep() {
             var els = catSheetEls();
             currentMainCat = null;
-            els.$title.text('選擇主分類');
+            els.$title.text(t('customProduct.categorySheetChooseMain') || '選擇主分類');
             els.$back.css('visibility', 'hidden');
             els.$list.empty();
             var curMainKey = $('#imageCategoryMainSelect').val();
@@ -6473,6 +6486,7 @@ $(document).ready(function () {
     applyTabFromUrl();
     function refreshDesignShellI18n() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+        if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
         syncDesignTabActiveUi(getTabParamFromPathname());
         syncMediaWallGenLink();
         syncVendorRefButtonLabel();

@@ -615,6 +615,33 @@
             return s;
         }
 
+        function formatTagsMetaHtml(tags, dataRole) {
+            dataRole = dataRole || 'tags-wrap';
+            if (!tags || !tags.length) {
+                return '<div class="design-tags-meta" data-role="' + dataRole + '">' + escapeHtml(uiT('myCustomProducts.noTags', '尚無標籤', 'No tags yet')) + '</div>';
+            }
+            var show = tags.slice(0, 2);
+            var more = tags.length > 2 ? tags.length - 2 : 0;
+            var html = '<div class="design-tags-meta" data-role="' + dataRole + '"><span class="me-1">' +
+                escapeHtml(uiTf('myCustomProducts.tagsCountLabel', '標籤 {count}', 'Tags {count}', { count: tags.length })) +
+                '</span><span class="design-tags-wrap" data-role="tags">';
+            show.forEach(function (t) {
+                html += '<span class="badge">' + escapeHtml(t) + '</span>';
+            });
+            if (more) html += '<span class="badge">+' + more + '</span>';
+            html += '</span></div>';
+            return html;
+        }
+
+        function promoAppealBadgeLabel(item) {
+            if (!item || !item.has_appeal) return '';
+            var st = item.appeal_status;
+            if (st === 'approved') return uiT('myCustomProducts.appealRefunded', '申訴退點', 'Appeal refund');
+            if (st === 'rejected') return uiT('myCustomProducts.appealRejected', '申訴駁回', 'Appeal rejected');
+            if (st === 'inconclusive') return uiT('myCustomProducts.appealInconclusive', '申訴未定', 'Appeal inconclusive');
+            return uiT('myCustomProducts.appealPending', '已申訴', 'Appealed');
+        }
+
         function useForDesignDraftLabel() {
             return uiT('myCustomProducts.useForDesignDraft', '用於設計稿', 'Use in design draft');
         }
@@ -1297,9 +1324,9 @@
                         empty.style.display = 'block';
                         const p = empty.querySelector('p');
                         if (p && data.table_missing) {
-                            p.textContent = '資料表尚未建立：請在 Supabase 執行 docs/add-user-print-generations.sql。';
+                            p.textContent = uiT('myCustomProducts.printTableMissing', '資料表尚未建立：請在 Supabase 執行 docs/add-user-print-generations.sql。', 'Table not created yet: run docs/add-user-print-generations.sql in Supabase.');
                         } else if (p && printCategoryFilterValue) {
-                            p.textContent = '此分類尚無印花，可改選「全部」或清除篩選。';
+                            p.textContent = uiT('myCustomProducts.printEmptyFiltered', '此分類尚無印花，可改選「全部」或清除篩選。', 'No prints in this category. Choose “All” or clear the filter.');
                         }
                     }
                     setLoadMoreVisible('printLoadMoreWrap', false);
@@ -1320,7 +1347,7 @@
                 if (!append && empty) {
                     empty.style.display = 'block';
                     const p = empty.querySelector('p');
-                    if (p) p.textContent = '載入失敗：' + error.message;
+                    if (p) p.textContent = uiTf('myCustomProducts.printLoadFailed', '載入失敗：{error}', 'Could not load prints: {error}', { error: error.message });
                 }
             } finally {
                 printBusy = false;
@@ -1333,7 +1360,7 @@
             const meta = item.print_meta || null;
             var title = (item.title || '').trim();
             if (!title && meta && meta.print_type) title = String(meta.print_type);
-            if (!title) title = '印花';
+            if (!title) title = uiT('myCustomProducts.printDefaultTitle', '印花', 'Print');
             const category = (item.category || '').trim();
             const kindLabel = (meta && meta.source_kind === 'redraw')
                 ? uiT('myCustomProducts.printKindRedraw', 'AI 重繪', 'AI redraw')
@@ -1504,7 +1531,7 @@
                 if (!append && empty) {
                     empty.style.display = 'block';
                     var ep = empty.querySelector('p');
-                    if (ep) ep.textContent = '載入失敗：' + error.message;
+                    if (ep) ep.textContent = uiTf('myCustomProducts.promoLoadFailed', '載入失敗：{error}', 'Could not load scenes: {error}', { error: error.message });
                 }
             } finally {
                 promoBusy = false;
@@ -1525,7 +1552,7 @@
             if (!list.length) {
                 var fallback = String((item && item.source_image_url) || '').trim();
                 if (fallback && fallback.indexOf('data:') !== 0) {
-                    list = [{ image_url: fallback, title: '參考圖' }];
+                    list = [{ image_url: fallback, title: uiT('myCustomProducts.refKindFallback', '參考圖', 'Reference') }];
                 }
             }
             if (!list.length) return '';
@@ -1535,7 +1562,7 @@
                 var imgUrl = String((s && (s.image_url || s.url)) || '').trim();
                 if (!imgUrl || imgUrl.indexOf('data:') === 0) return;
                 count += 1;
-                var title = String((s && s.title) || '參考圖').trim();
+                var title = String((s && s.title) || uiT('myCustomProducts.refKindFallback', '參考圖', 'Reference')).trim();
                 thumbs +=
                     '<a class="design-ref-thumb" href="' + escapeHtml(imgUrl) + '" target="_blank" rel="noopener" title="' + escapeHtml(title) + '">' +
                     '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(title) + '" loading="lazy" decoding="async" onerror="this.style.opacity=.3">' +
@@ -1544,7 +1571,7 @@
             if (!thumbs || !count) return '';
             return (
                 '<div class="design-refs-section design-refs-inline">' +
-                '<span class="design-refs-label">參考 ' + count + '</span>' +
+                '<span class="design-refs-label">' + escapeHtml(uiTf('myCustomProducts.refsCountLabel', '參考 {count}', 'Refs {count}', { count: count })) + '</span>' +
                 '<div class="design-ref-thumbs">' + thumbs + '</div>' +
                 '</div>'
             );
@@ -1554,17 +1581,19 @@
             const col = document.createElement('div');
             col.className = 'col-6 col-md-3 col-xl-2';
             const ratio = formatPromoAspectRatio(item);
-            const title = (item.asset_kind_label || '情境圖').trim();
-            const kindBadge = title !== '情境圖'
+            const promoDefault = uiT('myCustomProducts.promoSceneDefault', '情境圖', 'Scene image');
+            const title = (item.asset_kind_label || promoDefault).trim();
+            const kindBadge = title !== promoDefault
                 ? ('<span class="badge bg-info text-dark mb-1 me-1">' + escapeHtml(title) + '</span>')
                 : '';
             const spaceUseBadge = item.space_use_label
                 ? ('<span class="badge bg-light text-dark border mb-1">' + escapeHtml(item.space_use_label) + '</span>')
                 : '';
-            const appealBadge = item.has_appeal
+            const appealLbl = promoAppealBadgeLabel(item);
+            const appealBadge = item.has_appeal && appealLbl
                 ? ('<span class="badge ' + (item.appeal_status === 'approved' ? 'bg-warning text-dark' : (item.appeal_status === 'rejected' ? 'bg-secondary' : 'bg-light text-dark border')) + ' mb-1">' +
-                    escapeHtml(item.appeal_status === 'approved' ? '申訴退點' : (item.appeal_status === 'rejected' ? '申訴駁回' : (item.appeal_status === 'inconclusive' ? '申訴未定' : '已申訴'))) +
-                    (item.appeal_refunded_points ? (' +' + item.appeal_refunded_points + '點') : '') +
+                    escapeHtml(appealLbl) +
+                    (item.appeal_refunded_points ? escapeHtml(uiTf('myCustomProducts.appealPtsSuffix', ' +{pts}點', ' +{pts} pts', { pts: item.appeal_refunded_points })) : '') +
                     '</span>')
                 : '';
             const descFull = String(item.description || '').trim();
@@ -1573,15 +1602,10 @@
                 : [];
             const tagsShow = tags.slice(0, 2);
             const tagsMore = tags.length > 2 ? (tags.length - 2) : 0;
-            const tagsHtml = tags.length
-                ? ('<div class="design-tags-meta" data-role="promo-tags-wrap"><span class="me-1">標籤 ' + tags.length + '</span>' +
-                    '<span class="design-tags-wrap" data-role="promo-tags">' + tagsShow.map(function (t) {
-                        return '<span class="badge">' + escapeHtml(t) + '</span>';
-                    }).join('') + (tagsMore ? '<span class="badge">+' + tagsMore + '</span>' : '') + '</span></div>')
-                : '<div class="design-tags-meta" data-role="promo-tags-wrap">尚無標籤</div>';
+            const tagsHtml = formatTagsMetaHtml(tags, 'promo-tags-wrap');
             const ratioBadge = ratio
-                ? ('<span class="badge bg-light text-dark border mb-1">比例 ' + escapeHtml(ratio) + '</span>')
-                : '<span class="badge bg-light text-muted border mb-1">比例未標</span>';
+                ? ('<span class="badge bg-light text-dark border mb-1">' + escapeHtml(uiTf('myCustomProducts.ratioLabel', '比例 {ratio}', 'Ratio {ratio}', { ratio: ratio })) + '</span>')
+                : '<span class="badge bg-light text-muted border mb-1">' + escapeHtml(uiT('myCustomProducts.ratioUnknown', '比例未標', 'Ratio N/A')) + '</span>';
             const sizeLine = [
                 item.width && item.height ? (item.width + '×' + item.height) : '',
                 item.megapixels ? (item.megapixels + ' MP') : ''
@@ -1591,8 +1615,8 @@
             const showChecked = canControl ? showOn : true;
             const showDisabled = !canControl;
             const showHint = canControl
-                ? '可勾選是否展示在首頁媒體牆「情境圖」'
-                : '免費用戶預設展示在首頁，無法取消';
+                ? uiT('myCustomProducts.promoShowHintPaid', '可勾選是否展示在首頁媒體牆「情境圖」', 'You can choose whether to show this scene on the homepage media wall.')
+                : uiT('myCustomProducts.promoShowHintFree', '免費用戶預設展示在首頁，無法取消', 'Free accounts are shown on the homepage by default and cannot opt out.');
             const sourceLink = ((item.source_type === 'custom_product' || item.source_type === 'digital_asset') && item.source_id)
                 ? ('/inspiration/user_design/' + encodeURIComponent(item.source_id))
                 : (item.source_type === 'vendor_asset' && item.source_id
@@ -1618,15 +1642,15 @@
                         </div>
                         <div class="form-check form-switch mb-2 promo-show-homepage-wrap">
                             <input class="form-check-input promo-show-homepage" type="checkbox" role="switch" id="promoShow-${escapeHtml(String(item.id || ''))}" ${showChecked ? 'checked' : ''} ${showDisabled ? 'disabled' : ''}>
-                            <label class="form-check-label small" for="promoShow-${escapeHtml(String(item.id || ''))}">展示在媒體牆</label>
+                            <label class="form-check-label small" for="promoShow-${escapeHtml(String(item.id || ''))}">${escapeHtml(uiT('myCustomProducts.showOnWall', '展示在媒體牆', 'Show on media wall'))}</label>
                         </div>
                         <p class="text-muted small mb-2 promo-show-homepage-hint">${escapeHtml(showHint)}</p>
                         <div class="design-actions mb-2">
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-regen-semantics" data-id="${escapeHtml(String(item.id || ''))}" title="讀圖產生描述與標籤（1 點；非重新生圖）"><i class="bi bi-card-text me-1"></i>描述與標籤 1點</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-regen-semantics" data-id="${escapeHtml(String(item.id || ''))}" title="${escapeHtml(uiT('myCustomProducts.promoRegenSemanticsTitle', '讀圖產生描述與標籤（1 點；非重新生圖）', 'Analyze image for description and tags (1 credit; does not re-generate the image)'))}"><i class="bi bi-card-text me-1"></i>${escapeHtml(uiT('myCustomProducts.promoRegenSemanticsBtn', '描述與標籤 1點', 'Description & tags (1 pt)'))}</button>
                         </div>
                         <div class="asset-card-btns">
-                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>原設計</a>') : ''}
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
+                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>' + escapeHtml(uiT('myCustomProducts.originalDesignLink', '原設計', 'Original design')) + '</a>') : ''}
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>${escapeHtml(uiT('myCustomProducts.download', '下載', 'Download'))}</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="${escapeHtml(uiT('myCustomProducts.promoResumeTitle', '生圖履歷', 'Generation history'))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>${escapeHtml(uiT('myCustomProducts.originalImage', '原圖', 'Original'))}</button>
                             <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button>
@@ -1899,9 +1923,9 @@
             const imageUrl = toAbs(product.ai_generated_image_url || product.reference_image_url) || 'https://via.placeholder.com/400x300?text=No+Image';
 
             const mfgBadge = isCompleted
-                ? '<span class="badge bg-success ms-1">已完成訂製</span>'
+                ? '<span class="badge bg-success ms-1">' + escapeHtml(uiT('myCustomProducts.mfgCompletedBadge', '已完成訂製', 'Customization complete')) + '</span>'
                 : isOpen
-                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>開放搜尋中</span>'
+                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>' + escapeHtml(uiT('myCustomProducts.mfgOpenBadge', '開放搜尋中', 'Open for search')) + '</span>'
                     : '';
 
             const imgAttrs = eagerImage
@@ -1912,12 +1936,7 @@
             const descFull = String(product.description || '').trim();
             const tagsShow = tags.slice(0, 2);
             const tagsMore = tags.length > 2 ? (tags.length - 2) : 0;
-            const tagsHtml = tags.length
-                ? ('<div class="design-tags-meta" data-role="tags-wrap"><span class="me-1">標籤 ' + tags.length + '</span>' +
-                    '<span class="design-tags-wrap" data-role="tags">' + tagsShow.map(function (t) {
-                        return '<span class="badge">' + escapeHtml(t) + '</span>';
-                    }).join('') + (tagsMore ? '<span class="badge">+' + tagsMore + '</span>' : '') + '</span></div>')
-                : '<div class="design-tags-meta" data-role="tags-wrap">尚無標籤</div>';
+            const tagsHtml = formatTagsMetaHtml(tags, 'tags-wrap');
             const refsHtml = buildDesignRefsHtml(product, toAbs);
             const makersHref = '/client/find-makers.html' + ((product.category || product.category_key)
                 ? '?category_key=' + encodeURIComponent(product.category || product.category_key) +
@@ -1927,7 +1946,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100">
                     <div class="product-image-wrap">
-                        <img src="${imageUrl}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(product.title)}" title="點擊放大" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
+                        <img src="${imageUrl}" class="product-image matchdo-enlarge-trigger" alt="${escapeHtml(product.title)}" title="${escapeHtml(uiT('myCustomProducts.clickEnlarge', '點擊放大', 'Click to enlarge'))}" ${imgAttrs} onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center gap-1 mb-1">
@@ -1956,13 +1975,13 @@
                         <div class="design-actions mt-auto">
                             <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">${escapeHtml(uiT('myCustomProducts.viewDetail', '詳情', 'Details'))}</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm btn-provenance-resume" data-kind="user_design" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="產生／更新描述（1 點）"><i class="bi bi-card-text me-1"></i>描述 1點</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="產生／更新標籤（1 點）"><i class="bi bi-tags me-1"></i>標籤 1點</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-gen-desc" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.genDescTitle', '產生／更新描述（1 點）', 'Generate or update description (1 credit)'))}"><i class="bi bi-card-text me-1"></i>${escapeHtml(uiT('myCustomProducts.genDescBtn', '描述 1點', 'Description (1 pt)'))}</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-regen-tags" data-id="${product.id}" title="${escapeHtml(uiT('myCustomProducts.regenTagsTitle', '產生／更新標籤（1 點）', 'Generate or update tags (1 credit)'))}"><i class="bi bi-tags me-1"></i>${escapeHtml(uiT('myCustomProducts.regenTagsBtn', '標籤 1點', 'Tags (1 pt)'))}</button>
                             <div class="dropdown">
                                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">${escapeHtml(uiT('myCustomProducts.more', '更多', 'More'))}</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="${makersHref}"><i class="bi bi-shop me-1"></i>找製作方</a></li>
-                                    ${!isCompleted ? `<li><button type="button" class="dropdown-item btn-mark-done" data-id="${product.id}"><i class="bi bi-check-circle me-1"></i>標記完成</button></li>` : ''}
+                                    <li><a class="dropdown-item" href="${makersHref}"><i class="bi bi-shop me-1"></i>${escapeHtml(uiT('myCustomProducts.findMakers', '找製作方', 'Find makers'))}</a></li>
+                                    ${!isCompleted ? `<li><button type="button" class="dropdown-item btn-mark-done" data-id="${product.id}"><i class="bi bi-check-circle me-1"></i>${escapeHtml(uiT('myCustomProducts.markDone', '標記完成', 'Mark complete'))}</button></li>` : ''}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><button type="button" class="dropdown-item text-danger btn-delete-design" data-id="${product.id}"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button></li>
                                 </ul>
@@ -2020,15 +2039,17 @@
         }
 
         function designRefAssetKindLabel(s) {
-            if (!s) return '參考圖';
-            if (s.asset_kind === 'material') return '材料';
-            if (s.asset_kind === 'part') return '配件／零件';
+            if (!s) return uiT('myCustomProducts.refKindFallback', '參考圖', 'Reference');
+            if (s.asset_kind === 'material') return uiT('customProduct.refSlotMaterialTab', '材料', 'Material');
+            if (s.asset_kind === 'part') return uiT('customProduct.refSlotPartTab', '配件', 'Part');
             if (s.asset_kind === 'other') {
                 const intent = String(s.pattern_intent || '').trim().toLowerCase();
-                return intent === 'style' ? '風格參考' : '原圖印刷';
+                return intent === 'style'
+                    ? uiT('customProduct.refSlotPatternStyleTab', '風格參考', 'Style ref')
+                    : uiT('customProduct.refSlotPatternPrintTab', '原圖印刷', 'Exact print');
             }
-            if (s.asset_kind === 'prototype' || s.vendor_asset_id) return '數位原型';
-            return '參考圖';
+            if (s.asset_kind === 'prototype' || s.vendor_asset_id) return uiT('myCustomProducts.refKindPrototype', '數位原型', 'Digital prototype');
+            return uiT('myCustomProducts.refKindFallback', '參考圖', 'Reference');
         }
 
         function designRefInspirationUrl(s) {
@@ -2058,7 +2079,7 @@
             const fallbackUrl = String((product && product.reference_image_url) || '').trim();
             if (!fallbackUrl || fallbackUrl.indexOf('data:') === 0) return [];
             // 舊資料可能只有 reference_image_url、沒有 reference_sources
-            return [{ image_url: fallbackUrl, title: '引用圖', manufacturer_name: '' }];
+            return [{ image_url: fallbackUrl, title: uiT('myCustomProducts.refCitationTitle', '引用圖', 'Reference image'), manufacturer_name: '' }];
         }
 
         function buildDesignRefsHtml(product, toAbs) {
@@ -2083,7 +2104,9 @@
                 const g = byMfr[mid];
                 const profileUrl = designRefProfileUrl(g.info);
                 const rawName = String(g.info.manufacturer_name || '').trim();
-                const mfrName = rawName || (g.info.manufacturer_id ? '廠商' : '本機上傳');
+                const mfrName = rawName || (g.info.manufacturer_id
+                    ? uiT('myCustomProducts.vendorFallbackShort', '廠商', 'Vendor')
+                    : uiT('myCustomProducts.refUploadLocal', '本機上傳', 'Local upload'));
                 const nameHtml = profileUrl
                     ? ('<a class="design-ref-mfr-name" href="' + escapeHtml(profileUrl) + '" target="_blank" rel="noopener"><i class="bi bi-shop me-1"></i>' + escapeHtml(mfrName) + '</a>')
                     : ('<span class="design-ref-mfr-name"><i class="bi bi-image me-1"></i>' + escapeHtml(mfrName) + '</span>');
@@ -2106,7 +2129,7 @@
             if (!body || !thumbCount) return '';
             return (
                 '<div class="design-refs-section design-refs-inline">' +
-                '<span class="design-refs-label">引用 ' + thumbCount + '</span>' +
+                '<span class="design-refs-label">' + escapeHtml(uiTf('myCustomProducts.citationsCountLabel', '引用 {count}', 'Refs {count}', { count: thumbCount })) + '</span>' +
                 body +
                 '</div>'
             );
@@ -2125,26 +2148,7 @@
                 const tags = Array.isArray(product.ai_tags)
                     ? product.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean)
                     : [];
-                if (!tags.length) {
-                    tagsWrap.textContent = '尚無標籤';
-                    tagsWrap.className = 'design-tags-meta';
-                } else {
-                    const show = tags.slice(0, 2);
-                    const more = tags.length > 2 ? tags.length - 2 : 0;
-                    tagsWrap.className = 'design-tags-meta';
-                    tagsWrap.setAttribute('data-role', 'tags-wrap');
-                    let html = '<span class="me-1">標籤 ' + tags.length + '</span><span class="design-tags-wrap" data-role="tags">';
-                    show.forEach(function (t) {
-                        html += '<span class="badge"></span>';
-                    });
-                    if (more) html += '<span class="badge">+' + more + '</span>';
-                    html += '</span>';
-                    tagsWrap.innerHTML = html;
-                    const badges = tagsWrap.querySelectorAll('.design-tags-wrap .badge');
-                    show.forEach(function (t, i) {
-                        if (badges[i]) badges[i].textContent = t;
-                    });
-                }
+                tagsWrap.outerHTML = formatTagsMetaHtml(tags, 'tags-wrap');
             }
         }
 
@@ -2154,7 +2158,9 @@
             const path = isTags
                 ? '/api/custom-products/' + encodeURIComponent(productId) + '/regenerate-tags'
                 : '/api/custom-products/' + encodeURIComponent(productId) + '/generate-description';
-            const busyLabel = isTags ? '標籤產生中…' : '描述產生中…';
+            const busyLabel = isTags
+                ? uiT('myCustomProducts.regenTagsBusy', '標籤產生中…', 'Generating tags…')
+                : uiT('myCustomProducts.genDescBusy', '描述產生中…', 'Generating description…');
             const prevHtml = btnEl.innerHTML;
             btnEl.disabled = true;
             btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + busyLabel;
@@ -2200,7 +2206,7 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '刪除失敗');
+                if (!response.ok) throw new Error(data.error || uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete'));
                 if (colEl && colEl.parentNode) colEl.remove();
                 const badgeEl = document.getElementById('badgeDesigns');
                 if (badgeEl) {
@@ -2441,24 +2447,24 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="assetMetaEditLabel">編輯名稱與分類</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    <h5 class="modal-title" id="assetMetaEditLabel" data-i18n="myCustomProducts.assetMetaModalTitle">編輯名稱與分類</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="home.close" aria-label="關閉"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label" for="assetMetaEditTitle">名稱</label>
-                        <input type="text" class="form-control" id="assetMetaEditTitle" maxlength="120" placeholder="例：夏日雙色／碎花主色">
+                        <label class="form-label" for="assetMetaEditTitle" data-i18n="myCustomProducts.assetMetaNameLabel">名稱</label>
+                        <input type="text" class="form-control" id="assetMetaEditTitle" maxlength="120" data-i18n-placeholder="myCustomProducts.assetMetaNamePlaceholder" placeholder="例：夏日雙色／碎花主色">
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="assetMetaEditCategory">分類</label>
-                        <input type="text" class="form-control" id="assetMetaEditCategory" maxlength="64" placeholder="例：皮革、春夏、客戶A（自由文字）" list="assetMetaCategorySuggestions">
+                        <label class="form-label" for="assetMetaEditCategory" data-i18n="myCustomProducts.assetMetaCategoryLabel">分類</label>
+                        <input type="text" class="form-control" id="assetMetaEditCategory" maxlength="64" data-i18n-placeholder="myCustomProducts.assetMetaCategoryPlaceholder" placeholder="例：皮革、春夏、客戶A（自由文字）" list="assetMetaCategorySuggestions">
                         <datalist id="assetMetaCategorySuggestions"></datalist>
-                        <p class="form-text small mb-0">分類為自訂標籤，方便之後篩選；可留空。</p>
+                        <p class="form-text small mb-0" data-i18n="myCustomProducts.assetMetaCategoryHint">分類為自訂標籤，方便之後篩選；可留空。</p>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="assetMetaEditSave">儲存</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="myCustomProducts.btnCancel">取消</button>
+                    <button type="button" class="btn btn-primary" id="assetMetaEditSave" data-i18n="myCustomProducts.btnSave">儲存</button>
                 </div>
             </div>
         </div>

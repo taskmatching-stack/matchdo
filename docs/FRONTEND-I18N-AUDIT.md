@@ -29,6 +29,8 @@ node scripts/audit-frontend-i18n.js
 | 頁尾 | `public/partials/footer.html` | 部分 | |
 | 語系檔 | `public/locales/en.json` | 持續補 | 缺鍵會顯示中文 fallback |
 
+**手機版：** 與桌面共用 `i18n.js`（`?lang=en`／cookie），**沒有**獨立 mobile locale。導覽抽屜、`data-i18n` 與 `applyPage()` 同套；設計頁手機分類 Bottom Sheet 需 JS 同步（`syncCatSheetChromeI18n`）。商攝在手機會開 `/promo-camera-app`，該頁亦載入同一套 locale。
+
 ### B. 訂製者／設計工具
 
 | 頁面 | 狀態 | 備註 |
@@ -120,4 +122,5 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`vendors.html` 地區大區標籤 `vendors.areaGroup.*`；`industry-supplier-catalog` 登入提示。
 - 2026-09-29：`credits.html` 訂閱管理／寬限期／legacy 訂閱 URL 模式；`custom-product.js` 儲存／刪除／實境模擬 alert 一批（`53cadc6`）。
 - 2026-09-29：`custom-product.js` 材料組合刪除 confirm、色卡／配件選用、參考圖移除 aria-label（`e069481`）。
-- 2026-09-29：`my-custom-products.html` 設計風向 view、`uiTf`、材料組合／印花／情境圖刪除與描述編輯 EN。
+- 2026-09-29：`my-custom-products.html` 設計風向 view、`uiTf`、材料組合／印花／情境圖刪除與描述編輯 EN（`03878f8`）。
+- 2026-09-29：設計頁手機分類 Bottom Sheet i18n；數位資產情境圖／印花空狀態／設計卡引用與標籤 EN。
