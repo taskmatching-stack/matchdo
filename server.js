@@ -9216,6 +9216,36 @@ async function generateVendorAssetsEnglish(manufacturerId, overwrite) {
     return { updated, total: (rows || []).length, translated: todo.length };
 }
 
+/** 單筆素材補英文（不扣點）；無需翻譯或已有英文且 !overwrite 時 skipped */
+async function fillSingleVendorAssetEnglish(assetId, manufacturerId, overwrite) {
+    const id = String(assetId || '').trim();
+    if (!id || !manufacturerId) return { updated: 0, skipped: true, reason: 'missing_id' };
+    let sel = 'id, title, title_en, description, description_en';
+    const { data: row, error } = await supabase.from('vendor_assets').select(sel).eq('id', id).eq('manufacturer_id', manufacturerId).maybeSingle();
+    if (error && error.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+    if (error) throw error;
+    if (!row) return { updated: 0, skipped: true, reason: 'not_found' };
+    if (!vendorAssetNeedsEnTranslation(row, overwrite)) return { updated: 0, skipped: true, reason: 'no_work' };
+    const batchIn = [{
+        id: row.id,
+        title: String(row.title || '').trim(),
+        description: String(row.description || '').trim()
+    }];
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION, batchIn);
+    const pair = translated[0];
+    if (!pair || !pair.hit) return { updated: 0, skipped: true, reason: 'translate_empty' };
+    const patch = {
+        title_en: pair.hit.title_en != null ? String(pair.hit.title_en).trim() || null : null,
+        description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null
+    };
+    const { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    if (upErr) {
+        if (upErr.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+        throw upErr;
+    }
+    return { updated: 1, title_en: patch.title_en, description_en: patch.description_en };
+}
+
 async function generateVendorPortfolioEnglish(manufacturerId, overwrite) {
     let sel = 'id, title, title_en, description, description_en, design_highlight, design_highlight_en';
     let { data: rows, error } = await supabase.from('manufacturer_portfolio').select(sel).eq('manufacturer_id', manufacturerId);
@@ -9705,7 +9735,7 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
 /** 圖庫增刪改／重繪 API 回傳：須含 MOQ、訂製程度、工藝、我的分類等（避免前端被空陣列覆寫） */
 const VENDOR_ASSET_SELECT_GALLERY_API = VENDOR_ASSET_SELECT_ME;
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
@@ -9713,7 +9743,7 @@ const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subca
 
 const VENDOR_ASSET_OPTIONAL_COLS_42703 = [
     'source_catalog_item_id', 'cover_image_label', 'cover_link_group', 'gallery_images', 'asset_kind', 'part_key',
-    'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key'
+    'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key', 'title_en', 'description_en'
 ];
 
 function stripMissingColumnsFromSelect(selectCols, errMessage) {
@@ -13199,7 +13229,8 @@ app.get(['/official-templates', '/official-templates/'], async (req, res) => {
             asset_kind: assetKind,
             q: qText,
             limit: 72,
-            offset: 0
+            offset: 0,
+            lang
         });
         const { buildOfficialTemplatesHtml } = require('./lib/official-templates-browse-page');
         const html = buildOfficialTemplatesHtml({
@@ -14033,7 +14064,8 @@ async function listOfficialPublicCatalogForPage(opts) {
     if (!mfrIds.length) {
         return { items: [], total: 0, categories, asset_kind: assetKind };
     }
-    const selectCols = 'id, category_key, subcategory_key, title, description, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
+    const contentLang = normalizeVendorContentLang(opts.lang);
+    const selectCols = 'id, category_key, subcategory_key, title, title_en, description, description_en, image_url, gallery_images, asset_kind, sort_order, created_at, is_public';
     let q = supabase
         .from('vendor_assets')
         .select(selectCols)
@@ -14096,8 +14128,12 @@ async function listOfficialPublicCatalogForPage(opts) {
             id: r.id,
             category_key: r.category_key,
             subcategory_key: r.subcategory_key,
-            title: r.title || '',
-            description: r.description || '',
+            title: pickVendorLocalizedText(r.title, r.title_en, contentLang),
+            description: pickVendorLocalizedText(r.description, r.description_en, contentLang),
+            title_zh: r.title || '',
+            title_en: r.title_en || '',
+            description_zh: r.description || '',
+            description_en: r.description_en || '',
             image_url: r.image_url,
             gallery_images: mapped.gallery_images,
             image_urls: mapped.image_urls,
@@ -15446,6 +15482,39 @@ app.get('/api/admin/official-manufacturer', async (req, res) => {
     } catch (e) {
         console.error('GET /api/admin/official-manufacturer:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/official-platform/generate-i18n-en — 官方版型庫批次補英文（不扣點）
+app.post('/api/admin/official-platform/generate-i18n-en', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const overwrite = parseTruthyBody((req.body || {}).overwrite);
+        const mfrIds = await listOfficialPlatformManufacturerIds();
+        if (!mfrIds.length) {
+            return res.status(503).json({ error: '無法讀取官方版型庫廠商 id' });
+        }
+        const out = { ok: true, overwrite, manufacturers: [] };
+        for (let i = 0; i < mfrIds.length; i++) {
+            const mid = mfrIds[i];
+            const entry = { manufacturer_id: mid };
+            try {
+                entry.assets = await generateVendorAssetsEnglish(mid, overwrite);
+            } catch (e) {
+                entry.assets = { error: e.message || '素材翻譯失敗' };
+            }
+            try {
+                entry.catalog_groups = await generateVendorCatalogGroupsEnglish(mid, overwrite);
+            } catch (e) {
+                entry.catalog_groups = { error: e.message || '分類翻譯失敗' };
+            }
+            out.manufacturers.push(entry);
+        }
+        res.json(out);
+    } catch (e) {
+        console.error('POST /api/admin/official-platform/generate-i18n-en:', e);
+        res.status(502).json({ error: e.message || '批次翻譯失敗' });
     }
 });
 
@@ -39237,6 +39306,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const supportsGallery = vendorAssetSupportsGalleryImages(assetKind);
         let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
+        const titleEnCreate = (body.title_en || '').trim() || null;
+        const descriptionEnCreate = (body.description_en || '').trim() || null;
         const uiLocaleCreate = resolveUiLocaleFromRequest(req);
         const styleKey = (body.style_key || '').trim() || null;
         const catalogGroupIdsEarly = parseCatalogGroupIdsFromBody(body);
@@ -39453,6 +39524,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             ai_tags_generated_at: new Date().toISOString(),
             tags_source: tagsSource
         };
+        if (titleEnCreate) insertPayload.title_en = titleEnCreate;
+        if (descriptionEnCreate) insertPayload.description_en = descriptionEnCreate;
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
         if (assetKind === 'prototype' && imageLinkGroups[0]) {
             insertPayload.cover_link_group = imageLinkGroups[0];
@@ -39656,6 +39729,18 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 description: inserted.description || description,
                 material_catalog_hint: materialCatalogHint || undefined
             }, ownerId);
+        }
+        let autoEnFill = null;
+        if (inserted && inserted.id && !titleEnCreate && (title || description)) {
+            try {
+                autoEnFill = await fillSingleVendorAssetEnglish(inserted.id, manufacturerId, false);
+                if (autoEnFill && autoEnFill.updated && createEnriched[0]) {
+                    if (autoEnFill.title_en) createEnriched[0].title_en = autoEnFill.title_en;
+                    if (autoEnFill.description_en) createEnriched[0].description_en = autoEnFill.description_en;
+                }
+            } catch (autoEnErr) {
+                console.warn('vendor-assets auto title_en:', autoEnErr && autoEnErr.message);
+            }
         }
         res.status(201).json({
             ...(createEnriched[0] || createMapped),
@@ -40747,6 +40832,29 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
     }
 });
 
+// POST /api/me/vendor-assets/:id/generate-i18n-en — 單筆素材補英文（不扣點）
+app.post('/api/me/vendor-assets/:id/generate-i18n-en', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const overwrite = parseTruthyBody((req.body || {}).overwrite);
+        const result = await fillSingleVendorAssetEnglish(id, manufacturerId, overwrite);
+        if (result.reason === 'no_columns') {
+            return res.status(503).json({ error: '請先執行 docs/add-vendor-content-i18n-en.sql 以啟用英文欄位' });
+        }
+        if (result.reason === 'not_found') return res.status(404).json({ error: '找不到該素材' });
+        res.json({ ok: true, ...result });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/:id/generate-i18n-en:', e);
+        res.status(502).json({ error: e.message || '翻譯失敗，請稍後再試' });
+    }
+});
+
 // PATCH /api/me/vendor-assets/:id — 上架／下架等輕量更新（僅本人廠商；種子廠商不得操作）
 app.patch('/api/me/vendor-assets/:id', express.json(), async (req, res) => {
     try {
@@ -40926,6 +41034,8 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         }
         if (body.title !== undefined) updates.title = (body.title || '').trim() || null;
         if (body.description !== undefined) updates.description = (body.description || '').trim() || null;
+        if (body.title_en !== undefined) updates.title_en = (body.title_en || '').trim() || null;
+        if (body.description_en !== undefined) updates.description_en = (body.description_en || '').trim() || null;
         if (body.usage_type !== undefined) updates.usage_type = (body.usage_type || 'reference_only').trim() || 'reference_only';
         if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
         if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);

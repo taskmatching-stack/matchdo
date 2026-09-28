@@ -108,7 +108,9 @@
 | `public/client/manufacturer-dashboard.html` | 手風琴「**英文版（公開頁 lang=en）**」：手動編輯、**AI 生成簡介英文**、**AI 生成全部英文**、預覽英文公開頁 |
 | `public/vendor-profile.html` | `?lang=en` 或站內 `i18n.getLang()` 為 en 時，API 帶 `lang=en`（含素材庫、catalog-groups） |
 
-**尚未做：** 素材庫／作品單筆編輯頁的英文欄位 UI；儲存中文後自動排程翻譯；種子廠商 admin 批次回填腳本。
+**素材庫（2026-09-28）：** `manufacturer-materials.html` 標題／說明英文欄、上傳後自動 AI 補英文（未填時）、編輯「AI 補英文」；官方庫 **批次 AI 補英文** → `POST /api/admin/official-platform/generate-i18n-en`。
+
+**尚未做：** 作品單筆英文編輯 UI；色卡 `label_en`；看可搭配 link-tree `lang` 接線。
 
 ---
 

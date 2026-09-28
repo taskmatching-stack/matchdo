@@ -420,6 +420,10 @@
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
             <i class="bi bi-collection me-2"></i>
             <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、情境圖、零件、材料、<strong>材料組合</strong>、產品關聯圖）。上方綠色「材料組合」或切至「材料/顏色」分頁頂部卡片可開啟。內容會出現在設計頁「官方版型」。
+            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-official-batch-i18n-en">批次 AI 補英文（已上傳素材）</button>
+                <span class="small text-muted" id="official-batch-i18n-en-msg"></span>
+            </div>
         </div>
 
         <div id="main-content" class="d-none">
@@ -548,6 +552,7 @@
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料/顏色分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 </div></div>
                                 </details>
@@ -711,6 +716,7 @@
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 </div></div>
                                 </details>
@@ -861,6 +867,7 @@
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料/顏色」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題（英文）</label><input type="text" class="form-control add-title-en" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
@@ -1096,6 +1103,8 @@
                         <div class="va-spec-body">
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
+                        <div class="mb-3"><label class="form-label">標題（英文）</label><div class="input-group"><input type="text" class="form-control" id="edit-title-en" placeholder="公開頁 lang=en 顯示；可留空由 AI 補"><button type="button" class="btn btn-outline-secondary" id="btn-edit-fill-i18n-en" title="不扣點">AI 補英文</button></div></div>
+                        <div class="mb-3"><label class="form-label">說明（英文）</label><textarea class="form-control" id="edit-description-en" rows="2" placeholder="選填"></textarea></div>
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="proto-meta" data-va-hide-empty>
@@ -1383,7 +1392,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-lang-host-20260917';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-asset-i18n-en-20260928';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -9413,6 +9422,8 @@
             if (kind === 'prototype' && subSel) fd.append('subcategory_key', subSel.value || '');
             fd.append('title', form.querySelector('.add-title').value || '');
             fd.append('description', form.querySelector('.add-description').value || '');
+            var addTitleEnEl = form.querySelector('.add-title-en');
+            if (addTitleEnEl && (addTitleEnEl.value || '').trim()) fd.append('title_en', addTitleEnEl.value.trim());
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
@@ -10287,6 +10298,10 @@
             editGalleryImeComposing = false;
             editGalleryRenderDeferred = false;
             document.getElementById('edit-title').value = m.title || '';
+            var editTitleEn = document.getElementById('edit-title-en');
+            if (editTitleEn) editTitleEn.value = m.title_en || '';
+            var editDescEn = document.getElementById('edit-description-en');
+            if (editDescEn) editDescEn.value = m.description_en || '';
             var editOptProductName = document.getElementById('edit-gallery-optimize-product-name');
             if (editOptProductName) editOptProductName.value = (isProto || isPart) ? (m.title || '') : '';
             document.getElementById('edit-description').value = m.description || '';
@@ -10564,6 +10579,44 @@
             });
         }
 
+        var btnEditFillI18nEn = document.getElementById('btn-edit-fill-i18n-en');
+        if (btnEditFillI18nEn) {
+            btnEditFillI18nEn.addEventListener('click', async function () {
+                var id = document.getElementById('edit-id').value;
+                if (!id) { showToast('請先儲存素材', 'warning'); return; }
+                var t = await getToken();
+                if (!t) { showToast('請先登入', 'warning'); return; }
+                var hasEn = (document.getElementById('edit-title-en') && document.getElementById('edit-title-en').value.trim())
+                    || (document.getElementById('edit-description-en') && document.getElementById('edit-description-en').value.trim());
+                var overwrite = hasEn && confirm('已有英文內容，要覆寫重新生成嗎？');
+                btnEditFillI18nEn.disabled = true;
+                try {
+                    var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/generate-i18n-en', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                        body: JSON.stringify({ overwrite: overwrite })
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (!r.ok) throw new Error(data.error || '生成失敗');
+                    if (data.skipped && data.reason === 'no_work') {
+                        showToast('已有英文或無中文可翻譯', 'info');
+                        return;
+                    }
+                    if (data.title_en && document.getElementById('edit-title-en')) {
+                        document.getElementById('edit-title-en').value = data.title_en;
+                    }
+                    if (data.description_en && document.getElementById('edit-description-en')) {
+                        document.getElementById('edit-description-en').value = data.description_en;
+                    }
+                    showToast('已補英文（不扣點）', 'success');
+                } catch (e) {
+                    showToast(e.message || '生成失敗', 'danger');
+                } finally {
+                    btnEditFillI18nEn.disabled = false;
+                }
+            });
+        }
+
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var saveBtn = document.getElementById('btn-edit-save');
             if (saveBtn && saveBtn.disabled) return;
@@ -10602,6 +10655,10 @@
             }
             fd.append('title', document.getElementById('edit-title').value || '');
             fd.append('description', document.getElementById('edit-description').value || '');
+            var editTitleEnEl = document.getElementById('edit-title-en');
+            var editDescEnEl = document.getElementById('edit-description-en');
+            if (editTitleEnEl) fd.append('title_en', editTitleEnEl.value || '');
+            if (editDescEnEl) fd.append('description_en', editDescEnEl.value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             fd.append('asset_kind', document.getElementById('edit-asset-kind').value);
@@ -11106,6 +11163,38 @@
                     if (backAdmin) backAdmin.classList.remove('d-none');
                     var offBanner = document.getElementById('official-platform-banner');
                     if (offBanner) offBanner.classList.remove('d-none');
+                    var btnOfficialBatchI18n = document.getElementById('btn-official-batch-i18n-en');
+                    if (btnOfficialBatchI18n && !btnOfficialBatchI18n.__bound) {
+                        btnOfficialBatchI18n.__bound = true;
+                        btnOfficialBatchI18n.addEventListener('click', async function () {
+                            var msgEl = document.getElementById('official-batch-i18n-en-msg');
+                            if (!confirm('將為官方版型庫全部素材與自訂分類補齊英文（已有英文的項目預設跳過）。\n\n確定繼續？')) return;
+                            var overwrite = confirm('是否覆寫已有英文？\n確定 = 覆寫全部\n取消 = 只補空白');
+                            btnOfficialBatchI18n.disabled = true;
+                            if (msgEl) msgEl.textContent = '批次翻譯中…';
+                            try {
+                                var r = await fetch('/api/admin/official-platform/generate-i18n-en', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                                    body: JSON.stringify({ overwrite: overwrite })
+                                });
+                                var data = await r.json().catch(function () { return {}; });
+                                if (!r.ok) throw new Error(data.error || '批次失敗');
+                                var n = 0;
+                                (data.manufacturers || []).forEach(function (m) {
+                                    if (m.assets && m.assets.updated) n += m.assets.updated;
+                                });
+                                if (msgEl) msgEl.textContent = '完成：已更新素材英文 ' + n + ' 筆（分類見 API 回傳）';
+                                showToast('官方版型英文批次完成', 'success');
+                                await loadMaterials();
+                            } catch (e) {
+                                if (msgEl) msgEl.textContent = '';
+                                showToast(e.message || '批次失敗', 'danger');
+                            } finally {
+                                btnOfficialBatchI18n.disabled = false;
+                            }
+                        });
+                    }
                     var titleH4 = document.querySelector('.page-title-bar h4');
                     if (titleH4) titleH4.textContent = '官方版型庫（管理員）';
                     var titleSmall = document.querySelector('.page-title-bar small');
