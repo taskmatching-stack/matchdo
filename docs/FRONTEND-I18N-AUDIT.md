@@ -42,7 +42,7 @@ node scripts/audit-frontend-i18n.js
 | `client/print-asset.html` | OK | `printAsset.*` 靜態 + 提示詞預覽／存庫 JS |
 | `client/material-dual-color.html` | OK（UI） | `materialCombo.*`；色標由 `syncModeUi` 更新 |
 | `client/promo-camera.html` / `promo-camera-app.html` | 部分 | L3 凍結區慎改 |
-| `product-tree.html` | 部分 | 持續補篩選／PDF |
+| `product-tree.html` | OK（UI） | 靜態 `data-i18n` + OG／Twitter meta 依 `lang`；`vendor-product-link-tree.js` 已 `tr()` |
 | `design-direction/*` | 部分 | |
 | `remake/*` | 缺／部分 | |
 | `embed/simulator.html` | 部分 | |
@@ -128,4 +128,5 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：設計頁手機分類 Bottom Sheet i18n；數位資產情境圖／印花空狀態／設計卡引用與標籤 EN（`25afac1`）。
 - 2026-09-29：數位資產收藏 Tab、媒合／完成 confirm、情境圖媒體牆切換（本機待 push）。
 - 2026-09-29：`client/find-makers.html`、`client/custom-product-detail.html` 全頁 UI + 動態 JS（`findMakers.*`、`customProductDetail.*`）（`9e9e030`）。
-- 2026-09-29：`print-asset.html` 剩餘 JS／meta；`material-dual-color` 存庫失敗提示與 a11y；設計頁材料組合摘要 `customProduct.materialCombo*`。
+- 2026-09-29：`print-asset.html` 剩餘 JS／meta；`material-dual-color` 存庫失敗提示與 a11y；設計頁材料組合摘要 `customProduct.materialCombo*`（`8279834`）。
+- 2026-09-29：設計頁 `refSlotsFull` 占位符、資產庫 Tab 標籤；`product-tree.html` SEO meta EN。

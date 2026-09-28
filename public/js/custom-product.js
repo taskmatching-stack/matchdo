@@ -343,6 +343,13 @@ $(document).ready(function () {
     // 參考圖：原型／材料／配件／原圖印刷／風格參考；每類 0～3 張，全站最多 8 張
     var MAX_REF_IMAGES_TOTAL = 8;
     var MAX_REF_IMAGES_PER_SLOT = 3;
+
+    function refSlotsFullMessage() {
+        return tf('customProduct.refSlotsFull', '參考圖已滿（每類最多 {perSlot} 張，共 {total} 張）', {
+            perSlot: MAX_REF_IMAGES_PER_SLOT,
+            total: MAX_REF_IMAGES_TOTAL
+        });
+    }
     var REF_INTENT_SLOTS = [
         { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', tabKey: 'customProduct.refSlotPrototypeTab', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', tabFb: '原型', hintFb: '', addonPhFb: '造型補充（選填）' },
         { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', tabKey: 'customProduct.refSlotMaterialTab', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', tabFb: '材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
@@ -900,7 +907,7 @@ $(document).ready(function () {
     }
 
     function getUnsupportedRefSlotLevelLabels(slotKey) {
-        return getRefSlotScopeLevelKeys(slotKey).map(function (k) { return customizationLevelLabel(k); }).join('、');
+        return getRefSlotScopeLevelKeys(slotKey).map(function (k) { return customizationLevelLabel(k); }).join(tr('customProduct.levelListSep', '、'));
     }
 
     function getUnsupportedRefSlotWarningText(slotKey, variant) {
@@ -1158,7 +1165,7 @@ $(document).ready(function () {
         }
         var sourceMeta = {
             asset_kind: 'material',
-            title: meta.label || '材料組合',
+            title: meta.label || tr('nav.materialCombination', '材料組合'),
             material_combo: combo
         };
         var storageUrl = (meta.redrawPreviewStorageUrl || '').trim();
@@ -1409,7 +1416,7 @@ $(document).ready(function () {
     function readFileIntoRefSlot(slotKey, file) {
         if (!file || !getRefSlotDef(slotKey)) return;
         if (!canAddMoreRefImages(slotKey, 1)) {
-            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            alert(refSlotsFullMessage());
             return;
         }
         var reader = new FileReader();
@@ -3146,7 +3153,7 @@ $(document).ready(function () {
                     if (addRefImageToSlot(targetKey, dataUrl, importMeta)) added++;
                 });
                 if (!added) {
-                    alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+                    alert(refSlotsFullMessage());
                     return;
                 }
                 if (targetKey === 'prototype' && baseMeta) {
@@ -3178,7 +3185,7 @@ $(document).ready(function () {
         if (!pick || !pick.url || !getRefSlotDef(targetKey)) return;
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
-            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            alert(refSlotsFullMessage());
             return;
         }
         var slotDef = getRefSlotDef(targetKey);
@@ -3202,7 +3209,7 @@ $(document).ready(function () {
             }
             var importMeta = Object.assign({}, baseMeta);
             if (!addRefImageToSlot(targetKey, dataUrl, importMeta)) {
-                alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+                alert(refSlotsFullMessage());
                 return;
             }
             if (targetKey === 'material' && baseMeta.material_combo) {
@@ -3459,7 +3466,7 @@ $(document).ready(function () {
 
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
-            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            alert(refSlotsFullMessage());
             return;
         }
 
@@ -4169,7 +4176,7 @@ $(document).ready(function () {
         if (comboFromItem) baseMeta.material_combo = comboFromItem;
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
-            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            alert(refSlotsFullMessage());
             return Promise.resolve();
         }
         if (targetKey === 'prototype') clearRefSlot('prototype');
@@ -5357,7 +5364,9 @@ $(document).ready(function () {
         var url = normalizeGalleryImageUrl(item.url);
         if (!url) return null;
         var promptText = String(item.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        var tip = promptText || (tab === 'promo' ? '情境圖' : (tab === 'material_combo' ? '材料組合' : (tab === 'print' ? '印花' : '我的最愛')));
+        var tip = promptText || (tab === 'promo' ? tr('myCustomProducts.tabPromo', '情境圖')
+            : (tab === 'material_combo' ? tr('nav.materialCombination', '材料組合')
+                : (tab === 'print' ? tr('myCustomProducts.tabPrint', '印花') : tr('myCustomProducts.tabFavs', '我的最愛'))));
         var comboJson = item.material_combo ? JSON.stringify(item.material_combo) : '';
         var $cell = $('<div class="past-item-wrap"></div>').attr({
             'data-prompt': promptText,
@@ -7064,7 +7073,7 @@ $(document).ready(function () {
                         var tabEl = document.getElementById('tab-product-design');
                         if (tabEl && typeof showBootstrapTab === 'function') showBootstrapTab(tabEl);
                     } else {
-                        alert(t('customProduct.refSlotsFull') || '參考圖已滿');
+                        alert(refSlotsFullMessage());
                     }
                 }
             } catch (err) { console.warn(err); }

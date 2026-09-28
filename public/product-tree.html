@@ -4,16 +4,16 @@
     <meta charset="utf-8">
     <title data-i18n="productTree.pageTitle">看可搭配 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="查看此款式的材料與配件搭配，再開始訂製設計。">
+    <meta name="description" content="查看此款式的材料與配件搭配，再開始訂製設計。" data-i18n-meta-desc="productTree.metaDescription">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MATCHDO 合做">
-    <meta property="og:title" content="看可搭配 - MATCHDO 合做">
-    <meta property="og:description" content="查看此款式的材料與配件搭配，再開始訂製設計。">
+    <meta property="og:title" content="看可搭配 - MATCHDO 合做" id="pt-og-title">
+    <meta property="og:description" content="查看此款式的材料與配件搭配，再開始訂製設計。" id="pt-og-desc">
     <meta property="og:image" content="https://matchdo.cc/img/og-design.jpg">
     <meta property="og:url" content="https://matchdo.cc/product-tree.html">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="看可搭配 - MATCHDO 合做">
-    <meta name="twitter:description" content="查看此款式的材料與配件搭配。">
+    <meta name="twitter:title" content="看可搭配 - MATCHDO 合做" id="pt-twitter-title">
+    <meta name="twitter:description" content="查看此款式的材料與配件搭配。" id="pt-twitter-desc">
     <meta name="twitter:image" content="https://matchdo.cc/img/og-design.jpg">
     <link rel="canonical" href="https://matchdo.cc/product-tree.html" id="canonicalTag">
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/product-tree.html" id="hreflangZh">
@@ -93,8 +93,18 @@
         function apply() {
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             if (window.i18n && window.i18n.t) {
-                var t = window.i18n.t('productTree.pageTitle');
-                if (t && t !== 'productTree.pageTitle') document.title = t;
+                var t = window.i18n.t;
+                var pageTitle = t('productTree.pageTitle');
+                if (pageTitle && pageTitle !== 'productTree.pageTitle') document.title = pageTitle;
+                var ogT = t('productTree.ogTitle');
+                var ogD = t('productTree.ogDescription');
+                var twT = t('productTree.ogTitle');
+                var twD = t('productTree.twitterDescription');
+                var el;
+                if (ogT && ogT !== 'productTree.ogTitle' && (el = document.getElementById('pt-og-title'))) el.setAttribute('content', ogT);
+                if (ogD && ogD !== 'productTree.ogDescription' && (el = document.getElementById('pt-og-desc'))) el.setAttribute('content', ogD);
+                if (twT && twT !== 'productTree.ogTitle' && (el = document.getElementById('pt-twitter-title'))) el.setAttribute('content', twT);
+                if (twD && twD !== 'productTree.twitterDescription' && (el = document.getElementById('pt-twitter-desc'))) el.setAttribute('content', twD);
             }
         }
         if (window.i18n && window.i18n.ready) window.i18n.ready.then(apply);
