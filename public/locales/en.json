@@ -1658,7 +1658,7 @@
   "customProduct.promoImageResolution": "Resolution",
   "customProduct.promoImagePhotoOptional": "Photo settings (optional)",
   "customProduct.promoImagePhotoNone": "(Default)",
-  "customProduct.promoImageMpCapHint": "Resolution is capped at 4 MP for scene images.",
+  "customProduct.promoImageMpCapHint": " (max ~{mp} MP for this aspect ratio)",
   "customProduct.promoImageInsufficientPoints": "Not enough credits for scene generation.",
   "customProduct.promoImageEnvAdminHint": "No scene options yet. Add scenes in admin Promo themes/scenes, or run docs/add-promo-theme-scene-slots.sql.",
   "customProduct.promoImageExtraDesc": "Extra description (optional)",

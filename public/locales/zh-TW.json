@@ -1675,7 +1675,7 @@
   "customProduct.promoImageResolution": "解析度",
   "customProduct.promoImagePhotoOptional": "攝影參數（選填）",
   "customProduct.promoImagePhotoNone": "（預設）",
-  "customProduct.promoImageMpCapHint": "情境圖解析度上限為 4 MP。",
+  "customProduct.promoImageMpCapHint": "（此比例最高約 {mp} MP）",
   "customProduct.promoImageInsufficientPoints": "點數不足，無法建立情境圖。",
   "customProduct.promoImageEnvAdminHint": "尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql",
   "customProduct.promoImageExtraDesc": "額外描述（選填）",
