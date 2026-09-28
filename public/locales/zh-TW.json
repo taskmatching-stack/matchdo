@@ -1555,6 +1555,7 @@
   "customProduct.vendorFillSearch": "填入廠商名稱篩選",
   "customProduct.vendorFilledSearch": "已填入廠商名稱，可按「套用」篩選。",
   "customProduct.vendorSearchLocked": "此模式已鎖定單一廠商，無法使用廠商名稱篩選。",
+  "customProduct.refIntentTotalPill": "{n} / {max}",
   "customProduct.refSlotsFull": "參考圖已滿（每類最多 {perSlot} 張，共 {total} 張）",
   "customProduct.levelListSep": "、",
   "customProduct.multiVendorWarning": "您已選用多家廠商的素材（{names}）。混用原型／材料／零件可能無法由單一廠商生產，建議先與廠商溝通。",

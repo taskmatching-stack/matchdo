@@ -6795,6 +6795,14 @@ function localizeCustomProductForApiResponse(p, lang) {
         if (dz) descZh = dz;
         if (de) descEn = de;
     }
+    const zhBad = isGenericMediaWallTitle(titleZh);
+    const enBad = isGenericMediaWallTitle(titleEn);
+    if ((zhBad || !String(titleZh || '').trim()) && (enBad || !String(titleEn || '').trim())
+        && !customProductRowHasStoredImageSemantics(p) && gp) {
+        const legacy = legacyCustomProductTitleFallbackFromPrompt(gp);
+        if (legacy.zh && zhBad) titleZh = legacy.zh;
+        if (legacy.en && enBad) titleEn = legacy.en;
+    }
     const localizedTitle = pickVendorLocalizedText(titleZh, titleEn, lang);
     if (localizedTitle) out.title = localizedTitle;
     const localizedDesc = pickVendorLocalizedText(descZh, descEn, lang);
@@ -6805,20 +6813,65 @@ function localizeCustomProductForApiResponse(p, lang) {
     return out;
 }
 
+function customProductTitleEnNeedsRepairFromPair(row, titlePair, genPrompt) {
+    if (!row || !titlePair) return false;
+    const enTrim = String(row.title_en || '').trim();
+    const zhTrim = String(row.title || '').trim();
+    const gp = genPrompt != null ? String(genPrompt).trim() : '';
+    const enNeeds = !enTrim || isGenericMediaWallTitle(enTrim)
+        || customProductTextCopiedFromPrompt(enTrim, gp);
+    const pairEn = titlePair.en ? String(titlePair.en).trim() : '';
+    if (!pairEn) return enNeeds;
+    return enNeeds
+        || (enTrim === zhTrim && zhTrim && mediaWallTextHasCjk(zhTrim))
+        || (enTrim && mediaWallTextHasCjk(enTrim) && !mediaWallTextHasCjk(pairEn));
+}
+
+function customProductRowNeedsTitleRepairFromStoredSemantics(row) {
+    if (!row || !row.id || !customProductRowHasStoredImageSemantics(row)) return false;
+    const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
+    const pair = resolveCustomProductTitlePairFromRow(row);
+    if (!pair || (!pair.zh && !pair.en)) return false;
+    if (shouldReplaceCustomProductTitleFromAi(row.title, gp)) return true;
+    return customProductTitleEnNeedsRepairFromPair(row, pair, gp);
+}
+
+/** 無讀圖語意存檔的舊稿：僅顯示用，取提示詞首句（不寫 DB、不當新稿標題策略） */
+function legacyCustomProductTitleFallbackFromPrompt(genPrompt) {
+    const gp = String(genPrompt || '').trim();
+    if (!gp) return { zh: '', en: '' };
+    const fb = truncateMediaWallTitle(firstSentenceFromText(gp));
+    if (!fb || isGenericMediaWallTitle(fb)) return { zh: '', en: '' };
+    if (mediaWallTextHasCjk(fb)) return { zh: fb, en: '' };
+    return { zh: fb, en: fb };
+}
+
+function scheduleRepairCustomProductTitleFromRow(row, ownerId) {
+    if (!row || !row.id || !ownerId) return;
+    if (!customProductRowNeedsTitleRepairFromStoredSemantics(row)) return;
+    repairCustomProductTitleFromStoredSemantics(row.id, ownerId).catch(function () {});
+}
+
 /** 列表載入後背景把 DB title 從已存語意寫回（僅 SQL，不呼叫 Gemini） */
 function scheduleBatchRepairCustomProductTitlesFromList(list, ownerId) {
     if (!ownerId || !Array.isArray(list) || !list.length) return;
     setImmediate(function () {
         for (let i = 0; i < list.length; i++) {
-            const p = list[i];
-            if (!p || !p.id) continue;
-            const gp = (p.generation_prompt != null) ? String(p.generation_prompt).trim() : '';
-            if (!shouldReplaceCustomProductTitleFromAi(p.title, gp)) continue;
-            const pair = resolveCustomProductTitlePairFromRow(p);
-            if (!pair || (!pair.zh && !pair.en)) continue;
-            const pid = p.id;
-            const curTitle = p.title;
-            persistCustomProductTitlePairIfStale(pid, ownerId, curTitle, gp, pair).catch(function () {});
+            scheduleRepairCustomProductTitleFromRow(list[i], ownerId);
+        }
+    });
+}
+
+/** 媒體牆 hydrate 後：有語意且 title／title_en 仍佔位則背景 repair（不呼叫 Gemini） */
+function scheduleBatchRepairCustomProductTitlesFromMediaWallRows(rows) {
+    if (!Array.isArray(rows) || !rows.length) return;
+    setImmediate(function () {
+        const seen = new Set();
+        for (let i = 0; i < rows.length; i++) {
+            const p = rows[i];
+            if (!p || !p.id || !p.owner_id || seen.has(p.id)) continue;
+            seen.add(p.id);
+            scheduleRepairCustomProductTitleFromRow(p, p.owner_id);
         }
     });
 }
@@ -6910,22 +6963,35 @@ function resolveUserDesignMediaWallTitlePair(p) {
     const sem = parseImageSemanticsJson(p.image_semantics_json);
     const displayTitles = resolveCustomProductDisplayTitlePair(p, genPrompt);
     const fromDb = mediaWallTitlePairFromDbTitleFields(displayTitles.zh || p.title, displayTitles.en || p.title_en);
-    if (fromDb.zh || fromDb.en) {
-        return {
-            zh: fromDb.zh ? truncateMediaWallTitle(fromDb.zh) : '',
-            en: fromDb.en ? truncateMediaWallTitle(fromDb.en) : ''
-        };
+    let zh = fromDb.zh ? truncateMediaWallTitle(fromDb.zh) : '';
+    let en = fromDb.en ? truncateMediaWallTitle(fromDb.en) : '';
+
+    if (!zh && !en) {
+        const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
+        const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
+        if (zhDesc) zh = truncateMediaWallTitle(zhDesc);
+        if (enDesc) en = truncateMediaWallTitle(enDesc);
     }
 
-    const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
-    const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
-    if (zhDesc || enDesc) {
-        return {
-            zh: zhDesc ? truncateMediaWallTitle(zhDesc) : '',
-            en: enDesc ? truncateMediaWallTitle(enDesc) : ''
-        };
+    const zhBad = !zh || isGenericMediaWallTitle(zh);
+    const enBad = !en || isGenericMediaWallTitle(en);
+    if (zhBad || enBad) {
+        const pair = resolveCustomProductTitlePairFromRow(p);
+        if (pair) {
+            if (zhBad && pair.zh && !isGenericMediaWallTitle(pair.zh)) zh = truncateMediaWallTitle(pair.zh);
+            if (enBad && pair.en && !isGenericMediaWallTitle(pair.en)) en = truncateMediaWallTitle(pair.en);
+            else if (enBad && pair.zh && !isGenericMediaWallTitle(pair.zh)) en = truncateMediaWallTitle(pair.zh);
+        }
     }
-    return { zh: '', en: '' };
+
+    if ((!zh || isGenericMediaWallTitle(zh)) && (!en || isGenericMediaWallTitle(en))
+        && !customProductRowHasStoredImageSemantics(p) && genPrompt) {
+        const legacy = legacyCustomProductTitleFallbackFromPrompt(genPrompt);
+        if (legacy.zh && (!zh || isGenericMediaWallTitle(zh))) zh = legacy.zh;
+        if (legacy.en && (!en || isGenericMediaWallTitle(en))) en = legacy.en;
+    }
+
+    return { zh: zh || '', en: en || '' };
 }
 
 function resolveUserDesignMediaWallTitle(p, lang) {
@@ -7293,6 +7359,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         const ingestUsers = async (rows) => {
             if (!rows || !rows.length) return;
             const hydrated = await mediaWallQueries.hydrateCustomProductListTitleSemantics(supabase, rows);
+            scheduleBatchRepairCustomProductTitlesFromMediaWallRows(hydrated);
             const ownerMap = await fetchOwnerDisplayMap([...new Set(hydrated.map((p) => p.owner_id).filter(Boolean))]);
             hydrated.forEach((p) => {
                 if (!p || !p.id || seen.has(p.id)) return;
@@ -12236,7 +12303,7 @@ async function repairCustomProductTitlesFromStoredSemanticsForOwner(ownerId, lim
     let failed = 0;
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        if (classifyCustomProductTitleStorage(row) !== 'repairable_from_stored_semantics') continue;
+        if (!customProductRowNeedsTitleRepairFromStoredSemantics(row)) continue;
         const ok = await repairCustomProductTitleFromStoredSemantics(row.id, ownerId);
         if (ok) repaired++;
         else failed++;
@@ -29585,6 +29652,7 @@ app.get('/api/media-wall', async (req, res) => {
                 } catch (_) {}
             }
             const userRowsForTitles = await mediaWallQueries.hydrateCustomProductListTitleSemantics(supabase, userRows);
+            scheduleBatchRepairCustomProductTitlesFromMediaWallRows(userRowsForTitles);
             userRowsForTitles.forEach(p => {
                 out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });

@@ -1658,7 +1658,10 @@ $(document).ready(function () {
         });
         $navRow.append($scroll);
         $navRow.append($('<span class="ref-intent-total-pill" id="refIntentTabTotal"></span>')
-            .text(total ? (total + ' / ' + MAX_REF_IMAGES_TOTAL) : ('0 / ' + MAX_REF_IMAGES_TOTAL)));
+            .text(tf('customProduct.refIntentTotalPill', '{n} / {max}', {
+                n: total ? String(total) : '0',
+                max: String(MAX_REF_IMAGES_TOTAL)
+            })));
         $wrap.append($navRow);
         $wrap.append(renderRefIntentPanel(activeDef));
         $root.append($wrap);
@@ -7501,6 +7504,7 @@ $(document).ready(function () {
         }
         if (typeof syncPastGalleryTabLabels === 'function') syncPastGalleryTabLabels();
         if (typeof syncDesignTabActiveUi === 'function') syncDesignTabActiveUi(getTabParamFromPathname());
+        if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }

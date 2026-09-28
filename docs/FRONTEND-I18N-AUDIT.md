@@ -175,6 +175,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D2** JSON-LD WebPage／BreadcrumbList 依 `?lang=` 更新；規格摘要 `title`、歷史載入 `tr()`；`20260929-d2-design-ld`。
 - 2026-09-29：**D2** 設計稿 JS：數位資產 tab／modal／caption `tr()`；`refSourcesTitleCount`；`20260929-d2-gallery-js`。
 - 2026-09-29：**D2** 廠商素材 picker 服務區「全國」suffix、locale 切換重繪；`20260929-d2-vendor-picker`。
+- 2026-09-29：**D2** 參考槽總數 pill `refIntentTotalPill`；locale 切換重跑 `__renderIntentSlots`；`20260929-d2-ref-slots`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -186,7 +187,7 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（vendor picker 服務區已一輪；下一批：參考槽動態 HTML 殘留） |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（參考槽 pill／重繪已一輪；下一批：ref 面板 vendor badge 等動態字） |
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |

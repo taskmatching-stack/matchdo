@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-vendor-picker';
+    var LOCALE_CACHE_V = '20260929-d2-ref-slots';
 
     function loadLocale(lang) {
         lang = lang || getLang();
