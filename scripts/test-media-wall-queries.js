@@ -29,6 +29,6 @@ assert.strictEqual(filtered.length, 2);
 assert.ok(mw.CUSTOM_PRODUCT_MEDIA_WALL_SELECT.includes('show_on_homepage'));
 assert.ok(mw.CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN.includes('show_on_homepage'));
 assert.ok(!mw.CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN.includes('title_en'));
-assert.ok(mw.CUSTOM_PRODUCT_MEDIA_WALL_SELECT.includes('image_semantics_json'));
+assert.ok(!mw.CUSTOM_PRODUCT_MEDIA_WALL_SELECT.includes('image_semantics_json'));
 
 console.log('test-media-wall-queries: ok');

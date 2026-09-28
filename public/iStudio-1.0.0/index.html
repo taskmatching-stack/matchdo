@@ -1914,7 +1914,10 @@
                     }
                     clearMediaWallLoadingShell();
                     if (data.error) { showMediaWallLoadError(); return; }
-                    if (data.internal_preview && !adminOpts.staffPreview) return;
+                    if (data.internal_preview && !adminOpts.staffPreview) {
+                        if (!append && !mediaWallHasAnyItems()) showMediaWallLoadError();
+                        return;
+                    }
                     var items = data.items || [];
                     var effectiveLayoutFilter = layoutFilter;
                     if (effectiveLayoutFilter) {
