@@ -30,7 +30,10 @@
 
 ```bash
 node scripts/audit-frontend-i18n.js
+node scripts/audit-locale-mix.js
 ```
+
+`audit-locale-mix.js`：掃 `zh-TW.json` 像英文 UI 的值、en/zh 缺鍵（**本輪已補** `category.*` 繁中、`supplierManage.*` 英文）。
 
 輸出：未載入 `i18n.js` 的頁面、載入但 `data-i18n` 過少的頁面。
 
@@ -157,8 +160,20 @@ node scripts/audit-frontend-i18n.js
 | **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
 | **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
 | **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照滑桿 hint） | 🔄 進行中（`home.*` 持續補；lightbox 內仍有硬編碼） |
-| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 僅 alert 一批；其餘中文 UI 待補 |
-| **C～F** | 圖庫、廠商列表、控制台、供應商區（稽核腳本 **部分／缺**） | ⏳ 未開本輪 |
+| **B4** | `design-direction` / `remake-product.js` 全表單與趨勢區 | 🔄 alert + 趨勢區 + 儲存標題改 `t()`；參考圖 UI 等仍中文 |
+| **C～F** | 圖庫、廠商列表、控制台、供應商區（稽核腳本 **部分／缺**） | ⏳ 下一批：`custom/gallery.html` 等 `_isEn` |
+
+### 本輪已掃「混用」的頁面（不只首頁）
+
+| 頁／檔 | 檢查結果 |
+|--------|----------|
+| `public/client/my-custom-products.html` | `uiT` 第三參數為 EN fallback（正確）；版面與語系分開 |
+| `client/find-makers.html`、`custom-product-detail.html` | 無 `isEn` 硬編；靠 locale 鍵 |
+| `print-asset.html`、`material-dual-color.html` | 無 `isEn`；修正 HTML fallback 勿寫英文 |
+| `public/js/custom-product.js` | 廠商 picker 雙語欄位用 `vendorPickerIsEn`（內容語意，非 UI 混塞） |
+| `public/js/remake-product.js` | 已去掉儲存標題 `isEn`；趨勢區接 `remakeProduct.market*` |
+| `public/iStudio-1.0.0/index.html` | 媒體牆 API + `homeT`；仍有 badge／lightbox 硬編碼 |
+| `public/locales/*.json` | `audit-locale-mix.js`；缺鍵已補 category／supplierManage |
 
 ## 已知混用／風險（2026-09-29 盤點）
 

@@ -70,25 +70,25 @@ $(document).ready(function () {
             }
             var url = '/api/design-direction/market-signals?category_key=' + encodeURIComponent(mainKey);
             if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
-            body.html('<span class="text-muted">載入趨勢…</span>');
+            body.html('<span class="text-muted">' + rpTr('remakeProduct.marketLoading', '載入趨勢…') + '</span>');
             wrap.show();
             $.get(url).done(function (res) {
                 var s = res && res.signals;
                 if (!s || !s.sample_size) {
-                    body.text('同品類尚無足夠生圖樣本；分析將以您的參考圖與描述為主。');
+                    body.text(rpTr('remakeProduct.marketNoSample', '同品類尚無足夠生圖樣本；分析將以您的參考圖與描述為主。'));
                     return;
                 }
                 var parts = [];
                 parts.push('樣本 ' + s.sample_size + ' 筆；近' + s.window_days + '日 ' + s.category_recent + ' 筆（' + (s.category_growth_pct >= 0 ? '▲' : '▼') + Math.abs(s.category_growth_pct) + '%）');
                 if (s.tags_top && s.tags_top.style && s.tags_top.style.length) {
-                    parts.push('熱門 style：' + s.tags_top.style.map(function (t) { return t.tag; }).join('、'));
+                    parts.push(rpTr('remakeProduct.marketHotStyle', '熱門 style：') + s.tags_top.style.map(function (t) { return t.tag; }).join('、'));
                 }
                 if (s.tags_rising && s.tags_rising.length) {
-                    parts.push('成長：' + s.tags_rising.map(function (t) { return t.tag + ' ▲' + t.growth_pct + '%'; }).join('、'));
+                    parts.push(rpTr('remakeProduct.marketRising', '成長：') + s.tags_rising.map(function (t) { return t.tag + ' ▲' + t.growth_pct + '%'; }).join('、'));
                 }
                 body.text(parts.join(' · '));
             }).fail(function () {
-                body.text('趨勢資料暫不可用；生圖仍會依分類 prompt 分析。');
+                body.text(rpTr('remakeProduct.marketFail', '趨勢資料暫不可用；生圖仍會依分類 prompt 分析。'));
             });
         }
         function updateSubList(mainKeyFromClick) {
@@ -460,11 +460,10 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var isEn = (window.i18n && typeof window.i18n.getLang === 'function' && window.i18n.getLang() === 'en');
         var title = promptText
             ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '')
-            : (isEn ? 'Product design draft' : '產品設計稿');
-        var description = promptText || (isEn ? '(No description)' : '（無描述）');
+            : rpTr('customProduct.defaultSaveTitle', '產品設計稿');
+        var description = promptText || rpTr('customProduct.noDescription', '（無描述）');
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
             var seedInput = $('#generationSeed').val();
