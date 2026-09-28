@@ -209,18 +209,17 @@ $(document).ready(function () {
         var sent = (debugFlux.promptSentToBfl || '').trim();
         var composed = (debugFlux.promptComposed || '').trim();
         if (!sent && !composed) return '';
-        var en = staffDebugLangEn();
         var body = '';
         if (sent) {
-            body += '<p class="mb-1 text-muted small">' + (en ? 'Sent (translated)' : '送出（英譯後）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + tr('customProduct.fluxDebugSent', '送出（英譯後）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
         }
         if (composed && composed !== sent) {
-            body += '<p class="mb-1 text-muted small">' + (en ? 'Composed (before translation)' : '組裝原文（英譯前）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + tr('customProduct.fluxDebugComposed', '組裝原文（英譯前）') + '</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
         }
         if (debugFlux.referenceMap && debugFlux.referenceMap.length) {
-            body += '<p class="mb-1 text-muted small">' + (en ? 'Reference map' : '參考圖對照') + '</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
+            body += '<p class="mb-1 text-muted small">' + tr('customProduct.fluxDebugRefMap', '參考圖對照') + '</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
         }
-        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">' + (en ? 'Admin: generation prompt' : '管理員：生圖提示詞') + '</summary><div class="mt-2">' + body + '</div></details>';
+        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">' + tr('customProduct.fluxDebugSummary', '管理員：生圖提示詞') + '</summary><div class="mt-2">' + body + '</div></details>';
     }
 
     function showBootstrapTab(tabEl) {
@@ -3514,7 +3513,7 @@ $(document).ready(function () {
         $('#pastItemModalLabel').text(label);
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) inner.innerHTML = '<img src="' + String(item.url).replace(/"/g, '&quot;') + '" alt="">';
-        $('#pastItemModalPrompt').text((g.addon || '').trim() || '（無）');
+        $('#pastItemModalPrompt').text((g.addon || '').trim() || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalSeed').text('—');
         $('#pastItemModalOwner').text('—');
         applyPastItemModalRefSources(src ? [src] : []);
@@ -4756,15 +4755,14 @@ $(document).ready(function () {
                 result = text ? JSON.parse(text) : {};
             } catch (e) {
                 if (typeof text === 'string' && text.trim().startsWith('<')) {
-                    $('#generatedImagePreview').html(`
-                        <div class="alert alert-warning">
-                            <h6><i class="fas fa-server me-2"></i>API 未正確回應</h6>
-                            <p class="mb-2">伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確（例如本機請用同一埠開啟頁面與 API）。</p>
-                            <button type="button" class="btn btn-sm btn-warning" onclick="$('#generateImageBtn').click()">
-                                <i class="fas fa-redo me-1"></i>重試
-                            </button>
-                        </div>
-                    `);
+                    $('#generatedImagePreview').html(
+                        '<div class="alert alert-warning">' +
+                        '<h6><i class="fas fa-server me-2"></i>' + tr('customProduct.apiBadResponseTitle', 'API 未正確回應') + '</h6>' +
+                        '<p class="mb-2">' + tr('customProduct.apiBadResponseBody', '伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確（例如本機請用同一埠開啟頁面與 API）。') + '</p>' +
+                        '<button type="button" class="btn btn-sm btn-warning" onclick="$(\'#generateImageBtn\').click()">' +
+                        '<i class="fas fa-redo me-1"></i>' + tr('customProduct.retry', '重試') +
+                        '</button></div>'
+                    );
                     showGeneratedResult();
                     document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     return;
@@ -4791,14 +4789,14 @@ $(document).ready(function () {
                 if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
                 var previewHtml = '';
                 if (imgSrc) {
-                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="點擊放大" /></div>';
+                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="' + tr('customProduct.clickToEnlarge', '點擊放大').replace(/"/g, '&quot;') + '" /></div>';
                 }
-                var nextStepText = (typeof t === 'function' && t('customProduct.designNextStepHint')) ? t('customProduct.designNextStepHint') : '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製';
-                previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>已生成並儲存，重整後仍會保留在右側歷史</p>' +
+                var nextStepText = tr('customProduct.designNextStepHint', '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製');
+                previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>' + tr('customProduct.genSavedPersistHint', '已生成並儲存，重整後仍會保留在右側歷史') + '</p>' +
                     '<p class="small text-muted mb-2">' + nextStepText + '</p>' +
-                    '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>我的數位資產</a> ' +
-                    '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>圖庫找廠商</a> ' +
-                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重新生成</button>';
+                    '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>' + tr('nav.myCustomProducts', '我的數位資產') + '</a> ' +
+                    '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>' + tr('nav.galleryFindVendor', '圖庫找廠商') + '</a> ' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>' + tr('customProduct.regenerate', '重新生成') + '</button>';
                 previewHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
                 $('#generatedImagePreview').html(previewHtml);
                 showGeneratedResult();
@@ -4809,27 +4807,27 @@ $(document).ready(function () {
                     try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
                 }, 1800);
             } else if (response.status === 402) {
-                $('#generatedImagePreview').html(`
-                    <div class="alert alert-warning">
-                        <h6><i class="fas fa-coins me-2"></i>點數不足</h6>
-                        <p class="mb-2">${result.error || '點數不足，無法生圖'}</p>
-                        <a href="/credits.html" class="btn btn-sm btn-warning me-2"><i class="fas fa-plus me-1"></i>購買點數</a>
-                        <a href="/subscription-plans.html" class="btn btn-sm btn-outline-secondary"><i class="fas fa-crown me-1"></i>升級方案</a>
-                    </div>
-                `);
+                var insuffMsg = (result && result.error) ? String(result.error) : tr('customProduct.insufficientCreditsDefault', '點數不足，無法生圖');
+                $('#generatedImagePreview').html(
+                    '<div class="alert alert-warning">' +
+                    '<h6><i class="fas fa-coins me-2"></i>' + tr('customProduct.insufficientCreditsTitle', '點數不足') + '</h6>' +
+                    '<p class="mb-2">' + escapeHtmlText(insuffMsg) + '</p>' +
+                    '<a href="/credits.html" class="btn btn-sm btn-warning me-2"><i class="fas fa-plus me-1"></i>' + tr('customProduct.buyCredits', '購買點數') + '</a>' +
+                    '<a href="/subscription-plans.html" class="btn btn-sm btn-outline-secondary"><i class="fas fa-crown me-1"></i>' + tr('customProduct.upgradePlan', '升級方案') + '</a>' +
+                    '</div>'
+                );
                 showGeneratedResult();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
-                var failHtml = `
-                    <div class="alert alert-danger">
-                        <h6><i class="fas fa-exclamation-triangle me-2"></i>生成失敗</h6>
-                        <p class="mb-2">${result.error || '未知錯誤'}</p>
-                        ${result.details ? `<p class="small text-muted mb-2">${result.details}</p>` : ''}
-                        <button type="button" class="btn btn-sm btn-danger" onclick="$('#generateImageBtn').click()">
-                            <i class="fas fa-redo me-1"></i>重試
-                        </button>
-                    </div>
-                `;
+                var failErr = (result && result.error) ? String(result.error) : tr('customProduct.unknownError', '未知錯誤');
+                var failHtml =
+                    '<div class="alert alert-danger">' +
+                    '<h6><i class="fas fa-exclamation-triangle me-2"></i>' + tr('customProduct.genFailedTitle', '生成失敗') + '</h6>' +
+                    '<p class="mb-2">' + escapeHtmlText(failErr) + '</p>' +
+                    (result.details ? '<p class="small text-muted mb-2">' + escapeHtmlText(String(result.details)) + '</p>' : '') +
+                    '<button type="button" class="btn btn-sm btn-danger" onclick="$(\'#generateImageBtn\').click()">' +
+                    '<i class="fas fa-redo me-1"></i>' + tr('customProduct.retry', '重試') +
+                    '</button></div>';
                 failHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
                 $('#generatedImagePreview').html(failHtml);
                 showGeneratedResult();
@@ -4839,18 +4837,17 @@ $(document).ready(function () {
             console.error('Generate image error:', error);
             var isHtmlResponse = error instanceof SyntaxError && (error.message || '').indexOf('not valid JSON') !== -1;
             var msg = isHtmlResponse
-                ? '伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確。'
-                : '請檢查網路連線或稍後再試';
-            var title = isHtmlResponse ? 'API 未正確回應' : '網路連線失敗';
-            $('#generatedImagePreview').html(`
-                <div class="alert alert-warning">
-                    <h6><i class="fas fa-${isHtmlResponse ? 'server' : 'wifi'} me-2"></i>${title}</h6>
-                    <p class="mb-2">${msg}</p>
-                    <button type="button" class="btn btn-sm btn-warning" onclick="$('#generateImageBtn').click()">
-                        <i class="fas fa-redo me-1"></i>重試
-                    </button>
-                </div>
-            `);
+                ? tr('customProduct.apiBadResponseBodyShort', '伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確。')
+                : tr('customProduct.networkFailBody', '請檢查網路連線或稍後再試');
+            var title = isHtmlResponse ? tr('customProduct.apiBadResponseTitle', 'API 未正確回應') : tr('customProduct.networkFailTitle', '網路連線失敗');
+            $('#generatedImagePreview').html(
+                '<div class="alert alert-warning">' +
+                '<h6><i class="fas fa-' + (isHtmlResponse ? 'server' : 'wifi') + ' me-2"></i>' + title + '</h6>' +
+                '<p class="mb-2">' + msg + '</p>' +
+                '<button type="button" class="btn btn-sm btn-warning" onclick="$(\'#generateImageBtn\').click()">' +
+                '<i class="fas fa-redo me-1"></i>' + tr('customProduct.retry', '重試') +
+                '</button></div>'
+            );
             showGeneratedResult();
             document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
@@ -5289,7 +5286,7 @@ $(document).ready(function () {
         var prompt = (item.prompt != null && item.prompt !== undefined) ? String(item.prompt) : '';
         var seed = (item.seed != null && item.seed !== undefined) ? String(item.seed) : '';
         var url = String(dataUrl || '').trim();
-        var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || (t('customProduct.thisGeneration') + '（點擊放大）');
+        var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || tr('customProduct.thisGenerationZoom', '本次生成（點擊放大）');
         if (seed) tip += ' · Seed: ' + seed;
         var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
         attachPastItemImageUrl($cell, url);
@@ -5898,7 +5895,7 @@ $(document).ready(function () {
                 if (!result.ok && result.status === 401) {
                     wrap.empty();
                     var authGrid = ensurePastGalleryShell(wrap, '');
-                    authGrid.html('<p class="text-muted small mb-0">請重新登入後查看歷史生成的圖</p>');
+                    authGrid.html('<p class="text-muted small mb-0">' + tr('customProduct.historyRelogin', '請重新登入後查看歷史生成的圖') + '</p>');
                     updatePastGalleryTabsActive(galleryActiveTab);
                     $('#generatedImagePlaceholder').hide();
                     return;
@@ -5943,7 +5940,7 @@ $(document).ready(function () {
         var wrap = $('#pastGeneratedGallery');
         if (wrap.length) {
             var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
-            grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>載入中…</p>');
+            grid.html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + (t('home.loading') || tr('home.loading', '載入中…')) + '</p>');
         }
         refreshPastGeneratedGallery(undefined, { force: true });
     });
@@ -5973,8 +5970,8 @@ $(document).ready(function () {
         $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) inner.innerHTML = url ? '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">' : '';
-        $('#pastItemModalPrompt').text(prompt || '（無）');
-        $('#pastItemModalSeed').text(seed || '（無）');
+        $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
+        $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalOwner').text(t('customProduct.thisGeneration'));
         applyPastItemModalRefSources(getActiveRefSourcesList());
         $('#pastItemModalShowSection').addClass('d-none');
@@ -6005,8 +6002,8 @@ $(document).ready(function () {
         if (inner) {
             inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">' + t('home.noImage') + '</p>';
         }
-        $('#pastItemModalPrompt').text(prompt || '（無）');
-        $('#pastItemModalSeed').text(seed || '（無）');
+        $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
+        $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalOwner').text(ownerDisplay || ('（' + t('customProduct.thisGeneration') + '）'));
         var refSourcesList = readPastItemRefSources(wrap);
         applyPastItemModalRefSources(Array.isArray(refSourcesList) ? refSourcesList : []);
@@ -6127,9 +6124,9 @@ $(document).ready(function () {
         if (lastGeneratedProductId) {
             patchDesignShowOnHomepage(lastGeneratedProductId, checked).then(function (ok) {
                 if (ok && $hint.length) {
-                    $hint.text(checked ? '已設定為展示在首頁' : '已取消展示在首頁').css('color', 'var(--bs-success)');
+                    $hint.text(checked ? tr('myCustomProducts.promoShowOnHomeOn', '已設定為展示在首頁') : tr('myCustomProducts.promoShowOnHomeOff', '已取消展示在首頁')).css('color', 'var(--bs-success)');
                 } else if (!ok && $hint.length) {
-                    $hint.text('更新失敗，請稍後再試').css('color', 'var(--bs-danger)');
+                    $hint.text(tr('customProduct.updateFailedRetry', '更新失敗，請稍後再試')).css('color', 'var(--bs-danger)');
                 }
             });
         }
@@ -6150,14 +6147,14 @@ $(document).ready(function () {
             }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); }).then(function (res) {
                 if (res.ok) {
                     wrap.attr('data-show-on-homepage', checked ? '1' : '0');
-                    $('#pastItemModalShowOnHomepageHint').text(checked ? '已設定為展示在首頁' : '已取消展示在首頁').css('color', 'var(--bs-success)');
+                    $('#pastItemModalShowOnHomepageHint').text(checked ? tr('myCustomProducts.promoShowOnHomeOn', '已設定為展示在首頁') : tr('myCustomProducts.promoShowOnHomeOff', '已取消展示在首頁')).css('color', 'var(--bs-success)');
                 } else {
-                    var errMsg = (res.data && res.data.error) ? res.data.error : '更新失敗';
+                    var errMsg = (res.data && res.data.error) ? res.data.error : tr('myCustomProducts.updateFailed', '更新失敗');
                     if (res.status === 503) errMsg = res.data && res.data.error ? res.data.error : errMsg;
                     $('#pastItemModalShowOnHomepageHint').text(errMsg).css('color', 'var(--bs-danger)');
                 }
             }).catch(function () {
-                $('#pastItemModalShowOnHomepageHint').text('網路錯誤').css('color', 'var(--bs-danger)');
+                $('#pastItemModalShowOnHomepageHint').text(tr('embedSim.networkError', '網路錯誤，請稍後再試')).css('color', 'var(--bs-danger)');
             });
         });
     });
@@ -6170,7 +6167,7 @@ $(document).ready(function () {
             if (!wrap.length) return;
             var promptStr = (prompt != null && String(prompt).trim()) ? String(prompt).trim() : '';
             var seedStr = (seed != null && seed !== '') ? String(seed) : '';
-            var tip = (promptStr ? promptStr.replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200) : '') || '本次生成（點擊放大）';
+            var tip = (promptStr ? promptStr.replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200) : '') || tr('customProduct.thisGenerationZoom', '本次生成（點擊放大）');
             if (seedStr) tip += ' · Seed: ' + seedStr;
             var ck = ($('#imageCategoryMainSelect').val() || '').trim();
             var sk = ($('#imageCategorySubSelect').val() || '').trim();
@@ -6921,7 +6918,7 @@ $(document).ready(function () {
         var wrap = $('#patternExtractResultWrap');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.patternExtractTab') || '圖樣提取結果').addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.patternExtractTab') || '圖樣提取結果').addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', tr('customProduct.clickToEnlarge', '點擊放大')));
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
         $btn.on('click', function (e) {
             e.preventDefault();

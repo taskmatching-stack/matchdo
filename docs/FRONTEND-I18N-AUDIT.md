@@ -170,7 +170,7 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | ⏳ 下一批建議 |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（生圖成功／失敗、歷史、首頁展示 hint、FLUX debug） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
 | **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
