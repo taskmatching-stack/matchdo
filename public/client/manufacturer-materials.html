@@ -617,6 +617,10 @@
                                 <div class="col-12 add-prototype-links-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">預設 材料／配件 聯結</span></label>
                                     <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksUploadHint">上傳前可預先勾選（亦可上傳後在「編輯」調整）；不勾選也能直接發布。</p>
+                                    <div class="form-check mb-2 add-guide-links-multi-wrap">
+                                        <input class="form-check-input" type="checkbox" id="add-guide-links-multi-pick" checked>
+                                        <label class="form-check-label small" for="add-guide-links-multi-pick" data-i18n="baseModels.guideLinksMultiPick">看可搭配：訂製者可複選配件（材料仍只能選一筆）</label>
+                                    </div>
                                     <div class="add-prototype-links-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                                     <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                                 </div>
@@ -1121,7 +1125,11 @@
                         <div class="va-spec-body">
                         <div class="mb-3 d-none" id="edit-prototype-links-wrap">
                             <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">預設 材料／配件 聯結</span></label>
-                            <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksHint">可複選同廠材料或配件；設計端選圖時會優先標示。不設定也能上架。</p>
+                            <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksHint">勾選要推薦的材料／配件；設計端選圖時會優先標示。不設定也能上架。</p>
+                            <div class="form-check mb-2" id="edit-guide-links-multi-wrap">
+                                <input class="form-check-input" type="checkbox" id="edit-guide-links-multi-pick" checked>
+                                <label class="form-check-label small" for="edit-guide-links-multi-pick" data-i18n="baseModels.guideLinksMultiPick">看可搭配：訂製者可複選配件（材料仍只能選一筆）</label>
+                            </div>
                             <div id="edit-prototype-links-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
@@ -1392,7 +1400,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-asset-i18n-en-20260928';
+        window.__MATCHDO_MATERIALS_BUILD = 'guide-links-multi-pick-20260928';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -9439,6 +9447,8 @@
                 fd.append('min_order_quantity', form.querySelector('.add-min-order-qty').value.trim());
                 fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels'))));
                 fd.append('linked_links', JSON.stringify(readPrototypeLinkEntries(form.querySelector('.add-prototype-links-list'))));
+                var addGuideMulti = form.querySelector('#add-guide-links-multi-pick');
+                fd.append('guide_links_multi_pick', (addGuideMulti && addGuideMulti.checked) ? '1' : '0');
             } else if (kind === 'material' || kind === 'part') {
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
@@ -9896,19 +9906,7 @@
                 '<input type="checkbox" class="form-check-input flex-shrink-0 proto-link-check" value="' + cid.replace(/"/g, '&quot;') + '"' +
                 (selected.has(cid) ? ' checked' : '') + '>' + thumb +
                 '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
-                (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span></label>' +
-                '<div class="proto-link-meta ms-4 ps-2' + (selected.has(cid) ? '' : ' d-none') + '">' +
-                '<div class="form-check form-check-inline small mb-1">' +
-                '<input type="checkbox" class="form-check-input proto-link-allow-multi"' + (meta.allow_multi_pick ? ' checked' : '') + '>' +
-                '<label class="form-check-label">可與其他並選</label></div>' +
-                '<div class="input-group input-group-sm" style="max-width:14rem">' +
-                '<span class="input-group-text">擇一組</span>' +
-                '<input type="text" class="form-control proto-link-pick-group" placeholder="留空＝無" value="' +
-                String(meta.pick_group || '').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></div></div>';
-            var chk = rowWrap.querySelector('.proto-link-check');
-            if (chk) {
-                chk.addEventListener('change', function () { syncPrototypeLinkMetaVisibility(rowWrap); });
-            }
+                (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span></label>';
             return rowWrap;
         }
 
@@ -10148,13 +10146,7 @@
                 var id = (chk.value || '').trim();
                 if (!id || seen[id]) return;
                 seen[id] = true;
-                var allowMulti = row.querySelector('.proto-link-allow-multi');
-                var pickGroup = row.querySelector('.proto-link-pick-group');
-                out.push({
-                    linked_asset_id: id,
-                    allow_multi_pick: allowMulti ? !!allowMulti.checked : true,
-                    pick_group: pickGroup && String(pickGroup.value || '').trim() ? String(pickGroup.value).trim() : null
-                });
+                out.push({ linked_asset_id: id });
             });
             return out;
         }
@@ -10313,6 +10305,8 @@
                 var moqEdit = document.getElementById('edit-min-order-qty');
                 if (moqEdit) moqEdit.value = (m.min_order_quantity != null && m.min_order_quantity !== '') ? String(m.min_order_quantity) : '';
                 renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), m.customization_levels || []);
+                var guideMulti = document.getElementById('edit-guide-links-multi-pick');
+                if (guideMulti) guideMulti.checked = m.guide_links_multi_pick !== false;
             }
             document.getElementById('edit-image').value = '';
             showLocalImagePreview(document.getElementById('edit-new-image-preview'), null);
@@ -10694,6 +10688,8 @@
                 }
                 fd.append('min_order_quantity', moqStr);
                 fd.append('customization_levels', JSON.stringify(editLevels));
+                var guideMultiSave = document.getElementById('edit-guide-links-multi-pick');
+                fd.append('guide_links_multi_pick', (guideMultiSave && guideMultiSave.checked) ? '1' : '0');
             }
             if (editPrototypeLinksPending.loaded) {
                 if (editKind === 'prototype') {

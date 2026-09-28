@@ -1585,29 +1585,22 @@
         wireExportPdfButton(id);
     }
 
-    function getGuideLinkMeta(assetId) {
-        return state.guideLinkMetaByAssetId[assetId] || { allow_multi_pick: true, pick_group: null };
-    }
-
-    function normalizePickGroup(g) {
-        var s = (g || '').trim();
-        return s || null;
+    function prototypeGuideLinksMultiPick() {
+        var p = state.guidePayload && state.guidePayload.prototype;
+        if (!p) return true;
+        return p.guide_links_multi_pick !== false;
     }
 
     function enforceGuideSelectionRules(selectedId) {
-        var meta = getGuideLinkMeta(selectedId);
-        var group = normalizePickGroup(meta.pick_group);
+        var multiParts = prototypeGuideLinksMultiPick();
         var selectedAsset = assetById(selectedId);
         var selectedKind = selectedAsset ? selectedAsset.asset_kind : null;
         state.guideSelectedIds = state.guideSelectedIds.filter(function (aid) {
             if (aid === selectedId) return true;
             var a = assetById(aid);
-            var m = getGuideLinkMeta(aid);
-            var g2 = normalizePickGroup(m.pick_group);
-            /* 看可搭配：主體材料僅能選一筆；配件複選仍依廠商 allow_multi_pick / pick_group */
+            /* 材料固定僅能選一筆；配件依主產品 guide_links_multi_pick */
             if (!IS_VENDOR && selectedKind === 'material' && a && a.asset_kind === 'material') return false;
-            if (group && g2 === group) return false;
-            if (!meta.allow_multi_pick && m.allow_multi_pick === false) return false;
+            if (!IS_VENDOR && !multiParts && selectedKind === 'part' && a && a.asset_kind === 'part') return false;
             return true;
         });
     }

@@ -8919,6 +8919,12 @@ function normalizeVendorContentLang(lang) {
     return (s === 'en' || s.startsWith('en-')) ? 'en' : 'zh';
 }
 
+/** 看可搭配：主產品是否允許複選配件（缺欄／null → true，與舊行為相容） */
+function vendorAssetGuideLinksMultiPick(row) {
+    if (!row || row.guide_links_multi_pick === undefined || row.guide_links_multi_pick === null) return true;
+    return !!row.guide_links_multi_pick;
+}
+
 /** 廠商 UGC：lang=en 時優先 *_en，無則 fallback 中文主欄 */
 function pickVendorLocalizedText(primary, enValue, lang) {
     if (normalizeVendorContentLang(lang) === 'en') {
@@ -9765,7 +9771,7 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, guide_links_multi_pick, created_at, updated_at';
 /** 圖庫增刪改／重繪 API 回傳：須含 MOQ、訂製程度、工藝、我的分類等（避免前端被空陣列覆寫） */
 const VENDOR_ASSET_SELECT_GALLERY_API = VENDOR_ASSET_SELECT_ME;
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
@@ -9773,7 +9779,8 @@ const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subca
 
 const VENDOR_ASSET_OPTIONAL_COLS_42703 = [
     'source_catalog_item_id', 'cover_image_label', 'cover_link_group', 'gallery_images', 'asset_kind', 'part_key',
-    'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key', 'title_en', 'description_en'
+    'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key', 'title_en', 'description_en',
+    'guide_links_multi_pick'
 ];
 
 function stripMissingColumnsFromSelect(selectCols, errMessage) {
@@ -34076,7 +34083,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
 
 async function buildPublicPrototypeLinkTree(prototypeAssetId, contentLang) {
     const lang = normalizeVendorContentLang(contentLang);
-    const assetCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels';
+    const assetCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels, guide_links_multi_pick';
     let { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
         .select(assetCols)
@@ -34171,7 +34178,8 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId, contentLang) {
             customization_levels: proto.customization_levels || [],
             production_type_key: proto.production_type_key || null,
             capability_custom_labels: proto.capability_custom_labels || [],
-            capabilities: capabilities
+            capabilities: capabilities,
+            guide_links_multi_pick: vendorAssetGuideLinksMultiPick(proto)
         },
         linked_assets: linkedAssets,
         material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
@@ -39614,6 +39622,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (assetKind === 'prototype') {
             insertPayload.min_order_quantity = prototypeMoqValue;
             insertPayload.customization_levels = prototypeCustomizationLevels;
+            if (body.guide_links_multi_pick !== undefined) {
+                insertPayload.guide_links_multi_pick = !!parseTruthyBody(body.guide_links_multi_pick);
+            }
         } else         if (assetKind === 'part') {
             insertPayload.min_order_quantity = null;
             insertPayload.customization_levels = [];
@@ -41150,6 +41161,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                 : ((row.subcategory_key || '').trim());
             if (!finalSubKey) {
                 return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+            }
+            if (body.guide_links_multi_pick !== undefined) {
+                updates.guide_links_multi_pick = !!parseTruthyBody(body.guide_links_multi_pick);
             }
         }
         if (assetKind === 'material' && body.material_surface_type !== undefined) {
