@@ -520,7 +520,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <p class="text-muted mb-1 small" data-i18n="myCustomProducts.promoIntro">產品情境圖與商攝導演生成紀錄（含空間鎖定圖）。此 Tab 允許裁切縮圖以整齊排列，其他資產一律 1:1 完整顯示。</p>
-                        <div class="d-flex flex-wrap gap-1" id="promoKindFilters" role="group" aria-label="情境圖分類">
+                        <div class="d-flex flex-wrap gap-1" id="promoKindFilters" role="group" data-i18n-aria-label="myCustomProducts.promoKindFiltersAria" aria-label="情境圖分類">
                             <button type="button" class="btn btn-sm btn-secondary" data-promo-kind="all" data-i18n="myCustomProducts.filterAll">全部</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="product" data-i18n="myCustomProducts.filterProduct">產品</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" data-promo-kind="space" data-i18n="myCustomProducts.filterSpace">空間</button>
@@ -605,6 +605,16 @@
             return lang.indexOf('en') === 0 ? (fallbackEn || fallbackZh) : fallbackZh;
         }
 
+        function uiTf(key, fallbackZh, fallbackEn, map) {
+            var s = uiT(key, fallbackZh, fallbackEn);
+            if (map) {
+                Object.keys(map).forEach(function (k) {
+                    s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(map[k]));
+                });
+            }
+            return s;
+        }
+
         function useForDesignDraftLabel() {
             return uiT('myCustomProducts.useForDesignDraft', '用於設計稿', 'Use in design draft');
         }
@@ -620,65 +630,46 @@
             return v === 'design-direction' || v === 'design_direction' || v === 'remake';
         })();
 
-        var designDirectionCopyZh = {
-            title: '我的設計風向',
-            intro: '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。',
-            filterNote: '目前顯示帳號內所有設計紀錄；僅顯示設計風向作品的篩選即將推出。',
-            advisorTeaser: '🪄 產品顧問（籌備中）：日後可診斷您的設計是否貼合市場熱門風向。基礎廠商 ($300) 開通後預計每次 10 點；免費會員可先瀏覽首頁各分類熱門標籤。',
-            emptyTitle: '尚無設計風向紀錄',
-            emptyDesc: '完成設計意圖分析並儲存後，作品會顯示於此。',
-            btnCreate: '開始設計意圖分析'
-        };
-        var designDirectionCopyEn = {
-            title: 'My design directions',
-            intro: 'Saved intent analyses and generated designs; optional open-for-makers search.',
-            filterNote: 'Showing all designs on your account; design-direction-only filter coming soon.',
-            advisorTeaser: 'Product advisor (coming soon): diagnose fit with market trends. Basic ($300) est. 10 credits per run; free users can preview homepage Top 3 tags.',
-            emptyTitle: 'No design directions yet',
-            emptyDesc: 'Complete intent analysis and save; items appear here.',
-            btnCreate: 'Start intent analysis'
-        };
-
         function applyDesignDirectionView() {
             if (!isDesignDirectionView) return;
-            var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
-            var c = (lang === 'en') ? designDirectionCopyEn : designDirectionCopyZh;
             document.documentElement.setAttribute('data-theme', 'remake');
-            document.title = c.title + ' - MatchDO 合做';
+            document.title = uiT('myCustomProducts.designDirection.docTitle', '我的設計風向 - MatchDO 合做', 'My design directions - MatchDO');
             const icon = document.getElementById('pageHeadingIcon');
             if (icon) { icon.className = 'bi bi-compass me-2'; }
             const setText = function (id, text) { const el = document.getElementById(id); if (el) el.textContent = text; };
-            setText('pageHeadingText', c.title);
+            var ddTitle = uiT('myCustomProducts.designDirection.title', '我的設計風向', 'My design directions');
+            setText('pageHeadingText', ddTitle);
             const bc = document.getElementById('pageBreadcrumb');
             if (bc) {
-                var homeLabel = lang === 'en' ? 'Home' : '首頁';
-                var sectionLabel = lang === 'en' ? 'Design Direction' : '設計風向';
+                var homeLabel = uiT('myCustomProducts.home', '首頁', 'Home');
+                var sectionLabel = uiT('myCustomProducts.designDirection.breadcrumbSection', '設計風向', 'Design Direction');
                 bc.innerHTML = '<li class="breadcrumb-item"><a href="/index.html">' + homeLabel + '</a></li>'
                     + '<li class="breadcrumb-item"><a href="/design-direction/">' + sectionLabel + '</a></li>'
-                    + '<li class="breadcrumb-item active">' + c.title + '</li>';
+                    + '<li class="breadcrumb-item active">' + ddTitle + '</li>';
             }
             const tabIcon = document.getElementById('tabDesignsIcon');
             if (tabIcon) { tabIcon.className = 'bi bi-collection me-1'; }
-            setText('tabDesignsLabel', c.title);
-            setText('designsIntro', c.intro);
+            setText('tabDesignsLabel', ddTitle);
+            setText('designsIntro', uiT('myCustomProducts.designDirection.intro', '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。', 'Saved intent analyses and generated designs; optional open-for-makers search.'));
             const note = document.getElementById('designDirectionFilterNote');
             if (note) {
-                note.textContent = c.filterNote;
+                note.textContent = uiT('myCustomProducts.designDirection.filterNote', '目前顯示帳號內所有設計紀錄；僅顯示設計風向作品的篩選即將推出。', 'Showing all designs on your account; design-direction-only filter coming soon.');
                 note.classList.remove('d-none');
             }
             const advisorBox = document.getElementById('designDirectionAdvisorTeaser');
             if (advisorBox) {
-                advisorBox.textContent = c.advisorTeaser;
+                advisorBox.textContent = uiT('myCustomProducts.designDirection.advisorTeaser', '🪄 產品顧問（籌備中）：日後可診斷您的設計是否貼合市場熱門風向。基礎廠商 ($300) 開通後預計每次 10 點；免費會員可先瀏覽首頁各分類熱門標籤。', 'Product advisor (coming soon): diagnose fit with market trends. Basic ($300) est. 10 credits per run; free users can preview homepage Top 3 tags.');
                 advisorBox.classList.remove('d-none');
             }
             const createBtn = document.getElementById('btnCreateDesign');
             if (createBtn) createBtn.href = '/design-direction/analysis.html';
-            setText('btnCreateDesignText', c.btnCreate);
-            setText('emptyTitle', c.emptyTitle);
-            setText('emptyDesc', c.emptyDesc);
+            var ddBtn = uiT('myCustomProducts.designDirection.btnCreate', '開始設計意圖分析', 'Start intent analysis');
+            setText('btnCreateDesignText', ddBtn);
+            setText('emptyTitle', uiT('myCustomProducts.designDirection.emptyTitle', '尚無設計風向紀錄', 'No design directions yet'));
+            setText('emptyDesc', uiT('myCustomProducts.designDirection.emptyDesc', '完成設計意圖分析並儲存後，作品會顯示於此。', 'Complete intent analysis and save; items appear here.'));
             const emptyBtn = document.getElementById('emptyCreateBtn');
             if (emptyBtn) emptyBtn.href = '/design-direction/analysis.html';
-            setText('emptyCreateBtnText', c.btnCreate);
+            setText('emptyCreateBtnText', ddBtn);
         }
 
         let promoLoaded = false;
@@ -908,7 +899,7 @@
                 if (label) lines.push(swatch + escapeHtml(label));
             });
             if (combo.boundary) {
-                lines.push('<span class="text-muted">分界：' + escapeHtml(String(combo.boundary)) + '</span>');
+                lines.push('<span class="text-muted">' + escapeHtml(uiT('myCustomProducts.comboBoundaryLabel', '分界：', 'Boundary:')) + escapeHtml(String(combo.boundary)) + '</span>');
             }
             return lines.length ? ('<div class="material-combo-meta small mb-2">' + lines.join('<br>') + '</div>') : '';
         }
@@ -926,11 +917,14 @@
             if (!wrap) return;
             wrap.removeAttribute('data-editing');
             const desc = String(text || '').trim();
+            var editTitle = escapeHtml(uiT('myCustomProducts.descClickEditTitle', '點擊編輯描述', 'Click to edit description'));
+            var emptyLbl = escapeHtml(uiT('myCustomProducts.descEmpty', '尚無描述', 'No description yet'));
+            var editHint = escapeHtml(uiT('myCustomProducts.descEditHint', '編輯', 'Edit'));
             wrap.innerHTML = '<div class="asset-desc-row">' +
                 (desc
-                    ? ('<p class="design-desc-text" data-role="' + role + '" title="點擊編輯描述">' + escapeHtml(desc) + '</p>')
-                    : ('<p class="design-desc-text text-muted" data-role="' + role + '" title="點擊編輯描述">尚無描述</p>')) +
-                '<span class="asset-desc-edit-hint">編輯</span></div>';
+                    ? ('<p class="design-desc-text" data-role="' + role + '" title="' + editTitle + '">' + escapeHtml(desc) + '</p>')
+                    : ('<p class="design-desc-text text-muted" data-role="' + role + '" title="' + editTitle + '">' + emptyLbl + '</p>')) +
+                '<span class="asset-desc-edit-hint">' + editHint + '</span></div>';
         }
 
         function currentDescFromWrap(wrap, role) {
@@ -942,20 +936,20 @@
             const el = wrap.querySelector('[data-role="' + role + '"]');
             if (!el) return '';
             const t = String(el.textContent || '').trim();
-            return t === '尚無描述' ? '' : t;
+            return t === uiT('myCustomProducts.descEmpty', '尚無描述', 'No description yet') ? '' : t;
         }
 
         async function patchAssetJson(url, body) {
             const session = await AuthService.getSession();
             const token = session && session.access_token;
-            if (!token) throw new Error('請先登入');
+            if (!token) throw new Error(uiT('myCustomProducts.loginRequired', '請先登入', 'Please log in first'));
             const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             const data = await res.json().catch(function () { return {}; });
-            if (!res.ok) throw new Error((data && data.error) || '更新失敗');
+            if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed'));
             return data;
         }
 
@@ -963,10 +957,10 @@
             const current = currentDescFromWrap(wrap, opts.role);
             wrap.setAttribute('data-editing', '1');
             wrap.innerHTML =
-                '<textarea class="form-control form-control-sm asset-desc-edit" rows="3" maxlength="' + ASSET_DESC_MAX + '" placeholder="自行填寫描述（免費，不扣點）"></textarea>' +
+                '<textarea class="form-control form-control-sm asset-desc-edit" rows="3" maxlength="' + ASSET_DESC_MAX + '" placeholder="' + escapeHtml(uiT('myCustomProducts.descPlaceholder', '自行填寫描述（免費，不扣點）', 'Write your own description (free, no credits)')) + '"></textarea>' +
                 '<div class="d-flex gap-1 mt-1">' +
-                '<button type="button" class="btn btn-sm btn-primary btn-desc-save">儲存</button>' +
-                '<button type="button" class="btn btn-sm btn-outline-secondary btn-desc-cancel">取消</button>' +
+                '<button type="button" class="btn btn-sm btn-primary btn-desc-save">' + escapeHtml(uiT('myCustomProducts.btnSave', '儲存', 'Save')) + '</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary btn-desc-cancel">' + escapeHtml(uiT('myCustomProducts.btnCancel', '取消', 'Cancel')) + '</button>' +
                 '</div>';
             const ta = wrap.querySelector('textarea');
             ta.value = current;
@@ -980,9 +974,9 @@
                 try {
                     await opts.onSave(v);
                     paintAssetDesc(wrap, opts.role, v);
-                    showAlert('描述已儲存', 'success');
+                    showAlert(uiT('myCustomProducts.descSaved', '描述已儲存', 'Description saved'), 'success');
                 } catch (err) {
-                    showAlert('儲存描述失敗：' + (err.message || err), 'danger');
+                    showAlert(uiTf('myCustomProducts.descSaveFailed', '儲存描述失敗：{error}', 'Could not save description: {error}', { error: err.message || err }), 'danger');
                     btn.disabled = false;
                 }
             });
@@ -1008,7 +1002,7 @@
         function fillCategoryFilterSelect(selectEl, categories, selected) {
             if (!selectEl) return;
             const cur = selected != null ? String(selected) : '';
-            selectEl.innerHTML = '<option value="">全部</option>';
+            selectEl.innerHTML = '<option value="">' + escapeHtml(uiT('myCustomProducts.filterAll', '全部', 'All')) + '</option>';
             (categories || []).forEach(function (c) {
                 if (!c) return;
                 const opt = document.createElement('option');
@@ -1049,7 +1043,9 @@
             const label = document.getElementById('assetMetaEditLabel');
             if (titleInp) titleInp.value = (item.title || '').trim();
             if (catInp) catInp.value = (item.category || '').trim();
-            if (label) label.textContent = kind === 'print' ? '編輯印花名稱與分類' : '編輯材料組合名稱與分類';
+            if (label) label.textContent = kind === 'print'
+                ? uiT('myCustomProducts.metaEditPrint', '編輯印花名稱與分類', 'Edit print name and category')
+                : uiT('myCustomProducts.metaEditCombo', '編輯材料組合名稱與分類', 'Edit combo name and category');
             if (!assetMetaEditModal) assetMetaEditModal = new bootstrap.Modal(modalEl);
             assetMetaEditModal.show();
         }
@@ -1066,7 +1062,7 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const res = await fetch(path, {
                     method: 'PATCH',
                     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -1075,16 +1071,16 @@
                 const data = await res.json().catch(function () { return {}; });
                 if (!res.ok) {
                     if (data.category_column_missing) {
-                        throw new Error('請先在 Supabase 執行 docs/add-user-asset-library-category.sql');
+                        throw new Error(uiT('myCustomProducts.migrationCategorySql', '請先在 Supabase 執行 docs/add-user-asset-library-category.sql', 'Run docs/add-user-asset-library-category.sql in Supabase first'));
                     }
-                    throw new Error((data && data.error) || '儲存失敗');
+                    throw new Error((data && data.error) || uiT('myCustomProducts.saveFailed', '儲存失敗', 'Could not save'));
                 }
                 if (assetMetaEditModal) assetMetaEditModal.hide();
-                showAlert('已更新名稱與分類', 'success');
+                showAlert(uiT('myCustomProducts.metaUpdated', '已更新名稱與分類', 'Name and category updated'), 'success');
                 if (assetMetaEditKind === 'print') await loadPrintAssets();
                 else await loadMaterialCombos();
             } catch (err) {
-                showAlert('儲存失敗: ' + err.message, 'danger');
+                showAlert(uiT('myCustomProducts.saveFailed', '儲存失敗', 'Could not save') + ': ' + err.message, 'danger');
             }
         }
 
@@ -1098,7 +1094,7 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const offset = append ? comboOffset : 0;
                 if (!append) {
                     if (loading) loading.style.display = 'block';
@@ -1110,7 +1106,7 @@
                     headers: { Authorization: 'Bearer ' + token }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '載入失敗');
+                if (!response.ok) throw new Error(data.error || uiT('myCustomProducts.loadFailed', '載入失敗', 'Could not load'));
                 fillCategoryFilterSelect(document.getElementById('comboCategoryFilter'), data.categories || [], comboCategoryFilterValue);
                 const items = data.items || [];
                 comboHasMore = !!data.hasMore;
@@ -1123,9 +1119,9 @@
                         empty.style.display = 'block';
                         const p = empty.querySelector('p');
                         if (p && data.table_missing) {
-                            p.textContent = '資料表尚未建立：請在 Supabase 執行 docs/add-user-material-combo-generations.sql；建表前的生成不會出現在此，請建表後重新生成。';
+                            p.textContent = uiT('myCustomProducts.comboTableMissing', '資料表尚未建立：請在 Supabase 執行 docs/add-user-material-combo-generations.sql；建表前的生成不會出現在此，請建表後重新生成。', 'Table not created yet: run docs/add-user-material-combo-generations.sql in Supabase. Generations before migration will not appear—re-generate after setup.');
                         } else if (p && comboCategoryFilterValue) {
-                            p.textContent = '此分類尚無材料組合，可改選「全部」或清除篩選。';
+                            p.textContent = uiT('myCustomProducts.comboEmptyFiltered', '此分類尚無材料組合，可改選「全部」或清除篩選。', 'No combos in this category. Choose “All” or clear the filter.');
                         }
                     }
                     setLoadMoreVisible('comboLoadMoreWrap', false);
@@ -1146,7 +1142,7 @@
                 if (!append && empty) {
                     empty.style.display = 'block';
                     const p = empty.querySelector('p');
-                    if (p) p.textContent = '載入失敗：' + error.message;
+                    if (p) p.textContent = uiTf('myCustomProducts.comboLoadFailed', '載入失敗：{error}', 'Could not load combos: {error}', { error: error.message });
                 }
             } finally {
                 comboBusy = false;
@@ -1161,7 +1157,7 @@
             if (!title && combo && combo.main && combo.accent) {
                 title = [combo.main.material, combo.accent.material].filter(Boolean).join('／');
             }
-            if (!title) title = '材料組合';
+            if (!title) title = uiT('myCustomProducts.comboDefaultTitle', '材料組合', 'Material combo');
             const category = (item.category || '').trim();
             const metaHtml = formatComboMetaHtml(combo);
             const catBadge = category
@@ -1170,7 +1166,7 @@
             col.innerHTML = `
                 <div class="card product-card h-100" data-combo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="${escapeHtml(uiT('myCustomProducts.clickEnlarge', '點擊放大', 'Click to enlarge'))}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
@@ -1181,10 +1177,10 @@
                         </div>
                         <div class="asset-card-btns">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
-                            <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-combo-edit"><i class="bi bi-pencil me-1"></i>${escapeHtml(uiT('myCustomProducts.nameCategory', '名稱／分類', 'Name / category'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>${escapeHtml(uiT('myCustomProducts.originalImage', '原圖', 'Original'))}</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-combo-delete"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button>
                         </div>
                     </div>
                 </div>
@@ -1216,17 +1212,17 @@
 
         async function deleteMaterialCombo(id, colEl) {
             if (!id) return;
-            if (!confirm('確定要刪除此材料組合？刪除後無法復原。')) return;
+            if (!confirm(uiT('myCustomProducts.confirmDeleteCombo', '確定要刪除此材料組合？刪除後無法復原。', 'Delete this material combo permanently? This cannot be undone.'))) return;
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const res = await fetch('/api/me/material-combo-generations/' + encodeURIComponent(id), {
                     method: 'DELETE',
                     headers: { Authorization: 'Bearer ' + token }
                 });
                 const data = await res.json().catch(function () { return {}; });
-                if (!res.ok) throw new Error((data && data.error) || '刪除失敗');
+                if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete'));
                 if (colEl && colEl.parentNode) colEl.parentNode.removeChild(colEl);
                 const list = document.getElementById('comboList');
                 const empty = document.getElementById('comboEmpty');
@@ -1244,9 +1240,9 @@
                     if (comboHasMore) loadMaterialCombos(true, 1);
                     else setLoadMoreVisible('comboLoadMoreWrap', false);
                 }
-                showAlert('已刪除材料組合', 'success');
+                showAlert(uiT('myCustomProducts.comboDeleted', '已刪除材料組合', 'Material combo deleted'), 'success');
             } catch (err) {
-                showAlert('刪除失敗: ' + err.message, 'danger');
+                showAlert(uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete') + ': ' + err.message, 'danger');
             }
         }
 
@@ -1276,7 +1272,7 @@
             try {
                 const session = await AuthService.getSession();
                 const tok = session?.access_token;
-                if (!tok) throw new Error('未登入');
+                if (!tok) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const offset = append ? printOffset : 0;
                 if (!append) {
                     if (loading) loading.style.display = 'block';
@@ -1288,7 +1284,7 @@
                     headers: { Authorization: 'Bearer ' + tok }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '載入失敗');
+                if (!response.ok) throw new Error(data.error || uiT('myCustomProducts.loadFailed', '載入失敗', 'Could not load'));
                 fillCategoryFilterSelect(document.getElementById('printCategoryFilter'), data.categories || [], printCategoryFilterValue);
                 const items = data.items || [];
                 printHasMore = !!data.hasMore;
@@ -1339,14 +1335,16 @@
             if (!title && meta && meta.print_type) title = String(meta.print_type);
             if (!title) title = '印花';
             const category = (item.category || '').trim();
-            const kindLabel = (meta && meta.source_kind === 'redraw') ? 'AI 重繪' : '原圖';
+            const kindLabel = (meta && meta.source_kind === 'redraw')
+                ? uiT('myCustomProducts.printKindRedraw', 'AI 重繪', 'AI redraw')
+                : uiT('myCustomProducts.printKindOriginal', '原圖', 'Original artwork');
             const catBadge = category
                 ? ('<span class="badge bg-light text-dark border mb-2">' + escapeHtml(category) + '</span>')
                 : '';
             col.innerHTML = `
                 <div class="card product-card h-100" data-print-id="${escapeHtml(String(item.id || ''))}">
                     <div class="combo-asset-thumb-wrap card-img-top border-0">
-                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="點擊放大" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" class="matchdo-enlarge-trigger" title="${escapeHtml(uiT('myCustomProducts.clickEnlarge', '點擊放大', 'Click to enlarge'))}" loading="lazy" decoding="async" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1 asset-card-title">${escapeHtml(title)}</h6>
@@ -1354,10 +1352,10 @@
                         <div class="text-muted small mb-2">${escapeHtml(kindLabel)} · <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}</div>
                         <div class="asset-card-btns">
                             <a href="/custom-product.html" class="btn btn-primary btn-sm"><i class="bi bi-palette me-1"></i>${escapeHtml(useForDesignDraftLabel())}</a>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>名稱／分類</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
-                            <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>刪除</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-resume" data-id="${escapeHtml(String(item.id || ''))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-print-edit"><i class="bi bi-pencil me-1"></i>${escapeHtml(uiT('myCustomProducts.nameCategory', '名稱／分類', 'Name / category'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>${escapeHtml(uiT('myCustomProducts.originalImage', '原圖', 'Original'))}</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-print-delete"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button>
                         </div>
                     </div>
                 </div>
@@ -1389,17 +1387,17 @@
 
         async function deletePrintAsset(id, colEl) {
             if (!id) return;
-            if (!confirm('確定要刪除此印花？刪除後無法復原。')) return;
+            if (!confirm(uiT('myCustomProducts.confirmDeletePrint', '確定要刪除此印花？刪除後無法復原。', 'Delete this print permanently? This cannot be undone.'))) return;
             try {
                 const session = await AuthService.getSession();
                 const tok = session?.access_token;
-                if (!tok) throw new Error('未登入');
+                if (!tok) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const res = await fetch('/api/me/print-generations/' + encodeURIComponent(id), {
                     method: 'DELETE',
                     headers: { Authorization: 'Bearer ' + tok }
                 });
                 const data = await res.json().catch(function () { return {}; });
-                if (!res.ok) throw new Error((data && data.error) || '刪除失敗');
+                if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete'));
                 if (colEl && colEl.parentNode) colEl.parentNode.removeChild(colEl);
                 const list = document.getElementById('printList');
                 const empty = document.getElementById('printEmpty');
@@ -1417,9 +1415,9 @@
                     if (printHasMore) loadPrintAssets(true, 1);
                     else setLoadMoreVisible('printLoadMoreWrap', false);
                 }
-                showAlert('已刪除印花', 'success');
+                showAlert(uiT('myCustomProducts.printDeleted', '已刪除印花', 'Print deleted'), 'success');
             } catch (err) {
-                showAlert('刪除失敗: ' + err.message, 'danger');
+                showAlert(uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete') + ': ' + err.message, 'danger');
             }
         }
 
@@ -1469,7 +1467,7 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const offset = append ? promoOffset : 0;
                 const limit = (append && fillLimit) ? fillLimit : ASSET_PAGE_SIZE;
                 if (!append && loading) loading.style.display = 'block';
@@ -1479,7 +1477,7 @@
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '載入失敗');
+                if (!response.ok) throw new Error(data.error || uiT('myCustomProducts.loadFailed', '載入失敗', 'Could not load'));
                 const items = data.items || [];
                 promoHasMore = !!data.hasMore;
                 promoOffset = offset + items.length;
@@ -1629,9 +1627,9 @@
                         <div class="asset-card-btns">
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="生圖履歷"><i class="bi bi-file-earmark-text me-1"></i>履歷</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>原圖</button>
-                            <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-promo-resume" data-id="${escapeHtml(String(item.id || ''))}" title="${escapeHtml(uiT('myCustomProducts.promoResumeTitle', '生圖履歷', 'Generation history'))}"><i class="bi bi-file-earmark-text me-1"></i>${escapeHtml(uiT('myCustomProducts.resume', '履歷', 'Resume'))}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-open-asset-original" data-image-url="${escapeHtml(item.image_url)}"><i class="bi bi-zoom-in me-1"></i>${escapeHtml(uiT('myCustomProducts.originalImage', '原圖', 'Original'))}</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>${escapeHtml(uiT('myCustomProducts.delete', '刪除', 'Delete'))}</button>
                         </div>
                     </div>
                 </div>
@@ -1725,22 +1723,24 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session && session.access_token;
-                if (!token) throw new Error('請先登入');
+                if (!token) throw new Error(uiT('myCustomProducts.loginRequired', '請先登入', 'Please log in first'));
                 const response = await fetch(path, {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
                     body: '{}'
                 });
                 const data = await response.json().catch(function () { return {}; });
-                if (!response.ok) throw new Error((data && data.error) || '操作失敗');
+                if (!response.ok) throw new Error((data && data.error) || uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'));
                 applyPromoCardSemantics(colEl, {
                     description: data.description,
                     ai_tags: data.ai_tags
                 });
                 const pts = data.points_deducted != null ? data.points_deducted : 0;
-                showAlert('描述與標籤已更新' + (pts ? '（扣 ' + pts + ' 點）' : ''), 'success');
+                showAlert(pts
+                    ? uiTf('myCustomProducts.descTagsUpdatedWithPts', '描述與標籤已更新（扣 {pts} 點）', 'Description and tags updated (charged {pts} credits)', { pts: pts })
+                    : uiT('myCustomProducts.descTagsUpdated', '描述與標籤已更新', 'Description and tags updated'), 'success');
             } catch (err) {
-                showAlert('描述與標籤產生失敗：' + (err.message || err), 'danger');
+                showAlert(uiTf('myCustomProducts.descTagsGenFailed', '描述與標籤產生失敗：{error}', 'Could not generate description and tags: {error}', { error: err.message || err }), 'danger');
             } finally {
                 btnEl.disabled = false;
                 btnEl.innerHTML = prevHtml;
@@ -1749,17 +1749,17 @@
 
         async function deletePromoImage(id, colEl) {
             if (!id) return;
-            if (!confirm('確定要刪除此情境圖？刪除後無法復原。')) return;
+            if (!confirm(uiT('myCustomProducts.confirmDeletePromo', '確定要刪除此情境圖？刪除後無法復原。', 'Delete this scene image permanently? This cannot be undone.'))) return;
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const res = await fetch('/api/promo-image/generations/' + encodeURIComponent(id), {
                     method: 'DELETE',
                     headers: { Authorization: 'Bearer ' + token }
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error((data && data.error) || '刪除失敗');
+                if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete'));
                 if (colEl && colEl.parentNode) colEl.remove();
                 const badge = document.getElementById('badgePromo');
                 if (badge) {
@@ -1777,9 +1777,9 @@
                     if (promoHasMore) loadPromoImages(true, 1);
                     else setLoadMoreVisible('promoLoadMoreWrap', false);
                 }
-                showAlert('已刪除情境圖', 'success');
+                showAlert(uiT('myCustomProducts.promoDeleted', '已刪除情境圖', 'Scene image deleted'), 'success');
             } catch (err) {
-                showAlert('刪除失敗: ' + err.message, 'danger');
+                showAlert(uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete') + ': ' + err.message, 'danger');
             }
         }
 
@@ -1788,7 +1788,7 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('未登入');
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
                 const url = '/api/promo-image/generations/' + encodeURIComponent(id) + '?show_on_homepage=' + (checked ? 'true' : 'false');
                 const res = await fetch(url, {
                     method: 'PATCH',
@@ -1796,7 +1796,7 @@
                     body: JSON.stringify({ show_on_homepage: checked })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error((data && data.error) || '更新失敗');
+                if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed'));
                 if (hintEl) {
                     hintEl.textContent = checked ? '已設定為展示在首頁' : '已取消展示在首頁';
                     hintEl.classList.remove('text-danger');
@@ -1816,7 +1816,7 @@
             if (productsLoading) return;
             if (!authToken) {
                 document.getElementById('loadingSpinner').style.display = 'none';
-                showAlert('未找到有效的登入 token', 'danger');
+                showAlert(uiT('myCustomProducts.invalidAuthToken', '未找到有效的登入 token', 'No valid login token found'), 'danger');
                 return;
             }
             productsLoading = true;
@@ -1826,7 +1826,7 @@
                     headers: { Authorization: 'Bearer ' + authToken }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || '載入失敗');
+                if (!response.ok) throw new Error(data.error || uiT('myCustomProducts.loadFailed', '載入失敗', 'Could not load'));
 
                 const products = data.products || [];
                 productsHasMore = !!data.hasMore;
@@ -1853,7 +1853,7 @@
                 console.error('載入產品列表失敗:', error);
                 if (!append) {
                     document.getElementById('loadingSpinner').style.display = 'none';
-                    showAlert('載入產品列表失敗: ' + error.message, 'danger');
+                    showAlert(uiTf('myCustomProducts.loadProductsFailed', '載入產品列表失敗: {error}', 'Could not load products: {error}', { error: error.message }), 'danger');
                 }
             } finally {
                 productsLoading = false;
@@ -2161,22 +2161,28 @@
             try {
                 const session = await AuthService.getSession();
                 const token = session && session.access_token;
-                if (!token) throw new Error('請先登入');
+                if (!token) throw new Error(uiT('myCustomProducts.loginRequired', '請先登入', 'Please log in first'));
                 const response = await fetch(path, {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
                     body: '{}'
                 });
                 const data = await response.json().catch(function () { return {}; });
-                if (!response.ok) throw new Error((data && data.error) || '操作失敗');
+                if (!response.ok) throw new Error((data && data.error) || uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'));
                 const product = (data && data.product) || {};
                 if (isTags && Array.isArray(data.ai_tags)) product.ai_tags = data.ai_tags;
                 if (!isTags && data.description) product.description = data.description;
                 applyDesignCardSemantics(colEl, product);
                 const pts = data.points_deducted != null ? data.points_deducted : 0;
-                showAlert((isTags ? '標籤已更新' : '產品描述已更新') + (pts ? '（扣 ' + pts + ' 點）' : ''), 'success');
+                var baseMsg = isTags
+                    ? uiT('myCustomProducts.tagsUpdated', '標籤已更新', 'Tags updated')
+                    : uiT('myCustomProducts.productDescUpdated', '產品描述已更新', 'Product description updated');
+                showAlert(baseMsg + (pts ? uiTf('myCustomProducts.updatedWithPts', '（扣 {pts} 點）', ' ({pts} credits charged)', { pts: pts }) : ''), 'success');
             } catch (err) {
-                showAlert((isTags ? '重生標籤失敗：' : '產生描述失敗：') + (err.message || err), 'danger');
+                var failPrefix = isTags
+                    ? uiT('myCustomProducts.regenTagsFailed', '重生標籤失敗：', 'Could not regenerate tags: ')
+                    : uiT('myCustomProducts.genDescFailed', '產生描述失敗：', 'Could not generate description: ');
+                showAlert(failPrefix + (err.message || err), 'danger');
             } finally {
                 btnEl.disabled = false;
                 btnEl.innerHTML = prevHtml;
@@ -2184,11 +2190,11 @@
         }
 
         async function deleteProduct(productId, colEl) {
-            if (!confirm('確定要刪除此設計？刪除後無法復原。')) return;
+            if (!confirm(uiT('customProduct.deleteDesignConfirm', '確定要刪除此設計？刪除後無法復原。', 'Delete this design permanently? This cannot be undone.'))) return;
             try {
                 const session = await AuthService.getSession();
                 const token = session?.access_token;
-                if (!token) throw new Error('請先登入');
+                if (!token) throw new Error(uiT('myCustomProducts.loginRequired', '請先登入', 'Please log in first'));
                 const response = await fetch(`/api/custom-products/${productId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -2212,10 +2218,10 @@
                     if (productsHasMore) loadProducts(true, 1);
                     else setLoadMoreVisible('productsLoadMoreWrap', false);
                 }
-                showAlert('已刪除', 'success');
+                showAlert(uiT('myCustomProducts.deleted', '已刪除', 'Deleted'), 'success');
             } catch (error) {
                 console.error('刪除失敗:', error);
-                showAlert('刪除失敗: ' + error.message, 'danger');
+                showAlert(uiT('myCustomProducts.deleteFailed', '刪除失敗', 'Could not delete') + ': ' + error.message, 'danger');
             }
         }
 
@@ -2287,14 +2293,14 @@
                     throw new Error(data.error || '媒合失敗');
                 }
 
-                showAlert('媒合成功！正在跳轉...', 'success');
+                showAlert(uiT('myCustomProducts.matchSuccess', '媒合成功！正在跳轉...', 'Match successful! Redirecting...'), 'success');
                 setTimeout(() => {
                     window.location.href = `/client/custom-product-detail.html?id=${productId}`;
                 }, 1500);
 
             } catch (error) {
                 console.error('媒合失敗:', error);
-                showAlert('媒合失敗: ' + error.message, 'danger');
+                showAlert(uiT('myCustomProducts.matchFail', '媒合失敗', 'Match failed') + ': ' + error.message, 'danger');
             }
         };
 
@@ -2320,14 +2326,14 @@
                     manufacturing_status: isOpen ? 'open' : 'closed'
                 });
                 if (result.ok) {
-                    showAlert(isOpen ? '已開放廠商搜尋' : '已關閉廠商搜尋', 'success');
+                    showAlert(isOpen ? uiT('myCustomProducts.searchOpened', '已開放廠商搜尋', 'Open to vendor search') : uiT('myCustomProducts.searchClosed', '已關閉廠商搜尋', 'Closed to vendor search'), 'success');
                     loadProducts(false); // 重新渲染
                 } else {
-                    showAlert(result.error || '操作失敗', 'danger');
+                    showAlert(result.error || uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'), 'danger');
                     loadProducts(false);
                 }
             } catch (e) {
-                showAlert('操作失敗', 'danger');
+                showAlert(uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'), 'danger');
                 loadProducts(false);
             }
         };
@@ -2337,13 +2343,13 @@
             try {
                 const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
                 if (result.ok) {
-                    showAlert('已標記為完成訂製', 'success');
+                    showAlert(uiT('myCustomProducts.markedComplete', '已標記為完成訂製', 'Marked as customization complete'), 'success');
                     loadProducts(false);
                 } else {
-                    showAlert(result.error || '操作失敗', 'danger');
+                    showAlert(result.error || uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'), 'danger');
                 }
             } catch (e) {
-                showAlert('操作失敗', 'danger');
+                showAlert(uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'), 'danger');
             }
         };
 

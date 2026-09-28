@@ -34,7 +34,7 @@ node scripts/audit-frontend-i18n.js
 | 頁面 | 狀態 | 備註 |
 |------|------|------|
 | `custom-product.html` | 部分 | 大量 `data-i18n`；子模組 JS 需逐項 |
-| `client/my-custom-products.html` | 部分 | |
+| `client/my-custom-products.html` | 部分 | 設計風向 view、資產 Tab JS toast／卡片按鈕（2026-09-29） |
 | `client/print-asset.html` | 部分 | |
 | `client/material-dual-color.html` | 部分 | |
 | `client/promo-camera.html` / `promo-camera-app.html` | 部分 | L3 凍結區慎改 |
@@ -119,4 +119,5 @@ node scripts/audit-frontend-i18n.js
 - 2026-09-29：`custom/gallery` 語系與 `gallery.*` 鍵；`custom/collection`；`design-direction/analysis` 表單與 modal。
 - 2026-09-29：`vendors.html` 地區大區標籤 `vendors.areaGroup.*`；`industry-supplier-catalog` 登入提示。
 - 2026-09-29：`credits.html` 訂閱管理／寬限期／legacy 訂閱 URL 模式；`custom-product.js` 儲存／刪除／實境模擬 alert 一批（`53cadc6`）。
-- 2026-09-29：`custom-product.js` 材料組合刪除 confirm、色卡／配件選用、參考圖移除 aria-label。
+- 2026-09-29：`custom-product.js` 材料組合刪除 confirm、色卡／配件選用、參考圖移除 aria-label（`e069481`）。
+- 2026-09-29：`my-custom-products.html` 設計風向 view、`uiTf`、材料組合／印花／情境圖刪除與描述編輯 EN。
