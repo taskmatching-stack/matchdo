@@ -26,7 +26,7 @@
 
 1. `/admin/db-migrations.html` 執行 **pricing-campaigns**（或 Supabase 跑 `docs/add-pricing-campaigns.sql`）
 2. 執行 **subscription-plan-yearly-price**（`docs/add-subscription-plan-yearly-price.sql`）
-3. 執行 **user-pricing-entitlements** 與 **user-pricing-entitlements-list-discount**
+3. 執行 **user-pricing-entitlements**（含建表與 `list_discount_percent`；或 Supabase 跑 `docs/add-user-pricing-entitlements-list-discount.sql` 一檔即可）
 4. 執行 **pricing-campaign-list-discount**（檔期可填牌價折扣％）
 5. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價或折扣％
 6. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400

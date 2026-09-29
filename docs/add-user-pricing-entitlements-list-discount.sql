@@ -1,4 +1,33 @@
--- P1-A：終身優惠改為「牌價年付折扣％」，非鎖定絕對成交價
+-- P1-A：終身優惠改為「牌價年付折扣％」（可單獨在 Supabase 執行：內含建表 IF NOT EXISTS）
+CREATE TABLE IF NOT EXISTS public.user_pricing_entitlements (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    plan_key text NOT NULL,
+    billing text NOT NULL CHECK (billing IN ('yearly', 'monthly')),
+    currency text NOT NULL CHECK (currency IN ('TWD', 'USD')),
+    locked_amount numeric(12, 2),
+    list_discount_percent numeric(5, 2),
+    scope text NOT NULL DEFAULT 'subscription_term'
+        CHECK (scope IN ('subscription_term', 'lifetime')),
+    source text NOT NULL DEFAULT 'order'
+        CHECK (source IN ('campaign', 'admin_grant', 'order')),
+    campaign_id uuid,
+    order_id text,
+    expires_at timestamptz,
+    revoked_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_pricing_entitlements_user
+    ON public.user_pricing_entitlements(user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_pricing_entitlements_active_row
+    ON public.user_pricing_entitlements(user_id, plan_key, billing, currency)
+    WHERE revoked_at IS NULL;
+
+ALTER TABLE public.user_pricing_entitlements ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.user_pricing_entitlements
   ADD COLUMN IF NOT EXISTS list_discount_percent numeric(5, 2);
 
