@@ -35068,31 +35068,53 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId, contentLang) {
     };
 }
 
-async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAssetId) {
-    const { data: proto, error: protoErr } = await supabase
+async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAssetId, contentLang) {
+    const lang = normalizeVendorContentLang(contentLang);
+    const assetCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, is_public';
+    let { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+        .select(assetCols)
         .eq('id', prototypeAssetId)
         .eq('manufacturer_id', manufacturerId)
         .maybeSingle();
+    if (protoErr && protoErr.code === '42703') {
+        ({ data: proto, error: protoErr } = await supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+            .eq('id', prototypeAssetId)
+            .eq('manufacturer_id', manufacturerId)
+            .maybeSingle());
+    }
     if (protoErr) throw protoErr;
     if (!proto || normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') {
         return { error: 'not_found' };
     }
-    let mfrName = '廠商';
-    const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', manufacturerId).maybeSingle();
-    if (mfr) mfrName = mfr.name || mfrName;
+    let mfrName = lang === 'en' ? 'Vendor' : '廠商';
+    let mfrSel = await supabase.from('manufacturers').select('id, name, name_en').eq('id', manufacturerId).maybeSingle();
+    if (mfrSel.error && mfrSel.error.code === '42703') {
+        mfrSel = await supabase.from('manufacturers').select('id, name').eq('id', manufacturerId).maybeSingle();
+    }
+    const mfr = mfrSel.data;
+    if (mfr) mfrName = pickVendorLocalizedText(mfr.name, mfr.name_en, lang) || mfr.name || mfrName;
     const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, prototypeAssetId);
     const linkedIds = linkPack.ids || [];
     let linkedAssets = [];
     if (linkedIds.length) {
-        const { data: rows } = await supabase
+        let linkSel = 'id, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, is_public';
+        let { data: rows, error: linkRowsErr } = await supabase
             .from('vendor_assets')
-            .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+            .select(linkSel)
             .eq('manufacturer_id', manufacturerId)
             .in('id', linkedIds);
+        if (linkRowsErr && linkRowsErr.code === '42703') {
+            ({ data: rows } = await supabase
+                .from('vendor_assets')
+                .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                .eq('manufacturer_id', manufacturerId)
+                .in('id', linkedIds));
+        }
         const byId = {};
-        (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+        (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r, lang); });
         linkedAssets = linkedIds.map((id, idx) => {
             const node = byId[id];
             if (!node) return null;
@@ -35105,8 +35127,9 @@ async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAsset
             };
         }).filter(Boolean);
     }
-    const protoNode = mapVendorAssetLinkTreeNode(proto) || {};
+    const protoNode = mapVendorAssetLinkTreeNode(proto, lang) || {};
     return {
+        lang,
         prototype: {
             ...protoNode,
             manufacturer_id: proto.manufacturer_id,
@@ -37420,7 +37443,8 @@ app.get('/api/me/vendor-assets/:id/link-tree/export.pdf', async (req, res) => {
         if (!manufacturerId) return;
         const id = (req.params.id || '').trim();
         if (!id) return res.status(400).json({ error: '缺少 id' });
-        const payload = await buildVendorPrototypeLinkTreeExport(manufacturerId, id);
+        const contentLang = normalizeVendorContentLang(req.query.lang);
+        const payload = await buildVendorPrototypeLinkTreeExport(manufacturerId, id, contentLang);
         if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
         await sendProductLinkTreePdfResponse(res, payload);
     } catch (e) {

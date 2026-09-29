@@ -80,6 +80,18 @@
                 el.textContent = t('findMakers.categoryPrefix') + parts.join(' / ');
             }
 
+            function getLang() {
+                if (window.i18n && typeof window.i18n.getLang === 'function') {
+                    var gl = window.i18n.getLang();
+                    if (gl) return gl;
+                }
+                try {
+                    var q = new URLSearchParams(window.location.search).get('lang') || '';
+                    if (q) return q;
+                } catch (e) { /* ignore */ }
+                try { return localStorage.getItem('lang') || 'zh-TW'; } catch (e2) { return 'zh-TW'; }
+            }
+
             async function getToken() {
                 try {
                     const s = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : null);
@@ -100,6 +112,8 @@
 
                 const q = new URLSearchParams({ category_key, per_page: 12, page: 1 });
                 if (subcategory_key) q.set('subcategory_key', subcategory_key);
+                var apiLang = getLang();
+                if (apiLang) q.set('lang', apiLang);
                 const res = await fetch('/api/manufacturers?' + q.toString(), { headers: { 'Authorization': 'Bearer ' + token } });
                 const data = await res.json();
 

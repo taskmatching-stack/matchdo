@@ -33,6 +33,9 @@
 |--------|------|
 | `13da814` | SQL migration 檔、`*_en` 欄位、`GET ?lang=en` 讀取、控制台簡介英文生成 |
 | `edcc0ab` | 批次生成：素材／作品／分類、`scope=all`、`catalog-groups` 支援 `lang=en` |
+| `f1b9907` | 作品集後台 EN 欄、`generate-i18n-en` 單筆 |
+| `ac5398e` | link-tree 公開 `?lang=en`、我的配色 `name_en`／`note_en` |
+| （本批） | `find-makers`／設計頁廠商建議 `?lang=`；廠商 link-tree PDF `?lang=en` |
 
 **Migration 檔（須手動在 Supabase 執行）：** `docs/add-vendor-content-i18n-en.sql`
 

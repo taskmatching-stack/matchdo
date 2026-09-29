@@ -2893,6 +2893,8 @@ $(document).ready(function () {
         var url = '/api/manufacturers?category_key=' + encodeURIComponent(params.mainKey) +
             '&q=' + encodeURIComponent(q) + '&per_page=15';
         if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+        var mfrListLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        if (mfrListLang) url += '&lang=' + encodeURIComponent(mfrListLang);
         fetch(url).then(function (r) { return r.json(); }).then(function (data) {
             if (seq !== vendorMfrSuggestSeq) return;
             var list = (data && data.manufacturers) ? data.manufacturers : [];
@@ -4394,6 +4396,8 @@ $(document).ready(function () {
         var url = '/api/manufacturers?category_key=' + encodeURIComponent(mainKey) +
             '&q=' + encodeURIComponent(q) + '&per_page=15';
         if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+        var bsMfrLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        if (bsMfrLang) url += '&lang=' + encodeURIComponent(bsMfrLang);
         fetch(url).then(function (r) { return r.json(); }).then(function (data) {
             var list = (data && data.manufacturers) ? data.manufacturers : [];
             var $box = $('#bs-manufacturer-suggest');

@@ -1802,7 +1802,7 @@
                     showAlert(tr('productTree.loginRequired', '請先登入'), 'warning');
                     return;
                 }
-                var url = '/api/me/vendor-assets/' + encodeURIComponent(pid) + '/link-tree/export.pdf';
+                var url = '/api/me/vendor-assets/' + encodeURIComponent(pid) + '/link-tree/export.pdf' + guideContentLangQuery();
                 fetch(url, { headers: { Authorization: 'Bearer ' + state.token } })
                     .then(function (r) {
                         if (!r.ok) throw new Error('pdf');

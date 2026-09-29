@@ -57,7 +57,7 @@ node scripts/audit-locale-mix.js
 |------|------|------|
 | `custom-product.html` | 部分 | 大量 `data-i18n`；`formatMaterialComboAddon` 等 JS 持續補 |
 | `client/my-custom-products.html` | OK（UI） | 小卡 `col-xl-2`；主按鈕「詳情／履歷」+「更多」收描述／標籤；`zh-TW`／`en` 分檔，勿互塞 |
-| `client/find-makers.html` | OK | `findMakers.*` + 列表 JS |
+| `client/find-makers.html` | OK | `findMakers.*` + 列表 JS；`GET /api/manufacturers?lang=` |
 | `client/custom-product-detail.html` | OK（UI） | `customProductDetail.*`；分類名等 API 內容仍原語 |
 | `client/print-asset.html` | OK | `printAsset.*` 靜態 + 提示詞預覽／存庫 JS |
 | `client/material-dual-color.html` | OK（UI） | `materialCombo.*`；色標由 `syncModeUi` 更新 |
@@ -163,7 +163,7 @@ node scripts/audit-locale-mix.js
 | P2 | 廠商服務地區／列表篩選與排序 | ✅ `0b229d4` + `docs/PLAN-vendor-list-filters.md` |
 | P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | ✅ `home-page-meta.js`、`vendors.html` applyVendorsPageMeta（`dbc6b19` 起） |
 | P2 | 廠商列表 `?lang=en` 顯示 `name_en`／`description_en` | ✅ `GET /api/manufacturers?lang=` + `vendors.html` |
-| P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 進行中：作品 EN 編輯、link-tree／我的配色 `lang`；見 `PROGRESS-vendor-content-i18n-en.md` |
+| P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | ✅ 讀取端 `?lang=en`、作品 EN、link-tree／配色／找製作方；見 `PROGRESS-vendor-content-i18n-en.md`（單筆素材 EN 編輯 UI 仍待補） |
 | P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
 | P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
 
