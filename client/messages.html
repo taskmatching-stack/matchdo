@@ -403,7 +403,7 @@
                 if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="' + escapeHtml(t('messages.imageAlt')) + '">';
                 html += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
                     + '<span class="msg-time">' + (m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '') + '</span>'
-                    + (m.id ? '<button type="button" class="btn-translate" data-mid="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> ' + escapeHtml(translateBtnLabel()) + '</button>' : '')
+                    + (m.id && m.body ? '<button type="button" class="btn-translate" data-mid="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> ' + escapeHtml(translateBtnLabel()) + '</button>' : '')
                     + '</div>';
                 if (m.translation && (m.translation.translated_text || m.translation.target_lang)) {
                     html += '<div class="msg-translation"><small style="opacity:.65">' + escapeHtml(m.translation.target_lang || '') + '</small><div>' + escapeHtml(m.translation.translated_text || '') + '</div></div>';
@@ -412,8 +412,9 @@
                 if (m.image_url) {
                     div.querySelector('.msg-image').addEventListener('click', function() { window.open(this.src, '_blank'); });
                 }
-                if (m.id) {
-                    div.querySelector('.btn-translate').addEventListener('click', function() { doTranslate(m.id, div); });
+                if (m.id && m.body) {
+                    var trBtn = div.querySelector('.btn-translate');
+                    if (trBtn) trBtn.addEventListener('click', function() { doTranslate(m.id, div); });
                 }
                 panel.appendChild(div);
             }

@@ -30,7 +30,9 @@
 | T1 | 訊息翻譯目標語選單 | 原僅中↔英自動 | ✅ API `target_lang` + `messages.html` 選單 + `GET /api/translation/target-languages` |
 | T2 | 訊息頁 UI i18n | 翻譯按鈕／toast | ✅ `messages.translate*` locale（選單標籤仍靠 API label） |
 | T3 | 換目標語重新翻譯 | 同則訊息 cache 以 `message_id+user_id` 一筆 | 不同 `target_lang` 應允許重翻並扣點（已於 T1 API） |
-| T4 | 圖片訊息 OCR 翻譯 | 400「無文字」 | 另開：Vision + 翻譯（扣點政策需定案） |
+| T4 | 圖片訊息「翻譯」 | **暫不規劃**（見下） | 純圖片泡泡不顯示翻譯鈕；有文字才翻譯 |
+
+**T4 說明（避免誤解）：** 對話可傳 **相片**（實拍、截圖、包裝標籤等），與站內 **AI 生圖** 無關。現行翻譯 API 只處理 `body` 文字；若要做「從相片讀字再翻譯」才需要 **OCR／Vision**（例如使用者傳 LINE 截圖、外文標籤照）。MatchDO 常見用法是傳產品照＋**文字說明**，或只傳設計稿（多半無可翻字串），**產品上不必預設做 OCR**；若日後有「只傳截圖要翻譯」需求再開 T4 並定扣點。
 
 ### P2 — 廠商／訂製 UGC（DB 多語）
 
@@ -38,7 +40,7 @@
 |---|------|------|------|
 | U1 | 素材單筆 EN **手動**編輯 UI | 有 EN 欄／AI 補英文；官方批次有 | 確認所有 asset_kind 表單一致；缺則補欄位 |
 | U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
-| U3 | 供應商 B 線 `supplier_catalog_items` | 無 `generate-i18n` | 上架品名／規格 EN（或選語）生成 + `?lang=` 前台 |
+| U3 | 供應商 B 線 `supplier_catalog_items` | 進行中：`add-supplier-catalog-i18n-en.sql` + `GET …/supplier-catalog-items?lang=` | 待補：上架後台 EN 欄、`generate-i18n-en` |
 | U4 | 訂製需求／詢價 `demands`、專案描述 | 無 AI 翻譯 | 視媒合流程加「翻譯給對方看」（可扣點） |
 | U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
 | U6 | 英文過期提示 | ✅ `GET /api/me/manufacturer` → `i18n_en_stale`；控制台橫幅 | 素材／作品層 hash 仍待補 |

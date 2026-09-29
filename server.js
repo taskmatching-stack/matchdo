@@ -42616,25 +42616,50 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
             return res.status(400).json({ error: 'item_kind 須為 material、prototype_set 或 part' });
         }
         const supplierId = (req.query.supplier_id || '').trim();
+        const contentLang = normalizeVendorContentLang(req.query.lang);
+        const catSelectEn = 'id, industry_supplier_id, item_kind, title, title_en, description, description_en, cover_image_url, spec_json, category_key, sort_order, industry_suppliers(id, name, name_en, description, description_en, contact_json)';
+        const catSelectBase = 'id, industry_supplier_id, item_kind, title, description, cover_image_url, spec_json, category_key, sort_order, industry_suppliers(id, name, description, contact_json)';
         let catQ = supabase
             .from('supplier_catalog_items')
-            .select('id, industry_supplier_id, item_kind, title, description, cover_image_url, spec_json, category_key, sort_order, industry_suppliers(id, name, description, contact_json)')
+            .select(catSelectEn)
             .eq('item_kind', itemKind)
             .eq('is_active', true)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (supplierId) catQ = catQ.eq('industry_supplier_id', supplierId);
-        const catalogPromise = catQ;
         const importsPromise = supabase
             .from('manufacturer_supplier_imports')
             .select('catalog_item_id, vendor_asset_id')
             .eq('manufacturer_id', manufacturerId)
             .eq('item_kind', itemKind);
+        const supMetaSelectEn = 'id, name, name_en, description, description_en';
+        const supMetaSelectBase = 'id, name, description';
         const supplierMetaPromise = supplierId
-            ? supabase.from('industry_suppliers').select('id, name, description').eq('id', supplierId).eq('is_active', true).maybeSingle()
+            ? supabase.from('industry_suppliers').select(supMetaSelectEn).eq('id', supplierId).eq('is_active', true).maybeSingle()
             : Promise.resolve({ data: null, error: null });
-        const [catRes, impRes, supMetaRes] = await Promise.all([catalogPromise, importsPromise, supplierMetaPromise]);
-        const { data: catalogRows, error: catErr } = catRes;
+        let catRes;
+        let impRes;
+        let supMetaRes;
+        [catRes, impRes, supMetaRes] = await Promise.all([catQ, importsPromise, supplierMetaPromise]);
+        let { data: catalogRows, error: catErr } = catRes;
+        if (catErr && catErr.code === '42703') {
+            catQ = supabase
+                .from('supplier_catalog_items')
+                .select(catSelectBase)
+                .eq('item_kind', itemKind)
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false });
+            if (supplierId) catQ = catQ.eq('industry_supplier_id', supplierId);
+            [catRes, impRes, supMetaRes] = await Promise.all([
+                catQ,
+                importsPromise,
+                supplierId
+                    ? supabase.from('industry_suppliers').select(supMetaSelectBase).eq('id', supplierId).eq('is_active', true).maybeSingle()
+                    : Promise.resolve({ data: null, error: null })
+            ]);
+            ({ data: catalogRows, error: catErr } = catRes);
+        }
         if (catErr) {
             if (catErr.code === '42P01') return res.json({ items: [] });
             console.error('GET supplier-catalog-items:', catErr);
@@ -42652,22 +42677,26 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
             return {
                 id: row.id,
                 item_kind: row.item_kind,
-                title: row.title,
-                description: row.description,
+                title: pickVendorLocalizedText(row.title, row.title_en, contentLang) || row.title,
+                description: pickVendorLocalizedText(row.description, row.description_en, contentLang),
                 cover_image_url: row.cover_image_url,
                 spec_json: row.spec_json,
                 category_key: row.category_key,
                 supplier_id: row.industry_supplier_id,
-                supplier_name: supplier ? supplier.name : null,
+                supplier_name: supplier ? (pickVendorLocalizedText(supplier.name, supplier.name_en, contentLang) || supplier.name) : null,
                 supplier_contact: supplier ? supplier.contact_json : null,
                 already_imported: !!vendorAssetId,
                 vendor_asset_id: vendorAssetId
             };
         });
         const supplierHeader = supMetaRes.data
-            ? { id: supMetaRes.data.id, name: supMetaRes.data.name, description: supMetaRes.data.description }
+            ? {
+                id: supMetaRes.data.id,
+                name: pickVendorLocalizedText(supMetaRes.data.name, supMetaRes.data.name_en, contentLang) || supMetaRes.data.name,
+                description: pickVendorLocalizedText(supMetaRes.data.description, supMetaRes.data.description_en, contentLang)
+            }
             : null;
-        res.json({ items, supplier: supplierHeader });
+        res.json({ items, supplier: supplierHeader, lang: contentLang });
     } catch (e) {
         console.error('GET /api/me/supplier-catalog-items 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

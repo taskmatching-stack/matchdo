@@ -11029,6 +11029,8 @@
             try {
                 var catalogUrl = '/api/me/supplier-catalog-items?item_kind=' + encodeURIComponent(catalogKind);
                 if (supplierImportFilterId) catalogUrl += '&supplier_id=' + encodeURIComponent(supplierImportFilterId);
+                var catLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+                if (catLang) catalogUrl += '&lang=' + encodeURIComponent(catLang);
                 var r = await fetch(catalogUrl, { headers: { Authorization: 'Bearer ' + token } });
                 var data = await r.json().catch(function () { return {}; });
                 loading.classList.add('d-none');
