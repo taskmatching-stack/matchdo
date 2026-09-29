@@ -15583,7 +15583,7 @@ app.post('/api/admin/user-subscriptions', express.json(), async (req, res) => {
             planId = planByKey.id;
         }
         if (!planId) return res.status(400).json({ error: '請提供 plan_id 或 plan_key' });
-        const { data: plan } = await supabase.from('subscription_plans').select('id, name, price, duration_months').eq('id', planId).single();
+        const { data: plan } = await supabase.from('subscription_plans').select('id, name, price, duration_months, plan_key').eq('id', planId).single();
         if (!plan) return res.status(404).json({ error: '找不到訂閱方案' });
         const start = body.start_date ? new Date(body.start_date) : new Date();
         if (isNaN(start.getTime())) return res.status(400).json({ error: 'start_date 格式無效' });
@@ -15604,6 +15604,13 @@ app.post('/api/admin/user-subscriptions', express.json(), async (req, res) => {
                 .update({ status: 'expired' })
                 .eq('user_id', userId)
                 .eq('status', 'active');
+            if (plan.plan_key) {
+                try {
+                    await userPricingEntitlements.revokeSubscriptionTermExceptPlan(supabase, userId, plan.plan_key);
+                } catch (entErr) {
+                    console.warn('revoke subscription_term on admin sub create:', entErr && entErr.message);
+                }
+            }
         }
         const { data: inserted, error: insErr } = await supabase
             .from('user_subscriptions')
@@ -15681,6 +15688,7 @@ app.patch('/api/admin/user-subscriptions/:id', express.json(), async (req, res) 
             updates.plan_id = pid;
         }
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新欄位' });
+        const endingStatus = updates.status === 'expired' || updates.status === 'cancelled';
         const { data: updated, error: updErr } = await supabase
             .from('user_subscriptions')
             .update(updates)
@@ -15690,6 +15698,16 @@ app.patch('/api/admin/user-subscriptions/:id', express.json(), async (req, res) 
         if (updErr) {
             console.error('PATCH /api/admin/user-subscriptions:', updErr);
             return res.status(500).json({ error: updErr.message || '更新失敗' });
+        }
+        if (endingStatus) {
+            const pk = updated.subscription_plans && updated.subscription_plans.plan_key;
+            if (pk) {
+                try {
+                    await userPricingEntitlements.revokeSubscriptionTermForPlan(supabase, existing.user_id, pk);
+                } catch (entErr) {
+                    console.warn('revoke subscription_term on sub end:', entErr && entErr.message);
+                }
+            }
         }
         try {
             await syncMembershipCatalogVisibility(existing.user_id);
@@ -25804,6 +25822,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
     const months = Math.max(1, parseInt(plan.duration_months, 10) || 1);
     let subscriptionEndDate = null;
 
+    const activePlanKey = userPricingEntitlements.normalizePlanKey(plan.plan_key);
     if (mode === 'new') {
         try {
             await runSubscriptionProrationRefund(userId, {
@@ -25812,6 +25831,13 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
             });
         } catch (refundErr) {
             console.warn('plan switch proration refund:', refundErr && refundErr.message);
+        }
+        if (activePlanKey) {
+            try {
+                await userPricingEntitlements.revokeSubscriptionTermExceptPlan(supabase, userId, activePlanKey);
+            } catch (entErr) {
+                console.warn('revoke subscription_term on plan switch:', entErr && entErr.message);
+            }
         }
         await supabase
             .from('user_subscriptions')
@@ -25899,10 +25925,11 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     }
     const { data: plan } = await supabase
         .from('subscription_plans')
-        .select('id, name, price, duration_months')
+        .select('id, name, price, duration_months, plan_key')
         .eq('plan_key', planKey)
         .maybeSingle();
     if (!plan || !(parseInt(plan.price, 10) > 0)) return;
+    if (!plan.plan_key) plan.plan_key = planKey;
     const mode = (options && options.mode)
         ? options.mode
         : (orderType === 'subscription' ? 'extend' : 'new');

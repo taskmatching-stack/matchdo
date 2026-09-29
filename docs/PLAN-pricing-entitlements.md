@@ -1,6 +1,6 @@
 # 個人訂閱優惠鎖價（P1-A）
 
-> **狀態**：Phase 1–3 已實作（2026-09-29）；Phase 4 邊界待做  
+> **狀態**：Phase 1–4 已實作（2026-09-29）  
 > **進度**：`docs/PROGRESS-pricing-campaigns.md` §A  
 > **前置**：限時檔期 v1（`pricing_campaigns`）、牌價年付 DB（P1-B）已上線
 

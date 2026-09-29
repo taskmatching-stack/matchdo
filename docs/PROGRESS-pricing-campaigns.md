@@ -33,7 +33,7 @@
 ## 待選（非 v1）
 
 - [x] `payment-orders.html` 顯示 `metadata.campaign_id`／牌價 vs 實付（年付訂單 metadata 含 list／quoted）
-- [ ] 結帳 URL 僅帶 `plan` + `billing`（完全移除 amount query）
+- [x] 結帳 URL 僅帶 `plan` + `billing`（方案頁 → checkout；金額由 `POST /api/payment/quote`）
 
 ---
 
@@ -51,9 +51,9 @@
 | **常態方案** `subscription_plans`（`/admin/membership.html`） | 月費／權益由 DB 維護 | 否；改價影響新訂閱邏輯，非「個人終身優惠」旗標 |
 | **內部優惠方案** `docs/seed-promo-subscription-plans.sql`（`sort_order ≥ 10`） | 與公開檔期分開的隱藏 tier | 需另查是否僅手動指派；**無**後台 UI 勾「終身」 |
 
-**實作規劃（2026-09-29）**：見 **`docs/PLAN-pricing-entitlements.md`**（鎖年付成交價；`subscription_term` 預設；`lifetime` 需後台指派 Phase 3）。
+**實作規劃**：見 **`docs/PLAN-pricing-entitlements.md`**（終身鎖 **牌價折扣％**；換 tier 清 `subscription_term`；結帳 quote-only URL）。
 
-**進度（2026-09-29）**：✅ Phase 1–2；✅ Phase 3 **membership 鎖折 UI**（牌價折扣％，非絕對價）；migration `user-pricing-entitlements-list-discount`。待做：Phase 4 換 tier／退款邊界。
+**進度（2026-09-29）**：✅ Phase 1–3；✅ Phase 4 換 tier／後台標記過期時撤銷 `subscription_term`（**lifetime 鎖折％**保留）；退款仍依既有 proration，不撤銷終身鎖折。
 
 相關規劃：`docs/PLAN-pricing-campaigns.md` §1（特價語意僅年訂閱期）。
 
@@ -76,6 +76,6 @@
 
 - 限時年付特價：後台每 tier 填 **整年絕對金額** `yearly_price_twd` / `yearly_price_usd`（`/admin/pricing-campaigns.html`），未填則該 tier 檔期內仍用牌價年付（月費×10）。
 - `lib/pricing-campaigns.js` 無 `discount_percent`、無「在牌價上打 X 折」的演算；規劃檔 v1 曾寫「填特價金額或折扣％二選一」，**實作只做了特價金額**。
-- 「終身鎖價／鎖折數」：**尚未實作**（見 §A）。若要做，需另定：鎖的是 **牌價年付×折數**、還是鎖 **活動絕對價**、續約／換 tier 時是否重算。
+- 「終身鎖折」：✅ 後台 **牌價年付折扣％**（見 §A）；檔期活動仍為整年特價金額。
 
 **待做（英文化後）**：後台可選「僅本訂閱期」vs「終身」；並支援 **折數（% off 牌價年付或月費）** 與／或維持現有「整年特價金額」兩種輸入方式。

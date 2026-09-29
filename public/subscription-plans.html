@@ -440,12 +440,11 @@
       btn.addEventListener('click', function(e){
         e.preventDefault();
         var isYearly = document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active');
-        var amount = parseFloat(btn.getAttribute(isYearly ? 'data-amount-yearly' : 'data-amount')) || 0;
-        var credits = parseInt(btn.getAttribute(isYearly ? 'data-credits-yearly' : 'data-credits'), 10) || 0;
         var plan = btn.getAttribute('data-plan');
         var billing = isYearly ? 'yearly' : 'monthly';
+        if (!plan) return;
         if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
-        var checkoutUrl = '/subscription-checkout.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
+        var checkoutUrl = '/subscription-checkout.html?billing=' + encodeURIComponent(billing) + '&plan=' + encodeURIComponent(plan);
         var pageReturn = (typeof window !== 'undefined' && window.location) ? (window.location.pathname + (window.location.search || '')) : '/subscription-plans.html';
         checkoutUrl += '&returnUrl=' + encodeURIComponent(pageReturn);
         if (window.AuthService && AuthService.getSession) {
