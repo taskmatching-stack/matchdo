@@ -166,6 +166,7 @@ node scripts/audit-locale-mix.js
 | P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | ✅ 讀取端 `?lang=en`、作品 EN、link-tree／配色／找製作方；見 `PROGRESS-vendor-content-i18n-en.md`（單筆素材 EN 編輯 UI 仍待補） |
 | P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
 | P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
+| P3 | **AI 內容翻譯**（雙向、可選目標語；非 UI locale） | `docs/PLAN-ai-content-translation.md`（對話 T1 已做；UGC 多語／B 線等待辦） |
 
 ## Agent 必守（避免再說「全站好了」）
 

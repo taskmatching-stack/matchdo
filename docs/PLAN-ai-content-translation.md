@@ -1,0 +1,92 @@
+# AI 內容翻譯（雙向、可選目標語）— 盤點與待辦
+
+> **2026-09-29** 盤點：站內「把使用者文字翻成另一語言寫入 DB 或顯示」與「UI 多語系 `locales/*.json`」分開。  
+> **產品方向**：重要上傳／對話應支援 **偵測來源語 + 使用者自選目標語**（不限中↔英）；生圖 prompt 翻譯仍為 **→ 英文** 專用管線。
+
+---
+
+## 已具備（2026-09-29）
+
+| 區域 | 能力 | 目標語 | 扣點 | 備註 |
+|------|------|--------|------|------|
+| **站內對話** | `POST /api/direct-messages/:msgId/translate` + `GET /api/translation/target-languages` | ✅ 可選 `target_lang`（11 語）+ `messages.html` 選單 | 1 點／則（admin/tester 免） | 僅文字；圖片訊息無 OCR 翻譯 |
+| **廠商簡介** | `POST /api/me/manufacturer/generate-i18n-en` | 固定 **→ en** 寫 `name_en`／`description_en` | 否 | 控制台批次 `scope=all` |
+| **素材庫** | 上傳後自動／編輯「AI 補英文」、`POST …/vendor-assets/:id/generate-i18n-en` | **→ en** → `title_en`／`description_en` | 否 | 後台可手動填 EN 欄 |
+| **作品集** | Modal 英文欄、`POST …/portfolio/:id/generate-i18n-en` | **→ en** | 否 | |
+| **自訂分類** | `generate-i18n-en` scope `catalog_groups` | **→ en** → `name_en` | 否 | |
+| **官方版型庫** | `POST /api/admin/official-platform/generate-i18n-en` | **→ en** | 否 | admin |
+| **操作介紹** | `POST /api/admin/help-guides/translate` | **→ en**（圖說文字，不翻 URL） | 否 | admin |
+| **前台讀取** | `GET …?lang=en`（廠商、素材、作品、列表等） | 顯示已存 `*_en` | 否 | 非即時翻譯 |
+| **生圖／FLUX** | `translatePromptToEnglish*`、`ENABLE_PROMPT_TRANSLATION` | **→ en** 送模型 | 否 | 與 UGC 翻譯分開 |
+
+---
+
+## 缺口（待辦，依優先）
+
+### P1 — 對話與溝通
+
+| # | 項目 | 現況 | 建議 |
+|---|------|------|------|
+| T1 | 訊息翻譯目標語選單 | 原僅中↔英自動 | ✅ API `target_lang` + `messages.html` 選單 + `GET /api/translation/target-languages` |
+| T2 | 訊息頁 UI i18n | 翻譯按鈕／toast | ✅ `messages.translate*` locale（選單標籤仍靠 API label） |
+| T3 | 換目標語重新翻譯 | 同則訊息 cache 以 `message_id+user_id` 一筆 | 不同 `target_lang` 應允許重翻並扣點（已於 T1 API） |
+| T4 | 圖片訊息 OCR 翻譯 | 400「無文字」 | 另開：Vision + 翻譯（扣點政策需定案） |
+
+### P2 — 廠商／訂製 UGC（DB 多語）
+
+| # | 項目 | 現況 | 建議 |
+|---|------|------|------|
+| U1 | 素材單筆 EN **手動**編輯 UI | 有 EN 欄／AI 補英文；官方批次有 | 確認所有 asset_kind 表單一致；缺則補欄位 |
+| U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
+| U3 | 供應商 B 線 `supplier_catalog_items` | 無 `generate-i18n` | 上架品名／規格 EN（或選語）生成 + `?lang=` 前台 |
+| U4 | 訂製需求／詢價 `demands`、專案描述 | 無 AI 翻譯 | 視媒合流程加「翻譯給對方看」（可扣點） |
+| U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
+| U6 | 英文過期提示 | 僅 `i18n_en_source_hash` 廠商層 | UI 提示「中文已改，請重生成英文」 |
+
+### P3 — 平台字典與其他
+
+| # | 項目 | 現況 | 建議 |
+|---|------|------|------|
+| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist |
+| D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
+| D3 | 即時翻譯 widget | 無全站共用元件 | 抽 `translateTargetSelect` 供對話、詢價、評論（若有）共用 |
+| D4 | 管理員訊息監看翻譯 | 未查 | 若 admin 看對話需翻譯，另開 |
+
+---
+
+## 非目標（本計畫不混）
+
+- **UI 字串** → `public/locales/*.json`（見 `FRONTEND-I18N-AUDIT.md`）。
+- **FLUX／材料語意** → `docs/flux-and-gemini-prompt-policy.md`（禁止查表硬編；非 UGC 翻譯）。
+- **設計風向 B4** → 凍結。
+
+---
+
+## API 契約（訊息翻譯）
+
+```http
+GET /api/translation/target-languages?lang=en
+→ { items: [ { code: "zh-TW", label: "Traditional Chinese" }, ... ], default: "en" }
+
+POST /api/direct-messages/:msgId/translate
+Body: { "target_lang": "ja" }   // 可省略：依 UI locale 推斷，再 fallback 舊中↔英
+```
+
+---
+
+## 相關檔案
+
+| 檔案 | 用途 |
+|------|------|
+| `lib/message-translate-langs.js` | 允許目標語清單 |
+| `client/messages.html` | 對話 UI + 目標語選單 |
+| `server.js` | translate 端點、vendor `generate-i18n-en` |
+| `docs/PROGRESS-vendor-content-i18n-en.md` | 廠商 `*_en` 進度 |
+| `docs/points-deduction-plan.md` | 翻譯扣點（文件曾寫「尚未實作」，對話已實作，可更新） |
+
+---
+
+## 狀態
+
+- **T1–T2（對話）**：已實作（見 `git log` 含 `lib/message-translate-langs.js`）。
+- **U1–U6、D1–D4**：待產品排期；以本檔為 AI 翻譯主 backlog。

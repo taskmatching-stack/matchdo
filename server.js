@@ -123,6 +123,7 @@ const ugcRetention = require('./lib/ugc-retention');
 const subscriptionExpiry = require('./lib/subscription-expiry');
 const matchdoInternal = require('./lib/matchdo-internal-account');
 const membershipDowngradeNotices = require('./lib/membership-downgrade-notices');
+const messageTranslateLangs = require('./lib/message-translate-langs');
 const ugcAccessLog = require('./lib/ugc-access-log');
 const paypalRest = require('./lib/paypal-rest');
 const paypalSubscriptionFulfill = require('./lib/paypal-subscription-fulfill');
@@ -49181,6 +49182,19 @@ app.post('/api/direct-conversations/:conversationId/messages/asset-url', express
     }
 });
 
+// GET /api/translation/target-languages — 站內訊息翻譯可選目標語（登入可選）
+app.get('/api/translation/target-languages', async (req, res) => {
+    try {
+        const uiLang = (req.query.lang || req.query.ui_lang || '').trim() || 'zh-TW';
+        const items = messageTranslateLangs.listMessageTranslateTargetLangsForApi(uiLang);
+        const def = messageTranslateLangs.defaultMessageTranslateTargetFromUiLocale(uiLang);
+        res.json({ items, default: def });
+    } catch (e) {
+        console.error('GET /api/translation/target-languages:', e?.message || e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（先翻譯，成功後再扣 1 點；已有儲存則直接回傳不扣點）
 app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, res) => {
     try {
@@ -49200,15 +49214,20 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         }
         const originalText = (msg.body || '').trim();
         if (!originalText) return res.status(400).json({ error: '此訊息無文字可翻譯' });
-        // 已有儲存翻譯：直接回傳，不扣點
+        let requestedTarget = messageTranslateLangs.normalizeMessageTranslateTargetLang(req.body && req.body.target_lang);
+        if (!requestedTarget) {
+            requestedTarget = messageTranslateLangs.defaultMessageTranslateTargetFromUiLocale(req.body && req.body.ui_locale);
+        }
+        // 已有儲存翻譯（同目標語）：直接回傳，不扣點
         const { data: existing } = await supabase.from('direct_message_translations').select('translated_text, target_lang, source_lang').eq('message_id', msgId).eq('user_id', user.id).maybeSingle();
-        if (existing && (existing.translated_text || '').trim()) {
+        const existingTargetNorm = messageTranslateLangs.normalizeMessageTranslateTargetLang(existing && existing.target_lang);
+        if (existing && (existing.translated_text || '').trim() && existingTargetNorm && existingTargetNorm === requestedTarget) {
             const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
             return res.json({
                 original_text: originalText,
                 translated_text: (existing.translated_text || '').trim(),
                 source_lang: existing.source_lang || '',
-                target_lang: existing.target_lang || '',
+                target_lang: existingTargetNorm,
                 points_used: 0,
                 balance_after: credits?.balance ?? null
             });
@@ -49225,7 +49244,10 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return res.status(500).json({ error: '翻譯服務未設定' });
         const model = await getTranslationModelName();
-        const promptText = `Detect the language of the text below. If it is Chinese (any variant), translate it to English. Otherwise, translate it to Traditional Chinese (繁體中文). Return only valid JSON with keys: detected_lang (ISO 639-1 code), target_lang, translated_text. No markdown.\n\nText: ${originalText}`;
+        const targetGeminiName = messageTranslateLangs.getMessageTranslateGeminiTargetName(requestedTarget);
+        const promptText = `Detect the source language of the text below. Translate it into ${targetGeminiName}. `
+            + `If the text is already in that language, return it lightly polished (same language). `
+            + `Return only valid JSON with keys: detected_lang (ISO 639-1 or BCP-47), target_lang (use exactly "${requestedTarget}"), translated_text. No markdown.\n\nText: ${originalText}`;
         let translated = '';
         let sourceLang = '';
         let targetLang = '';
@@ -49252,7 +49274,7 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
             const parsed = JSON.parse(jsonStr);
             translated = (parsed.translated_text != null ? String(parsed.translated_text) : '').trim();
             sourceLang = (parsed.detected_lang != null ? String(parsed.detected_lang) : '').trim();
-            targetLang = (parsed.target_lang != null ? String(parsed.target_lang) : '').trim();
+            targetLang = messageTranslateLangs.normalizeMessageTranslateTargetLang(parsed.target_lang) || requestedTarget;
             if (!translated) return res.status(500).json({ error: '翻譯結果為空，請稍後再試' });
         } catch (e) {
             console.error('翻譯 Gemini 解析失敗:', e?.message);

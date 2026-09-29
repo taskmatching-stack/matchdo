@@ -44,6 +44,8 @@
         .btn-translate:hover { color: #7A8FA3; }
         .msg-translation { margin-top: 4px; padding: 6px 10px; background: #fff; border-radius: 6px; font-size: .8rem; color: #374151; border: 1px solid #e5e7eb; }
         .msg-bubble.mine .msg-translation { background: #fff; color: #374151; border-color: #e5e7eb; }
+        .msg-translate-prefs { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: .8rem; color: #6c757d; flex-wrap: wrap; }
+        .msg-translate-prefs select { max-width: 220px; font-size: .8rem; }
         @media (max-width: 768px) {
             .messages-layout { flex-direction: column; height: calc(100vh - 130px); }
             .messages-side { width: 100%; max-height: 180px; flex-shrink: 0; }
@@ -97,6 +99,10 @@
                     <div class="messages-panel" id="messagesPanel"></div>
                     <div class="messages-form">
                         <div id="imgPreviewBar" class="img-preview-bar" style="display:none;"></div>
+                        <div class="msg-translate-prefs">
+                            <label for="msgTranslateTargetLang" class="mb-0"><i class="bi bi-translate me-1"></i><span data-i18n="messages.translateTargetLang">翻譯目標語言</span></label>
+                            <select id="msgTranslateTargetLang" class="form-select form-select-sm" aria-label="Translate target language"></select>
+                        </div>
                         <div class="input-group">
                             <label class="btn btn-outline-secondary" style="cursor:pointer;" title="上傳圖片">
                                 <i class="bi bi-image"></i>
@@ -235,6 +241,58 @@
             }
 
             function t(k) { return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; }
+            function tf(k, vars) {
+                if (window.i18n && window.i18n.tf) return window.i18n.tf(k, vars);
+                var s = t(k);
+                if (vars) Object.keys(vars).forEach(function (vk) {
+                    s = s.replace(new RegExp('\\{' + vk + '\\}', 'g'), String(vars[vk]));
+                });
+                return s;
+            }
+            var MSG_TRANSLATE_TARGET_STORAGE = 'matchdo.msgTranslateTarget';
+            function getUiLocaleForApi() {
+                return (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+            }
+            function getMsgTranslateTarget() {
+                var sel = document.getElementById('msgTranslateTargetLang');
+                if (sel && sel.value) return sel.value;
+                try {
+                    var saved = localStorage.getItem(MSG_TRANSLATE_TARGET_STORAGE);
+                    if (saved) return saved;
+                } catch (e) { /* ignore */ }
+                return 'en';
+            }
+            function translateBtnLabel() {
+                return tf('messages.translateBtn', { points: 1 });
+            }
+            async function loadMessageTranslateTargets() {
+                var sel = document.getElementById('msgTranslateTargetLang');
+                if (!sel) return;
+                var uiLang = getUiLocaleForApi();
+                var saved = '';
+                try { saved = localStorage.getItem(MSG_TRANSLATE_TARGET_STORAGE) || ''; } catch (e) { /* ignore */ }
+                try {
+                    var res = await fetch('/api/translation/target-languages?lang=' + encodeURIComponent(uiLang));
+                    var data = await res.json();
+                    var items = (data && data.items) ? data.items : [];
+                    var def = (data && data.default) ? data.default : 'en';
+                    sel.innerHTML = items.map(function (it) {
+                        return '<option value="' + escapeHtml(it.code) + '">' + escapeHtml(it.label || it.code) + '</option>';
+                    }).join('');
+                    var pick = saved || def;
+                    if (pick && sel.querySelector('option[value="' + pick.replace(/"/g, '') + '"]')) sel.value = pick;
+                    else if (def) sel.value = def;
+                } catch (e) {
+                    sel.innerHTML = '<option value="zh-TW">繁體中文</option><option value="en">English</option>';
+                    if (saved) sel.value = saved;
+                }
+                if (!sel.__wired) {
+                    sel.__wired = true;
+                    sel.addEventListener('change', function () {
+                        try { localStorage.setItem(MSG_TRANSLATE_TARGET_STORAGE, sel.value); } catch (err) { /* ignore */ }
+                    });
+                }
+            }
             function updateContactButton() {
                 const btn = document.getElementById('btnToggleContact');
                 if (!currentOtherUserId) { btn.style.display = 'none'; return; }
@@ -342,10 +400,10 @@
                 div.className = 'msg-bubble ' + side + (imgOnly ? ' img-only' : '');
                 let html = '';
                 if (m.body) html += '<div>' + escapeHtml(m.body) + '</div>';
-                if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="圖片">';
+                if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="' + escapeHtml(t('messages.imageAlt')) + '">';
                 html += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
                     + '<span class="msg-time">' + (m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '') + '</span>'
-                    + (m.id ? '<button class="btn-translate" data-mid="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> 翻譯(-1點)</button>' : '')
+                    + (m.id ? '<button type="button" class="btn-translate" data-mid="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> ' + escapeHtml(translateBtnLabel()) + '</button>' : '')
                     + '</div>';
                 if (m.translation && (m.translation.translated_text || m.translation.target_lang)) {
                     html += '<div class="msg-translation"><small style="opacity:.65">' + escapeHtml(m.translation.target_lang || '') + '</small><div>' + escapeHtml(m.translation.translated_text || '') + '</div></div>';
@@ -365,22 +423,30 @@
                 if (btn) btn.disabled = true;
                 try {
                     const res = await fetch('/api/direct-messages/' + msgId + '/translate', {
-                        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+                        method: 'POST',
+                        headers: headers(),
+                        body: JSON.stringify({
+                            target_lang: getMsgTranslateTarget(),
+                            ui_locale: getUiLocaleForApi()
+                        })
                     });
                     let data = {};
                     try { data = await res.json(); } catch (_) {}
-                    if (!res.ok) { alert(data.error || '翻譯失敗'); return; }
+                    if (!res.ok) { alert(data.error || t('messages.translateFailed')); return; }
                     let trDiv = div.querySelector('.msg-translation');
                     if (!trDiv) { trDiv = document.createElement('div'); trDiv.className = 'msg-translation'; div.appendChild(trDiv); }
                     trDiv.innerHTML = '<small style="opacity:.65">' + escapeHtml(data.target_lang || '') + '</small><div>' + escapeHtml(data.translated_text || data.translated || '') + '</div>';
                     if (data.points_used) {
                         var toast = document.createElement('div');
                         toast.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;font-size:.82rem;z-index:9999;';
-                        toast.textContent = '扣除 ' + data.points_used + ' 點，餘額 ' + (data.balance_after != null ? data.balance_after : data.new_balance) + ' 點';
+                        toast.textContent = tf('messages.translateDeductToast', {
+                            used: data.points_used,
+                            balance: (data.balance_after != null ? data.balance_after : data.new_balance)
+                        });
                         document.body.appendChild(toast);
                         setTimeout(function() { toast.remove(); }, 2500);
                     }
-                } catch(e) { alert('翻譯失敗'); }
+                } catch(e) { alert(t('messages.translateFailed')); }
                 finally { if (btn) btn.disabled = false; }
             }
 
@@ -423,6 +489,7 @@
                 if (!ok) return;
                 token = await getToken();
                 if (!token) { window.location.href = '/login.html'; return; }
+                await loadMessageTranslateTargets();
                 await loadConversations();
                 await loadContacts();
                 const params = new URLSearchParams(window.location.search);
