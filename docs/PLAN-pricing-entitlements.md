@@ -1,6 +1,6 @@
 # 個人訂閱優惠鎖價（P1-A）
 
-> **狀態**：規劃定案（2026-09-29），待分 Phase 實作  
+> **狀態**：Phase 1–2 已實作（2026-09-29）；Phase 3 後台 UI 待做  
 > **進度**：`docs/PROGRESS-pricing-campaigns.md` §A  
 > **前置**：限時檔期 v1（`pricing_campaigns`）、牌價年付 DB（P1-B）已上線
 
@@ -17,7 +17,7 @@
 
 ## 2. 資料模型（Phase 1 migration）
 
-`docs/add-user-pricing-entitlements.sql`（尚未實作）
+`docs/add-user-pricing-entitlements.sql`（migration `user-pricing-entitlements`）
 
 | 欄位 | 說明 |
 |------|------|

@@ -159,6 +159,7 @@ const promoPortraitStyling = require('./lib/promo-portrait-styling');
 const xaiImagine = require('./lib/xai-imagine');
 const promoSpaceAppeal = require('./lib/promo-space-appeal');
 const pricingCampaigns = require('./lib/pricing-campaigns');
+const userPricingEntitlements = require('./lib/user-pricing-entitlements');
 const mediaWallQueries = require('./lib/media-wall-queries');
 const cpMediaWallTitle = require('./lib/custom-product-media-wall-title');
 const manufacturerAudience = require('./lib/manufacturer-audience');
@@ -13150,7 +13151,7 @@ async function buildPaymentCheckoutQuote(req, body, opts) {
     else if (currencyHint === 'twd') useTwd = true;
     else useTwd = pricingCampaigns.checkoutUsesTwd(lang);
     const active = await pricingCampaigns.fetchActivePricingCampaign(supabase);
-    return pricingCampaigns.buildCheckoutQuote({
+    let quote = pricingCampaigns.buildCheckoutQuote({
         planKey,
         billing,
         plan,
@@ -13160,6 +13161,23 @@ async function buildPaymentCheckoutQuote(req, body, opts) {
         rules: active.rules,
         resolveUsdMonthly: resolvePlanUsdMonthly
     });
+    const userId = o.userId ? String(o.userId).trim() : '';
+    if (userId && billing === 'yearly') {
+        const currency = useTwd ? 'TWD' : 'USD';
+        try {
+            const lock = await userPricingEntitlements.findActiveLifetimeLock(
+                supabase,
+                userId,
+                planKey,
+                'yearly',
+                currency
+            );
+            if (lock) quote = userPricingEntitlements.applyLifetimeLockToQuote(quote, lock);
+        } catch (lockErr) {
+            console.warn('lifetime pricing lock lookup:', lockErr && lockErr.message);
+        }
+    }
+    return quote;
 }
 
 function paymentOrderMetadataFromQuote(quote) {
@@ -16712,7 +16730,7 @@ app.post('/api/payment/quote', express.json(), async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        const quote = await buildPaymentCheckoutQuote(req, req.body || {});
+        const quote = await buildPaymentCheckoutQuote(req, req.body || {}, { userId: user.id });
         res.json({ success: true, quote });
     } catch (e) {
         const status = e.status || 500;
@@ -16808,6 +16826,49 @@ app.delete('/api/admin/pricing-campaigns/:id', async (req, res) => {
     } catch (e) {
         console.error('DELETE /api/admin/pricing-campaigns:', e);
         res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
+// POST /api/admin/user-pricing-entitlements — 指派終身年付鎖價（暫無專用 UI）
+app.post('/api/admin/user-pricing-entitlements', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const userId = String(body.user_id || body.userId || '').trim();
+        const planKey = String(body.plan_key || body.planKey || '').trim();
+        const currency = body.currency;
+        const lockedAmount = body.locked_amount != null ? body.locked_amount : body.lockedAmount;
+        if (!userId || !planKey) {
+            return res.status(400).json({ error: '請提供 user_id 與 plan_key（tier2／tier3／tier4）' });
+        }
+        const result = await userPricingEntitlements.grantAdminLifetimeLock(supabase, {
+            userId,
+            planKey,
+            currency,
+            lockedAmount
+        });
+        if (!result.ok) {
+            return res.status(400).json({ error: '參數無效', reason: result.reason || '' });
+        }
+        res.json({ success: true, id: result.id, created: !!result.created, updated: !!result.updated });
+    } catch (e) {
+        console.error('POST /api/admin/user-pricing-entitlements:', e);
+        res.status(500).json({ error: e.message || '指派失敗' });
+    }
+});
+
+// PATCH /api/admin/user-pricing-entitlements/:id/revoke — 撤銷鎖價
+app.patch('/api/admin/user-pricing-entitlements/:id/revoke', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const result = await userPricingEntitlements.revokeEntitlement(supabase, req.params.id);
+        if (!result.ok) return res.status(404).json({ error: '找不到可撤銷的鎖價紀錄' });
+        res.json({ success: true, id: result.id });
+    } catch (e) {
+        console.error('PATCH revoke user-pricing-entitlements:', e);
+        res.status(500).json({ error: e.message || '撤銷失敗' });
     }
 });
 
@@ -19068,7 +19129,7 @@ app.post('/api/payment/ecpay/create', express.json(), async (req, res) => {
         const isYearly = billing === 'yearly' && planKey;
         let yearlyQuote = null;
         if (isYearly) {
-            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang });
+            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang }, { userId: user.id });
             await assertCheckoutBodyMatchesQuote(req, body, yearlyQuote);
             amount = yearlyQuote.amount;
             credits = yearlyQuote.credits;
@@ -19468,7 +19529,7 @@ app.post('/api/payment/paypal/create', express.json(), async (req, res) => {
         const isYearly = billing === 'yearly' && planKey;
         let yearlyQuote = null;
         if (isYearly) {
-            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang }, { forceUsd: true });
+            yearlyQuote = await buildPaymentCheckoutQuote(req, { plan: planKey, billing: 'yearly', lang: body.lang }, { forceUsd: true, userId: user.id });
             await assertCheckoutBodyMatchesQuote(req, body, yearlyQuote);
             amount = yearlyQuote.amount;
             credits = yearlyQuote.credits;
@@ -25705,7 +25766,7 @@ async function runSubscriptionProrationRefund(userId, options) {
  * @param {'always'|'if_free_only'} options.syncMemberLevel
  */
 async function activateUserSubscriptionFromPlan(userId, plan, options) {
-    if (!userId || !plan || !plan.id) return;
+    if (!userId || !plan || !plan.id) return null;
     options = options || {};
     const mode = options.mode === 'extend' ? 'extend' : 'new';
     const syncLevel = options.syncMemberLevel || 'always';
@@ -25713,6 +25774,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
     const autoRenew = !internalUser && options.autoRenew === true;
     const now = new Date();
     const months = Math.max(1, parseInt(plan.duration_months, 10) || 1);
+    let subscriptionEndDate = null;
 
     if (mode === 'new') {
         try {
@@ -25731,11 +25793,12 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
         const start = now;
         const end = new Date(start);
         end.setMonth(end.getMonth() + months);
+        subscriptionEndDate = end.toISOString();
         await supabase.from('user_subscriptions').insert({
             user_id: userId,
             plan_id: plan.id,
             start_date: start.toISOString(),
-            end_date: end.toISOString(),
+            end_date: subscriptionEndDate,
             status: 'active',
             auto_renew: autoRenew
         });
@@ -25754,9 +25817,10 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
             : now;
         const end = new Date(base);
         end.setMonth(end.getMonth() + months);
+        subscriptionEndDate = end.toISOString();
         if (active && active.id) {
             const extendPatch = {
-                end_date: end.toISOString(),
+                end_date: subscriptionEndDate,
                 status: 'active'
             };
             if (internalUser) extendPatch.auto_renew = false;
@@ -25771,7 +25835,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
                 user_id: userId,
                 plan_id: plan.id,
                 start_date: now.toISOString(),
-                end_date: end.toISOString(),
+                end_date: subscriptionEndDate,
                 status: 'active',
                 auto_renew: autoRenew
             });
@@ -25791,6 +25855,7 @@ async function activateUserSubscriptionFromPlan(userId, plan, options) {
     } catch (syncErr) {
         console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
     }
+    return subscriptionEndDate ? { end_date: subscriptionEndDate } : null;
 }
 
 /** 付款訂單含 plan_key 時：開通訂閱並連動會員層級（月訂 extend／年付 new） */
@@ -25813,12 +25878,33 @@ async function fulfillSubscriptionAfterPayment(order, options) {
     const mode = (options && options.mode)
         ? options.mode
         : (orderType === 'subscription' ? 'extend' : 'new');
-    await activateUserSubscriptionFromPlan(order.user_id, plan, {
+    const subResult = await activateUserSubscriptionFromPlan(order.user_id, plan, {
         mode,
         syncMemberLevel: 'always',
         autoRenew: !!(options && options.autoRenew),
         excludeOrderId: order.id
     });
+    if (orderType === 'yearly') {
+        try {
+            const { data: orderRow } = await supabase
+                .from('payment_orders')
+                .select('order_id, amount, currency, metadata')
+                .eq('id', order.id)
+                .maybeSingle();
+            const payOrder = orderRow || order;
+            await userPricingEntitlements.upsertSubscriptionTermFromPaidOrder(supabase, {
+                userId: order.user_id,
+                planKey,
+                meta,
+                order: payOrder,
+                currency: payOrder.currency,
+                expiresAt: subResult && subResult.end_date,
+                orderId: payOrder.order_id
+            });
+        } catch (entErr) {
+            console.warn('user_pricing_entitlements yearly record:', entErr && entErr.message);
+        }
+    }
 }
 
 /** 商攝導演 −5：僅方案三／四（月費 ≥900）。方案二與免費為一般價。 */
