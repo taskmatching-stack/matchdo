@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title data-i18n="demands.pageTitle">訂製需求 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+    <script src="/js/i18n.js"></script>
+    <style>
+        .demand-card { transition: box-shadow 0.2s; }
+        .demand-card:hover { box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        .demand-img { height: 160px; object-fit: cover; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3 class="mb-0 text-dark"><i class="bi bi-list-ul me-2"></i><span data-i18n="demands.heading">訂製需求</span></h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/client/manufacturer-dashboard.html" data-i18n="demands.breadcrumbDash">廠商控制台</a></li>
+                        <li class="breadcrumb-item active" data-i18n="demands.breadcrumbCurrent">訂製需求</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4">
+        <p class="text-muted small mb-3" data-i18n-html="demands.intro">製造商接案用：依您承接的分類篩選，查看訂製者<strong>開放製造</strong>的設計後可聯絡對方（非上傳自己的作品）。<a href="/client/manufacturer-dashboard.html" class="ms-1" data-i18n="demands.backDash">返回廠商控制台</a></p>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label" data-i18n="demands.mainCategory">主分類</label>
+                <select class="form-select" id="mainCategory">
+                    <option value="" data-i18n="demands.selectMainCategory">請選擇主分類</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" data-i18n="demands.subCategory">子分類（選填）</label>
+                <select class="form-select" id="subCategory">
+                    <option value="" data-i18n="demands.subAll">全部</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-primary w-100" id="btnSearch" data-i18n="demands.search">查詢</button>
+            </div>
+        </div>
+        <div id="loadingSpinner" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 text-muted" data-i18n="demands.loading">載入中…</p>
+        </div>
+        <div id="demandsList" class="row g-3"></div>
+        <div id="emptyState" class="text-center py-5 text-muted d-none">
+            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+            <p class="mt-2" data-i18n="demands.empty">請選擇分類後查詢，或此分類暫無訂製需求。</p>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+        (function() {
+            var token = null;
+            var categoriesData = { list: [], subByMain: {} };
+
+            function tr(k, fb) {
+                if (window.i18n && typeof window.i18n.t === 'function') {
+                    var v = window.i18n.t(k);
+                    if (v && v !== k) return v;
+                }
+                return fb != null ? fb : k;
+            }
+
+            function getLang() {
+                if (window.i18n && window.i18n.getLang) {
+                    var gl = window.i18n.getLang();
+                    if (gl) return gl;
+                }
+                return 'zh-TW';
+            }
+
+            async function getToken() {
+                if (token) return token;
+                var s = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : null);
+                token = s && s.access_token ? s.access_token : null;
+                return token;
+            }
+
+            function fillMainCategoryOptions() {
+                var mainSel = document.getElementById('mainCategory');
+                if (!mainSel) return;
+                var list = categoriesData.list || [];
+                var firstOpt = '<option value="">' + escapeHtml(tr('demands.selectMainCategory', '請選擇主分類')) + '</option>';
+                mainSel.innerHTML = firstOpt + list.map(function (c) {
+                    return '<option value="' + escapeHtml(c.key) + '">' + escapeHtml(c.name || c.key) + '</option>';
+                }).join('');
+            }
+
+            function fillSubCategoryOptions(mainKey) {
+                var subSel = document.getElementById('subCategory');
+                if (!subSel) return;
+                var subs = categoriesData.subByMain[mainKey] || [];
+                var allOpt = '<option value="">' + escapeHtml(tr('demands.subAll', '全部')) + '</option>';
+                subSel.innerHTML = allOpt + subs.map(function (s) {
+                    return '<option value="' + escapeHtml(s.key) + '">' + escapeHtml(s.name || s.key) + '</option>';
+                }).join('');
+            }
+
+            async function loadCategories() {
+                var lang = getLang();
+                var res = await fetch('/api/custom-product-categories?lang=' + (String(lang).toLowerCase().indexOf('en') === 0 ? 'en' : ''));
+                var data = await res.json();
+                var list = (data.categories || []).filter(function (c) { return c.is_active !== false; });
+                categoriesData.list = list;
+                categoriesData.subByMain = {};
+                list.forEach(function (c) {
+                    var subs = (c.subcategories || []).filter(function (s) { return s.is_active !== false; });
+                    categoriesData.subByMain[c.key] = subs;
+                });
+                fillMainCategoryOptions();
+                var mainSel = document.getElementById('mainCategory');
+                if (mainSel && !mainSel.__demandsChangeBound) {
+                    mainSel.__demandsChangeBound = true;
+                    mainSel.addEventListener('change', function () {
+                        fillSubCategoryOptions(this.value);
+                    });
+                }
+            }
+
+            async function search() {
+                var mainKey = document.getElementById('mainCategory').value;
+                var emptyEl = document.getElementById('emptyState');
+                var listEl = document.getElementById('demandsList');
+                var spin = document.getElementById('loadingSpinner');
+                if (!mainKey) {
+                    emptyEl.classList.remove('d-none');
+                    listEl.innerHTML = '';
+                    showToast(tr('demands.selectMainFirst', '請先選擇主分類'), 'warning');
+                    return;
+                }
+                spin.classList.remove('d-none');
+                emptyEl.classList.add('d-none');
+                var subKey = document.getElementById('subCategory').value;
+                var q = new URLSearchParams({ category_key: mainKey, per_page: 20, page: 1 });
+                if (subKey) q.set('subcategory_key', subKey);
+                var res = await fetch('/api/custom-products/for-makers?' + q.toString(), { headers: { Authorization: 'Bearer ' + token } });
+                var data = await res.json();
+                spin.classList.add('d-none');
+                var items = data.items || [];
+                if (items.length === 0) {
+                    emptyEl.classList.remove('d-none');
+                    listEl.innerHTML = '';
+                    return;
+                }
+                emptyEl.classList.add('d-none');
+                var contactLbl = tr('demands.contactDesigner', '聯絡設計者');
+                listEl.innerHTML = items.map(function (d) {
+                    var img = d.image_url || 'https://via.placeholder.com/300x160?text=No+Image';
+                    var ownerId = d.owner_id ? encodeURIComponent(d.owner_id) : '';
+                    var productId = d.id ? encodeURIComponent(d.id) : '';
+                    return '<div class="col-md-6 col-lg-4">' +
+                        '<div class="card demand-card h-100">' +
+                        '<img src="' + img + '" class="card-img-top demand-img" alt="">' +
+                        '<div class="card-body">' +
+                        '<h6 class="card-title">' + escapeHtml(d.title || '') + '</h6>' +
+                        '<p class="card-text small text-muted">' + escapeHtml((d.description || '').substring(0, 80)) + '</p>' +
+                        (ownerId ? '<button class="btn btn-primary btn-sm w-100 btn-contact" data-owner-id="' + ownerId + '" data-product-id="' + productId + '"><i class="bi bi-chat-dots me-1"></i>' + escapeHtml(contactLbl) + '</button>' : '') +
+                        '</div></div></div>';
+                }).join('');
+                listEl.querySelectorAll('.btn-contact').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var uid = this.getAttribute('data-owner-id');
+                        var pid = this.getAttribute('data-product-id');
+                        if (uid) {
+                            var url = '/client/messages.html?open=' + uid;
+                            if (pid) url += '&product_id=' + pid;
+                            window.location.href = url;
+                        }
+                    });
+                });
+            }
+
+            function escapeHtml(s) {
+                var d = document.createElement('div');
+                d.textContent = s == null ? '' : s;
+                return d.innerHTML;
+            }
+
+            function showToast(msg, type) {
+                type = type || 'info';
+                if (window.bootstrap && document.body) {
+                    var el = document.createElement('div');
+                    el.className = 'toast align-items-center text-white bg-' + (type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : 'primary') + ' border-0 position-fixed bottom-0 end-0 m-3';
+                    el.setAttribute('role', 'alert');
+                    el.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(msg) + '</div></div>';
+                    document.body.appendChild(el);
+                    var t = new bootstrap.Toast(el, { delay: 3500 });
+                    t.show();
+                    el.addEventListener('hidden.bs.toast', function () { el.remove(); });
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', async function () {
+                var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+                await localeReady;
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                document.addEventListener('i18n:applied', function () {
+                    if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                    fillMainCategoryOptions();
+                    var mk = document.getElementById('mainCategory').value;
+                    if (mk) fillSubCategoryOptions(mk);
+                });
+                var ok = await AuthMiddleware.requireAuth();
+                if (!ok) return;
+                token = await getToken();
+                if (!token) { window.location.href = '/login.html'; return; }
+                await loadCategories();
+                document.getElementById('btnSearch').addEventListener('click', search);
+            });
+        })();
+    </script>
+    <div id="site-footer"></div>
+    <script src="/js/site-footer.js"></script>
+</body>
+</html>

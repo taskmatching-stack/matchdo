@@ -355,6 +355,36 @@
         var TW_GROUP_NAMES = { 'TW-N':'北部','TW-C':'中部','TW-S':'南部','TW-E':'東部','TW-O':'離島' };
         var TW_GROUP_ORDER = ['TW-N','TW-C','TW-S','TW-E','TW-O'];
 
+        function profileTr(k, fb) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb != null ? fb : k;
+        }
+
+        function areaUiLang() {
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var gl = window.i18n.getLang();
+                if (gl && String(gl).toLowerCase().indexOf('en') === 0) return 'en';
+            }
+            return 'zh';
+        }
+
+        function areaNodeLabel(node) {
+            if (!node) return '';
+            var lang = areaUiLang();
+            if (lang === 'en') return node.en || node.zh || node.code || '';
+            return node.zh || node.en || node.code || '';
+        }
+
+        function twGroupLabel(gk) {
+            var meta = (window.AreaCodes && window.AreaCodes.twGroupMeta && window.AreaCodes.twGroupMeta[gk]) || {};
+            var lang = areaUiLang();
+            if (lang === 'en') return meta.en || TW_GROUP_NAMES[gk] || gk;
+            return meta.zh || TW_GROUP_NAMES[gk] || gk;
+        }
+
         function countSelected(node) {
             var n = selectedAreas.indexOf(node.code) >= 0 ? 1 : 0;
             (node.children || []).forEach(function(c) { n += countSelected(c); });
@@ -375,7 +405,7 @@
                 var isOpen = !!_expandedCountry[c.code];
                 var activeCls = selN > 0 ? ' active' : '';
                 var openCls   = isOpen ? ' area-group-open' : '';
-                var lbl = c.zh + (selN > 0 ? ' <sup style="font-size:.65em;">+'+selN+'</sup>' : '');
+                var lbl = areaNodeLabel(c) + (selN > 0 ? ' <sup style="font-size:.65em;">+'+selN+'</sup>' : '');
                 html += '<span class="area-tag-btn' + activeCls + openCls + '" data-country="' + c.code + '">'
                       + lbl + ' <small style="font-size:.7em;">' + (isOpen?'▲':'▼') + '</small></span>';
             });
@@ -396,10 +426,10 @@
                     });
                     TW_GROUP_ORDER.forEach(function(gk) {
                         if (!grouped[gk]) return;
-                        html += '<div class="mb-1"><small class="text-muted me-1">' + (TW_GROUP_NAMES[gk]||gk) + '：</small>';
+                        html += '<div class="mb-1"><small class="text-muted me-1">' + twGroupLabel(gk) + '：</small>';
                         grouped[gk].forEach(function(city) {
                             var isAct = selectedAreas.indexOf(city.code) >= 0;
-                            html += '<span class="area-tag-btn city-tag' + (isAct?' active':'') + '" data-area="' + city.code + '">' + city.zh + '</span>';
+                            html += '<span class="area-tag-btn city-tag' + (isAct?' active':'') + '" data-area="' + city.code + '">' + areaNodeLabel(city) + '</span>';
                         });
                         html += '</div>';
                     });
@@ -412,7 +442,7 @@
                         // 無子地區：只顯示整個國家選取鈕
                         var isAct = selectedAreas.indexOf(country.code) >= 0;
                         html += '<span class="area-tag-btn city-tag' + (isAct?' active':'') + '" data-area="' + country.code + '">'
-                              + country.zh + '（整個國家）</span>';
+                              + areaNodeLabel(country) + profileTr('profile.areaWholeCountry', '（整個國家）') + '</span>';
                     } else {
                         // 有子州：分裂標籤
                         states.forEach(function(state) {
@@ -426,20 +456,20 @@
 
                             if (hasCities) {
                                 html += '<span class="area-split-tag' + activeCls + (isOpen?' open':'') + '">'
-                                      + '<span class="split-label" data-area="' + state.code + '">' + state.zh + cnt + '</span>'
+                                      + '<span class="split-label" data-area="' + state.code + '">' + areaNodeLabel(state) + cnt + '</span>'
                                       + '<span class="split-expand" data-state="' + state.code + '">' + (isOpen?'▲':'▼') + '</span>'
                                       + '</span>';
                                 // 第三層：城市
                                 if (isOpen) {
-                                    html += '<div class="area-subcities-panel ms-1 mb-1"><small class="text-muted me-1">' + state.zh + '：</small>';
+                                    html += '<div class="area-subcities-panel ms-1 mb-1"><small class="text-muted me-1">' + areaNodeLabel(state) + '：</small>';
                                     (state.children||[]).forEach(function(ct) {
                                         var isCtAct = selectedAreas.indexOf(ct.code) >= 0;
-                                        html += '<span class="area-tag-btn subcity-tag' + (isCtAct?' active':'') + '" data-area="' + ct.code + '">' + ct.zh + '</span>';
+                                        html += '<span class="area-tag-btn subcity-tag' + (isCtAct?' active':'') + '" data-area="' + ct.code + '">' + areaNodeLabel(ct) + '</span>';
                                     });
                                     html += '</div>';
                                 }
                             } else {
-                                html += '<span class="area-tag-btn city-tag' + (isStateAct?' active':'') + '" data-area="' + state.code + '">' + state.zh + '</span>';
+                                html += '<span class="area-tag-btn city-tag' + (isStateAct?' active':'') + '" data-area="' + state.code + '">' + areaNodeLabel(state) + '</span>';
                             }
                         });
                     }
@@ -485,8 +515,14 @@
             var preview = document.getElementById('selectedAreaPreview');
             if (hidden) hidden.value = selectedAreas.join(',');
             var ac = window.AreaCodes;
-            var labels = selectedAreas.map(function(c){ return ac ? ac.getLabel(c,'zh') : c; });
-            if (preview) preview.textContent = labels.length > 0 ? '已選：' + labels.join('、') : '（尚未選擇）';
+            var lang = areaUiLang();
+            var labels = selectedAreas.map(function(c){ return ac ? ac.getLabel(c, lang) : c; });
+            var sep = lang === 'en' ? ', ' : '、';
+            if (preview) {
+                preview.textContent = labels.length > 0
+                    ? profileTr('profile.areaSelectedPreview', '已選：{list}').replace('{list}', labels.join(sep))
+                    : profileTr('profile.areaNoneSelected', '（尚未選擇）');
+            }
         }
 
         function loadAreas(areaStr) {
@@ -526,6 +562,7 @@
             renderAreaSelector();
             // API 資料更新後重繪（area-codes.js 非同步載入 DB 地區資料）
             document.addEventListener('areacodes:updated', renderAreaSelector);
+            document.addEventListener('i18n:applied', renderAreaSelector);
             await loadContactInfo();
 
             $('#contactInfoForm').submit(async function (e) {

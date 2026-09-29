@@ -130,23 +130,23 @@
     </div>
 
     <div class="container py-4">
-        <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="auth-alert" class="alert alert-warning d-none" data-i18n-html="baseModels.authRequired"></div>
         <div id="manage-gate" class="d-none">
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-2"><i class="bi bi-building-add text-success me-2"></i>建立產業供應商公司</h5>
+                    <h5 class="fw-bold mb-2"><i class="bi bi-building-add text-success me-2"></i><span data-i18n="supplierManage.setupTitle">建立產業供應商公司</span></h5>
                     <p class="text-muted small mb-3" data-i18n="supplierManage.setupIntro">首次使用請填寫公司名稱（與製造商「建立廠商資料」相同，<strong>不必</strong>在 Supabase 跑綁定 SQL）。建立後即可上架產品、查看製造商引用。</p>
                     <form id="setup-supplier-form">
                         <div class="mb-3">
-                            <label class="form-label">公司名稱 <span class="text-danger">*</span></label>
+                            <label class="form-label"><span data-i18n="supplierManage.companyName">公司名稱</span> <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="setup-company-name" required maxlength="120">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">公司介紹</label>
+                            <label class="form-label" data-i18n="supplierManage.companyDesc">公司介紹</label>
                             <textarea class="form-control" id="setup-company-desc" rows="2"></textarea>
                         </div>
                         <div id="setup-msg" class="small mb-2"></div>
-                        <button type="submit" class="btn btn-success" id="setup-submit-btn"><i class="bi bi-check-lg me-1"></i>建立並開始上架</button>
+                        <button type="submit" class="btn btn-success" id="setup-submit-btn"><i class="bi bi-check-lg me-1"></i><span data-i18n="supplierManage.setupSubmit">建立並開始上架</span></button>
                     </form>
                 </div>
             </div>
@@ -247,7 +247,7 @@
                                 <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformMainCategory">主分類</span> <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformSubCategory">子分類</span> <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold"><span data-i18n="baseModels.platformSubCategory">子分類</span> <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="" data-i18n="baseModels.selectSubcategory">— 請選擇 —</option></select></div>
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryPrototypeHint">數位原型必選平台子分類（影響製造商匯入後設計端生圖提示詞）；「我的分類」僅供瀏覽排序。</p></div>
                                 </div></div>
                                 </details>
@@ -516,7 +516,7 @@
                         <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCategory">分類</span><span class="va-spec-value" data-va-spec="category">未選</span></summary>
                         <div class="va-spec-body">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
-                        <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
+                        <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="" data-i18n="baseModels.selectSubcategory">— 請選擇 —</option></select></div>
                         </div>
                         </details>
                         <details class="va-spec-block" data-va-card="spec" data-va-hide-empty>
@@ -940,16 +940,16 @@
                 sources = Compose.collectPendingSwatchSources(getPendingImages(form), { requireSelectable: false });
             }
             if (sources.length < Compose.MIN_COUNT) {
-                toast('請先上傳至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
+                toast(tr('baseModels.composeMinImages', '請先上傳至少 {n} 張圖片（不含封面）').replace('{n}', String(Compose.MIN_COUNT)), 'warning');
                 return;
             }
             if (sources.length > Compose.MAX_COUNT) {
-                toast('將取前 ' + Compose.MAX_COUNT + ' 張拼封面', 'info');
+                toast(tr('baseModels.composeTakeFirstN', '將取前 {n} 張拼封面').replace('{n}', String(Compose.MAX_COUNT)), 'info');
                 sources = sources.slice(0, Compose.MAX_COUNT);
             }
             var btn = form.querySelector('.btn-compose-material-cover');
             var btnHtml = btn ? btn.innerHTML : '';
-            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            if (btn) { btn.disabled = true; btn.textContent = tr('baseModels.composeBusy', '合成中…'); }
             try {
                 var blob = await Compose.composeGrid(sources);
                 var file = await blobToFile(blob, 'material-cover-grid.jpg');
@@ -972,9 +972,9 @@
                 });
                 renderPendingImages(form);
                 Pending.updateAddFormPointsEstimate(form);
-                toast('已產生 1:1 封面（' + sources.length + ' 張），請確認後發布', 'success');
+                toast(tr('baseModels.composeCoverReady', '已產生 1:1 封面（{n} 張），請確認後發布').replace('{n}', String(sources.length)), 'success');
             } catch (err) {
-                toast((err && err.message) || '拼封面失敗', 'danger');
+                toast((err && err.message) || tr('baseModels.composeCoverFail', '拼封面失敗'), 'danger');
             } finally {
                 if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; syncMaterialComposeCoverButtonForForm(form); }
             }
@@ -986,12 +986,12 @@
             var assetKind = normalizeKind(item.asset_kind || document.getElementById('edit-kind').value || activeKind);
             var urls = collectSupplierEditMaterialSwatchUrls(item);
             if (urls.length < Compose.MIN_COUNT) {
-                toast('需至少 ' + Compose.MIN_COUNT + ' 張圖片（不含封面）', 'warning');
+                toast(tr('baseModels.composeMinImagesShort', '需至少 {n} 張圖片（不含封面）').replace('{n}', String(Compose.MIN_COUNT)), 'warning');
                 return;
             }
             var btn = document.getElementById('btn-edit-compose-material-cover');
             var btnHtml = btn ? btn.innerHTML : '';
-            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            if (btn) { btn.disabled = true; btn.textContent = tr('baseModels.composeBusy', '合成中…'); }
             try {
                 var files = [];
                 for (var i = 0; i < urls.length; i++) {
@@ -1007,9 +1007,9 @@
                     showLocalImagePreview(document.getElementById('edit-new-image-preview'), file);
                     toggleEditImageOptions(true);
                 }
-                toast('已產生 1:1 封面（' + files.length + ' 張），按「儲存」寫入封面', 'success');
+                toast(tr('baseModels.composeCoverReadySave', '已產生 1:1 封面（{n} 張），按「儲存」寫入封面').replace('{n}', String(files.length)), 'success');
             } catch (err) {
-                toast((err && err.message) || '拼封面失敗', 'danger');
+                toast((err && err.message) || tr('baseModels.composeCoverFail', '拼封面失敗'), 'danger');
             } finally {
                 if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; syncEditMaterialComposeCoverButton(item); }
             }
@@ -1337,7 +1337,7 @@
         }
         function fillSubcategorySelect(sel, categoryKey, selectedSubKey) {
             if (!sel) return;
-            sel.innerHTML = '<option value="">— 請選擇 —</option>';
+            sel.innerHTML = '<option value="">' + esc(tr('baseModels.selectSubcategory', '— 請選擇 —')) + '</option>';
             if (!categoryKey) return;
             var cat = categories.find(function (c) { return c.key === categoryKey; });
             var subs = (cat && cat.subcategories) ? cat.subcategories : [];
@@ -1567,7 +1567,7 @@
                     body: JSON.stringify({ order: order, asset_kind: kind })
                 });
                 var d = await r.json().catch(function () { return {}; });
-                if (!r.ok) { toast(d.error || '排序失敗', 'danger'); return; }
+                if (!r.ok) { toast(d.error || tr('baseModels.catalogSortFailed', '排序失敗'), 'danger'); return; }
                 if (d.flat) catalogGroupsByKind[kind] = d.flat;
                 renderCatalogGroupsList(kind);
                 refreshAllAssignCatalogCheckboxes();
@@ -1808,7 +1808,7 @@
             renderPendingImages(form);
             Pending.updateAddFormPointsEstimate(form);
             await MatchdoDualColorImport.clearImport();
-            toast('已加入材料待傳清單（材料組合：上方色卡／下方材質圖；預設只上傳新圖）', 'success');
+            toast(tr('baseModels.materialComboAddedPending', '已加入材料待傳清單（材料組合：上方色卡／下方材質圖；預設只上傳新圖）'), 'success');
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return true;
         }
@@ -1999,7 +1999,7 @@
                             msgEl.textContent += ' — 請執行 docs/add-supplier-catalog-gallery-images.sql';
                         }
                         if (data.preview_points_refunded) {
-                            toast('已退還預覽扣點 ' + data.preview_points_refunded + ' 點', 'warning');
+                            toast(tr('baseModels.previewPointsRefunded', '已退還預覽扣點 {n} 點').replace('{n}', String(data.preview_points_refunded)), 'warning');
                         }
                         return;
                     }
@@ -2062,7 +2062,7 @@
                     body: fd
                 });
                 var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { toast(data.error || '產生失敗', 'danger'); return; }
+                if (!r.ok) { toast(data.error || tr('baseModels.generateFailed', '產生失敗'), 'danger'); return; }
                 document.getElementById('edit-description').value = data.description || '';
                 var msg = tr('baseModels.descriptionGenerated', '已產生說明');
                 if (data.points_deducted) msg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
@@ -2134,7 +2134,7 @@
                 body: fd
             });
             var data = await r.json().catch(function () { return {}; });
-            if (r.status === 402) { toast((data.error || '點數不足') + (data.required ? ' (' + data.required + ')' : ''), 'danger'); return; }
+            if (r.status === 402) { toast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + (data.required ? ' (' + data.required + ')' : ''), 'danger'); return; }
             if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
             if (editModal) editModal.hide();
             var okMsg = tr('supplierManage.saved', '已更新');
@@ -2245,7 +2245,7 @@
             };
             var r = await fetch('/api/me/industry-supplier', { method: 'PATCH', headers: authH(true), body: JSON.stringify(payload) });
             var data = await r.json().catch(function () { return {}; });
-            if (!r.ok) { toast(data.error || '儲存失敗', 'danger'); return; }
+            if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
             supplierRecord = data.supplier;
             renderSupplierBar();
             toast(tr('supplierManage.companySaved', '公司已更新'), 'success');
@@ -2319,7 +2319,7 @@
             }
 
             if (typeof AuthService === 'undefined') {
-                toast('登入模組未載入，請重新整理', 'danger');
+                toast(tr('supplierManage.loginModuleMissing', '登入模組未載入，請重新整理'), 'danger');
                 return;
             }
             token = await getToken();
@@ -2337,7 +2337,7 @@
                     return;
                 }
                 if (!r.ok) {
-                    toast(data.error || '載入失敗', 'danger');
+                    toast(data.error || tr('supplierManage.loadFailed', '載入失敗'), 'danger');
                     if (r.status === 503) document.getElementById('manage-gate').classList.remove('d-none');
                     return;
                 }
@@ -2350,7 +2350,7 @@
                 switchKind(hashKind || 'prototype');
                 try { await applyDualColorPendingImport(); } catch (_) {}
             } catch (e) {
-                toast(e.message || '頁面初始化失敗', 'danger');
+                toast(e.message || tr('supplierManage.initFailed', '頁面初始化失敗'), 'danger');
                 console.error('supplier-catalog-manage init:', e);
             }
         }

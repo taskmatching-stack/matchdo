@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d3-closure';
+    var LOCALE_CACHE_V = '20260929-e-demands-profile';
 
     function loadLocale(lang) {
         lang = lang || getLang();
