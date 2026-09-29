@@ -166,7 +166,7 @@ node scripts/audit-locale-mix.js
 | P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | ✅ 讀取端 `?lang=en`、作品 EN、link-tree／配色／找製作方；見 `PROGRESS-vendor-content-i18n-en.md`（單筆素材 EN 編輯 UI 仍待補） |
 | P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
 | P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
-| P3 | **AI 內容翻譯**（雙向、可選目標語；非 UI locale） | `docs/PLAN-ai-content-translation.md`（對話 T1 已做；UGC 多語／B 線等待辦） |
+| P3 | **AI 內容翻譯**（雙向、可選目標語；非 UI locale） | **僅待辦盤點** → `docs/PLAN-ai-content-translation.md`；**勿**在未點名時接續實作 |
 
 ## Agent 必守（避免再說「全站好了」）
 
@@ -252,6 +252,16 @@ node scripts/audit-locale-mix.js
 | **UI i18n 結案日** | **`d12d5b4`**（F(2)＋殼層 A＋B3 meta）；P1 訂閱牌價自 `4c15b36` 起 |
 
 **結案後才開：** 下表 P1/P2（訂閱優惠鎖價、SEO、服務地區、內容英文批次等）。
+
+### 主線是否算「處理完」？（2026-09-29 給使用者對照）
+
+| 範圍 | 狀態 |
+|------|------|
+| **前台 UI i18n**（結案定義 B1～F、殼層、B3） | ✅ 已結案（`d12d5b4` 起；B4 設計風向排除） |
+| **P1 訂閱／優惠鎖價／年付牌價** | ✅ 程式已 push；見 `PROGRESS-pricing-campaigns.md` |
+| **P2 廠商列表篩選、SEO、讀取 `?lang=en`** | ✅ 多數已 push |
+| **Supabase migration**（pricing、entitlements、vendor `*_en`、B 線 catalog EN 等） | ⏳ **需你在後台／SQL 執行**，非 Agent 可代完成 |
+| **AI 翻譯產品化（多語選單、B 線 generate-i18n…）** | 📋 **只寫進** `PLAN-ai-content-translation.md`；非本輪主線 |
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 
