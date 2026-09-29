@@ -104,7 +104,7 @@ Body: { "target_lang": "ja" }   // 可省略：依 UI locale 推斷，再 fallba
 | `client/messages.html` | 對話 UI + 目標語選單 |
 | `server.js` | translate 端點、vendor `generate-i18n-en` |
 | `docs/PROGRESS-vendor-content-i18n-en.md` | 廠商 `*_en` 進度 |
-| `docs/points-deduction-plan.md` | 翻譯扣點（文件曾寫「尚未實作」，對話已實作，可更新） |
+| `docs/points-deduction-plan.md` | 翻譯扣點（對話／訂製需求翻譯已實作） |
 
 ---
 

@@ -11,7 +11,7 @@
 | 1 | **AI 文生圖**（無參考圖） | 15 點 | `points_text_to_image` | `POST /api/generate-product-image`，無 referenceImages，**成功生圖後** | 待接扣點 |
 | 2 | **AI 圖生圖**（有參考圖） | 20 點 | `points_image_to_image` | `POST /api/generate-product-image`，有 referenceImages，**成功生圖後** | 待接扣點 |
 | 3 | **AI 放大** | 10 點 | `points_ai_upscale` | `POST /api/upscale-image`，**成功放大後**（僅前台；管理區不扣點） | 待 API 與頁面 |
-| 4 | **對話視窗翻譯**（一段 1 點） | 1 點 | `points_translation` | 未來翻譯 API 成功後 | 尚未實作 |
+| 4 | **對話視窗翻譯**（一段 1 點） | 1 點 | `points_translation` | `POST /api/direct-messages/:msgId/translate` 成功後（admin/tester 免） | ✅ 已實作 |
 | 5 | **額外刊登接案製作資訊** | 200 點 | `points_listing_per_category` | 製作方啟用「超出方案額度」的接案分類時 | 待接扣點 |
 
 - 後端扣點前先讀取對應 key，若為 0 則不扣、不寫流水。
@@ -79,9 +79,10 @@
 - **流程**：若為**管理員**（後台）→ 不扣點；若為**一般使用者**→ 放大成功後讀取 `points_ai_upscale`，扣點、寫流水（source: `ai_upscale`）。
 - **前端**：前台獨立頁；管理區「AI 工具」頁。
 
-### 4. 對話翻譯（1 點）— 尚未實作
+### 4. 對話翻譯（1 點）— 已實作
 
-- **觸發**：未來翻譯 API 成功後，每段扣 1 點（source: `translation`）。
+- **API**：`POST /api/direct-messages/:msgId/translate`；翻譯成功後扣 1 點（`credit_transactions.source`: `message_translate`）。同則訊息、同目標語已有 cache 時不扣點。
+- **另**：訂製需求瀏覽翻譯 `POST /api/custom-products/:id/translate-for-view` 亦 1 點、不寫 DB（`source`: `demand_translate`）；與廠商 UGC `*_en` 無關。
 
 ### 5. 額外刊登接案（200 點）
 
@@ -100,7 +101,7 @@
 | 4 | 後端：新增 **POST /api/upscale-image**（Stability Fast）；管理員不扣點、一般使用者成功後扣 10 點。 |
 | 5 | 前台：新增 **`/client/ai-upscale.html`**（AI 圖片放大）；管理區：新增「AI 工具」→「AI 放大」頁。 |
 | 6 | 額外刊登接案：在啟用超出額度之接案分類的 API 接 200 點扣點。 |
-| 7 | 對話翻譯：功能上線後接 1 點/段扣點。 |
+| 7 | 對話翻譯：✅ 已接 1 點/段（見 §4）。 |
 
 ---
 
