@@ -16879,16 +16879,39 @@ app.get('/api/payment-topup-presets', async (req, res) => {
     }
 });
 
-// GET /api/points-info — 公開點數說明（供前台 credits 頁顯示「用盡後加購」單價，與後台規則同步）
+// GET /api/points-info — 公開點數說明（供前台 credits 頁與設計稿點數 hint，與後台規則同步）
 app.get('/api/points-info', async (req, res) => {
     try {
         const { data: rows } = await supabase.from('payment_config').select('key, value').eq('key', 'points_listing_per_category');
         const val = (rows && rows[0]) ? rows[0].value : null;
+        const [
+            points_text_to_image,
+            points_image_to_image,
+            points_official_image_to_image,
+            points_design_to_physical
+        ] = await Promise.all([
+            getPointsTextToImage(),
+            getPointsImageToImage(),
+            getPointsOfficialImageToImage(),
+            getPointsDesignToPhysical()
+        ]);
         res.set('Cache-Control', 'public, max-age=300');
-        res.json({ points_listing_per_category: parseInt(val, 10) || 200 });
+        res.json({
+            points_listing_per_category: parseInt(val, 10) || 200,
+            points_text_to_image,
+            points_image_to_image,
+            points_official_image_to_image,
+            points_design_to_physical
+        });
     } catch (e) {
         console.error('GET /api/points-info:', e);
-        res.status(500).json({ points_listing_per_category: 200 });
+        res.status(500).json({
+            points_listing_per_category: 200,
+            points_text_to_image: 15,
+            points_image_to_image: 20,
+            points_official_image_to_image: 15,
+            points_design_to_physical: 20
+        });
     }
 });
 

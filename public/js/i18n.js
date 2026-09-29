@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-generate-promo';
+    var LOCALE_CACHE_V = '20260929-d2-d2p-points';
 
     function loadLocale(lang) {
         lang = lang || getLang();

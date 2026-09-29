@@ -1672,6 +1672,7 @@ $(document).ready(function () {
         if (hasVendorPrototypeLock() && !prototypeLinkSummary.loaded && !prototypeLinkSummaryLoading) {
             refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
         }
+        if (typeof updateGeneratePointsDisplay === 'function') updateGeneratePointsDisplay();
     }
     window.__renderIntentSlots = renderIntentSlots;
     window.__countTotalRefImages = countTotalRefImages;
@@ -4688,6 +4689,61 @@ $(document).ready(function () {
         if (!$btn.length || isGenerateInProgress || $btn.prop('disabled')) return;
         $btn.html('<i class="fas fa-wand-magic-sparkles me-2"></i><span>' + escapeHtmlText(tr('customProduct.generate', '建立設計稿')) + '</span>');
     }
+    var designPagePointsHints = {
+        textToImage: 15,
+        imageToImage: 20,
+        officialImageToImage: 15,
+        designToPhysical: 20,
+        loaded: false,
+        loading: false
+    };
+    function referenceSourcesIncludeOfficial(sources) {
+        if (!Array.isArray(sources)) return false;
+        return sources.some(function (s) { return s && s.official === true; });
+    }
+    function estimateGeneratePointsForDisplay() {
+        var payload = collectReferencePayload();
+        var hasRefs = payload.referenceImages.length > 0;
+        if (!hasRefs) return designPagePointsHints.textToImage;
+        if (referenceSourcesIncludeOfficial(payload.referenceSources)) return designPagePointsHints.officialImageToImage;
+        return designPagePointsHints.imageToImage;
+    }
+    function updateGeneratePointsDisplay() {
+        var $el = $('#generatePointsDisplay');
+        if (!$el.length) return;
+        var about = tr('customProduct.generatePointsAbout', '無參考圖 15 點／有參考圖 20 點');
+        var n = estimateGeneratePointsForDisplay();
+        var thisRun = tf('customProduct.generatePointsThisRun', '本次約 {n} 點', { n: String(n) });
+        $el.text(about + ' · ' + thisRun).attr('title', about);
+    }
+    function updateDesignToPhysicalPointsDisplay() {
+        var $el = $('#designToPhysicalPointsDisplay');
+        if (!$el.length) return;
+        var n = designPagePointsHints.designToPhysical;
+        $el.text(tf('customProduct.designToPhysicalPoints', '{n} 點／次', { n: String(n) }));
+    }
+    function ensureDesignPagePointsHints() {
+        if (designPagePointsHints.loaded || designPagePointsHints.loading) return Promise.resolve();
+        designPagePointsHints.loading = true;
+        return fetch('/api/points-info').then(function (r) { return r.json(); }).then(function (data) {
+            if (data && data.points_text_to_image != null) designPagePointsHints.textToImage = parseInt(data.points_text_to_image, 10) || 15;
+            if (data && data.points_image_to_image != null) designPagePointsHints.imageToImage = parseInt(data.points_image_to_image, 10) || 20;
+            if (data && data.points_official_image_to_image != null) {
+                designPagePointsHints.officialImageToImage = parseInt(data.points_official_image_to_image, 10) || 15;
+            }
+            if (data && data.points_design_to_physical != null) {
+                designPagePointsHints.designToPhysical = parseInt(data.points_design_to_physical, 10) || 20;
+            }
+            designPagePointsHints.loaded = true;
+        }).catch(function () { /* keep defaults */ }).finally(function () {
+            designPagePointsHints.loading = false;
+            updateGeneratePointsDisplay();
+            updateDesignToPhysicalPointsDisplay();
+        });
+    }
+    window.updateGeneratePointsDisplay = updateGeneratePointsDisplay;
+    window.updateDesignToPhysicalPointsDisplay = updateDesignToPhysicalPointsDisplay;
+    ensureDesignPagePointsHints();
     $('#generateImageBtn').click(async function () {
         if (isGenerateInProgress) return;
         isGenerateInProgress = true;
@@ -7092,8 +7148,27 @@ $(document).ready(function () {
             });
     });
 
-    // —— 寫實化（獨立 Tab；固定 20 點；不併入主生圖）——
+    // —— 寫實化（獨立 Tab；點數與後台 payment_config 同步；不併入主生圖）——
     window.designToPhysicalImageDataUrl = null;
+    var designToPhysicalApplyInProgress = false;
+    function syncDesignToPhysicalApplyBtnLabel() {
+        var $btn = $('#designToPhysicalApplyBtn');
+        if (!$btn.length) return;
+        if (designToPhysicalApplyInProgress) {
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i><span>' +
+                escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</span>');
+            return;
+        }
+        if ($btn.prop('disabled')) return;
+        $btn.html('<i class="fas fa-cube me-2"></i><span data-i18n="customProduct.designToPhysicalApply">' +
+            escapeHtmlText(tr('customProduct.designToPhysicalApply', '寫實化')) + '</span>');
+    }
+    function refreshDesignToPhysicalResultPlaceholder() {
+        if (designToPhysicalApplyInProgress) return;
+        var $wrap = $('#designToPhysicalResultWrap');
+        if (!$wrap.length || $wrap.find('img').length || $wrap.find('.text-danger, .text-warning').length) return;
+        $wrap.html('<p class="placeholder-hint mb-0 text-muted">' + escapeHtmlText(tr('customProduct.resultHere', '結果會顯示在這裡')) + '</p>');
+    }
     function clearDesignToPhysicalPreview() {
         window.designToPhysicalImageDataUrl = null;
         $('#designToPhysicalPreviewImg').addClass('d-none').attr('src', '');
@@ -7201,8 +7276,10 @@ $(document).ready(function () {
         var $btn = $('#designToPhysicalApplyBtn');
         var $wrap = $('#designToPhysicalResultWrap');
         var prompt = ($('#designToPhysicalPrompt').val() || '').trim();
-        $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</p>');
+        designToPhysicalApplyInProgress = true;
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i><span>' +
+            escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</span>');
+        $wrap.html('<p class="text-muted small mb-0">' + escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -7223,25 +7300,29 @@ $(document).ready(function () {
             });
         }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
             .then(function (result) {
+                designToPhysicalApplyInProgress = false;
                 $btn.prop('disabled', false);
+                syncDesignToPhysicalApplyBtnLabel();
                 var data = result.data;
                 if (result.status === 401) {
-                    $wrap.html('<p class="text-warning small mb-0">' + (tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>');
+                    $wrap.html('<p class="text-warning small mb-0">' + escapeHtmlText(tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>');
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('baseModels.insufficientPoints', '點數不足')) + '</p>');
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tr('baseModels.insufficientPoints', '點數不足')) + '</p>');
                     return;
                 }
                 if (data.success && data.imageData) {
                     renderDesignToPhysicalResult(data.imageData, data.ai_prompt);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '載入失敗')) + '</p>');
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(data.error || tr('baseModels.designToPhysicalFail', '寫實化失敗')) + '</p>');
                 }
             })
             .catch(function (err) {
+                designToPhysicalApplyInProgress = false;
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '載入失敗') + '</p>');
+                syncDesignToPhysicalApplyBtnLabel();
+                $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tr('baseModels.designToPhysicalFail', '寫實化失敗')) + '</p>');
                 console.warn('design-to-physical:', err);
             });
     });
@@ -7342,6 +7423,7 @@ $(document).ready(function () {
             }).catch(function () {});
         }
     }
+    window.refreshPromoImagePointsDisplay = refreshPromoImagePointsDisplay;
     function ensurePromoImageOptions(forceReload) {
         if (promoImageOptionsLoaded && !forceReload) return Promise.resolve();
         if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') {
@@ -7562,7 +7644,18 @@ $(document).ready(function () {
         if (typeof syncDesignTabActiveUi === 'function') syncDesignTabActiveUi(getTabParamFromPathname());
         if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
         if (typeof syncGenerateImageButtonLabel === 'function') syncGenerateImageButtonLabel();
+        if (typeof updateGeneratePointsDisplay === 'function') updateGeneratePointsDisplay();
+        if (typeof updateDesignToPhysicalPointsDisplay === 'function') updateDesignToPhysicalPointsDisplay();
+        if (typeof syncDesignToPhysicalApplyBtnLabel === 'function') syncDesignToPhysicalApplyBtnLabel();
+        if (designToPhysicalApplyInProgress) {
+            $('#designToPhysicalResultWrap').html('<p class="text-muted small mb-0">' +
+                escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</p>');
+        } else if (typeof refreshDesignToPhysicalResultPlaceholder === 'function') {
+            refreshDesignToPhysicalResultPlaceholder();
+        }
+        if (typeof updatePatternExtractResolutionDisplay === 'function') updatePatternExtractResolutionDisplay();
         if (typeof window.renderPromoImageSelectedThumbs === 'function') window.renderPromoImageSelectedThumbs();
+        if (typeof window.refreshPromoImagePointsDisplay === 'function') window.refreshPromoImagePointsDisplay();
         if ($('#tab-promo-image').hasClass('active') && typeof ensurePromoImageOptions === 'function') {
             ensurePromoImageOptions(true);
         }
