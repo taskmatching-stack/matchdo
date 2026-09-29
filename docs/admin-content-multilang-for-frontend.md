@@ -34,20 +34,8 @@
 
 ---
 
----
-
-## AI 估價分類（2026-09-29）
-
-| 項目 | 位置 |
-|------|------|
-| SQL | `docs/add-ai-categories-i18n-en.sql` |
-| 維護 id | `ai-categories-i18n-en` |
-| 後台 | `/admin/categories.html`（主／子「名稱（英文）」） |
-| 前台 API | `GET /api/categories?lang=en`（子分類 option value 仍為中文 `name`，顯示用 `sub_label`） |
-
----
-
 ## 配色範例（本輪補齊）
+
 | 項目 | 位置 |
 |------|------|
 | SQL | `docs/add-material-color-palette-i18n.sql` |

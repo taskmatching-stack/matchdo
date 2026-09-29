@@ -20863,26 +20863,21 @@ app.put('/api/admin/tag-strip-suffixes', express.json(), (req, res) => {
 // 取得 AI 分類（唯一來源：ai_categories + ai_subcategories，前後端同一組資料）
 app.get('/api/categories', async (req, res) => {
     try {
-        const contentLang = normalizeVendorContentLang(req.query.lang);
         let mainRows = null;
         let mainError = null;
-        let { data: mainData, error: mainErr } = await supabase.from('ai_categories').select('key, name, name_en, prompt, sort_order');
+        const { data: mainData, error: mainErr } = await supabase.from('ai_categories').select('key, name, prompt, sort_order');
         mainRows = mainData;
         mainError = mainErr;
-        if (isSupabaseMissingColumnError(mainErr, 'name_en')) {
-            ({ data: mainRows, error: mainError } = await supabase.from('ai_categories').select('key, name, prompt, sort_order'));
-        } else if (mainError) {
+        if (mainError) {
             const { data: fallback } = await supabase.from('ai_categories').select('key, name, prompt');
             if (fallback && fallback.length > 0) {
                 mainRows = fallback;
                 mainError = null;
             }
         }
-        let subSelect = 'key, name, name_en, category_key, form_config, sort_order';
-        let { data: subRows, error: subError } = await supabase.from('ai_subcategories').select(subSelect);
-        if (isSupabaseMissingColumnError(subError, 'name_en')) {
-            ({ data: subRows, error: subError } = await supabase.from('ai_subcategories').select('key, name, category_key, form_config, sort_order'));
-        }
+        const { data: subRows, error: subError } = await supabase
+            .from('ai_subcategories')
+            .select('key, name, category_key, form_config, sort_order');
 
         if (mainError || !mainRows) {
             console.warn('GET /api/categories ai_categories 讀取失敗:', mainError && mainError.message);
@@ -20897,33 +20892,25 @@ app.get('/api/categories', async (req, res) => {
         if (!subError && Array.isArray(subRows)) {
             subRows.forEach(s => {
                 if (!subByCategory[s.category_key]) subByCategory[s.category_key] = [];
-                subByCategory[s.category_key].push(s);
+                subByCategory[s.category_key].push({ name: s.name, form_config: s.form_config || [], sort_order: s.sort_order });
             });
             Object.keys(subByCategory).forEach(k => subByCategory[k].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
         }
 
-        const categories = mainList.map(m => {
-            const subs = subByCategory[m.key] || [];
-            const subNames = subs.map((s) => String(s.name || '').trim()).filter(Boolean);
-            const subLabels = subs.map((s) => pickVendorLocalizedText(s.name, s.name_en, contentLang));
-            return {
-                key: m.key,
-                name: pickVendorLocalizedText(m.name, m.name_en, contentLang),
-                prompt: m.prompt || '',
-                sort_order: m.sort_order != null ? m.sort_order : 0,
-                sub: subNames,
-                sub_label: subLabels,
-                sub_configs: subs.reduce((acc, s) => {
-                    const nm = String(s.name || '').trim();
-                    if (!nm) return acc;
-                    acc[nm] = Array.isArray(s.form_config) ? s.form_config : (s.form_config || {});
-                    return acc;
-                }, {})
-            };
-        });
+        const categories = mainList.map(m => ({
+            key: m.key,
+            name: m.name,
+            prompt: m.prompt || '',
+            sort_order: m.sort_order != null ? m.sort_order : 0,
+            sub: (subByCategory[m.key] || []).map(s => s.name),
+            sub_configs: (subByCategory[m.key] || []).reduce((acc, s) => {
+                acc[s.name] = Array.isArray(s.form_config) ? s.form_config : (s.form_config || {});
+                return acc;
+            }, {})
+        }));
 
         res.set('Cache-Control', 'no-store');
-        res.json({ categories, via: 'split-db', lang: contentLang });
+        res.json({ categories, via: 'split-db' });
     } catch (e) {
         console.error('GET /api/categories 異常:', e);
         res.status(500).json({ error: '載入分類失敗：' + e.message });
@@ -21371,26 +21358,14 @@ app.get('/api/admin/categories', async (req, res) => {
         let mainRows = null;
         let mainError = null;
         let fluxColumnReady = true;
-        let i18nColumnReady = true;
         const { data: mainData, error: mainErr } = await supabase
             .from('ai_categories')
-            .select('key, name, name_en, prompt, sort_order, flux_safety_tolerance');
+            .select('key, name, prompt, sort_order, flux_safety_tolerance');
         mainRows = mainData;
         mainError = mainErr;
         if (isSupabaseMissingColumnError(mainErr, 'flux_safety_tolerance')) {
             fluxColumnReady = false;
-            const fb = await supabase.from('ai_categories').select('key, name, name_en, prompt, sort_order');
-            mainRows = fb.data;
-            mainError = fb.error;
-            if (isSupabaseMissingColumnError(mainError, 'name_en')) {
-                i18nColumnReady = false;
-                const fb2 = await supabase.from('ai_categories').select('key, name, prompt, sort_order');
-                mainRows = fb2.data;
-                mainError = fb2.error;
-            }
-        } else if (isSupabaseMissingColumnError(mainErr, 'name_en')) {
-            i18nColumnReady = false;
-            const fb = await supabase.from('ai_categories').select('key, name, prompt, sort_order, flux_safety_tolerance');
+            const fb = await supabase.from('ai_categories').select('key, name, prompt, sort_order');
             mainRows = fb.data;
             mainError = fb.error;
         } else if (mainError) {
@@ -21400,24 +21375,13 @@ app.get('/api/admin/categories', async (req, res) => {
                 mainError = null;
             }
         }
-        let subSelect = 'key, name, name_en, category_key, form_config, sort_order, flux_safety_tolerance';
+        let subSelect = 'key, name, category_key, form_config, sort_order, flux_safety_tolerance';
         let { data: subRows, error: subError } = await supabase.from('ai_subcategories').select(subSelect);
         if (isSupabaseMissingColumnError(subError, 'flux_safety_tolerance')) {
             fluxColumnReady = false;
             ({ data: subRows, error: subError } = await supabase
                 .from('ai_subcategories')
-                .select('key, name, name_en, category_key, form_config, sort_order'));
-            if (isSupabaseMissingColumnError(subError, 'name_en')) {
-                i18nColumnReady = false;
-                ({ data: subRows, error: subError } = await supabase
-                    .from('ai_subcategories')
-                    .select('key, name, category_key, form_config, sort_order'));
-            }
-        } else if (isSupabaseMissingColumnError(subError, 'name_en')) {
-            i18nColumnReady = false;
-            ({ data: subRows, error: subError } = await supabase
-                .from('ai_subcategories')
-                .select('key, name, category_key, form_config, sort_order, flux_safety_tolerance'));
+                .select('key, name, category_key, form_config, sort_order'));
         }
         if (mainError || !mainRows) {
             return res.status(500).json({ error: '讀取分類失敗：' + (mainError ? mainError.message : '無資料') });
@@ -21444,13 +21408,11 @@ app.get('/api/admin/categories', async (req, res) => {
                 if (Array.isArray(cfg)) cfg = { _formFields: cfg };
                 else if (!cfg || typeof cfg !== 'object') cfg = {};
                 if (s.flux_safety_tolerance != null) cfg.flux_safety_tolerance = s.flux_safety_tolerance;
-                if (s.name_en != null && String(s.name_en).trim()) cfg.name_en = String(s.name_en).trim();
                 sub_configs[s.name] = cfg;
             });
             return {
                 key: m.key,
                 name: m.name,
-                name_en: m.name_en != null ? String(m.name_en).trim() : '',
                 prompt: m.prompt || '',
                 sort_order: m.sort_order != null ? m.sort_order : 0,
                 flux_safety_tolerance: m.flux_safety_tolerance != null ? m.flux_safety_tolerance : null,
@@ -21459,15 +21421,11 @@ app.get('/api/admin/categories', async (req, res) => {
             };
         });
         res.set('Cache-Control', 'no-store');
-        const hints = [];
-        if (!fluxColumnReady) hints.push('請執行 docs/add-flux-safety-tolerance.sql 以啟用分類 FLUX 審核設定');
-        if (!i18nColumnReady) hints.push('請執行 docs/add-ai-categories-i18n-en.sql 以儲存英文顯示名');
         res.json({
             categories,
             via: 'admin-split-db',
             flux_safety_tolerance_ready: fluxColumnReady,
-            i18n_en_ready: i18nColumnReady,
-            migration_hint: hints.length ? hints.join('；') : undefined
+            migration_hint: fluxColumnReady ? undefined : '請執行 docs/add-flux-safety-tolerance.sql 以啟用分類 FLUX 審核設定'
         });
     } catch (e) {
         console.error('GET /api/admin/categories 異常:', e);
@@ -21482,7 +21440,6 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
         const categories = Array.isArray(req.body.categories) ? req.body.categories : [];
         if (!categories.length) return res.status(400).json({ error: '無有效資料' });
         let fluxColumnReady = true;
-        let i18nColumnReady = true;
 
         for (let idx = 0; idx < categories.length; idx++) {
             const cat = categories[idx];
@@ -21493,9 +21450,6 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
                 prompt: cat.prompt || '',
                 sort_order: cat.sort_order != null ? cat.sort_order : idx
             };
-            if (cat.name_en !== undefined) {
-                mainPayload.name_en = cat.name_en != null && String(cat.name_en).trim() !== '' ? String(cat.name_en).trim() : null;
-            }
             if (cat.flux_safety_tolerance !== undefined) {
                 mainPayload.flux_safety_tolerance = parseFluxSafetyToleranceInput(cat.flux_safety_tolerance);
             }
@@ -21503,11 +21457,6 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
             if (isSupabaseMissingColumnError(mainErr, 'flux_safety_tolerance')) {
                 fluxColumnReady = false;
                 delete mainPayload.flux_safety_tolerance;
-                ({ error: mainErr } = await supabase.from('ai_categories').upsert(mainPayload, { onConflict: 'key' }));
-            }
-            if (isSupabaseMissingColumnError(mainErr, 'name_en')) {
-                i18nColumnReady = false;
-                delete mainPayload.name_en;
                 ({ error: mainErr } = await supabase.from('ai_categories').upsert(mainPayload, { onConflict: 'key' }));
             }
             if (mainErr) console.warn('admin ai_categories upsert failed:', mainErr.message);
@@ -21538,7 +21487,6 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
                     if (form_config && typeof form_config === 'object' && !Array.isArray(form_config)) {
                         const clone = { ...form_config };
                         delete clone.flux_safety_tolerance;
-                        delete clone.name_en;
                         form_config = clone;
                     }
                     const row = {
@@ -21548,10 +21496,6 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
                         form_config,
                         sort_order: subIdx
                     };
-                    const nameEnFromFront = fromFront && fromFront.name_en != null ? String(fromFront.name_en).trim() : '';
-                    if (fromFront && fromFront.name_en !== undefined) {
-                        row.name_en = nameEnFromFront || null;
-                    }
                     if (fromFront && fromFront.flux_safety_tolerance !== undefined) {
                         row.flux_safety_tolerance = parseFluxSafetyToleranceInput(fromFront.flux_safety_tolerance);
                     } else if (existing && existing.flux_safety_tolerance != null) {
@@ -21565,25 +21509,16 @@ app.put('/api/admin/categories', express.json(), async (req, res) => {
                     subPayload.forEach((r) => delete r.flux_safety_tolerance);
                     ({ error: subErr } = await supabase.from('ai_subcategories').upsert(subPayload, { onConflict: 'key' }));
                 }
-                if (isSupabaseMissingColumnError(subErr, 'name_en')) {
-                    i18nColumnReady = false;
-                    subPayload.forEach((r) => delete r.name_en);
-                    ({ error: subErr } = await supabase.from('ai_subcategories').upsert(subPayload, { onConflict: 'key' }));
-                }
                 if (subErr) console.warn('admin ai_subcategories upsert failed:', subErr.message);
             }
         }
 
-        const hints = [];
-        if (!fluxColumnReady) hints.push('請執行 docs/add-flux-safety-tolerance.sql 以儲存 FLUX 審核設定');
-        if (!i18nColumnReady) hints.push('請執行 docs/add-ai-categories-i18n-en.sql 以儲存英文顯示名');
         res.json({
             success: true,
             message: '分類資料已儲存',
             count: categories.length,
             flux_safety_tolerance_ready: fluxColumnReady,
-            i18n_en_ready: i18nColumnReady,
-            migration_hint: hints.length ? hints.join('；') : undefined
+            migration_hint: fluxColumnReady ? undefined : '請執行 docs/add-flux-safety-tolerance.sql 以儲存 FLUX 審核設定'
         });
     } catch (e) {
         console.error('PUT /api/admin/categories 異常:', e);

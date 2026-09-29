@@ -72,7 +72,6 @@ Agent **不會**自動上線 SQL；請在 Supabase SQL Editor 依序確認：
 | （基礎） | `docs/add-vendor-content-i18n-en.sql` | 廠商 `*_en` 主欄 |
 | `supplier-catalog-i18n-en` | `docs/add-supplier-catalog-i18n-en.sql` | B 線 catalog EN |
 | `vendor-capability-custom-labels-i18n-en` | `docs/add-vendor-capability-custom-labels-i18n-en.sql` | 自填工藝 EN、`contact_info.bio`／`bio_en` |
-| `ai-categories-i18n-en` | `docs/add-ai-categories-i18n-en.sql` | AI 估價分類主／子 `name_en` |
 | **勿跑** | `docs/add-vendor-asset-portfolio-i18n-en-hash.sql` | 已取消產品 |
 
 登記：`lib/admin-migrations.js`。
@@ -84,7 +83,7 @@ Agent **不會**自動上線 SQL；請在 Supabase SQL Editor 依序確認：
 1. **確認 migration** 是否已在線上庫執行（未跑則 EN 寫入可能 42703／503）。
 2. **`PLAN-ai-content-translation.md` 剩餘**
    - **U2**：多語軸（`title_ja`…）→ **需產品定案**，勿擅自開工。
-   - **D1**：✅ AI 估價分類 `add-ai-categories-i18n-en`；其餘官方字典依 `admin-content-multilang` checklist 補缺。
+   - **D1**：官方字典／攝影參數組等 → `admin-content-multilang` checklist。
    - **D4**：admin 訊息監看是否要翻譯 → 先查現況再開。
 3. **U5 作品集（本批）**：`manufacturer-portfolio.html` 編輯彈窗「其他工藝」+ 選填英文；`PUT …/portfolio/:id` 寫入 `capability_custom_labels_en`；公開 `GET /api/manufacturers/:id?lang=en` 帶工藝欄。
 4. **`FRONTEND-I18N-AUDIT.md` P1/P2 結案後項**：訂閱／SEO 等多在 `PROGRESS-*.md`；與翻譯計畫並列時以兩份 PLAN 表為準。

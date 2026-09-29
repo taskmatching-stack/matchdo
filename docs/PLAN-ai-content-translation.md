@@ -69,7 +69,7 @@
 
 | # | 項目 | 現況 | 建議 |
 |---|------|------|------|
-| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | ✅ **AI 估價分類**（`categories.html` + `GET /api/categories?lang=en`）；攝影參數組等其餘字典已有多語欄，持續依 checklist 補缺 |
+| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist |
 | D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
 | D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`）；訂製需求僅按鈕、目標語跟 UI | 其他頁面按需掛載 |
 | D4 | 管理員訊息監看翻譯 | 未查 | 若 admin 看對話需翻譯，另開 |
@@ -111,4 +111,4 @@ Body: { "target_lang": "ja" }   // 可省略：依 UI locale 推斷，再 fallba
 ## 狀態
 
 - **T1–T2（對話）**：已實作（見 `git log` 含 `lib/message-translate-langs.js`）。
-- **U1、U3–U5、T1–T3、D1（AI 估價分類）**：已實作（見 `git log`）；**U2** 多語軸待產品定案；**D4** 仍待排期。
+- **U1、U3–U5、T1–T3**：已實作（見 `git log`）；**U2** 多語軸待產品定案；**D1、D4** 仍待排期。
