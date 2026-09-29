@@ -15,4 +15,8 @@
 ## 相關
 
 - 地區 code：`public/js/area-codes.js`
-- 比對邏輯：`server.js` — `manufacturerMatchesServiceArea`（`contact_json.service_area`，相容字串／陣列）
+- 比對邏輯：`lib/manufacturer-list-filters.js`（`contact_json.service_area`，相容字串／陣列）；單測 `scripts/test-manufacturer-list-filters.js`
+
+## 狀態
+
+- 已上線：`0b229d4`（API + `vendors.html`）

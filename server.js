@@ -163,6 +163,11 @@ const userPricingEntitlements = require('./lib/user-pricing-entitlements');
 const mediaWallQueries = require('./lib/media-wall-queries');
 const cpMediaWallTitle = require('./lib/custom-product-media-wall-title');
 const manufacturerAudience = require('./lib/manufacturer-audience');
+const {
+    manufacturerMatchesServiceArea,
+    parseServiceAreaCodesFromQuery,
+    paginateManufacturerRows
+} = require('./lib/manufacturer-list-filters');
 
 function mediaWallQueryLog(label, msg) {
     console.warn(label, msg);
@@ -7493,6 +7498,8 @@ function buildInspirationUgcDetailHtml(item, base, type, id, options) {
     const displayTags = item.display_tags || [];
     const tagsKeywords = displayTags.slice(0, 24).join(', ');
     const title = escapeHtmlText(item.title || '作品');
+    const ogTitleRaw = 'MatchDO｜' + (item.title || '作品');
+    const ogTitle = escapeHtmlAttr(ogTitleRaw);
     const fullBody = inspirationFullBodyText(item, type);
     let descRaw = fullBody || String(item.title || 'MATCHDO 靈感牆作品');
     if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 500);
@@ -7541,13 +7548,13 @@ function buildInspirationUgcDetailHtml(item, base, type, id, options) {
 ${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MATCHDO 合做">
-<meta property="og:title" content="${title} - MATCHDO 靈感牆">
+<meta property="og:title" content="${ogTitle}">
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:url" content="${pageUrl}">
 <link rel="canonical" href="${pageUrl.replace(/"/g, '&quot;')}">
 ${imgUrl ? `<meta property="og:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title} - MATCHDO 靈感牆">
+<meta name="twitter:title" content="${ogTitle}">
 <meta name="twitter:description" content="${metaDesc}">
 ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
 <script type="application/ld+json">${JSON.stringify({
@@ -9978,57 +9985,6 @@ async function buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview 
         });
     }
     return map;
-}
-
-function manufacturerMatchesServiceArea(mfr, areaCode) {
-    if (!areaCode || !mfr) return !areaCode;
-    const code = String(areaCode).trim().toLowerCase();
-    const contact = mfr.contact_json && typeof mfr.contact_json === 'object' ? mfr.contact_json : {};
-    let areas = contact.service_area;
-    if (!areas && mfr.location) areas = [mfr.location];
-    if (!areas) return false;
-    if (typeof areas === 'string') {
-        areas = areas.split(/[,，、\s]+/).map((s) => s.trim()).filter(Boolean);
-    }
-    if (!Array.isArray(areas)) return false;
-    return areas.some((a) => {
-        const s = String(a).trim().toLowerCase();
-        return s === code || s.includes(code) || code.includes(s);
-    });
-}
-
-function parseServiceAreaCodesFromQuery(req) {
-    const parts = [];
-    const single = String(req.query.service_area || '').trim();
-    const multi = String(req.query.service_areas || '').trim();
-    if (single) parts.push(...single.split(/[,，]/));
-    if (multi) parts.push(...multi.split(/[,，]/));
-    return [...new Set(parts.map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
-}
-
-function manufacturerMatchesAnyServiceArea(mfr, areaCodes) {
-    if (!areaCodes || !areaCodes.length) return true;
-    return areaCodes.some((code) => manufacturerMatchesServiceArea(mfr, code));
-}
-
-function sortManufacturerRows(rows, sortKey) {
-    const copy = (rows || []).slice();
-    if (sortKey === 'name') {
-        copy.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
-        return copy;
-    }
-    copy.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
-    return copy;
-}
-
-function paginateManufacturerRows(rows, page, perPage, sortKey, serviceAreaCodes) {
-    let list = sortManufacturerRows(rows, sortKey);
-    if (serviceAreaCodes && serviceAreaCodes.length) {
-        list = list.filter((m) => manufacturerMatchesAnyServiceArea(m, serviceAreaCodes));
-    }
-    const total = list.length;
-    const start = (page - 1) * perPage;
-    return { pageRows: list.slice(start, start + perPage), total };
 }
 
 const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, guide_links_multi_pick, created_at, updated_at';

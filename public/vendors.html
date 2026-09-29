@@ -344,6 +344,11 @@
             setMeta('meta[name="twitter:title"]', 'content', title);
             setMeta('meta[name="twitter:description"]', 'content', desc);
             var listUrl = 'https://matchdo.cc/vendors.html';
+            if (String(getLang()).toLowerCase().indexOf('en') === 0) {
+                listUrl += '?lang=en';
+            }
+            var canon = document.querySelector('link[rel="canonical"]');
+            if (canon) canon.setAttribute('href', listUrl);
             var coll = document.getElementById('vendorsCollectionJsonLd');
             if (coll) {
                 coll.textContent = JSON.stringify({
