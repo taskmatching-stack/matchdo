@@ -26,7 +26,7 @@
 
 1. `/admin/db-migrations.html` 執行 **pricing-campaigns**（或 Supabase 跑 `docs/add-pricing-campaigns.sql`）
 2. 執行 **subscription-plan-yearly-price**（`docs/add-subscription-plan-yearly-price.sql`）
-3. 執行 **user-pricing-entitlements**（`docs/add-user-pricing-entitlements.sql`）
+3. 執行 **user-pricing-entitlements** 與 **user-pricing-entitlements-list-discount**
 4. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價
 5. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400
 
@@ -53,7 +53,7 @@
 
 **實作規劃（2026-09-29）**：見 **`docs/PLAN-pricing-entitlements.md`**（鎖年付成交價；`subscription_term` 預設；`lifetime` 需後台指派 Phase 3）。
 
-**進度（2026-09-29）**：✅ Phase 1 年付付款寫入 `subscription_term`；✅ Phase 2 quote 讀 `lifetime`；管理員 API `POST /api/admin/user-pricing-entitlements`、`PATCH …/revoke`（無專用 UI）。待做：Phase 3 membership 鎖價 UI、Phase 4 換 tier／退款邊界。
+**進度（2026-09-29）**：✅ Phase 1–2；✅ Phase 3 **membership 鎖折 UI**（牌價折扣％，非絕對價）；migration `user-pricing-entitlements-list-discount`。待做：Phase 4 換 tier／退款邊界。
 
 相關規劃：`docs/PLAN-pricing-campaigns.md` §1（特價語意僅年訂閱期）。
 

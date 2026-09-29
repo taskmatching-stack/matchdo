@@ -591,6 +591,85 @@
 
   var currentUserForAdjust = null;
 
+  async function loadUserPricingLocks(userId) {
+    var box = document.getElementById('userPricingLocksList');
+    if (!box || !userId) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      box.textContent = '請先登入';
+      return;
+    }
+    try {
+      var res = await fetch('/api/admin/user-pricing-entitlements?user_id=' + encodeURIComponent(userId), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) {
+        box.innerHTML = '<span class="text-danger">' + (data.error || '載入失敗') + '</span>';
+        return;
+      }
+      var items = (data.items || []).filter(function(row) { return row.scope === 'lifetime'; });
+      if (!items.length) {
+        box.innerHTML = '<span class="text-muted">尚無終身鎖折</span>';
+        return;
+      }
+      box.innerHTML = '<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>方案</th><th>幣別</th><th>牌價折扣％</th><th></th></tr></thead><tbody>' +
+        items.map(function(row) {
+          var pct = row.list_discount_percent != null ? row.list_discount_percent : '—';
+          return '<tr><td>' + (row.plan_key || '—') + '</td><td>' + (row.currency || '') + '</td><td>' + pct + '</td>' +
+            '<td><button type="button" class="btn btn-link btn-sm p-0 text-danger user-lock-revoke" data-id="' + row.id + '">撤銷</button></td></tr>';
+        }).join('') + '</tbody></table>';
+      box.querySelectorAll('.user-lock-revoke').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          revokeUserPricingLock(btn.getAttribute('data-id'), userId);
+        });
+      });
+    } catch (e) {
+      box.textContent = '載入失敗';
+    }
+  }
+  async function saveUserPricingLock(userId) {
+    if (!userId) return;
+    var planKey = document.getElementById('userLockPlanKey').value;
+    var pct = parseFloat(document.getElementById('userLockDiscountPct').value);
+    var curSel = document.getElementById('userLockCurrency').value;
+    if (!planKey || !Number.isFinite(pct) || pct <= 0 || pct >= 100) {
+      showMsg('請填方案與有效折扣％（0.01–99.99）', true);
+      return;
+    }
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    var body = {
+      user_id: userId,
+      plan_key: planKey,
+      list_discount_percent: pct
+    };
+    if (curSel === 'both') body.currency_scope = 'both';
+    else body.currency = curSel;
+    try {
+      var res = await fetch('/api/admin/user-pricing-entitlements', { method: 'POST', headers: headers, body: JSON.stringify(body) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('已儲存鎖折');
+      document.getElementById('userLockDiscountPct').value = '';
+      loadUserPricingLocks(userId);
+    } catch (e) {
+      showMsg('儲存失敗', true);
+    }
+  }
+  async function revokeUserPricingLock(id, userId) {
+    if (!id || !confirm('確定撤銷此鎖折？')) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/user-pricing-entitlements/' + encodeURIComponent(id) + '/revoke', { method: 'PATCH', headers: headers, body: '{}' });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '撤銷失敗', true); return; }
+      showMsg('已撤銷');
+      loadUserPricingLocks(userId);
+    } catch (e) {
+      showMsg('撤銷失敗', true);
+    }
+  }
+
   function fillUserSubPlanSelect(selectedId) {
     var sel = document.getElementById('userSubPlanId');
     if (!sel) return;
@@ -656,8 +735,21 @@
         '<button type="button" class="btn btn-sm btn-success me-1" id="btnManageSubscription">訂閱／帳期</button>' +
         '<button type="button" class="btn btn-sm btn-primary me-1" id="btnAdjustCredits">調整點數</button>' +
         '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnEditMemberLevel">編輯等級</button>' +
-        '</div>';
+        '<div id="userPricingLocksWrap" class="mt-3 pt-2 border-top">' +
+        '<h6 class="small fw-bold mb-1">年付牌價鎖折（終身）</h6>' +
+        '<p class="text-muted small mb-2">設定<strong>牌價年付折扣％</strong>（例：17 表示牌價少 17%）。牌價調整後續約金額會依折扣重算，<strong>不是</strong>鎖固定成交價。</p>' +
+        '<div id="userPricingLocksList" class="small mb-2 text-muted">載入中…</div>' +
+        '<div class="row g-2 align-items-end">' +
+        '<div class="col-md-3"><label class="form-label small mb-0">方案</label><select id="userLockPlanKey" class="form-select form-select-sm">' +
+        '<option value="tier2">tier2</option><option value="tier3">tier3</option><option value="tier4">tier4</option></select></div>' +
+        '<div class="col-md-2"><label class="form-label small mb-0">折扣％</label><input type="number" id="userLockDiscountPct" class="form-control form-control-sm" min="0.01" max="99.99" step="0.01" placeholder="17" /></div>' +
+        '<div class="col-md-3"><label class="form-label small mb-0">幣別</label><select id="userLockCurrency" class="form-select form-select-sm">' +
+        '<option value="both">TWD + USD</option><option value="TWD">僅 TWD</option><option value="USD">僅 USD</option></select></div>' +
+        '<div class="col-auto"><button type="button" class="btn btn-sm btn-outline-primary" id="btnSaveUserPricingLock">儲存鎖折</button></div>' +
+        '</div></div></div>';
       box.innerHTML = html;
+      loadUserPricingLocks(u.id);
+      document.getElementById('btnSaveUserPricingLock').addEventListener('click', function() { saveUserPricingLock(u.id); });
       document.getElementById('btnManageSubscription').addEventListener('click', function() {
         openUserSubModal(u);
       });

@@ -1,6 +1,6 @@
 # 個人訂閱優惠鎖價（P1-A）
 
-> **狀態**：Phase 1–2 已實作（2026-09-29）；Phase 3 後台 UI 待做  
+> **狀態**：Phase 1–3 已實作（2026-09-29）；Phase 4 邊界待做  
 > **進度**：`docs/PROGRESS-pricing-campaigns.md` §A  
 > **前置**：限時檔期 v1（`pricing_campaigns`）、牌價年付 DB（P1-B）已上線
 
@@ -9,9 +9,9 @@
 | 名詞 | 定義 |
 |------|------|
 | **僅本訂閱期** `subscription_term` | 成交當次年付（或月訂）整段有效期內，續約／換方案依**當下**牌價與檔期重算（= 現行檔期年付語意 + 訂單 metadata 留存） |
-| **終身鎖價** `lifetime` | 同一 `user_id` + `plan_key` + `billing` 在**續約年付**（與同 tier 升級規則另議）時，仍用鎖定的 `amount`／`currency`，直到管理員撤銷 |
+| **終身鎖折** `lifetime` | 鎖 **牌價年付折扣％**（`list_discount_percent`）；續約時依**當下**牌價年付重算成交價，直到管理員撤銷。**不**鎖絕對成交金額。 |
 
-**v1 不鎖**：tier 權益（`credits_monthly`、功能旗標）— 權益仍跟 `subscription_plans` 現行表；僅鎖**年付成交價**（TWD／USD 分開記）。
+**v1 不鎖**：tier 權益（`credits_monthly`、功能旗標）— 權益仍跟 `subscription_plans` 現行表；終身僅鎖**牌價折扣％**（TWD／USD 可分開設定）。
 
 **預設**：所有新成交、檔期活動、手動指派若未勾選終身 → `subscription_term`。
 
@@ -25,7 +25,8 @@
 | `plan_key` | tier2／tier3／tier4 |
 | `billing` | `yearly`（v1 僅年付鎖價；月訂 Phase 2） |
 | `currency` | TWD／USD |
-| `locked_amount` | 鎖定年付金額 |
+| `list_discount_percent` | 牌價年付折扣％（lifetime 必填；例 17＝牌價少 17%） |
+| `locked_amount` | 僅 `subscription_term` 本期成交快照（選填） |
 | `scope` | `subscription_term` \| `lifetime` |
 | `source` | `campaign` \| `admin_grant` \| `order` |
 | `campaign_id` | 可空 |
@@ -48,12 +49,12 @@
 `buildPaymentCheckoutQuote`：
 
 1. 查有效 entitlement（`lifetime` 或 `expires_at > now()`）。
-2. 若 `billing=yearly` 且命中 → `amount=locked_amount`（仍驗 credits 現行方案）。
+2. 若 `billing=yearly` 且命中 → `amount = list_amount × (100 - list_discount_percent) / 100`（仍驗 credits 現行方案；**不**讀檔期特價覆蓋鎖折）。
 3. 否則沿用 `computeListYearlyPrices` + 檔期 rule。
 
 ### 3.3 後台（Phase 3）
 
-- `/admin/membership.html` 或新「用戶鎖價」：搜 user、選 tier、填年付 TWD/USD、勾選終身。
+- `/admin/membership.html`「用戶所屬等級」：搜 user、選 tier、填**牌價折扣％**、TWD／USD／兩者、終身鎖折。
 - 列表顯示 `user_pricing_entitlements` + 連結來源訂單。
 
 ## 4. 實作順序

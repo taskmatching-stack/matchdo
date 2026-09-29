@@ -13185,6 +13185,7 @@ function paymentOrderMetadataFromQuote(quote) {
         plan_key: quote.plan_key,
         billing: quote.billing
     };
+    if (quote.list_discount_percent != null) meta.list_discount_percent = quote.list_discount_percent;
     if (quote.campaign_id) meta.campaign_id = quote.campaign_id;
     if (quote.billing === 'yearly' && quote.list_amount != null) {
         meta.list_amount = quote.list_amount;
@@ -16829,7 +16830,22 @@ app.delete('/api/admin/pricing-campaigns/:id', async (req, res) => {
     }
 });
 
-// POST /api/admin/user-pricing-entitlements — 指派終身年付鎖價（暫無專用 UI）
+// GET /api/admin/user-pricing-entitlements?user_id= — 用戶有效鎖折紀錄
+app.get('/api/admin/user-pricing-entitlements', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const userId = String(req.query.user_id || req.query.userId || '').trim();
+        if (!userId) return res.status(400).json({ error: '請提供 user_id' });
+        const items = await userPricingEntitlements.listActiveEntitlementsForUser(supabase, userId);
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/admin/user-pricing-entitlements:', e);
+        res.status(500).json({ error: e.message || '查詢失敗' });
+    }
+});
+
+// POST /api/admin/user-pricing-entitlements — 指派終身「牌價年付折扣％」（非鎖絕對價）
 app.post('/api/admin/user-pricing-entitlements', express.json(), async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
@@ -16838,20 +16854,32 @@ app.post('/api/admin/user-pricing-entitlements', express.json(), async (req, res
         const userId = String(body.user_id || body.userId || '').trim();
         const planKey = String(body.plan_key || body.planKey || '').trim();
         const currency = body.currency;
-        const lockedAmount = body.locked_amount != null ? body.locked_amount : body.lockedAmount;
+        const listDiscountPercent = body.list_discount_percent != null
+            ? body.list_discount_percent
+            : body.listDiscountPercent;
         if (!userId || !planKey) {
             return res.status(400).json({ error: '請提供 user_id 與 plan_key（tier2／tier3／tier4）' });
         }
-        const result = await userPricingEntitlements.grantAdminLifetimeLock(supabase, {
-            userId,
-            planKey,
-            currency,
-            lockedAmount
-        });
-        if (!result.ok) {
-            return res.status(400).json({ error: '參數無效', reason: result.reason || '' });
+        if (body.locked_amount != null || body.lockedAmount != null) {
+            return res.status(400).json({ error: '請使用 list_discount_percent（牌價折扣％），勿傳 locked_amount' });
         }
-        res.json({ success: true, id: result.id, created: !!result.created, updated: !!result.updated });
+        const applyBoth = String(body.currency_scope || '').trim().toLowerCase() === 'both'
+            || body.apply_both_currencies === true;
+        const currencies = applyBoth ? ['TWD', 'USD'] : [userPricingEntitlements.normalizeCurrency(currency)];
+        const results = [];
+        for (let i = 0; i < currencies.length; i++) {
+            const result = await userPricingEntitlements.grantAdminLifetimeDiscount(supabase, {
+                userId,
+                planKey,
+                currency: currencies[i],
+                listDiscountPercent
+            });
+            if (!result.ok) {
+                return res.status(400).json({ error: '參數無效', reason: result.reason || '', currency: currencies[i] });
+            }
+            results.push({ id: result.id, currency: currencies[i], created: !!result.created, updated: !!result.updated });
+        }
+        res.json({ success: true, results });
     } catch (e) {
         console.error('POST /api/admin/user-pricing-entitlements:', e);
         res.status(500).json({ error: e.message || '指派失敗' });
