@@ -2674,6 +2674,8 @@
   "profile.companyName": "公司/工作室名稱",
   "profile.serviceArea": "服務地區",
   "profile.bio": "自我介紹",
+  "profile.bioEn": "英文版",
+  "profile.bioEnPlaceholder": "選填",
   "profile.phoneSection": "電話資訊",
   "profile.phone": "市話",
   "profile.mobile": "手機",

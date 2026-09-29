@@ -9166,6 +9166,33 @@ function pickVendorLocalizedText(primary, enValue, lang) {
     return primary != null ? String(primary).trim() : '';
 }
 
+/** text[] 與 *_en 同索引；lang=en 時逐項 fallback 中文 */
+function pickLocalizedStringArray(zhArr, enArr, lang) {
+    const zh = (Array.isArray(zhArr) ? zhArr : [])
+        .map((s) => String(s || '').trim())
+        .filter(Boolean);
+    const en = Array.isArray(enArr) ? enArr : [];
+    if (normalizeVendorContentLang(lang) !== 'en') return zh;
+    return zh.map((z, i) => {
+        const ev = en[i] != null ? String(en[i]).trim() : '';
+        return ev || z;
+    });
+}
+
+function vendorCapabilityCustomLabelsForLang(row, lang) {
+    const zh = (Array.isArray(row && row.capability_custom_labels) ? row.capability_custom_labels : [])
+        .map((s) => String(s || '').trim())
+        .filter(Boolean);
+    const enRaw = row && row.capability_custom_labels_en;
+    const en = (Array.isArray(enRaw) ? enRaw : [])
+        .map((s) => String(s || '').trim());
+    return {
+        capability_custom_labels_zh: zh,
+        capability_custom_labels_en: en,
+        capability_custom_labels: pickLocalizedStringArray(zh, en, lang)
+    };
+}
+
 /** 圖庫 label 常為「中文-English」；lang=en 時取英文段（無 label_en 時的 fallback） */
 function localizeVendorGalleryLabel(label, lang) {
     const t = String(label || '').trim();
@@ -9677,6 +9704,7 @@ function mapPortfolioItemForLocale(row, lang) {
     if (!row) return row;
     return {
         ...row,
+        ...vendorCapabilityCustomLabelsForLang(row, lang),
         title: pickVendorLocalizedText(row.title, row.title_en, lang),
         description: pickVendorLocalizedText(row.description, row.description_en, lang),
         design_highlight: pickVendorLocalizedText(row.design_highlight, row.design_highlight_en, lang)
@@ -9695,6 +9723,7 @@ function mapVendorAssetForApi(row, lang) {
         : (row.image_url ? [row.image_url] : []);
     return {
         ...row,
+        ...vendorCapabilityCustomLabelsForLang(row, lang),
         asset_kind: kind,
         asset_origin: vendorAssetOriginForApi(row),
         gallery_images: gallery,
@@ -10041,7 +10070,7 @@ async function buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview 
     return map;
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, guide_links_multi_pick, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, capability_custom_labels_en, guide_links_multi_pick, created_at, updated_at';
 /** 圖庫增刪改／重繪 API 回傳：須含 MOQ、訂製程度、工藝、我的分類等（避免前端被空陣列覆寫） */
 const VENDOR_ASSET_SELECT_GALLERY_API = VENDOR_ASSET_SELECT_ME;
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
@@ -37652,7 +37681,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
 
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels, production_type_key';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, capability_custom_labels_en';
         async function runQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -37673,7 +37702,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         let { data: rows, error } = await runQuery(selectCols);
         if (error && error.code === '42703') {
-            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'cover_image_label' && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels' && c !== 'production_type_key' && c !== 'title_en' && c !== 'description_en').join(', ');
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'cover_image_label' && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels' && c !== 'production_type_key' && c !== 'title_en' && c !== 'description_en' && c !== 'capability_custom_labels' && c !== 'capability_custom_labels_en').join(', ');
             ({ data: rows, error } = await runQuery(legacyCols));
         }
         if (error) {
@@ -37806,7 +37835,8 @@ app.get('/api/vendor-assets', async (req, res) => {
                 manufacturer_user_id: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.user_id) ? m.user_id : null; })(),
                 manufacturer_contact: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.contact_json) ? m.contact_json : null; })(),
                 ai_tags: r.ai_tags || [],
-                production_type_key: r.production_type_key || null
+                production_type_key: r.production_type_key || null,
+                ...vendorCapabilityCustomLabelsForLang(r, contentLang)
             };
         });
         let itemsOut = items;
@@ -50526,8 +50556,10 @@ app.get('/api/expert/public-profile', async (req, res) => {
     try {
         const expertId = req.query.expert_id;
         if (!expertId) return res.status(400).json({ error: '缺少 expert_id' });
+        const contentLang = normalizeVendorContentLang((req.query.lang || '').trim());
 
         let fullName = '專家', avatarUrl = null, bio = '';
+        let bioEn = '';
         try {
             const { data: profile } = await supabase.from('profiles').select('id, full_name, avatar_url, raw_user_meta_data').eq('id', expertId).maybeSingle();
             if (profile) {
@@ -50557,6 +50589,7 @@ app.get('/api/expert/public-profile', async (req, res) => {
             if (contactRow.company_name) contact.company_name = contactRow.company_name;
             if (contactRow.company_address) contact.company_address = contactRow.company_address;
             if (contactRow.bio) contact.bio = contactRow.bio;
+            if (contactRow.bio_en) bioEn = String(contactRow.bio_en || '').trim();
             if (Object.keys(contact).length === 0 && (contactRow.phone || contactRow.mobile || contactRow.email || contactRow.line_id)) {
                 if (contactRow.phone) contact.phone = contactRow.phone;
                 if (contactRow.mobile) contact.mobile = contactRow.mobile;
@@ -50570,11 +50603,15 @@ app.get('/api/expert/public-profile', async (req, res) => {
             const { data: port } = await supabase.from('expert_portfolio').select('id, title, description, image_url, sort_order').eq('expert_id', expertId).order('sort_order', { ascending: true });
             portfolio = port || [];
         } catch (_) {}
+        const bioZh = contact.bio || bio || '';
         res.json({
             expert_id: expertId,
             full_name: fullName,
             avatar_url: avatarUrl,
-            bio: contact.bio || bio || '',
+            bio: pickVendorLocalizedText(bioZh, bioEn, contentLang),
+            bio_zh: bioZh,
+            bio_en: bioEn,
+            lang: contentLang,
             contact,
             portfolio
         });

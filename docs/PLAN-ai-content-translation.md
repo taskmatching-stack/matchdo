@@ -62,7 +62,7 @@
 | U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
 | U3 | 供應商 B 線 `supplier_catalog_items` | ✅ `GET …/supplier-catalog-items?lang=`；上架後台 EN 欄 + `POST …/catalog-items/:id/generate-i18n-en` + 上傳自動補英文 | migration `supplier-catalog-i18n-en` 仍須在 Supabase 執行 |
 | U4 | 訂製需求／詢價 `demands`、專案描述 | ✅ `demands.html`「翻譯」+ `POST …/custom-products/:id/translate-for-view`（1 點，不寫 DB） | 詢價／專案其他欄位待補 |
-| U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
+| U5 | `capability_custom_labels`、聯絡頁 `bio` | ✅ 自填工藝 `*_en`（素材編輯）、`contact_info.bio`／`bio_en`；migration `vendor-capability-custom-labels-i18n-en` | 作品後台 UI 可後補 |
 | U6 | 英文過期提示 | **已取消**（初期展示用，正式產品不做） | — |
 
 ### P3 — 平台字典與其他

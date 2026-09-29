@@ -46,9 +46,10 @@
 | 表 | 新增欄位 |
 |----|----------|
 | `manufacturers` | `name_en`, `description_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
-| `vendor_assets` | `title_en`, `description_en` |
-| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en` |
+| `vendor_assets` | `title_en`, `description_en`, `capability_custom_labels_en`（text[]，與自填工藝同序） |
+| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en`, `capability_custom_labels_en` |
 | `vendor_catalog_groups` | `name_en` |
+| `contact_info` | `bio`, `bio_en`（聯絡設定頁；見 `add-vendor-capability-custom-labels-i18n-en.sql`） |
 
 **不翻譯、不存 en：** `contact_json`、地址、Email、URL、社群連結、圖片。
 
@@ -66,7 +67,8 @@
 |------|------|
 | `GET /api/manufacturers/:id?lang=en` | `name` / `specialty` 優先 `*_en`，無則 fallback 中文；`portfolio[]` 標題／描述／設計亮點同理 |
 | `GET /api/manufacturers?lang=en` | 廠商列表卡：`name`、`specialty`（同單筆詳情語意） |
-| `GET /api/vendor-assets?manufacturer_id=…&for_profile=1&lang=en` | 素材 `title` / `description`、列表內 `manufacturer_name` |
+| `GET /api/vendor-assets?manufacturer_id=…&for_profile=1&lang=en` | 素材 `title` / `description`、自填工藝 `capability_custom_labels`、列表內 `manufacturer_name` |
+| `GET /api/expert/public-profile?lang=en` | `bio` 優先 `bio_en` |
 | `GET /api/manufacturers/:id/catalog-groups?lang=en` | 自訂分類 `name`、pill `label` |
 
 回傳同時保留 `name_zh` / `name_en` 等對照欄（方便除錯）；前端公開頁主要用已切換後的 `name`、`title`。
@@ -176,11 +178,11 @@ curl -s "https://matchdo.cc/api/vendor-assets?manufacturer_id={UUID}&for_profile
 
 ## 已知限制／後續可做
 
-1. **聯絡資訊頁**（`profile/contact-info.html`）的 `company_name`／`bio` 與 `manufacturers.description` **未自動同步**；公開頁簡介以 `manufacturers.description` 為準。
+1. **聯絡資訊頁** `bio`／`bio_en` 存 `contact_info`；與 `manufacturers.description` **未自動同步**；廠商公開簡介仍以 `manufacturers.description` 為準。
 2. **`location`（縣市）** 未翻譯；服務地區仍用 `AreaCodes` 的 `en` 標籤。
-3. **`capability_custom_labels`** 自填工藝文案未納入本階段。
+3. **作品集** `capability_custom_labels_en` 後端已支援讀取；後台編輯 UI 可後補。
 4. **英文過期提示**：已取消（見上）。
-5. **單筆素材** 已有 EN 欄；作品集英文欄見 `manufacturer-portfolio.html`。
+5. **單筆素材** 已有 EN 欄；作品集標題等見 `manufacturer-portfolio.html`。
 
 ---
 

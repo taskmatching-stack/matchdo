@@ -73,6 +73,10 @@
                                         <label class="form-label" data-i18n="profile.bio">自我介紹</label>
                                         <textarea class="form-control" id="bio" rows="3" data-i18n-placeholder="profile.placeholderBio" placeholder="簡單介紹您的服務特色或專長..."></textarea>
                                     </div>
+                                    <div class="col-12">
+                                        <label class="form-label" data-i18n="profile.bioEn">英文版</label>
+                                        <textarea class="form-control" id="bioEn" rows="2" data-i18n-placeholder="profile.bioEnPlaceholder" placeholder="選填"></textarea>
+                                    </div>
                                 </div>
 
                                 <!-- 電話資訊 -->
@@ -583,7 +587,8 @@
                     // 填充表單
                     $('#companyName').val(data.company_name || '');
                     loadAreas(data.company_address || '');
-                    $('#bio').val(currentUser.user_metadata?.bio || '');
+                    $('#bio').val(data.bio || currentUser.user_metadata?.bio || '');
+                    $('#bioEn').val(data.bio_en || '');
                     $('#phone').val(data.phone || '');
                     $('#phoneVisible').prop('checked', data.phone_visible || false);
                     $('#mobile').val(data.mobile || '');
@@ -646,6 +651,8 @@
                     user_id: currentUser.id,
                     company_name: $('#companyName').val(),
                     company_address: selectedAreas.join(','),
+                    bio: $('#bio').val(),
+                    bio_en: $('#bioEn').val(),
                     phone: $('#phone').val(),
                     phone_visible: $('#phoneVisible').is(':checked'),
                     mobile: $('#mobile').val(),

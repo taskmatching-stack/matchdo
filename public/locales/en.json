@@ -2671,6 +2671,8 @@
   "profile.companyName": "Company / studio name",
   "profile.serviceArea": "Service area",
   "profile.bio": "Bio",
+  "profile.bioEn": "English",
+  "profile.bioEnPlaceholder": "Optional",
   "profile.phoneSection": "Phone",
   "profile.phone": "Phone",
   "profile.mobile": "Mobile",

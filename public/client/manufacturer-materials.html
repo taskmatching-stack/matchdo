@@ -532,7 +532,7 @@
                                 <details class="va-spec-block" data-va-card="craft">
                                 <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
-                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
+                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]" data-cap-custom-en="[]">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
                                     <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
@@ -701,7 +701,7 @@
                                 <details class="va-spec-block" data-va-card="craft">
                                 <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
                                 <div class="va-spec-body"><div class="row g-3">
-                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
+                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]" data-cap-custom-en="[]">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
                                     <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
@@ -1092,7 +1092,7 @@
                         <details class="va-spec-block" data-va-card="craft" data-va-hide-empty>
                         <summary class="va-spec-summary"><span class="va-spec-kicker" data-i18n="baseModels.vaSpecCraft">訂製與工藝</span><span class="va-spec-value" data-va-spec="craft">未選（可略過）</span></summary>
                         <div class="va-spec-body">
-                        <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]">
+                        <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]" data-cap-custom-en="[]">
                             <div class="mb-2"><label class="form-label fw-semibold"><span data-i18n="baseModels.productionModeOptional">生產模式（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
                             <label class="form-label fw-semibold"><span data-i18n="baseModels.executableCrafts">可執行工藝</span> <span class="text-muted fw-normal small" data-i18n="baseModels.executableCraftsOptional">（選填，可複選）</span></label>
                             <p class="text-muted small mb-2" data-i18n="baseModels.executableCraftsHint">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
@@ -1404,7 +1404,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'materials-u1-desc-en-upload-20260929';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-custom-en-20260929';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -7077,14 +7077,17 @@
         }
 
         function readCapabilityState(block) {
-            if (!block) return { keys: [], custom: [] };
+            if (!block) return { keys: [], custom: [], custom_en: [] };
             var keys = [];
             var custom = [];
+            var customEn = [];
             try { keys = JSON.parse(block.getAttribute('data-cap-keys') || '[]'); } catch (_) {}
             try { custom = JSON.parse(block.getAttribute('data-cap-custom') || '[]'); } catch (_) {}
+            try { customEn = JSON.parse(block.getAttribute('data-cap-custom-en') || '[]'); } catch (_) {}
             return {
                 keys: (keys || []).map(function (k) { return String(k || '').trim(); }).filter(Boolean),
-                custom: (custom || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean)
+                custom: (custom || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean),
+                custom_en: (customEn || []).map(function (s) { return String(s || '').trim(); })
             };
         }
 
@@ -7092,6 +7095,7 @@
             if (!block) return;
             var keys = [];
             var custom = [];
+            var customEn = [];
             (state.keys || []).forEach(function (k) {
                 k = String(k || '').trim();
                 if (k && keys.indexOf(k) < 0) keys.push(k);
@@ -7100,8 +7104,14 @@
                 s = String(s || '').trim();
                 if (s && custom.indexOf(s) < 0) custom.push(s);
             });
+            (state.custom_en || []).forEach(function (s) {
+                customEn.push(String(s || '').trim());
+            });
+            while (customEn.length < custom.length) customEn.push('');
+            if (customEn.length > custom.length) customEn = customEn.slice(0, custom.length);
             block.setAttribute('data-cap-keys', JSON.stringify(keys));
             block.setAttribute('data-cap-custom', JSON.stringify(custom));
+            block.setAttribute('data-cap-custom-en', JSON.stringify(customEn));
         }
 
         function capabilityLabelForKey(key) {
@@ -7186,11 +7196,18 @@
                 if (v && keys.indexOf(v) < 0) keys.push(v);
             });
             var custom = [];
-            block.querySelectorAll('.add-capability-custom-row .add-capability-custom-input').forEach(function (inp) {
-                var v = String(inp.value || '').trim();
-                if (v && custom.indexOf(v) < 0) custom.push(v);
+            var customEn = [];
+            block.querySelectorAll('.add-capability-custom-row').forEach(function (row) {
+                var inp = row.querySelector('.add-capability-custom-input');
+                var inpEn = row.querySelector('.add-capability-custom-input-en');
+                var v = inp ? String(inp.value || '').trim() : '';
+                if (!v) return;
+                if (custom.indexOf(v) < 0) {
+                    custom.push(v);
+                    customEn.push(inpEn ? String(inpEn.value || '').trim() : '');
+                }
             });
-            writeCapabilityState(block, { keys: keys, custom: custom });
+            writeCapabilityState(block, { keys: keys, custom: custom, custom_en: customEn });
             return readCapabilityState(block);
         }
 
@@ -7232,22 +7249,30 @@
             return row;
         }
 
-        function createCustomCapabilityRow(block, value) {
+        function createCustomCapabilityRow(block, value, valueEn) {
             var row = document.createElement('div');
-            row.className = 'd-flex gap-2 align-items-center add-capability-custom-row';
+            row.className = 'd-flex flex-wrap gap-2 align-items-center add-capability-custom-row';
             var inp = document.createElement('input');
             inp.type = 'text';
             inp.className = 'form-control form-control-sm add-capability-custom-input';
-            inp.style.maxWidth = '20rem';
+            inp.style.maxWidth = '14rem';
             inp.placeholder = tr('baseModels.otherCraftNamePlaceholder', '其他工藝名稱');
             if (value) inp.value = value;
+            var inpEn = document.createElement('input');
+            inpEn.type = 'text';
+            inpEn.className = 'form-control form-control-sm add-capability-custom-input-en';
+            inpEn.style.maxWidth = '12rem';
+            inpEn.placeholder = tr('baseModels.fieldTitleEnPlaceholder', '選填');
+            if (valueEn) inpEn.value = valueEn;
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm btn-outline-danger add-capability-custom-row-remove';
             btn.textContent = tr('baseModels.removeImage', '移除');
             row.appendChild(inp);
+            row.appendChild(inpEn);
             row.appendChild(btn);
             inp.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
+            inpEn.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
             btn.addEventListener('click', function () {
                 row.remove();
                 syncCapabilityStateFromRows(block);
@@ -7268,8 +7293,9 @@
             } else {
                 capContainer.appendChild(createCapabilityRow(block, ''));
             }
-            state.custom.forEach(function (label) {
-                customContainer.appendChild(createCustomCapabilityRow(block, label));
+            var enList = state.custom_en || [];
+            state.custom.forEach(function (label, idx) {
+                customContainer.appendChild(createCustomCapabilityRow(block, label, enList[idx] || ''));
             });
         }
 
@@ -7334,8 +7360,10 @@
             if (kind !== 'prototype' && kind !== 'part') return;
             fillProductionTypeSelect(document.getElementById('edit-production-type'), asset && asset.production_type_key);
             var capKeys = (asset && asset.capabilities || []).map(function (c) { return c.key || c; }).filter(Boolean);
-            var capCustom = Array.isArray(asset && asset.capability_custom_labels) ? asset.capability_custom_labels.slice() : [];
-            writeCapabilityState(wrap, { keys: capKeys, custom: capCustom });
+            var capCustom = Array.isArray(asset && asset.capability_custom_labels_zh) ? asset.capability_custom_labels_zh.slice()
+                : (Array.isArray(asset && asset.capability_custom_labels) ? asset.capability_custom_labels.slice() : []);
+            var capCustomEn = Array.isArray(asset && asset.capability_custom_labels_en) ? asset.capability_custom_labels_en.slice() : [];
+            writeCapabilityState(wrap, { keys: capKeys, custom: capCustom, custom_en: capCustomEn });
             refreshCapabilityBlockUi(wrap);
         }
 
@@ -7370,6 +7398,7 @@
             if (ptSel) fd.append('production_type_key', ptVal || '');
             fd.append('capability_keys', JSON.stringify(state.keys));
             fd.append('capability_custom_labels', JSON.stringify(state.custom));
+            fd.append('capability_custom_labels_en', JSON.stringify(state.custom_en || []));
         }
 
         function renderCapabilityBadgesHtml(capabilities, productionTypeLabel, customLabels) {
