@@ -276,6 +276,25 @@
                                     — <span id="edit-points-description" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
                             </div>
+                            <div class="col-12 border-top pt-3 mt-1">
+                                <p class="fw-semibold small mb-2" data-i18n="portfolio.enPublicFields">英文（公開頁 lang=en）</p>
+                                <p class="text-muted small mb-2" data-i18n="portfolio.enPublicHint">選填；可手動填寫或按「AI 補英文」（不扣點）。</p>
+                                <div class="mb-2">
+                                    <label class="form-label" data-i18n="baseModels.fieldTitleEn">標題（英文）</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="edit-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="公開頁 lang=en 顯示">
+                                        <button type="button" class="btn btn-outline-secondary" id="btn-edit-portfolio-fill-i18n-en" data-i18n-title="baseModels.aiFillEnTitle" title="不扣點" data-i18n="baseModels.aiFillEn">AI 補英文</button>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label" data-i18n="portfolio.highlightEn">作品特色（英文）</label>
+                                    <input type="text" class="form-control" id="edit-highlight-en" data-i18n-placeholder="profile.optional" placeholder="選填">
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label" data-i18n="baseModels.fieldDescEn">說明（英文）</label>
+                                    <textarea class="form-control" id="edit-desc-en" rows="2" data-i18n-placeholder="profile.optional" placeholder="選填"></textarea>
+                                </div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="edit-tags">
@@ -406,7 +425,7 @@
         }
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-no-role-hint-20260807b';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-i18n-edit-20260929';
 
         function hidePageLoading() {
             var el = document.getElementById('page-loading');
@@ -1103,8 +1122,11 @@
                         fd.append('upload_type', 'comparison');
                     }
                     fd.append('title', document.getElementById('edit-title').value.trim());
+                    fd.append('title_en', (document.getElementById('edit-title-en').value || '').trim());
                     fd.append('design_highlight', document.getElementById('edit-highlight').value.trim());
+                    fd.append('design_highlight_en', (document.getElementById('edit-highlight-en').value || '').trim());
                     fd.append('description', document.getElementById('edit-desc').value.trim());
+                    fd.append('description_en', (document.getElementById('edit-desc-en').value || '').trim());
                     fd.append('tags', document.getElementById('edit-tags').value.trim());
                     fd.append('min_order_quantity', document.getElementById('edit-moq').value.trim());
                     fd.append('category_key', document.getElementById('edit-category').value);
@@ -1142,6 +1164,33 @@
                     titleEl: 'edit-title',
                     highlightEl: 'edit-highlight'
                 });
+            });
+
+            document.getElementById('btn-edit-portfolio-fill-i18n-en').addEventListener('click', async function () {
+                var btn = this;
+                var pid = document.getElementById('edit-id').value;
+                if (!pid) return;
+                var hasEn = !!((document.getElementById('edit-title-en').value || '').trim() || (document.getElementById('edit-desc-en').value || '').trim() || (document.getElementById('edit-highlight-en').value || '').trim());
+                var overwrite = hasEn && confirm(tr('mfrDash.confirmOverwriteExisting', '已有英文內容，要覆蓋重新生成嗎？'));
+                btn.disabled = true;
+                try {
+                    var r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid + '/generate-i18n-en', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ overwrite: overwrite })
+                    });
+                    var data = await r.json();
+                    if (!r.ok) throw new Error(data.error || tr('baseModels.i18nEnFailed', '補英文失敗'));
+                    if (!data.updated) {
+                        showToast(tr('baseModels.i18nNoEnToFill', '已有英文或無中文可翻譯'), 'info');
+                        return;
+                    }
+                    if (data.title_en && document.getElementById('edit-title-en')) document.getElementById('edit-title-en').value = data.title_en;
+                    if (data.design_highlight_en && document.getElementById('edit-highlight-en')) document.getElementById('edit-highlight-en').value = data.design_highlight_en;
+                    if (data.description_en && document.getElementById('edit-desc-en')) document.getElementById('edit-desc-en').value = data.description_en;
+                    showToast(tr('baseModels.i18nEnFilledFree', '已補英文（不扣點）'), 'success');
+                } catch (e) { showToast(e.message, 'danger'); }
+                finally { btn.disabled = false; }
             });
 
             document.getElementById('btn-edit-regenerate-tags').addEventListener('click', async function () {
@@ -1184,8 +1233,14 @@
             await loadSecondaryData();
             document.getElementById('edit-id').value = p.id;
             document.getElementById('edit-title').value = p.title || '';
+            var editTitleEn = document.getElementById('edit-title-en');
+            if (editTitleEn) editTitleEn.value = p.title_en || '';
             document.getElementById('edit-highlight').value = p.design_highlight || '';
+            var editHlEn = document.getElementById('edit-highlight-en');
+            if (editHlEn) editHlEn.value = p.design_highlight_en || '';
             document.getElementById('edit-desc').value = p.description || '';
+            var editDescEn = document.getElementById('edit-desc-en');
+            if (editDescEn) editDescEn.value = p.description_en || '';
             document.getElementById('edit-show-on-media-wall').checked = isSeedVendor ? false : (p.show_on_media_wall !== false);
             applySeedMediaWallToggleUi();
             document.getElementById('edit-tags').value = portfolioTagsForDisplay(p).join(', ');

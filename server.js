@@ -9513,6 +9513,37 @@ async function fillSingleVendorAssetEnglish(assetId, manufacturerId, overwrite) 
     return { updated: 1, title_en: patch.title_en, description_en: patch.description_en };
 }
 
+async function fillSinglePortfolioEnglish(portfolioId, manufacturerId, overwrite) {
+    const id = String(portfolioId || '').trim();
+    if (!id || !manufacturerId) return { updated: 0, skipped: true, reason: 'missing_id' };
+    const sel = 'id, title, title_en, description, description_en, design_highlight, design_highlight_en';
+    const { data: row, error } = await supabase.from('manufacturer_portfolio').select(sel).eq('id', id).eq('manufacturer_id', manufacturerId).maybeSingle();
+    if (error && error.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+    if (error) throw error;
+    if (!row) return { updated: 0, skipped: true, reason: 'not_found' };
+    if (!vendorPortfolioNeedsEnTranslation(row, overwrite)) return { updated: 0, skipped: true, reason: 'no_work' };
+    const batchIn = [{
+        id: row.id,
+        title: String(row.title || '').trim(),
+        description: String(row.description || '').trim(),
+        design_highlight: String(row.design_highlight || '').trim()
+    }];
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_PORTFOLIO_I18N_GEMINI_INSTRUCTION, batchIn);
+    const pair = translated[0];
+    if (!pair || !pair.hit) return { updated: 0, skipped: true, reason: 'translate_empty' };
+    const patch = {
+        title_en: pair.hit.title_en != null ? String(pair.hit.title_en).trim() || null : null,
+        description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null,
+        design_highlight_en: pair.hit.design_highlight_en != null ? String(pair.hit.design_highlight_en).trim() || null : null
+    };
+    const { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    if (upErr) {
+        if (upErr.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+        throw upErr;
+    }
+    return { updated: 1, ...patch };
+}
+
 async function generateVendorPortfolioEnglish(manufacturerId, overwrite) {
     let sel = 'id, title, title_en, description, description_en, design_highlight, design_highlight_en';
     let { data: rows, error } = await supabase.from('manufacturer_portfolio').select(sel).eq('manufacturer_id', manufacturerId);
@@ -32746,11 +32777,14 @@ function mapManufacturerPortfolioListItems(list, mfrMap) {
             manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
             categories: mfrMap[p.manufacturer_id]?.categories || [],
             title: p.title,
+            title_en: p.title_en || null,
             description: p.description,
+            description_en: p.description_en || null,
             image_url: seriesExpired ? null : (p.image_url || null),
             series_image_urls: seriesExpired ? [] : seriesUrls,
             image_url_before: beforeExpired ? null : (p.image_url_before || null),
             design_highlight: p.design_highlight || null,
+            design_highlight_en: p.design_highlight_en || null,
             tags: p.tags || [],
             ai_tags: p.ai_tags || [],
             sort_order: p.sort_order,
@@ -33373,7 +33407,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (!user) return;
         const { manufacturerId, portfolioId } = req.params;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall, upload_type: bodyUploadType } = body;
+        const { title, title_en, description, description_en, design_highlight, design_highlight_en, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall, upload_type: bodyUploadType } = body;
         const moqPut = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity, { forUpdate: true });
         if (moqPut.error) return res.status(400).json({ error: moqPut.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
@@ -33399,8 +33433,11 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const updates = {
             updated_at: new Date().toISOString(),
             ...(title !== undefined && { title: title || null }),
+            ...(title_en !== undefined && { title_en: title_en || null }),
             ...(description !== undefined && { description: description || null }),
+            ...(description_en !== undefined && { description_en: description_en || null }),
             ...(design_highlight !== undefined && { design_highlight: design_highlight || null }),
+            ...(design_highlight_en !== undefined && { design_highlight_en: design_highlight_en || null }),
             ...(tags && { tags: tags.length ? tags : [] })
         };
         if (bodyCategoryKey !== undefined) updates.category_key = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
@@ -33557,6 +33594,30 @@ app.post('/api/manufacturers/:manufacturerId/portfolio/generate-description', up
     } catch (e) {
         console.error('POST portfolio/generate-description:', e);
         res.status(503).json({ error: e.message || 'AI 說明產生失敗，請稍後重試' });
+    }
+});
+
+// POST /api/manufacturers/:manufacturerId/portfolio/:portfolioId/generate-i18n-en — 單筆作品補英文（不扣點）
+app.post('/api/manufacturers/:manufacturerId/portfolio/:portfolioId/generate-i18n-en', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { manufacturerId, portfolioId } = req.params;
+        const { data: mfr } = await supabase.from('manufacturers').select('id, user_id, vendor_source').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdmin = await isAdminUserId(user.id);
+        if (mfr.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可操作' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
+        const overwrite = parseTruthyBody((req.body || {}).overwrite);
+        const result = await fillSinglePortfolioEnglish(portfolioId, manufacturerId, overwrite);
+        if (result.reason === 'no_columns') {
+            return res.status(503).json({ error: '請先執行 docs/add-vendor-content-i18n-en.sql 以啟用英文欄位' });
+        }
+        if (result.reason === 'not_found') return res.status(404).json({ error: '找不到該作品' });
+        res.json({ ok: true, ...result });
+    } catch (e) {
+        console.error('POST portfolio generate-i18n-en:', e);
+        res.status(502).json({ error: e.message || '翻譯失敗，請稍後再試' });
     }
 });
 
