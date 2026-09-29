@@ -133,6 +133,15 @@
     return keys;
   }
 
+  function customProductCategoriesUrl() {
+    var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : '';
+    var url = '/api/custom-product-categories';
+    if (lang && String(lang).toLowerCase().indexOf('zh') !== 0) {
+      url += '?lang=' + encodeURIComponent(String(lang).split('-')[0]);
+    }
+    return url;
+  }
+
   function clearForm() {
     document.getElementById('editId').value = '';
     document.getElementById('formTitle').textContent = tr('folderEdit.formAddTitle', '新增資料夾');
@@ -203,7 +212,7 @@
             document.getElementById('folderSort').value = p.sort_order != null ? p.sort_order : 0;
             document.getElementById('folderActive').checked = p.is_active !== false;
             var keys = Array.isArray(p.category_keys) ? p.category_keys : [];
-            if (categories.length) renderCategoryChecks(keys); else fetch('/api/custom-product-categories').then(function (r) { return r.json(); }).then(function (d) { categories = d.categories || []; renderCategoryChecks(keys); });
+            if (categories.length) renderCategoryChecks(keys); else fetch(customProductCategoriesUrl()).then(function (r) { return r.json(); }).then(function (d) { categories = d.categories || []; renderCategoryChecks(keys); });
             document.getElementById('btnCancelEdit').style.display = '';
             setStatus('', false);
           });
@@ -274,7 +283,7 @@
       }
       show(document.getElementById('forbiddenPanel'), false);
       show(document.getElementById('editorPanel'), true);
-      fetch('/api/custom-product-categories').then(function (r) { return r.json(); }).then(function (data) {
+      fetch(customProductCategoriesUrl()).then(function (r) { return r.json(); }).then(function (data) {
         categories = data.categories || [];
         renderCategoryChecks([]);
       }).catch(function () { categories = []; });

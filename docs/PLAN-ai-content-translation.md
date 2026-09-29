@@ -69,10 +69,22 @@
 
 | # | 項目 | 現況 | 建議 |
 |---|------|------|------|
-| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist（**不含**已取消的 `ai_categories`） |
-| D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
+| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist（**不含**已取消的 `ai_categories`）；**勿**對官方字典跑 `generate-i18n-en` 覆寫（見下表） |
+| D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取（後台手填，無 AI 寫入） |
 | D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`）；訂製需求僅按鈕、目標語跟 UI | 其他頁面按需掛載 |
 | D4 | 管理員訊息監看翻譯 | **不需要**（使用者定案 2026-09-29） | 勿實作 |
+
+---
+
+## D1 官方字典：只讀多語、不 AI 覆寫（2026-09-29 定案）
+
+下列內容**已在後台**維護 `name`／`name_en`（及預留語系）；本 i18n 計畫**只**做前台 `?lang=` 選顯示字，**不**新增批次翻譯 API、**不**用 AI 改 `body_text`／prompt 本體。
+
+| 資料 | 後台 | 前台讀取 | 本輪 i18n 計畫 |
+|------|------|----------|----------------|
+| **攝影參數組** `photography_prompt_sets` | `/admin/photography-prompt-sets.html`；`name_en`…；`body_text` 送 FLUX | 攝影模擬 `GET …/promo-camera/options?lang=` 只本地化 **顯示名** | ✅ 沿用；無 `generate-i18n-en` |
+| **官方配色** `material_color_palettes`／types | `/admin/material-color-palettes.html` | `GET /api/material-color-palettes/platform?lang=` | ✅ 沿用（`6428a0b` 等）；無 AI 寫入 |
+| **訂製品分類** `custom_product_categories` | `/admin/custom-categories.html` | `GET /api/custom-product-categories?lang=` | 前台缺 `?lang=` 的頁面按需補（非改 DB） |
 
 ---
 

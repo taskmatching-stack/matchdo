@@ -85,7 +85,7 @@ Agent **不會**自動上線 SQL；請在 Supabase SQL Editor 依序確認：
 1. **確認 migration** 是否已在線上庫執行（未跑則 EN 寫入可能 42703／503）。
 2. **`PLAN-ai-content-translation.md` 剩餘**
    - **U2**：多語軸（`title_ja`…）→ **需產品定案**，勿擅自開工。
-   - **D1**：仍在用的官方字典（攝影參數組、訂製品分類後台、配色…）→ `admin-content-multilang`；前台 `GET …?lang=` 與 `i18n.getLang()` 對齊（例：素材庫分類下拉）。**勿碰** `ai_categories`。
+   - **D1**：仍在用的官方字典（攝影參數組、訂製品分類後台、配色…）→ 後台手填 `name_en`；前台 `GET …?lang=`。**攝影 `body_text`、配色 HEX 不 AI 翻譯**；本計畫**不**對這些表做 `generate-i18n-en`。**勿碰** `ai_categories`。
    - **D4**：**不做**（管理員監看翻譯）。
 3. **U5 作品集**：✅ 已 push（`cce72e3`）。
 4. **`FRONTEND-I18N-AUDIT.md` P1/P2 結案後項**：訂閱／SEO 等多在 `PROGRESS-*.md`；與翻譯計畫並列時以兩份 PLAN 表為準。
