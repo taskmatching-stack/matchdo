@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-d2p-points';
+    var LOCALE_CACHE_V = '20260929-d2-pattern-scene';
 
     function loadLocale(lang) {
         lang = lang || getLang();

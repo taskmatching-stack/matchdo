@@ -123,9 +123,38 @@ node scripts/audit-locale-mix.js
 - `/admin/*` — 後台維持中文
 - 舊版 `client/demands.html`（根目錄）— 非主要入口
 
+## 使用者定案（2026-09-29）— UI i18n **完整收斂**後才開後續工
+
+**不要**再用「主流程可讀就先停」；前台 **UI 多語系**依下方 **結案定義** 掃完，才進行本節 P1/P2 產品待辦（訂閱、SEO、服務地區、內容 `*_en` 等）。
+
+### UI i18n 結案定義（Agent 照此勾選，勿自創「下一批」小題）
+
+| # | 條件 |
+|---|------|
+| 1 | `node scripts/audit-locale-mix.js`：`en`／`zh-TW` **缺鍵為 0**（維持） |
+| 2 | `docs/FRONTEND-I18N-AUDIT.md` **狀態表** A、D1、D2、D3、E、F、殼層 A 全部 **✅**（B4 設計風向 **排除**，見下） |
+| 3 | 各區塊在 **`?lang=en`** 下：按鈕、標籤、toast、confirm、Modal、動態 JS 拼字 **無殘留中文 UI**（API／廠商自填內容、後台 `/admin/` **不計**） |
+| 4 | 新字串仍遵守：同 PR 補 `zh-TW.json` + `en.json`；動態區塊有 locale 切換重繪（`applyPage`／`customProductOnLocaleReady` 等） |
+
+**刻意不納入本輪 UI i18n 結案：** B4 `/design-direction/`（測試中凍結）、`/admin/*`、**DB 內容多語系**（`title_en` 等 → 見下方 P2 與 `docs/PROGRESS-vendor-content-i18n-en.md`）。
+
+### 固定執行順序（掃完才結案；可一 PR 多檔，但順序勿跳）
+
+1. **D2** — `custom-product.html` + `custom-product.js`（含各 Tab 動態字串、locale 重繪、圖樣提取等殘留）
+2. **D1** — `vendor-profile.html`、`vendors.html`（含 JSON-LD／meta EN）
+3. **D3** — `manufacturer-dashboard`、`manufacturer-materials`、`manufacturer-portfolio`、`vendor-product-link-tree`、`embed-design-records`、`vendor-prototype-insights`、`my-supplier-references`、`industry-suppliers` 等表內「部分」
+4. **E** — `industry-supplier-dashboard`、`supplier-catalog-manage`、`supplier-portal`、`industry-supplier-catalog`
+5. **F** — `profile/*`、`subscription-plans.html`、`help`／`about`／`contact`、SSR browse（`official-templates`／`vendor-styles` 等）殘留
+6. **殼層 A** — `site-header.js` 殘留、設計頁手機 sheet（與 D2 重疊部分在 D2 收）
+7. **B3 收尾** — 首頁 meta／JSON-LD 英文（與 `docs/SEO-PROGRESS.md` 對齊，可與 D1 同輪）
+
+結案後在狀態表加一行 **「UI i18n 結案日」** commit hash，並在回覆使用者時明確寫：**可開 P1 訂閱優惠等待辦**。
+
+---
+
 ## 與 i18n 並行、但**排在本輪英文化之後**的產品待辦
 
-（i18n 主流程收斂後再開工；勿與 D2～F 批次混在同一 PR。）
+（**UI i18n 結案後**再開工；勿與 D2～F 收尾混在同一 PR。）
 
 | 優先 | 項目 | 文件／位置 |
 |------|------|------------|
@@ -180,6 +209,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D2** 歷史小卡標題／提示詞分離 caption；`galleryCardSeedSuffix`；分類 sheet locale 重繪；`20260929-d2-gallery-title`。
 - 2026-09-29：**D2** 生圖按鈕／預覽 alt；情境圖參考 thumb；locale 重繪 promo options；`20260929-d2-generate-promo`。
 - 2026-09-29：**D2** 寫實化 Tab 按鈕／錯誤文案；生圖／寫實化點數 hint（`GET /api/points-info`＋參考圖 tier）；`20260929-d2-d2p-points`。
+- 2026-09-29：**D2** 實境模擬／圖樣提取 Tab：按鈕 loading、結果 locale 重繪、點數 hint（`points_scene_simulate`）；`20260929-d2-pattern-scene`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -191,24 +221,25 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 進行中（寫實化／點數 hint 已一輪；下一批：圖樣提取 locale 重繪、其他 Tab 動態字串） |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 **結案掃尾中**（實境／圖樣／寫實化 locale 重繪已做；剩：browse／picker／材料組合等動態字串掃尾） |
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
 | **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
 | **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | 🔄 footer 主流程 OK；header 殘留與 D2 sheet 下一批 |
 
-### 還有多少批？（使用者問答用，2026-09-29 估）
+### 離 UI i18n 結案還差什麼？（2026-09-29，依使用者定案「完整收斂」）
 
-不含 **凍結 B4 設計風向**、不含 **/admin**、不含 **DB 內容 `*_en`**：
+不含 **B4**、**/admin**、**DB `*_en`（→ 結案後 P2）**：
 
-| 估計 | 內容 |
+| 區塊 | 狀態 |
 |------|------|
-| **約 3～5 次 push 批次** | D2 生圖區已一輪；剩：設計稿 JS 大段、D3 廠商控制台×2、E 供應商、F 帳號／help／browse |
-| **已大致 OK** | B1/B2、圖庫 C、數位資產庫 UI、find-makers、登入、credits、首頁媒體牆主流程 B3 |
-| **不算「全站完成」** | `custom-product.js` 仍大、`manufacturer-materials` 表單多、內容欄靠 API／後台英文 |
+| B1、B2、C、credits、登入、首頁媒體牆主流程 | ✅ |
+| **D2** | 🔄 掃尾（最大單檔） |
+| **D1、D3、E、F、殼層 A、B3 meta** | ⏳ 依上方固定順序 2～7 |
+| locale 鍵同步 | ✅ `audit-locale-mix` 缺鍵 0 |
 
-驗收標準仍是：**`?lang=en` 主流程可讀**（設計、資產庫、首頁、廠商列表／詳情、常見控制台），不是每個角落零中文。
+**結案後才開：** 下表 P1/P2（訂閱牌價、SEO、服務地區、內容英文批次等）。
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 

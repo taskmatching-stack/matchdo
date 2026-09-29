@@ -16888,12 +16888,14 @@ app.get('/api/points-info', async (req, res) => {
             points_text_to_image,
             points_image_to_image,
             points_official_image_to_image,
-            points_design_to_physical
+            points_design_to_physical,
+            points_scene_simulate
         ] = await Promise.all([
             getPointsTextToImage(),
             getPointsImageToImage(),
             getPointsOfficialImageToImage(),
-            getPointsDesignToPhysical()
+            getPointsDesignToPhysical(),
+            getPointsSceneSimulate()
         ]);
         res.set('Cache-Control', 'public, max-age=300');
         res.json({
@@ -16901,7 +16903,8 @@ app.get('/api/points-info', async (req, res) => {
             points_text_to_image,
             points_image_to_image,
             points_official_image_to_image,
-            points_design_to_physical
+            points_design_to_physical,
+            points_scene_simulate
         });
     } catch (e) {
         console.error('GET /api/points-info:', e);
@@ -16910,7 +16913,8 @@ app.get('/api/points-info', async (req, res) => {
             points_text_to_image: 15,
             points_image_to_image: 20,
             points_official_image_to_image: 15,
-            points_design_to_physical: 20
+            points_design_to_physical: 20,
+            points_scene_simulate: 20
         });
     }
 });

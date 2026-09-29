@@ -4694,6 +4694,7 @@ $(document).ready(function () {
         imageToImage: 20,
         officialImageToImage: 15,
         designToPhysical: 20,
+        sceneSimulate: 20,
         loaded: false,
         loading: false
     };
@@ -4722,6 +4723,14 @@ $(document).ready(function () {
         var n = designPagePointsHints.designToPhysical;
         $el.text(tf('customProduct.designToPhysicalPoints', '{n} 點／次', { n: String(n) }));
     }
+    function updateSceneSimPointsDisplay() {
+        var $el = $('#sceneSimPointsDisplay');
+        if (!$el.length) return;
+        var n = String(designPagePointsHints.sceneSimulate);
+        var about = tf('customProduct.sceneSimPointsAbout', '約 {n} 點', { n: n });
+        var tip = tf('customProduct.sceneSimPointsTooltip', '每次約 {n} 點', { n: n });
+        $el.text(about).attr('title', tip);
+    }
     function ensureDesignPagePointsHints() {
         if (designPagePointsHints.loaded || designPagePointsHints.loading) return Promise.resolve();
         designPagePointsHints.loading = true;
@@ -4734,15 +4743,20 @@ $(document).ready(function () {
             if (data && data.points_design_to_physical != null) {
                 designPagePointsHints.designToPhysical = parseInt(data.points_design_to_physical, 10) || 20;
             }
+            if (data && data.points_scene_simulate != null) {
+                designPagePointsHints.sceneSimulate = parseInt(data.points_scene_simulate, 10) || 20;
+            }
             designPagePointsHints.loaded = true;
         }).catch(function () { /* keep defaults */ }).finally(function () {
             designPagePointsHints.loading = false;
             updateGeneratePointsDisplay();
             updateDesignToPhysicalPointsDisplay();
+            updateSceneSimPointsDisplay();
         });
     }
     window.updateGeneratePointsDisplay = updateGeneratePointsDisplay;
     window.updateDesignToPhysicalPointsDisplay = updateDesignToPhysicalPointsDisplay;
+    window.updateSceneSimPointsDisplay = updateSceneSimPointsDisplay;
     ensureDesignPagePointsHints();
     $('#generateImageBtn').click(async function () {
         if (isGenerateInProgress) return;
@@ -6821,9 +6835,48 @@ $(document).ready(function () {
     $('#patternExtractPreviewWrap').on('click', function () {
         openAssetPickerModal('patternExtract');
     });
+    var sceneSimApplyInProgress = false;
+    window.__sceneSimLastResultImage = null;
+    function syncSceneSimApplyBtnLabel() {
+        var $btn = $('#sceneSimApplyBtn');
+        if (!$btn.length) return;
+        if (sceneSimApplyInProgress) {
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i><span>' +
+                escapeHtmlText(tr('customProduct.sceneSimLoading', '場景配置中…')) + '</span>');
+            return;
+        }
+        if ($btn.prop('disabled')) return;
+        $btn.html('<i class="fas fa-cube me-2"></i><span data-i18n="customProduct.applyToScene">' +
+            escapeHtmlText(tr('customProduct.applyToScene', '套用至實境')) + '</span>');
+    }
+    function refreshSceneSimResultPlaceholder() {
+        if (sceneSimApplyInProgress) return;
+        var $wrap = $('#sceneSimResultWrap');
+        if (!$wrap.length || window.__sceneSimLastResultImage || $wrap.find('.text-danger, .text-warning').length) return;
+        $wrap.html(
+            '<p class="placeholder-hint mb-0 text-muted">' + escapeHtmlText(tr('customProduct.resultHere', '結果會顯示在這裡')) + '</p>' +
+            '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+            escapeHtmlText(tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>'
+        );
+    }
+    function refreshSceneSimResultArea() {
+        if (sceneSimApplyInProgress) {
+            var note = escapeHtmlText(tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。'));
+            $('#sceneSimResultWrap').html('<p class="text-muted small mb-0">' +
+                escapeHtmlText(tr('customProduct.sceneSimLoading', '場景配置中…')) + '</p>' +
+                '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + note + '</p>');
+            return;
+        }
+        if (window.__sceneSimLastResultImage) {
+            renderSceneSimResult(window.__sceneSimLastResultImage);
+            return;
+        }
+        refreshSceneSimResultPlaceholder();
+    }
     // 實境模擬結果：只顯示圖＋下載按鈕，不存入數位資產
     function renderSceneSimResult(imageDataUrl) {
         if (!imageDataUrl) return;
+        window.__sceneSimLastResultImage = imageDataUrl;
         var wrap = $('#sceneSimResultWrap');
         var noteText = tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + noteText + '</p>';
@@ -6871,8 +6924,10 @@ $(document).ready(function () {
         var $btn = $('#sceneSimApplyBtn');
         var $wrap = $('#sceneSimResultWrap');
         var prompt = ($('#sceneSimPrompt').val() || '').trim();
-        $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (tr('customProduct.sceneSimLoading', '場景配置中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>');
+        sceneSimApplyInProgress = true;
+        window.__sceneSimLastResultImage = null;
+        syncSceneSimApplyBtnLabel();
+        $wrap.html('<p class="text-muted small mb-0">' + escapeHtmlText(tr('customProduct.sceneSimLoading', '場景配置中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -6892,16 +6947,18 @@ $(document).ready(function () {
             });
         }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
             .then(function (result) {
+                sceneSimApplyInProgress = false;
                 $btn.prop('disabled', false);
+                syncSceneSimApplyBtnLabel();
                 var data = result.data;
-                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>';
+                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>';
                 if (result.status === 401) {
-                    $wrap.html('<p class="text-warning small mb-0">' + (tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-warning small mb-0">' + escapeHtmlText(tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tf('customProduct.sceneSimInsufficientPoints', '點數不足（需要 {required} 點，目前餘額 {balance} 點）', {
-                        required: data.required || 20,
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tf('customProduct.sceneSimInsufficientPoints', '點數不足（需要 {required} 點，目前餘額 {balance} 點）', {
+                        required: data.required || designPagePointsHints.sceneSimulate || 20,
                         balance: data.balance != null ? data.balance : 0
                     })) + '</p>' + noteHtml);
                     return;
@@ -6909,12 +6966,14 @@ $(document).ready(function () {
                 if (data.success && data.imageData) {
                     renderSceneSimResult(data.imageData);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '無法載入')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(data.error || tr('customProduct.sceneSimFail', '實境模擬失敗')) + '</p>' + noteHtml);
                 }
             })
             .catch(function (err) {
+                sceneSimApplyInProgress = false;
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '無法載入') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。') + '</p>');
+                syncSceneSimApplyBtnLabel();
+                $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tr('customProduct.sceneSimFail', '實境模擬失敗')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.sceneSimResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
                 console.warn('scene-simulate:', err);
             });
     });
@@ -7049,8 +7108,47 @@ $(document).ready(function () {
         updatePatternExtractResolutionDisplay();
     });
     updatePatternExtractSizeModeUI();
+    var patternExtractApplyInProgress = false;
+    window.__patternExtractLastResultImage = null;
+    function syncPatternExtractApplyBtnLabel() {
+        var $btn = $('#patternExtractApplyBtn');
+        if (!$btn.length) return;
+        if (patternExtractApplyInProgress) {
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i><span>' +
+                escapeHtmlText(tr('customProduct.patternExtractLoading', '圖樣提取中…')) + '</span>');
+            return;
+        }
+        if ($btn.prop('disabled')) return;
+        $btn.html('<i class="fas fa-crop-alt me-2"></i><span data-i18n="customProduct.extractPattern">' +
+            escapeHtmlText(tr('customProduct.extractPattern', '提取圖樣')) + '</span>');
+    }
+    function refreshPatternExtractResultPlaceholder() {
+        if (patternExtractApplyInProgress) return;
+        var $wrap = $('#patternExtractResultWrap');
+        if (!$wrap.length || window.__patternExtractLastResultImage || $wrap.find('.text-danger, .text-warning').length) return;
+        $wrap.html(
+            '<p class="placeholder-hint mb-0 text-muted">' + escapeHtmlText(tr('customProduct.resultHere', '結果會顯示在這裡')) + '</p>' +
+            '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+            escapeHtmlText(tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>'
+        );
+    }
+    function refreshPatternExtractResultArea() {
+        if (patternExtractApplyInProgress) {
+            var note = escapeHtmlText(tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。'));
+            $('#patternExtractResultWrap').html('<p class="text-muted small mb-0">' +
+                escapeHtmlText(tr('customProduct.patternExtractLoading', '圖樣提取中…')) + '</p>' +
+                '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + note + '</p>');
+            return;
+        }
+        if (window.__patternExtractLastResultImage) {
+            renderPatternExtractResult(window.__patternExtractLastResultImage);
+            return;
+        }
+        refreshPatternExtractResultPlaceholder();
+    }
     function renderPatternExtractResult(imageDataUrl) {
         if (!imageDataUrl) return;
+        window.__patternExtractLastResultImage = imageDataUrl;
         var wrap = $('#patternExtractResultWrap');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
@@ -7092,8 +7190,10 @@ $(document).ready(function () {
         var seamless = $('#patternExtractSeamless').prop('checked');
         var dims = getPatternExtractWidthHeight();
         var outputFormat = ($('#patternExtractOutputFormat').val() === 'png') ? 'png' : 'jpeg';
-        $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (tr('customProduct.patternExtractLoading', '圖樣提取中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
+        patternExtractApplyInProgress = true;
+        window.__patternExtractLastResultImage = null;
+        syncPatternExtractApplyBtnLabel();
+        $wrap.html('<p class="text-muted small mb-0">' + escapeHtmlText(tr('customProduct.patternExtractLoading', '圖樣提取中…')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -7120,30 +7220,34 @@ $(document).ready(function () {
                 : sendExtract(payload).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); });
             return run;
         }).then(function (result) {
+                patternExtractApplyInProgress = false;
                 $btn.prop('disabled', false);
+                syncPatternExtractApplyBtnLabel();
                 var data = result.data;
-                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>';
+                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>';
                 if (result.declined) {
-                    $wrap.html('<p class="text-muted small mb-0">' + ((data && data.error) || tr('customProduct.patternExtractDeclined', '已取消，可稍後再送出。')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-muted small mb-0">' + escapeHtmlText((data && data.error) || tr('customProduct.patternExtractDeclined', '已取消，可稍後再送出。')) + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 401) {
-                    $wrap.html('<p class="text-warning small mb-0">' + (tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-warning small mb-0">' + escapeHtmlText(tr('customProduct.loginToSelectAssets', '請先登入')) + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 402) {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tf('customProduct.patternExtractInsufficientPoints', '點數不足（需要 {required} 點）', { required: data.required || 20 })) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tf('customProduct.patternExtractInsufficientPoints', '點數不足（需要 {required} 點）', { required: data.required || 20 })) + '</p>' + noteHtml);
                     return;
                 }
                 if (data.success && data.imageData) {
                     renderPatternExtractResult(data.imageData);
                 } else {
-                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || tr('customProduct.loadFailed', '載入失敗')) + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(data.error || tr('customProduct.patternExtractFail', '圖樣提取失敗')) + '</p>' + noteHtml);
                 }
             })
             .catch(function (err) {
+                patternExtractApplyInProgress = false;
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + tr('customProduct.loadFailed', '載入失敗') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
+                syncPatternExtractApplyBtnLabel();
+                $wrap.html('<p class="text-danger small mb-0">' + escapeHtmlText(tr('customProduct.patternExtractFail', '圖樣提取失敗')) + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + escapeHtmlText(tr('customProduct.patternExtractResultNote', '此圖不會存入數位資產，請自行下載保存。')) + '</p>');
                 console.warn('pattern-extract:', err);
             });
     });
@@ -7185,8 +7289,10 @@ $(document).ready(function () {
         $('#designToPhysicalPreviewInner').addClass('d-none');
         $('#designToPhysicalClearBtn').removeClass('d-none');
     }
+    window.__designToPhysicalLastResultImage = null;
     function renderDesignToPhysicalResult(imageDataUrl, aiPrompt) {
         if (!imageDataUrl) return;
+        window.__designToPhysicalLastResultImage = imageDataUrl;
         var wrap = $('#designToPhysicalResultWrap');
         var $inner = $('<div class="scene-sim-result-inner"></div>');
         $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', tr('customProduct.designToPhysicalTab', '寫實化'))
@@ -7277,6 +7383,7 @@ $(document).ready(function () {
         var $wrap = $('#designToPhysicalResultWrap');
         var prompt = ($('#designToPhysicalPrompt').val() || '').trim();
         designToPhysicalApplyInProgress = true;
+        window.__designToPhysicalLastResultImage = null;
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i><span>' +
             escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</span>');
         $wrap.html('<p class="text-muted small mb-0">' + escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</p>');
@@ -7650,9 +7757,16 @@ $(document).ready(function () {
         if (designToPhysicalApplyInProgress) {
             $('#designToPhysicalResultWrap').html('<p class="text-muted small mb-0">' +
                 escapeHtmlText(tr('customProduct.designToPhysicalLoading', '寫實化中…')) + '</p>');
+        } else if (window.__designToPhysicalLastResultImage && typeof renderDesignToPhysicalResult === 'function') {
+            renderDesignToPhysicalResult(window.__designToPhysicalLastResultImage, null);
         } else if (typeof refreshDesignToPhysicalResultPlaceholder === 'function') {
             refreshDesignToPhysicalResultPlaceholder();
         }
+        if (typeof syncSceneSimApplyBtnLabel === 'function') syncSceneSimApplyBtnLabel();
+        if (typeof refreshSceneSimResultArea === 'function') refreshSceneSimResultArea();
+        if (typeof updateSceneSimPointsDisplay === 'function') updateSceneSimPointsDisplay();
+        if (typeof syncPatternExtractApplyBtnLabel === 'function') syncPatternExtractApplyBtnLabel();
+        if (typeof refreshPatternExtractResultArea === 'function') refreshPatternExtractResultArea();
         if (typeof updatePatternExtractResolutionDisplay === 'function') updatePatternExtractResolutionDisplay();
         if (typeof window.renderPromoImageSelectedThumbs === 'function') window.renderPromoImageSelectedThumbs();
         if (typeof window.refreshPromoImagePointsDisplay === 'function') window.refreshPromoImagePointsDisplay();
