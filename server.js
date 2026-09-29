@@ -9526,6 +9526,36 @@ async function fillSingleVendorAssetEnglish(assetId, manufacturerId, overwrite) 
     return { updated: 1, title_en: patch.title_en, description_en: patch.description_en };
 }
 
+/** 單筆產業供應商目錄品項補英文（不扣點） */
+async function fillSingleSupplierCatalogItemEnglish(catalogItemId, industrySupplierId, overwrite) {
+    const id = String(catalogItemId || '').trim();
+    if (!id || !industrySupplierId) return { updated: 0, skipped: true, reason: 'missing_id' };
+    let sel = 'id, title, title_en, description, description_en';
+    const { data: row, error } = await supabase.from('supplier_catalog_items').select(sel).eq('id', id).eq('industry_supplier_id', industrySupplierId).maybeSingle();
+    if (error && error.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+    if (error) throw error;
+    if (!row) return { updated: 0, skipped: true, reason: 'not_found' };
+    if (!vendorAssetNeedsEnTranslation(row, overwrite)) return { updated: 0, skipped: true, reason: 'no_work' };
+    const batchIn = [{
+        id: row.id,
+        title: String(row.title || '').trim(),
+        description: String(row.description || '').trim()
+    }];
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION, batchIn);
+    const pair = translated[0];
+    if (!pair || !pair.hit) return { updated: 0, skipped: true, reason: 'translate_empty' };
+    const patch = {
+        title_en: pair.hit.title_en != null ? String(pair.hit.title_en).trim() || null : null,
+        description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null
+    };
+    const { error: upErr } = await supabase.from('supplier_catalog_items').update(patch).eq('id', id).eq('industry_supplier_id', industrySupplierId);
+    if (upErr) {
+        if (upErr.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
+        throw upErr;
+    }
+    return { updated: 1, title_en: patch.title_en, description_en: patch.description_en };
+}
+
 async function fillSinglePortfolioEnglish(portfolioId, manufacturerId, overwrite) {
     const id = String(portfolioId || '').trim();
     if (!id || !manufacturerId) return { updated: 0, skipped: true, reason: 'missing_id' };
@@ -43319,7 +43349,7 @@ function supplierCatalogItemKindToAssetKind(itemKind) {
 }
 
 const SUPPLIER_CATALOG_ITEM_SELECT =
-    'id, item_kind, title, description, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, is_active, sort_order, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+    'id, item_kind, title, title_en, description, description_en, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, is_active, sort_order, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
 async function getAuthOwnerIdFromReq(req) {
     const authHeader = req.headers.authorization || req.headers['x-auth-token'];
@@ -43505,6 +43535,17 @@ async function insertSupplierCatalogItemRow(insertPayload, galleryImagesForSpecF
                 galleryMigrationRequired = true;
             }
             selectCols = SUPPLIER_CATALOG_ITEM_LEGACY_SELECT;
+            continue;
+        }
+        if (isSupabaseMissingColumnError(insertError, 'title_en')
+            || isSupabaseMissingColumnError(insertError, 'description_en')) {
+            delete insertPayload.title_en;
+            delete insertPayload.description_en;
+            if (selectCols.indexOf('title_en') >= 0) {
+                selectCols = selectCols.split(',').map(function (s) { return s.trim(); })
+                    .filter(function (c) { return c && c !== 'title_en' && c !== 'description_en'; })
+                    .join(', ');
+            }
             continue;
         }
         if (isSupabaseMissingColumnError(insertError, 'ai_tags')
@@ -44491,7 +44532,7 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
         if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') q = q.eq('item_kind', itemKind);
         let { data: rows, error } = await q;
         if (error && error.code === '42703') {
-            const legacySelect = 'id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at';
+            const legacySelect = 'id, item_kind, title, description, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, is_active, sort_order, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
             let q2 = supabase
                 .from('supplier_catalog_items')
                 .select(legacySelect)
@@ -44593,6 +44634,8 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         }
         let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
+        const titleEnCreate = (body.title_en || '').trim() || null;
+        const descriptionEnCreate = (body.description_en || '').trim() || null;
         const uiLocale = resolveUiLocaleFromRequest(req);
         const imageLabels = parseImageLabelsBody(body, totalUploadFiles);
         const materialSurfaceCreate = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
@@ -44721,6 +44764,8 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
             item_kind: itemKind,
             title,
             description,
+            ...(titleEnCreate ? { title_en: titleEnCreate } : {}),
+            ...(descriptionEnCreate ? { description_en: descriptionEnCreate } : {}),
             cover_image_url: publicUrl,
             cover_image_label: supportsGallery ? coverLabel : null,
             gallery_images: galleryImages,
@@ -44786,8 +44831,20 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
             ctx.supplier.id,
             inserted.id
         );
+        let itemOut = mapSupplierCatalogItemForApi(inserted);
+        if (inserted && inserted.id && !titleEnCreate && (title || description)) {
+            try {
+                const autoEnFill = await fillSingleSupplierCatalogItemEnglish(inserted.id, ctx.supplier.id, false);
+                if (autoEnFill && autoEnFill.updated) {
+                    if (autoEnFill.title_en) itemOut.title_en = autoEnFill.title_en;
+                    if (autoEnFill.description_en) itemOut.description_en = autoEnFill.description_en;
+                }
+            } catch (autoEnErr) {
+                console.warn('supplier-catalog auto title_en:', autoEnErr && autoEnErr.message);
+            }
+        }
         res.status(201).json({
-            item: mapSupplierCatalogItemForApi(inserted),
+            item: itemOut,
             points_deducted: pointsMeta.points_deducted,
             balance_after: pointsMeta.balance_after,
             product_optimized: optimizeCount > 0,
@@ -44833,6 +44890,8 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             if (!d) return res.status(400).json({ error: '產品說明不可為空' });
             patch.description = d;
         }
+        if (body.title_en !== undefined) patch.title_en = (body.title_en || '').trim() || null;
+        if (body.description_en !== undefined) patch.description_en = (body.description_en || '').trim() || null;
         if (body.category_key != null) {
             const ck = String(body.category_key).trim();
             if (!ck) return res.status(400).json({ error: '請選擇平台主分類' });
@@ -44935,6 +44994,8 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             .select(SUPPLIER_CATALOG_ITEM_SELECT)
             .single();
         if (error && error.code === '42703') {
+            delete patch.title_en;
+            delete patch.description_en;
             delete patch.ai_tags;
             delete patch.image_semantics_json;
             delete patch.tags_source;
@@ -44973,6 +45034,29 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier/catalog-items/:id:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// POST /api/me/industry-supplier/catalog-items/:id/generate-i18n-en — 單筆目錄品項補英文（不扣點）
+app.post('/api/me/industry-supplier/catalog-items/:id/generate-i18n-en', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const overwrite = parseTruthyBody((req.body || {}).overwrite);
+        const result = await fillSingleSupplierCatalogItemEnglish(id, ctx.supplier.id, overwrite);
+        if (result.reason === 'no_columns') {
+            return res.status(503).json({ error: '請先執行 docs/add-supplier-catalog-i18n-en.sql（migration supplier-catalog-i18n-en）' });
+        }
+        if (result.reason === 'not_found') return res.status(404).json({ error: '找不到該品項' });
+        res.json({ ok: true, ...result });
+    } catch (e) {
+        console.error('POST /api/me/industry-supplier/catalog-items/:id/generate-i18n-en:', e);
+        res.status(502).json({ error: e.message || '翻譯失敗，請稍後再試' });
     }
 });
 

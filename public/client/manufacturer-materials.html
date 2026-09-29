@@ -555,6 +555,7 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldDescEn">說明（英文）</label><textarea class="form-control add-description-en" rows="2" data-i18n-placeholder="profile.optional" placeholder="選填；公開頁 lang=en；可留空由 AI 補"></textarea></div>
                                 </div></div>
                                 </details>
                                 </div>
@@ -723,6 +724,7 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldDescEn">說明（英文）</label><textarea class="form-control add-description-en" rows="2" data-i18n-placeholder="profile.optional" placeholder="選填；公開頁 lang=en；可留空由 AI 補"></textarea></div>
                                 </div></div>
                                 </details>
                                 </div>
@@ -874,6 +876,7 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitle">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldTitleEn">標題（英文）</label><input type="text" class="form-control add-title-en" data-i18n-placeholder="baseModels.fieldTitleEnPlaceholder" placeholder="選填；留空則上傳後自動 AI 補英文"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldShortDesc">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.fieldDescEn">說明（英文）</label><textarea class="form-control add-description-en" rows="2" data-i18n-placeholder="profile.optional" placeholder="選填；公開頁 lang=en；可留空由 AI 補"></textarea></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted small fw-normal">（建議填寫）</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍 PC 塑料" maxlength="32" style="max-width:16rem">
@@ -1401,7 +1404,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929-d3-closure';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-u1-desc-en-upload-20260929';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -9490,6 +9493,8 @@
             fd.append('description', form.querySelector('.add-description').value || '');
             var addTitleEnEl = form.querySelector('.add-title-en');
             if (addTitleEnEl && (addTitleEnEl.value || '').trim()) fd.append('title_en', addTitleEnEl.value.trim());
+            var addDescEnEl = form.querySelector('.add-description-en');
+            if (addDescEnEl && (addDescEnEl.value || '').trim()) fd.append('description_en', addDescEnEl.value.trim());
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {

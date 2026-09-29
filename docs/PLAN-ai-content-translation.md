@@ -31,6 +31,7 @@
 | **站內對話** | `POST /api/direct-messages/:msgId/translate` + `GET /api/translation/target-languages` | ✅ 可選 `target_lang`（11 語）+ `messages.html` 選單 | 1 點／則（admin/tester 免） | 僅文字；圖片訊息無 OCR 翻譯 |
 | **廠商簡介** | `POST /api/me/manufacturer/generate-i18n-en` | 固定 **→ en** 寫 `name_en`／`description_en` | 否 | 控制台批次 `scope=all` |
 | **素材庫** | 上傳後自動／編輯「AI 補英文」、`POST …/vendor-assets/:id/generate-i18n-en` | **→ en** → `title_en`／`description_en` | 否 | 後台可手動填 EN 欄 |
+| **B 線目錄上架** | `supplier-catalog-manage` EN 欄、`POST …/industry-supplier/catalog-items/:id/generate-i18n-en` | **→ en** | 否 | 對稱素材庫 |
 | **作品集** | Modal 英文欄、`POST …/portfolio/:id/generate-i18n-en` | **→ en** | 否 | |
 | **自訂分類** | `generate-i18n-en` scope `catalog_groups` | **→ en** → `name_en` | 否 | |
 | **官方版型庫** | `POST /api/admin/official-platform/generate-i18n-en` | **→ en** | 否 | admin |
@@ -57,9 +58,9 @@
 
 | # | 項目 | 現況 | 建議 |
 |---|------|------|------|
-| U1 | 素材單筆 EN **手動**編輯 UI | 有 EN 欄／AI 補英文；官方批次有 | 確認所有 asset_kind 表單一致；缺則補欄位 |
+| U1 | 素材單筆 EN **手動**編輯 UI | ✅ 三種 asset_kind 上傳含 `title_en`／`description_en`（`materials-u1-desc-en-upload-20260929`） | — |
 | U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
-| U3 | 供應商 B 線 `supplier_catalog_items` | 進行中：`add-supplier-catalog-i18n-en.sql` + `GET …/supplier-catalog-items?lang=` | 待補：上架後台 EN 欄、`generate-i18n-en` |
+| U3 | 供應商 B 線 `supplier_catalog_items` | ✅ `GET …/supplier-catalog-items?lang=`；上架後台 EN 欄 + `POST …/catalog-items/:id/generate-i18n-en` + 上傳自動補英文 | migration `supplier-catalog-i18n-en` 仍須在 Supabase 執行 |
 | U4 | 訂製需求／詢價 `demands`、專案描述 | 無 AI 翻譯 | 視媒合流程加「翻譯給對方看」（可扣點） |
 | U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
 | U6 | 英文過期提示 | ✅ `GET /api/me/manufacturer` → `i18n_en_stale`；控制台橫幅 | 素材／作品層 hash 仍待補 |
