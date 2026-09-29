@@ -49,6 +49,11 @@
             <div class="col-md-2 d-flex align-items-end">
                 <button type="button" class="btn btn-primary w-100" id="btnSearch" data-i18n="demands.search">查詢</button>
             </div>
+            <div class="col-md-4">
+                <label class="form-label" for="demandTranslateTargetLang"><i class="bi bi-translate me-1"></i><span data-i18n="messages.translateTargetLang">翻譯目標語言</span></label>
+                <select class="form-select" id="demandTranslateTargetLang" aria-label="Translate target language"></select>
+                <p class="form-text small text-muted mb-0" data-i18n="demands.translateHint">列表內可按「翻譯」將標題／說明譯成上方語言（1 點／次，僅供您閱讀，不修改設計稿）。</p>
+            </div>
         </div>
         <div id="loadingSpinner" class="text-center py-5 d-none">
             <div class="spinner-border text-primary"></div>
@@ -65,6 +70,7 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/site-header.js"></script>
+    <script src="/js/translate-target-select.js"></script>
     <script>
         (function() {
             var token = null;
@@ -161,19 +167,26 @@
                 }
                 emptyEl.classList.add('d-none');
                 var contactLbl = tr('demands.contactDesigner', '聯絡設計者');
+                var translateLbl = tr('demands.translateView', '翻譯');
                 listEl.innerHTML = items.map(function (d) {
                     var img = d.image_url || 'https://via.placeholder.com/300x160?text=No+Image';
                     var ownerId = d.owner_id ? encodeURIComponent(d.owner_id) : '';
                     var productId = d.id ? encodeURIComponent(d.id) : '';
+                    var rawId = d.id ? String(d.id) : '';
                     return '<div class="col-md-6 col-lg-4">' +
-                        '<div class="card demand-card h-100">' +
+                        '<div class="card demand-card h-100" data-product-id="' + escapeHtml(rawId) + '">' +
                         '<img src="' + img + '" class="card-img-top demand-img" alt="">' +
-                        '<div class="card-body">' +
-                        '<h6 class="card-title">' + escapeHtml(d.title || '') + '</h6>' +
-                        '<p class="card-text small text-muted">' + escapeHtml((d.description || '').substring(0, 80)) + '</p>' +
-                        (ownerId ? '<button class="btn btn-primary btn-sm w-100 btn-contact" data-owner-id="' + ownerId + '" data-product-id="' + productId + '"><i class="bi bi-chat-dots me-1"></i>' + escapeHtml(contactLbl) + '</button>' : '') +
-                        '</div></div></div>';
+                        '<div class="card-body d-flex flex-column">' +
+                        '<h6 class="card-title demand-card-title">' + escapeHtml(d.title || '') + '</h6>' +
+                        '<p class="card-text small text-muted demand-card-desc flex-grow-1">' + escapeHtml((d.description || '').substring(0, 120)) + '</p>' +
+                        '<div class="d-flex flex-wrap gap-2 mt-auto">' +
+                        '<button type="button" class="btn btn-outline-secondary btn-sm btn-translate-view" data-product-id="' + productId + '"><i class="bi bi-translate me-1"></i>' + escapeHtml(translateLbl) + '</button>' +
+                        (ownerId ? '<button type="button" class="btn btn-primary btn-sm flex-grow-1 btn-contact" data-owner-id="' + ownerId + '" data-product-id="' + productId + '"><i class="bi bi-chat-dots me-1"></i>' + escapeHtml(contactLbl) + '</button>' : '') +
+                        '</div></div></div></div>';
                 }).join('');
+                listEl.querySelectorAll('.btn-translate-view').forEach(function (btn) {
+                    btn.addEventListener('click', function () { translateDemandCard(this); });
+                });
                 listEl.querySelectorAll('.btn-contact').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         var uid = this.getAttribute('data-owner-id');
@@ -191,6 +204,45 @@
                 var d = document.createElement('div');
                 d.textContent = s == null ? '' : s;
                 return d.innerHTML;
+            }
+
+            async function translateDemandCard(btn) {
+                var pid = btn.getAttribute('data-product-id');
+                if (!pid || !token) return;
+                var card = btn.closest('.demand-card');
+                var targetLang = (window.MatchdoTranslateTargetSelect && window.MatchdoTranslateTargetSelect.getValue)
+                    ? window.MatchdoTranslateTargetSelect.getValue('demandTranslateTargetLang')
+                    : 'en';
+                btn.disabled = true;
+                try {
+                    var res = await fetch('/api/custom-products/' + encodeURIComponent(pid) + '/translate-for-view', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                        body: JSON.stringify({ target_lang: targetLang, ui_locale: getLang() })
+                    });
+                    var data = await res.json().catch(function () { return {}; });
+                    if (res.status === 402) {
+                        showToast(data.error || tr('demands.translateNoPoints', '點數不足'), 'warning');
+                        return;
+                    }
+                    if (!res.ok) {
+                        showToast(data.error || tr('demands.translateFailed', '翻譯失敗'), 'danger');
+                        return;
+                    }
+                    if (card) {
+                        var titleEl = card.querySelector('.demand-card-title');
+                        var descEl = card.querySelector('.demand-card-desc');
+                        if (titleEl && data.title) titleEl.textContent = data.title;
+                        if (descEl && data.description != null) descEl.textContent = data.description.substring(0, 200);
+                    }
+                    var okMsg = tr('demands.translated', '已翻譯');
+                    if (data.points_used) okMsg += ' · -' + data.points_used + tr('demands.pointsUnit', '點');
+                    showToast(okMsg, 'success');
+                } catch (e) {
+                    showToast(e.message || tr('demands.translateFailed', '翻譯失敗'), 'danger');
+                } finally {
+                    btn.disabled = false;
+                }
             }
 
             function showToast(msg, type) {
@@ -222,6 +274,9 @@
                 token = await getToken();
                 if (!token) { window.location.href = '/login.html'; return; }
                 await loadCategories();
+                if (window.MatchdoTranslateTargetSelect) {
+                    await window.MatchdoTranslateTargetSelect.mount({ selectId: 'demandTranslateTargetLang' });
+                }
                 document.getElementById('btnSearch').addEventListener('click', search);
             });
         })();

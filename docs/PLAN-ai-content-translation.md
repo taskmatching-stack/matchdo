@@ -61,7 +61,7 @@
 | U1 | 素材單筆 EN **手動**編輯 UI | ✅ 三種 asset_kind 上傳含 `title_en`／`description_en`（`materials-u1-desc-en-upload-20260929`） | — |
 | U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
 | U3 | 供應商 B 線 `supplier_catalog_items` | ✅ `GET …/supplier-catalog-items?lang=`；上架後台 EN 欄 + `POST …/catalog-items/:id/generate-i18n-en` + 上傳自動補英文 | migration `supplier-catalog-i18n-en` 仍須在 Supabase 執行 |
-| U4 | 訂製需求／詢價 `demands`、專案描述 | 無 AI 翻譯 | 視媒合流程加「翻譯給對方看」（可扣點） |
+| U4 | 訂製需求／詢價 `demands`、專案描述 | ✅ `demands.html`「翻譯」+ `POST …/custom-products/:id/translate-for-view`（1 點，不寫 DB） | 詢價／專案其他欄位待補 |
 | U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
 | U6 | 英文過期提示 | ✅ 簡介 hash + 素材／作品 `i18n_en_source_hash`；`i18n_en_stale_*_count` 橫幅 | migration `vendor-asset-portfolio-i18n-en-hash` |
 
@@ -71,7 +71,7 @@
 |---|------|------|------|
 | D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist |
 | D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
-| D3 | 即時翻譯 widget | 無全站共用元件 | 抽 `translateTargetSelect` 供對話、詢價、評論（若有）共用 |
+| D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`、`demands.html`） | 其他頁面按需掛載 |
 | D4 | 管理員訊息監看翻譯 | 未查 | 若 admin 看對話需翻譯，另開 |
 
 ---

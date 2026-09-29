@@ -29725,6 +29725,104 @@ app.get('/api/custom-products/for-makers', async (req, res) => {
     }
 });
 
+// POST /api/custom-products/:id/translate-for-view — 製造商接案：翻譯開放訂製稿標題／說明（1 點，不寫入 DB）
+app.post('/api/custom-products/:id/translate-for-view', express.json(), async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const productId = String(req.params.id || '').trim();
+        if (!productId) return res.status(400).json({ error: '缺少 id' });
+        const { data: product } = await supabase
+            .from('custom_products')
+            .select('id, title, description, open_for_manufacturing, manufacturing_status')
+            .eq('id', productId)
+            .maybeSingle();
+        if (!product) return res.status(404).json({ error: '找不到該設計稿' });
+        if (!product.open_for_manufacturing || product.manufacturing_status !== 'open') {
+            return res.status(403).json({ error: '此設計稿未開放製造商查看' });
+        }
+        const titleZh = String(product.title || '').trim();
+        const descZh = String(product.description || '').trim();
+        if (!titleZh && !descZh) return res.status(400).json({ error: '無文字可翻譯' });
+        let requestedTarget = messageTranslateLangs.normalizeMessageTranslateTargetLang(req.body && req.body.target_lang);
+        if (!requestedTarget) {
+            requestedTarget = messageTranslateLangs.defaultMessageTranslateTargetFromUiLocale(req.body && req.body.ui_locale);
+        }
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        const isPrivileged = profile?.role === 'admin' || profile?.role === 'tester';
+        if (!isPrivileged) {
+            const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+            const balance = credits?.balance ?? 0;
+            if (balance < 1) return res.status(402).json({ error: '點數不足，翻譯需要 1 點' });
+        }
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return res.status(500).json({ error: '翻譯服務未設定' });
+        const model = await getTranslationModelName();
+        const targetGeminiName = messageTranslateLangs.getMessageTranslateGeminiTargetName(requestedTarget);
+        const payload = { title: titleZh, description: descZh };
+        const promptText = `Detect the source language of the JSON object below (title and description fields). `
+            + `Translate each string into ${targetGeminiName}. If a field is already in that language, return it lightly polished. `
+            + `Return only valid JSON with keys: detected_lang, target_lang (use exactly "${requestedTarget}"), title, description. No markdown.\n\n`
+            + JSON.stringify(payload);
+        let translatedTitle = titleZh;
+        let translatedDesc = descZh;
+        let sourceLang = '';
+        let targetLang = requestedTarget;
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) });
+            const data = await resp.json();
+            if (data.error) {
+                console.error('translate-for-view Gemini:', data.error.message);
+                return res.status(500).json({ error: '翻譯服務暫時無法使用' });
+            }
+            const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            let jsonStr = String(raw).replace(/```json\n?|```/g, '').trim();
+            const braceStart = jsonStr.indexOf('{');
+            if (braceStart !== -1) {
+                const braceEnd = jsonStr.lastIndexOf('}');
+                if (braceEnd > braceStart) jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
+            }
+            const parsed = JSON.parse(jsonStr);
+            translatedTitle = (parsed.title != null ? String(parsed.title) : titleZh).trim() || titleZh;
+            translatedDesc = (parsed.description != null ? String(parsed.description) : descZh).trim();
+            sourceLang = (parsed.detected_lang != null ? String(parsed.detected_lang) : '').trim();
+            targetLang = messageTranslateLangs.normalizeMessageTranslateTargetLang(parsed.target_lang) || requestedTarget;
+        } catch (e) {
+            console.error('translate-for-view parse:', e?.message);
+            return res.status(500).json({ error: '翻譯失敗，請稍後再試' });
+        }
+        let newBalance = null;
+        if (!isPrivileged) {
+            const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', user.id).maybeSingle();
+            const balance = (credRow?.balance != null) ? credRow.balance : 0;
+            newBalance = balance - 1;
+            const totalSpent = (credRow?.total_spent ?? 0) + 1;
+            await supabase.from('user_credits').upsert({
+                user_id: user.id,
+                balance: newBalance,
+                total_spent: totalSpent,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            await supabase.from('credit_transactions').insert({
+                user_id: user.id, type: 'consumed', amount: -1,
+                balance_after: newBalance, source: 'demand_translate', description: '訂製需求翻譯（1 點）'
+            });
+        }
+        res.json({
+            title: translatedTitle,
+            description: translatedDesc,
+            source_lang: sourceLang,
+            target_lang: targetLang,
+            points_used: isPrivileged ? 0 : 1,
+            balance_after: newBalance
+        });
+    } catch (e) {
+        console.error('POST /api/custom-products/:id/translate-for-view:', e?.message || e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // PATCH /api/custom-products/:id/manufacturing — 設計者切換開放廠商搜尋 / 標記已完成
 // body: { open_for_manufacturing?: bool, manufacturing_status?: 'open'|'completed'|'closed' }
 app.patch('/api/custom-products/:id/manufacturing', express.json(), async (req, res) => {

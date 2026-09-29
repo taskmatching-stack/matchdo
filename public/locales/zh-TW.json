@@ -1127,6 +1127,12 @@
   "demands.empty": "請選擇分類後查詢，或此分類暫無訂製需求。",
   "demands.selectMainFirst": "請先選擇主分類",
   "demands.contactDesigner": "聯絡設計者",
+  "demands.translateHint": "列表內可按「翻譯」將標題／說明譯成上方語言（1 點／次，僅供您閱讀，不修改設計稿）。",
+  "demands.translateView": "翻譯",
+  "demands.translated": "已翻譯",
+  "demands.translateFailed": "翻譯失敗",
+  "demands.translateNoPoints": "點數不足",
+  "demands.pointsUnit": "點",
 
   "home.searchPlaceholder": "搜尋作品（標題、提示詞或標籤）",
   "home.tags": "標籤",

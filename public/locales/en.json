@@ -1126,6 +1126,12 @@
   "demands.empty": "Choose a category and search, or no open demands in this category yet.",
   "demands.selectMainFirst": "Choose a main category first",
   "demands.contactDesigner": "Contact customizer",
+  "demands.translateHint": "Use Translate on a card to read title/description in the language above (1 point per use; does not change the design).",
+  "demands.translateView": "Translate",
+  "demands.translated": "Translated",
+  "demands.translateFailed": "Translation failed",
+  "demands.translateNoPoints": "Insufficient points",
+  "demands.pointsUnit": "pt",
 
   "home.searchPlaceholder": "Search works (title, prompt, or tags)",
   "home.tags": "Tags",

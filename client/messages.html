@@ -125,6 +125,7 @@
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
+    <script src="/js/translate-target-select.js"></script>
     <script>
         (function() {
             let token = null;
@@ -250,48 +251,21 @@
                 return s;
             }
             var MSG_TRANSLATE_TARGET_STORAGE = 'matchdo.msgTranslateTarget';
-            function getUiLocaleForApi() {
-                return (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
-            }
             function getMsgTranslateTarget() {
-                var sel = document.getElementById('msgTranslateTargetLang');
-                if (sel && sel.value) return sel.value;
-                try {
-                    var saved = localStorage.getItem(MSG_TRANSLATE_TARGET_STORAGE);
-                    if (saved) return saved;
-                } catch (e) { /* ignore */ }
+                if (window.MatchdoTranslateTargetSelect) {
+                    return window.MatchdoTranslateTargetSelect.getValue('msgTranslateTargetLang', MSG_TRANSLATE_TARGET_STORAGE);
+                }
                 return 'en';
             }
             function translateBtnLabel() {
                 return tf('messages.translateBtn', { points: 1 });
             }
             async function loadMessageTranslateTargets() {
-                var sel = document.getElementById('msgTranslateTargetLang');
-                if (!sel) return;
-                var uiLang = getUiLocaleForApi();
-                var saved = '';
-                try { saved = localStorage.getItem(MSG_TRANSLATE_TARGET_STORAGE) || ''; } catch (e) { /* ignore */ }
-                try {
-                    var res = await fetch('/api/translation/target-languages?lang=' + encodeURIComponent(uiLang));
-                    var data = await res.json();
-                    var items = (data && data.items) ? data.items : [];
-                    var def = (data && data.default) ? data.default : 'en';
-                    sel.innerHTML = items.map(function (it) {
-                        return '<option value="' + escapeHtml(it.code) + '">' + escapeHtml(it.label || it.code) + '</option>';
-                    }).join('');
-                    var pick = saved || def;
-                    if (pick && sel.querySelector('option[value="' + pick.replace(/"/g, '') + '"]')) sel.value = pick;
-                    else if (def) sel.value = def;
-                } catch (e) {
-                    sel.innerHTML = '<option value="zh-TW">繁體中文</option><option value="en">English</option>';
-                    if (saved) sel.value = saved;
-                }
-                if (!sel.__wired) {
-                    sel.__wired = true;
-                    sel.addEventListener('change', function () {
-                        try { localStorage.setItem(MSG_TRANSLATE_TARGET_STORAGE, sel.value); } catch (err) { /* ignore */ }
-                    });
-                }
+                if (!window.MatchdoTranslateTargetSelect) return;
+                await window.MatchdoTranslateTargetSelect.mount({
+                    selectId: 'msgTranslateTargetLang',
+                    storageKey: MSG_TRANSLATE_TARGET_STORAGE
+                });
             }
             function updateContactButton() {
                 const btn = document.getElementById('btnToggleContact');
