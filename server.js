@@ -9276,6 +9276,18 @@ function vendorContentSourceHash(fields) {
     return crypto.createHash('sha256').update(JSON.stringify(fields || {})).digest('hex').slice(0, 32);
 }
 
+/** 中文簡介／名稱變更後，與上次 AI 生成英文時的 source hash 不一致 */
+function computeVendorProfileI18nEnStale(mfr) {
+    if (!mfr || !mfr.i18n_en_source_hash) return false;
+    const hasEn = (mfr.name_en && String(mfr.name_en).trim()) || (mfr.description_en && String(mfr.description_en).trim());
+    if (!hasEn) return false;
+    const currentHash = vendorContentSourceHash({
+        name: String(mfr.name || '').trim(),
+        description: String(mfr.description || '').trim()
+    });
+    return currentHash !== String(mfr.i18n_en_source_hash || '');
+}
+
 function parseJsonObjectFromGeminiText(raw) {
     const s = String(raw || '').trim();
     if (!s) return null;
@@ -31917,6 +31929,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
             officialMfr.seed_vendor_self_service_locked = false;
             officialMfr.can_edit_vendor_content = true;
             officialMfr.official_platform_library = true;
+            officialMfr.i18n_en_stale = computeVendorProfileI18nEnStale(officialMfr);
             return res.json(officialMfr);
         }
         let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
@@ -31943,6 +31956,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
         mfr.contact_json = attachStoreUrlsToContactJson(mfr.contact_json);
         mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
         mfr.can_edit_vendor_content = !mfr.seed_vendor_self_service_locked;
+        mfr.i18n_en_stale = computeVendorProfileI18nEnStale(mfr);
         res.json(mfr);
     } catch (e) {
         console.error('GET /api/me/manufacturer 異常:', e);

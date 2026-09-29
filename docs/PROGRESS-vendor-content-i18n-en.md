@@ -175,7 +175,7 @@ curl -s "https://matchdo.cc/api/vendor-assets?manufacturer_id={UUID}&for_profile
 1. **聯絡資訊頁**（`profile/contact-info.html`）的 `company_name`／`bio` 與 `manufacturers.description` **未自動同步**；公開頁簡介以 `manufacturers.description` 為準。
 2. **`location`（縣市）** 未翻譯；服務地區仍用 `AreaCodes` 的 `en` 標籤。
 3. **`capability_custom_labels`** 自填工藝文案未納入本階段。
-4. **中文變更後** 僅靠 `i18n_en_source_hash` 記錄廠商層；尚未在 UI 提示「英文可能過期」。
+4. **中文變更後** 廠商簡介：`i18n_en_source_hash` + 控制台 `i18n_en_stale` 橫幅（素材／作品尚未做過期提示）。
 5. **單筆素材／作品** 後台尚無英文編輯欄；需靠「生成全部」或之後補 UI。
 
 ---

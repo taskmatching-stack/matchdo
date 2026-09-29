@@ -41,7 +41,7 @@
 | U3 | 供應商 B 線 `supplier_catalog_items` | 無 `generate-i18n` | 上架品名／規格 EN（或選語）生成 + `?lang=` 前台 |
 | U4 | 訂製需求／詢價 `demands`、專案描述 | 無 AI 翻譯 | 視媒合流程加「翻譯給對方看」（可扣點） |
 | U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
-| U6 | 英文過期提示 | 僅 `i18n_en_source_hash` 廠商層 | UI 提示「中文已改，請重生成英文」 |
+| U6 | 英文過期提示 | ✅ `GET /api/me/manufacturer` → `i18n_en_stale`；控制台橫幅 | 素材／作品層 hash 仍待補 |
 
 ### P3 — 平台字典與其他
 

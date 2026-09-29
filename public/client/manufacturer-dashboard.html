@@ -308,6 +308,9 @@
                                     <span id="mfrEnMsg" class="small text-muted"></span>
                                 </div>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="mfrDash.aiAllEnNote">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
+                                <div class="alert alert-warning py-2 px-3 small mb-2 mt-2 d-none" id="mfrEnStaleBanner" role="status">
+                                    <i class="bi bi-exclamation-triangle me-1"></i><span data-i18n="mfrDash.enStaleHint">中文名稱或簡介已變更，英文可能過期。請重新「AI 生成」或手動更新英文。</span>
+                                </div>
                                 <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
                                 <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer" data-i18n="mfrDash.previewEnPage">預覽英文公開頁 ↗</a>
                             </div>
@@ -650,6 +653,11 @@
                     metaEnEl.textContent = mfr.i18n_en_generated_at
                         ? tr('mfrDash.aiGenAt', '上次 AI 生成：{dt}').replace('{dt}', new Date(mfr.i18n_en_generated_at).toLocaleString(dashDateLocale()))
                         : tr('mfrDash.aiNotGenerated', '尚未 AI 生成英文');
+                }
+                var staleBanner = document.getElementById('mfrEnStaleBanner');
+                if (staleBanner) {
+                    staleBanner.classList.toggle('d-none', !mfr.i18n_en_stale);
+                    if (window.i18n && window.i18n.applyPage) window.i18n.applyPage(staleBanner);
                 }
 
                 await loadStats(mfr);
@@ -1011,6 +1019,7 @@
                     if (data.catalog_groups && !data.catalog_groups.error) parts.push(tr('mfrDash.genStatsCatalog', '分類 {n} 筆').replace('{n}', String(data.catalog_groups.updated || 0)));
                     var extra = parts.length ? '（' + parts.join('、') + '）' : '';
                     setMfrEnMsg(tr('mfrDash.genSaved', '✅ 已生成並寫入') + extra, 'text-success');
+                    if (scope === 'profile' || scope === 'all') await loadMfr();
                     setTimeout(function () { setMfrEnMsg(''); }, 6000);
                 } catch (e) {
                     setMfrEnMsg('❌ ' + e.message, 'text-danger');
