@@ -476,32 +476,6 @@
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
-        <div class="card mb-3 border-danger">
-          <div class="card-body">
-            <h6 class="card-title">一次性・舊設計圖讀圖寫標題（管理員）</h6>
-            <p class="text-muted small mb-2">對<strong>已有生成圖</strong>的 <code>custom_products</code> 呼叫 Gemini 讀圖，寫入 <code>image_semantics_json</code> 與 <code>title</code>／<code>title_en</code>（每批最多 25 張，會耗 API）。預設只處理佔位標題或缺語意；勾選「全部重跑」則 <code>force</code> 重讀。</p>
-            <div class="row g-2 align-items-end mb-2">
-              <div class="col-auto">
-                <label class="form-label small mb-0" for="backfillTitlesLimit">每批筆數</label>
-                <input type="number" id="backfillTitlesLimit" class="form-control form-control-sm" value="10" min="1" max="25" style="width:5rem" />
-              </div>
-              <div class="col-auto">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="backfillTitlesForce" />
-                  <label class="form-check-label small" for="backfillTitlesForce">force 重讀（含已有語意）</label>
-                </div>
-              </div>
-              <div class="col-auto">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="backfillTitlesScopeAll" />
-                  <label class="form-check-label small" for="backfillTitlesScopeAll">scope=all（非僅佔位）</label>
-                </div>
-              </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-danger" id="btnBackfillCustomProductTitles">執行本批</button>
-            <pre id="backfillTitlesLog" class="small bg-light border rounded p-2 mt-2 mb-0" style="max-height:12rem;overflow:auto;display:none"></pre>
-          </div>
-        </div>
         <div class="card mb-3 border-primary">
           <div class="card-body">
             <h6 class="card-title">設計頁・AI 生成圖讀圖（主要）</h6>
@@ -1440,34 +1414,6 @@
     document.getElementById('btnSaveSceneSimPrompt')?.addEventListener('click', saveSceneSimPrompt);
     document.getElementById('btnSavePatternExtractPrompt')?.addEventListener('click', savePatternExtractPrompt);
     document.getElementById('btnSavePatternExtractSeamlessPrompt')?.addEventListener('click', savePatternExtractSeamlessPrompt);
-    document.getElementById('btnBackfillCustomProductTitles')?.addEventListener('click', async function () {
-      var logEl = document.getElementById('backfillTitlesLog');
-      var headers = await getAuthHeaders();
-      if (!headers.Authorization) { showMsg('請先登入管理員', true); return; }
-      var limit = parseInt((document.getElementById('backfillTitlesLimit') || {}).value, 10) || 10;
-      var force = !!(document.getElementById('backfillTitlesForce') || {}).checked;
-      var scopeAll = !!(document.getElementById('backfillTitlesScopeAll') || {}).checked;
-      var btn = document.getElementById('btnBackfillCustomProductTitles');
-      if (btn) btn.disabled = true;
-      try {
-        var res = await fetch('/api/admin/backfill-custom-product-titles', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ limit: limit, force: force, scope: scopeAll ? 'all' : 'generic' })
-        });
-        var data = await res.json().catch(function () { return {}; });
-        if (logEl) {
-          logEl.style.display = 'block';
-          logEl.textContent = JSON.stringify(data, null, 2);
-        }
-        if (!res.ok) showMsg(data.error || '失敗', true);
-        else showMsg('本批完成 ok=' + (data.ok || 0) + '/' + (data.processed || 0), false);
-      } catch (e) {
-        showMsg((e && e.message) || '失敗', true);
-      } finally {
-        if (btn) btn.disabled = false;
-      }
-    });
     var clearEngSel = document.getElementById('enginePromoPortraitClear');
     if (clearEngSel) {
       clearEngSel.addEventListener('change', syncClearPortraitEngineUi);

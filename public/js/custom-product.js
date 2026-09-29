@@ -5239,18 +5239,62 @@ $(document).ready(function () {
         return (ownerDisplay || tr('customProduct.thisAccount', '該帳號')) + tr('customProduct.digitalAssetsSuffix', '的數位資產');
     }
 
+    function isGenericGalleryDesignTitle(title) {
+        var s = String(title || '').trim();
+        if (!s) return true;
+        var generic = ['產品設計稿', '產品設計圖', '未命名', 'Untitled', 'Product design', 'Product design draft', 'Design draft'];
+        for (var i = 0; i < generic.length; i++) {
+            if (s === generic[i] || s.toLowerCase() === generic[i].toLowerCase()) return true;
+        }
+        return false;
+    }
+
+    function galleryTextCopiedFromPrompt(text, genPrompt) {
+        var t = String(text || '').trim();
+        var gp = String(genPrompt || '').trim();
+        if (!t || !gp) return false;
+        if (t === gp) return true;
+        if (gp.length > 80 && t === gp.substring(0, 80) + '…') return true;
+        var head = t.replace(/…$/, '');
+        if (head.length >= 6 && gp.indexOf(head) === 0 && gp.length > head.length) return true;
+        return false;
+    }
+
+    function pickGalleryProductCardTitle(p) {
+        var gp = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
+        var title = String(p.title || '').trim();
+        if (title && !isGenericGalleryDesignTitle(title) && !galleryTextCopiedFromPrompt(title, gp)) return title;
+        var sem = p.image_semantics_json;
+        if (typeof sem === 'string') { try { sem = JSON.parse(sem); } catch (_) { sem = null; } }
+        if (sem && typeof sem === 'object') {
+            var ptz = (sem.product_title_zh || '').trim();
+            var pte = (sem.product_title_en || '').trim();
+            if (ptz && !galleryTextCopiedFromPrompt(ptz, gp)) return ptz;
+            if (pte && !galleryTextCopiedFromPrompt(pte, gp)) return pte;
+        }
+        if (!gp) return tr('customProduct.untitledDesign', '—');
+        return tr('customProduct.untitledDesign', '—');
+    }
+
+    function gallerySeedSuffix(seedStr) {
+        if (!seedStr) return '';
+        return tf('customProduct.galleryCardSeedSuffix', ' · Seed: {seed}', { seed: seedStr });
+    }
+
     function buildPastItemWrapFromProduct(p, eagerLoad) {
         var url = galleryProductImageUrl(p);
         if (!url) return null;
-        var promptText = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        var genPrompt = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
+        var promptAttr = genPrompt.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        var displayTitle = pickGalleryProductCardTitle(p);
         var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
         var ownerDisplay = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
-        var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
+        var tip = displayTitle + gallerySeedSuffix(seedStr);
         var showOnHomepage = p.show_on_homepage !== false;
         var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
         var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
         var $cell = $('<div class="past-item-wrap"></div>').attr({
-            'data-prompt': promptText,
+            'data-prompt': promptAttr,
             'data-seed': seedStr,
             'data-owner-display': ownerDisplay,
             'data-product-id': p.id || '',
@@ -5260,7 +5304,7 @@ $(document).ready(function () {
         });
         attachPastItemImageUrl($cell, url);
         attachPastItemRefSources($cell, (p.reference_sources && Array.isArray(p.reference_sources)) ? p.reference_sources : []);
-        var $img = $('<img>').attr({ src: url, alt: '' });
+        var $img = $('<img>').attr({ src: url, alt: displayTitle });
         if (eagerLoad) {
             $img.attr('loading', 'eager');
         } else {
@@ -5270,7 +5314,7 @@ $(document).ready(function () {
             $(this).addClass('past-item-img-error');
         });
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
-        var caption = (promptText ? promptText.substring(0, 120) : tr('customProduct.noPromptCaption', '（無提示詞）')) + (seedStr ? ' · Seed: ' + seedStr : '');
+        var caption = displayTitle + gallerySeedSuffix(seedStr);
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(caption));
         attachPastItemDeleteBtn($cell, p.id || '');
         return $cell;
@@ -6186,7 +6230,7 @@ $(document).ready(function () {
             attachPastItemImageUrl($cell, imageDataUrl);
             attachPastItemRefSources($cell, rs);
             $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: imageDataUrl, alt: '' })));
-            var caption = (promptStr ? promptStr.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + (seedStr ? ' · Seed: ' + seedStr : '');
+            var caption = (promptStr ? promptStr.substring(0, 80) : tr('customProduct.thisGeneration', '本次生成')) + gallerySeedSuffix(seedStr);
             $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
             var inner = wrap.find('.past-gallery-inner');
             if (!inner.length) {
@@ -7501,6 +7545,7 @@ $(document).ready(function () {
     function customProductOnLocaleReady() {
         applyCustomProductJsonLd();
         if (typeof window.syncCatSheetChromeI18n === 'function') window.syncCatSheetChromeI18n();
+        if (typeof window.updateCategoryMobileBtnLabels === 'function') window.updateCategoryMobileBtnLabels();
         var $tabs = $('#pastGalleryTabs');
         if ($tabs.length) {
             $tabs.attr('aria-label', tr('customProduct.pastGalleryTabsAria', '數位資產分類'));

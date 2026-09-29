@@ -1558,6 +1558,7 @@
   "customProduct.refIntentTotalPill": "{n} / {max}",
   "customProduct.refIntentTabsAria": "參考圖類別",
   "customProduct.untitledDesign": "未命名",
+  "customProduct.galleryCardSeedSuffix": " · Seed: {seed}",
   "customProduct.refSlotsFull": "參考圖已滿（每類最多 {perSlot} 張，共 {total} 張）",
   "customProduct.levelListSep": "、",
   "customProduct.multiVendorWarning": "您已選用多家廠商的素材（{names}）。混用原型／材料／零件可能無法由單一廠商生產，建議先與廠商溝通。",

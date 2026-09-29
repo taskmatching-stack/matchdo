@@ -160,6 +160,7 @@ const xaiImagine = require('./lib/xai-imagine');
 const promoSpaceAppeal = require('./lib/promo-space-appeal');
 const pricingCampaigns = require('./lib/pricing-campaigns');
 const mediaWallQueries = require('./lib/media-wall-queries');
+const cpMediaWallTitle = require('./lib/custom-product-media-wall-title');
 const manufacturerAudience = require('./lib/manufacturer-audience');
 
 function mediaWallQueryLog(label, msg) {
@@ -6961,41 +6962,7 @@ function pickMediaWallLocalizedTitle(zh, en, lang, kind, opts) {
 }
 
 function resolveUserDesignMediaWallTitlePair(p) {
-    let aj = p.analysis_json;
-    if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
-    const genPrompt = (p.generation_prompt || (aj && aj.generation_prompt) || '').trim();
-    const sem = parseImageSemanticsJson(p.image_semantics_json);
-    const displayTitles = resolveCustomProductDisplayTitlePair(p, genPrompt);
-    const fromDb = mediaWallTitlePairFromDbTitleFields(displayTitles.zh || p.title, displayTitles.en || p.title_en);
-    let zh = fromDb.zh ? truncateMediaWallTitle(fromDb.zh) : '';
-    let en = fromDb.en ? truncateMediaWallTitle(fromDb.en) : '';
-
-    if (!zh && !en) {
-        const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
-        const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
-        if (zhDesc) zh = truncateMediaWallTitle(zhDesc);
-        if (enDesc) en = truncateMediaWallTitle(enDesc);
-    }
-
-    const zhBad = !zh || isGenericMediaWallTitle(zh);
-    const enBad = !en || isGenericMediaWallTitle(en);
-    if (zhBad || enBad) {
-        const pair = resolveCustomProductTitlePairFromRow(p);
-        if (pair) {
-            if (zhBad && pair.zh && !isGenericMediaWallTitle(pair.zh)) zh = truncateMediaWallTitle(pair.zh);
-            if (enBad && pair.en && !isGenericMediaWallTitle(pair.en)) en = truncateMediaWallTitle(pair.en);
-            else if (enBad && pair.zh && !isGenericMediaWallTitle(pair.zh)) en = truncateMediaWallTitle(pair.zh);
-        }
-    }
-
-    if ((!zh || isGenericMediaWallTitle(zh)) && (!en || isGenericMediaWallTitle(en))
-        && !customProductRowHasStoredImageSemantics(p) && genPrompt) {
-        const legacy = legacyCustomProductTitleFallbackFromPrompt(genPrompt);
-        if (legacy.zh && (!zh || isGenericMediaWallTitle(zh))) zh = legacy.zh;
-        if (legacy.en && (!en || isGenericMediaWallTitle(en))) en = legacy.en;
-    }
-
-    return { zh: zh || '', en: en || '' };
+    return cpMediaWallTitle.resolveUserDesignMediaWallTitlePair(p);
 }
 
 function resolveUserDesignMediaWallTitle(p, lang) {
@@ -17743,92 +17710,6 @@ app.post('/api/admin/backfill-custom-product-tags', express.json(), async (req, 
         });
     } catch (e) {
         console.error('POST /api/admin/backfill-custom-product-tags:', e);
-        res.status(500).json({ error: e.message || '系統錯誤' });
-    }
-});
-
-/**
- * POST /api/admin/backfill-custom-product-titles
- * 一次性批次：讀設計圖寫入 image_semantics_json + title／title_en（Gemini 讀圖，不掛公開頁）。
- * body: { limit?: number 預設 10 上限 25, force?: boolean 強制重跑讀圖, scope?: 'generic'|'all' }
- *   generic＝僅佔位標題或缺語意；all＝凡有圖且非 data: URL 皆可排入（仍受 limit 限制，請多次呼叫直到 processed=0）
- */
-app.post('/api/admin/backfill-custom-product-titles', express.json(), async (req, res) => {
-    try {
-        const adminUser = await requireAdmin(req, res);
-        if (!adminUser) return;
-        if (!process.env.GEMINI_API_KEY) {
-            return res.status(503).json({ error: '未設定 GEMINI_API_KEY' });
-        }
-        const limit = Math.min(Math.max(parseInt((req.body && req.body.limit), 10) || 10, 1), 25);
-        const force = !!(req.body && req.body.force);
-        const scope = (req.body && req.body.scope === 'all') ? 'all' : 'generic';
-        const selectCols = 'id, owner_id, title, title_en, category, generation_prompt, ai_generated_image_url, ai_tags, semantics_generated_at, image_semantics_json';
-        let { data: rows, error } = await supabase
-            .from('custom_products')
-            .select(selectCols)
-            .not('ai_generated_image_url', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(800);
-        if (error && error.code === '42703') {
-            ({ data: rows, error } = await supabase
-                .from('custom_products')
-                .select('id, owner_id, title, title_en, category, generation_prompt, ai_generated_image_url, ai_tags, semantics_generated_at')
-                .not('ai_generated_image_url', 'is', null)
-                .order('created_at', { ascending: false })
-                .limit(800));
-        }
-        if (error) {
-            console.error('admin backfill-custom-product-titles query:', error.message);
-            return res.status(500).json({ error: error.message || '查詢失敗' });
-        }
-        const pending = (rows || []).filter(function (row) {
-            if (!row || !row.id || !row.owner_id || !row.ai_generated_image_url) return false;
-            if (String(row.ai_generated_image_url).indexOf('data:') === 0) return false;
-            if (scope === 'all') return true;
-            const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
-            if (shouldReplaceCustomProductTitleFromAi(row.title, gp)) return true;
-            if (!row.semantics_generated_at && !row.image_semantics_json) return true;
-            if (customProductRowNeedsTitleRepairFromStoredSemantics(row)) return true;
-            return false;
-        }).slice(0, limit);
-
-        const results = [];
-        for (let i = 0; i < pending.length; i++) {
-            const row = pending[i];
-            try {
-                const out = await enrichCustomProductSemantics(row.id, row.owner_id, {
-                    force: force,
-                    imageUrl: row.ai_generated_image_url,
-                    generationPrompt: row.generation_prompt || null,
-                    title: row.title || null,
-                    categoryKey: row.category || null
-                });
-                results.push({
-                    id: row.id,
-                    ok: !!(out && (out.title || out.title_en)),
-                    title_zh: out && out.title ? out.title : null,
-                    title_en: out && out.title_en ? out.title_en : null
-                });
-            } catch (e) {
-                results.push({ id: row.id, ok: false, error: (e && e.message) || '失敗' });
-            }
-        }
-        const okCount = results.filter((r) => r.ok).length;
-        console.log('admin backfill-custom-product-titles done=%d/%d scope=%s by=%s', okCount, results.length, scope, adminUser.id);
-        res.json({
-            success: true,
-            scope,
-            force,
-            requested: limit,
-            processed: results.length,
-            ok: okCount,
-            failed: results.length - okCount,
-            hint: '若仍有舊稿，請重複呼叫直到 processed 為 0；每批最多 25 張、會扣 Gemini。',
-            items: results
-        });
-    } catch (e) {
-        console.error('POST /api/admin/backfill-custom-product-titles:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });

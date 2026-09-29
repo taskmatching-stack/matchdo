@@ -1555,6 +1555,7 @@
   "customProduct.refIntentTotalPill": "{n} / {max}",
   "customProduct.refIntentTabsAria": "Reference image categories",
   "customProduct.untitledDesign": "Untitled",
+  "customProduct.galleryCardSeedSuffix": " · Seed: {seed}",
   "customProduct.refSlotsFull": "Reference slots full (max {perSlot} per tab, {total} total).",
   "customProduct.levelListSep": ", ",
   "customProduct.multiVendorWarning": "References include multiple vendors ({names}). Mixing prototypes, materials, and parts may not be producible by one vendor—please confirm with vendors.",

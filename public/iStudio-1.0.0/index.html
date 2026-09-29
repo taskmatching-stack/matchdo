@@ -830,7 +830,13 @@
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
-                if (titleEl) titleEl.textContent = item.title || '';
+                if (titleEl) {
+                    var lbTitle = item.title || '';
+                    if (item.type === 'user_design' && (item.title_zh || item.title_en)) {
+                        lbTitle = pickMediaWallLocalizedTitle(item) || lbTitle;
+                    }
+                    titleEl.textContent = lbTitle;
+                }
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
                 syncLightboxReferenceCards(item);
@@ -1211,6 +1217,31 @@
                 if (!p || p.type !== 'user_design') return true;
                 return !!String(p.generation_prompt || '').trim();
             }
+            function userDesignPromptTextOnly(p) {
+                if (!p || p.type !== 'user_design') return '';
+                var aj = p.analysis_json;
+                if (typeof aj === 'string') { try { aj = JSON.parse(aj); } catch (_) { aj = null; } }
+                return String((aj && aj.generation_prompt) || p.generation_prompt || '').trim();
+            }
+            function textCopiedFromGenerationPrompt(text, genPrompt) {
+                var t = String(text || '').trim();
+                var gp = String(genPrompt || '').trim();
+                if (!t || !gp) return false;
+                if (t === gp) return true;
+                if (gp.length > 80 && t === gp.substring(0, 80) + '…') return true;
+                var head = t.replace(/…$/, '');
+                if (head.length >= 6 && gp.indexOf(head) === 0 && gp.length > head.length) return true;
+                return false;
+            }
+            function userDesignSeoDescriptionForCard(p, titleRaw) {
+                if (!p || p.type !== 'user_design') return '';
+                var desc = String(p.description || '').trim();
+                if (desc && desc !== titleRaw) return desc;
+                var gp = userDesignPromptTextOnly(p);
+                if (gp && titleRaw && !textCopiedFromGenerationPrompt(titleRaw, gp)) return gp;
+                if (gp && !titleRaw) return gp;
+                return '';
+            }
             function pickMediaWallLocalizedTitle(p) {
                 var lang = getMediaWallLang();
                 var useEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
@@ -1218,7 +1249,8 @@
                 var en = (p && p.title_en != null) ? String(p.title_en).trim() : '';
                 if (!zh && !en && p && p.title) {
                     var legacy = String(p.title).trim();
-                    if (!isGenericMediaWallCardTitle(legacy)) {
+                    var gpLegacy = (p.type === 'user_design') ? userDesignPromptTextOnly(p) : '';
+                    if (!isGenericMediaWallCardTitle(legacy) && !(gpLegacy && textCopiedFromGenerationPrompt(legacy, gpLegacy))) {
                         if (mediaWallTextHasCjk(legacy)) zh = legacy;
                         else en = legacy;
                     }
@@ -1268,10 +1300,10 @@
                         }
                     }
                     var title = esc(titleRaw);
-                    var promptText = (p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '') : '';
+                    var promptText = (p.type === 'user_design') ? userDesignPromptTextOnly(p) : '';
                     var descRaw = (p.description || p.title || '').trim();
                     var promoDesc = (p.type === 'promo_scene') ? ((p.scene_description || p.user_prompt || '').trim()) : '';
-                    var shortDescSrc = (p.type === 'user_design') ? (promptText || titleRaw) : (p.type === 'promo_scene' ? (promoDesc || titleRaw) : descRaw);
+                    var shortDescSrc = (p.type === 'user_design') ? userDesignSeoDescriptionForCard(p, titleRaw) : (p.type === 'promo_scene' ? (promoDesc || titleRaw) : descRaw);
                     var shortDesc = (shortDescSrc || '').slice(0, 80);
                     if (shortDesc.length >= 80 && shortDescSrc.length > 80) shortDesc += '\u2026';
                     var seoDescFull = (shortDescSrc || '').replace(/\s+/g, ' ').trim().slice(0, 200);
@@ -1312,7 +1344,7 @@
                         var img = (p.image_url || p.cover_image_url || '').trim();
                         content = (img ? '<img src="' + escAttr(imageSrcForShare(img)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
-                    var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
+                    var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: titleRaw, title_zh: p.title_zh || null, title_en: p.title_en || null, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
                     if (p.type === 'comparison' || p.type === 'collection' || p.type === 'series') {
                         dataItem.manufacturer_id = p.manufacturer_id || null;
                         dataItem.manufacturer_user_id = p.manufacturer_user_id || null;
@@ -1331,7 +1363,7 @@
                             : (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : (p.cover_image_url ? [p.cover_image_url] : (p.image_url ? [p.image_url] : [])));
                     }
                     if (p.type === 'user_design') {
-                        var promptText = (p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '';
+                        var promptText = userDesignPromptTextOnly(p);
                         var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
                         dataItem.generation_prompt = promptText || null;
                         dataItem.generation_seed = seedStr !== '' ? seedStr : null;
@@ -1853,7 +1885,9 @@
                 var baseUrl = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://matchdo.cc';
                 var elements = list.slice(0, 50).map(function (p, i) {
                     var name = pickMediaWallLocalizedTitle(p);
-                    var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : (p.type === 'promo_scene' ? (p.scene_description || p.user_prompt) : p.description)) || p.title || '';
+                    var desc = (p.type === 'user_design')
+                        ? userDesignSeoDescriptionForCard(p, name)
+                        : (((p.type === 'promo_scene') ? (p.scene_description || p.user_prompt) : p.description) || p.title || '');
                     var img = (p.image_url || p.cover_image_url || '').trim();
                     var pagePath = (p.inspiration_url && String(p.inspiration_url).trim())
                         || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(p.id || ''));
@@ -2258,7 +2292,13 @@
                     if (lbBodyEarly) lbBodyEarly.classList.remove('is-promo-scene');
                     if (lbModalBodyEarly) lbModalBodyEarly.classList.remove('is-promo-scene-body');
                 }
-                if (titleEl) titleEl.textContent = item.title || '';
+                if (titleEl) {
+                    var lbTitle = item.title || '';
+                    if (item.type === 'user_design' && (item.title_zh || item.title_en)) {
+                        lbTitle = pickMediaWallLocalizedTitle(item) || lbTitle;
+                    }
+                    titleEl.textContent = lbTitle;
+                }
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
                 syncLightboxReferenceCards(item);

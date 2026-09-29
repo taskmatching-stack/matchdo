@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-untitled-ref';
+    var LOCALE_CACHE_V = '20260929-d2-gallery-title';
 
     function loadLocale(lang) {
         lang = lang || getLang();
