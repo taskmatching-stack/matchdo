@@ -3,18 +3,22 @@
 const path = require('path');
 const hg = require('../lib/help-guides');
 const page = require('../lib/help-guides-page');
+const helpUi = require('../lib/help-guides-ui');
 
 function sendStaticFallback(res) {
     res.sendFile(path.join(__dirname, '..', 'public', 'help', 'index.html'));
 }
 
 function sendMissingHtml(res, lang) {
-    var msg = lang === 'en' ? 'This guide is not published.' : '此說明尚未發佈或不存在。';
+    var htmlLang = lang === 'en' ? 'en' : 'zh-TW';
+    var msg = helpUi.t(lang, 'notFound');
+    var back = helpUi.t(lang, 'backToHelp');
+    var helpHref = lang === 'en' ? '/help/?lang=en' : '/help/';
     res.status(404).type('html').send(
-        '<!DOCTYPE html><html lang="' + (lang === 'en' ? 'en' : 'zh-TW') + '"><head><meta charset="utf-8"><title>404</title>' +
+        '<!DOCTYPE html><html lang="' + htmlLang + '"><head><meta charset="utf-8"><title>404</title>' +
         '<link href="/css/bootstrap.min.css" rel="stylesheet"></head><body><div id="site-header"></div>' +
-        '<div class="container py-5"><p>' + msg + '</p><p><a href="/help/">← /help/</a></p></div>' +
-        '<script src="/config/auth-config.js"><\/script><script src="/js/site-header.js?v=20260903-help"><\/script></body></html>'
+        '<div class="container py-5"><p>' + hg.escapeHtml(msg) + '</p><p><a href="' + helpHref + '">' + hg.escapeHtml(back) + '</a></p></div>' +
+        '<script src="/config/auth-config.js"><\/script><script src="/js/i18n.js"><\/script><script src="/js/site-header.js?v=20260903-help"><\/script></body></html>'
     );
 }
 
@@ -105,7 +109,7 @@ function registerHelpGuideRoutes(app, deps) {
         } catch (e) {
             if (hg.isMissingTableError(e)) return sendStaticFallback(res);
             console.error('GET /help/:folder/:', e);
-            res.status(500).send('伺服器錯誤');
+            res.status(500).send(helpUi.t(lang, 'serverError'));
         }
     });
 
@@ -132,7 +136,7 @@ function registerHelpGuideRoutes(app, deps) {
         } catch (e) {
             if (hg.isMissingTableError(e)) return sendStaticFallback(res);
             console.error('GET /help/:folder/:page:', e);
-            res.status(500).send('伺服器錯誤');
+            res.status(500).send(helpUi.t(lang, 'serverError'));
         }
     });
 
