@@ -20,16 +20,18 @@
 - [x] `POST /api/payment/quote`
 - [x] 年付 PayPal／綠界 + 月訂 PayPal／綠界 **驗價**（`scripts/test-pricing-campaigns.js`）
 - [x] 前台方案頁年付特價顯示、結帳頁 quote
+- [x] **P1-B** 牌價年付 `yearly_price_twd`／`yearly_price_usd`（`4c15b36`）；migration `subscription-plan-yearly-price`
 
 ## 部署後必做
 
 1. `/admin/db-migrations.html` 執行 **pricing-campaigns**（或 Supabase 跑 `docs/add-pricing-campaigns.sql`）
-2. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價
-3. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400
+2. 執行 **subscription-plan-yearly-price**（`docs/add-subscription-plan-yearly-price.sql`）
+3. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價
+4. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400
 
 ## 待選（非 v1）
 
-- [ ] `payment-orders.html` 顯示 `metadata.campaign_id`／牌價 vs 實付
+- [x] `payment-orders.html` 顯示 `metadata.campaign_id`／牌價 vs 實付（年付訂單 metadata 含 list／quoted）
 - [ ] 結帳 URL 僅帶 `plan` + `billing`（完全移除 amount query）
 
 ---
@@ -48,12 +50,9 @@
 | **常態方案** `subscription_plans`（`/admin/membership.html`） | 月費／權益由 DB 維護 | 否；改價影響新訂閱邏輯，非「個人終身優惠」旗標 |
 | **內部優惠方案** `docs/seed-promo-subscription-plans.sql`（`sort_order ≥ 10`） | 與公開檔期分開的隱藏 tier | 需另查是否僅手動指派；**無**後台 UI 勾「終身」 |
 
-**建議實作方向（規劃用，未開工）**：
+**實作規劃（2026-09-29）**：見 **`docs/PLAN-pricing-entitlements.md`**（鎖年付成交價；`subscription_term` 預設；`lifetime` 需後台指派 Phase 3）。
 
-1. 產品先定案「終身」定義：鎖 **成交價**、鎖 **tier 權益**、或鎖 **年付特價規則** 至帳號？
-2. 資料：訂閱／`payment_orders.metadata` 或新表 `user_pricing_entitlements`（`user_id`, `plan_key`, `price_lock`, `benefit_scope`, `expires_at` null=終身）。
-3. 後台：在檔期活動或方案指派 UI 加 **優惠有效期** = `subscription_term` | `lifetime`（預設前者）。
-4. 續約／換方案：`quote` 與 PayPal／綠界驗價須讀鎖價，避免被常態牌價覆蓋。
+**待開工**：Phase 1 migration `user_pricing_entitlements` + 年付付款成功寫入；Phase 2 quote 讀終身鎖價。
 
 相關規劃：`docs/PLAN-pricing-campaigns.md` §1（特價語意僅年訂閱期）。
 

@@ -71,6 +71,7 @@
                   <th>金流</th>
                   <th>類型</th>
                   <th>金額</th>
+                  <th>牌價／活動</th>
                   <th>點數</th>
                   <th>狀態</th>
                   <th>退費</th>
@@ -79,7 +80,7 @@
                 </tr>
               </thead>
               <tbody id="ordersBody">
-                <tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>
+                <tr><td colspan="12" class="text-center text-muted py-4">載入中…</td></tr>
               </tbody>
             </table>
           </div>
@@ -150,14 +151,29 @@
     function hideMsg() {
       document.getElementById('pageMsg').classList.add('d-none');
     }
+    function pricingCell(row) {
+      var parts = [];
+      if (row.list_amount != null && row.quoted_amount != null && row.list_amount !== row.quoted_amount) {
+        parts.push('<span class="text-muted text-decoration-line-through">' + esc(row.list_amount) + '</span> → ' + esc(row.quoted_amount));
+      } else if (row.list_amount != null) {
+        parts.push('牌價 ' + esc(row.list_amount));
+      }
+      if (row.campaign_id) {
+        parts.push('<div class="text-muted">活動 <code class="small">' + esc(String(row.campaign_id).slice(0, 8)) + '…</code></div>');
+      }
+      return parts.length ? parts.join(' ') : '—';
+    }
     function renderRows(items) {
       if (!items.length) {
-        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">尚無紀錄</td></tr>';
+        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">尚無紀錄</td></tr>';
         return;
       }
       document.getElementById('ordersBody').innerHTML = items.map(function (row) {
         var amt = (row.amount != null ? row.amount : '') + ' ' + esc(row.currency || '');
         var plan = row.plan_key ? (' <span class="text-muted small">' + esc(row.plan_key) + '</span>') : '';
+        if (row.billing && row.billing !== row.order_type) {
+          plan += ' <span class="text-muted small">' + esc(row.billing) + '</span>';
+        }
         return '<tr>' +
           '<td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td>' +
           '<td class="small text-nowrap">' + esc(fmtTime(row.paid_at)) + '</td>' +
@@ -165,6 +181,7 @@
           '<td class="small">' + esc(providerLabel(row.provider)) + '</td>' +
           '<td class="small">' + esc(typeLabel(row.order_type)) + plan + '</td>' +
           '<td class="small text-nowrap">' + esc(amt) + '</td>' +
+          '<td class="small">' + pricingCell(row) + '</td>' +
           '<td class="small">' + esc(row.credits_to_grant != null ? String(row.credits_to_grant) : '—') + '</td>' +
           '<td>' + statusBadge(row.status) + '</td>' +
           '<td class="small">' + refundCell(row) + '</td>' +
@@ -180,7 +197,7 @@
     }
     async function loadList() {
       if (!token) return;
-      document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>';
+      document.getElementById('ordersBody').innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">載入中…</td></tr>';
       var qs = new URLSearchParams();
       qs.set('limit', String(limit));
       qs.set('offset', String(offset));
@@ -198,7 +215,7 @@
       var data = await r.json().catch(function () { return {}; });
       if (!r.ok) {
         showMsg(data.error || '載入失敗', 'danger');
-        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">載入失敗</td></tr>';
+        document.getElementById('ordersBody').innerHTML = '<tr><td colspan="12" class="text-center text-danger py-4">載入失敗</td></tr>';
         return;
       }
       hideMsg();

@@ -158,8 +158,8 @@ node scripts/audit-locale-mix.js
 
 | 優先 | 項目 | 文件／位置 |
 |------|------|------------|
-| P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | `docs/PROGRESS-pricing-campaigns.md` §待辦 A |
-| P1 | 年付牌價 ×10 vs 後台可設年付 | 同檔 §待辦 B |
+| P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | `docs/PLAN-pricing-entitlements.md`（實作 Phase 1 起） |
+| P1 | 年付牌價 ×10 vs 後台可設年付 | ✅ `4c15b36`（§待辦 B） |
 | P2 | 廠商服務地區／列表篩選與排序（規劃檔待寫） | 使用者 2026-09-29 備忘 |
 | P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | `docs/SEO-PROGRESS.md`、`docs/SEO-AUDIT-PLAN-2026-08-06.md` |
 | P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 後台 + `admin-content-multilang` 規則；**≠** UI i18n |
@@ -225,7 +225,7 @@ node scripts/audit-locale-mix.js
 |------|------|------|
 | **B1** | 訂製者工具：`find-makers`、`custom-product-detail`、`print-asset`、`material-dual-color`、設計頁 JS 摘要 | ✅ 已 push（`9e9e030`～`dbfc6a2`） |
 | **B2** | 數位資甶庫 UI + 卡片版面 + 收藏 Tab | ✅ 已 push（含 `691eed9` 更多選單） |
-| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏／分享） | ✅ 主流程（2026-09-29）；剩餘：首頁 meta／JSON-LD 英文（低優先） |
+| **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏／分享） | ✅ 含 meta／JSON-LD（`home-page-meta.js`，2026-09-29） |
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | ✅ meta／JSON-LD／麵包屑隨 `i18n` 刷新（2026-09-29） |
@@ -245,10 +245,11 @@ node scripts/audit-locale-mix.js
 |------|------|
 | B1、B2、C、credits、登入、首頁媒體牆主流程 | ✅ |
 | **D2** | ✅ 結案（2026-09-29） |
-| **F、殼層 A、B3 meta** | ✅（2026-09-29 收尾 commit 待記） |
+| **F、殼層 A、B3 meta** | ✅（2026-09-29） |
 | locale 鍵同步 | ✅ `audit-locale-mix` 缺鍵 0 |
+| **UI i18n 結案日** | **`d12d5b4`**（F(2)＋殼層 A＋B3 meta）；P1 訂閱牌價自 `4c15b36` 起 |
 
-**結案後才開：** 下表 P1/P2（訂閱牌價、SEO、服務地區、內容英文批次等）。
+**結案後才開：** 下表 P1/P2（訂閱優惠鎖價、SEO、服務地區、內容英文批次等）。
 
 ### 本輪已掃「混用」的頁面（不只首頁）
 

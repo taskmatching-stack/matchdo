@@ -13083,7 +13083,7 @@ const DB_URL = process.env.SUPABASE_DB_URL;
 const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categories.local.json');
 
 /** subscription_plans 後台只查／寫這些欄位（多數環境表結構一致，不依賴直連 DB） */
-const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, price_usd_monthly, yearly_price_twd, yearly_price_usd, duration_months, credits_monthly, sort_order, is_active, plan_key';
+const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, price_usd_monthly, yearly_price_twd, yearly_price_usd, duration_months, credits_monthly, max_listings, features, sort_order, is_active, plan_key';
 
 /** 前台方案頁只顯示一般 tier；種子／合作優惠僅後台開通 */
 const INTERNAL_SUBSCRIPTION_PLAN_KEYS = new Set([
@@ -13168,7 +13168,10 @@ function paymentOrderMetadataFromQuote(quote) {
         billing: quote.billing
     };
     if (quote.campaign_id) meta.campaign_id = quote.campaign_id;
-    if (quote.list_amount != null && quote.list_amount !== quote.amount) {
+    if (quote.billing === 'yearly' && quote.list_amount != null) {
+        meta.list_amount = quote.list_amount;
+        meta.quoted_amount = quote.amount;
+    } else if (quote.list_amount != null && quote.list_amount !== quote.amount) {
         meta.list_amount = quote.list_amount;
         meta.quoted_amount = quote.amount;
     }
@@ -16215,6 +16218,10 @@ app.get('/api/admin/payment-orders', async (req, res) => {
                 order_type: r.order_type,
                 external_id: r.external_id || '',
                 plan_key: meta.plan_key || '',
+                billing: meta.billing || '',
+                campaign_id: meta.campaign_id || '',
+                list_amount: meta.list_amount != null ? meta.list_amount : null,
+                quoted_amount: meta.quoted_amount != null ? meta.quoted_amount : null,
                 refund_status: (meta.proration_refund && meta.proration_refund.status) || '',
                 refund_amount: (meta.proration_refund && meta.proration_refund.amount) || 0,
                 refund_months: (meta.proration_refund && meta.proration_refund.refundable_months) || 0,
@@ -16838,6 +16845,20 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
         }
         if (body.duration_months !== undefined) updates.duration_months = parseInt(body.duration_months, 10);
         if (body.credits_monthly !== undefined) updates.credits_monthly = parseInt(body.credits_monthly, 10);
+        if (body.max_listings !== undefined) {
+            const ml = parseInt(body.max_listings, 10);
+            updates.max_listings = Number.isFinite(ml) ? ml : -1;
+        }
+        if (body.features !== undefined) {
+            const f = body.features;
+            if (f && typeof f === 'object' && !Array.isArray(f)) {
+                updates.features = {
+                    force_media_wall: !!f.force_media_wall,
+                    show_homepage_match: !!f.show_homepage_match,
+                    show_multilang: !!f.show_multilang
+                };
+            }
+        }
         if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10);
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新欄位' });
