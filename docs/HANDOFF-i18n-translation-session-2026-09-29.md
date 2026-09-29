@@ -11,8 +11,8 @@
 |------|-----|
 | 路徑 | `D:/AI建站/ai-matching` |
 | 分支 | `main`（與 `origin/main` 同步時以 `git log -1` 為準） |
-| **本輪最後 push** | `cce72e3` — `feat: portfolio edit modal custom craft EN (U5)` |
-| 前一輪重點 commit | `bbaba8c` 自填工藝 EN 僅編輯彈窗；`17df2a0` U5；`1d5d038` UI 去雜訊 |
+| **本輪最後 push** | `2d1f022` — revert 誤推 `ai_categories`（`89b3293`）+ D1 範圍／D4 不做 + 素材／B 線分類 `?lang=en` |
+| 前一輪重點 commit | `cce72e3` 作品集 U5；`bb818e9` handoff |
 
 **部署：** 使用者自行 Cloud Shell；Agent 只提供 `docs/deploy-matchdo-push-and-deploy.md` **§3.1 整行**（含 `grep -v -E 'Regional Access Boundary|taskmatchlng'`）。**先 push 再給 deploy 指令。**
 
