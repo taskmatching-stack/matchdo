@@ -222,7 +222,7 @@ node scripts/audit-locale-mix.js
 | **B3** | 首頁媒體牆：**內容語系**（API）+ **UI**（chip／分類／對照／lightbox／收藏／分享） | ✅ 主流程（2026-09-29）；剩餘：首頁 meta／JSON-LD 英文（低優先） |
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
-| **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
+| **D1** | `vendor-profile` + `vendors.html` 公開列表 | ✅ meta／JSON-LD／麵包屑隨 `i18n` 刷新（2026-09-29） |
 | **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | ✅ **結案**（2026-09-29 掃尾）；後續僅遇 bug／新 UI 再補鍵 |
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
@@ -237,8 +237,8 @@ node scripts/audit-locale-mix.js
 | 區塊 | 狀態 |
 |------|------|
 | B1、B2、C、credits、登入、首頁媒體牆主流程 | ✅ |
-| **D2** | 🔄 掃尾（最大單檔） |
-| **D1、D3、E、F、殼層 A、B3 meta** | ⏳ 依上方固定順序 2～7 |
+| **D2** | ✅ 結案（2026-09-29） |
+| **D3、E、F、殼層 A、B3 meta** | ⏳ 依上方固定順序 3～7 |
 | locale 鍵同步 | ✅ `audit-locale-mix` 缺鍵 0 |
 
 **結案後才開：** 下表 P1/P2（訂閱牌價、SEO、服務地區、內容英文批次等）。

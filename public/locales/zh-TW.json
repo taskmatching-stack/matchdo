@@ -2848,6 +2848,7 @@
   "aiEdit.emptyStateSteps": "上傳或選擇圖片後，依工具說明操作並點擊生成。",
   "vendor.pageTitle": "廠商詳情 - MATCHDO 合做",
   "vendor.pageTitleSuffix": " - MATCHDO 合做",
+  "vendor.breadcrumbProfile": "廠商詳情",
   "vendor.metaDesc": "在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。",
   "vendor.metaDescWithSpecialty": "{name}：{specialty}。在 MATCHDO 合做聯繫廠商。",
   "vendor.metaDescDefault": "在 MATCHDO 合做找到 {name}，瀏覽廠商作品、服務地區與聯繫方式。",

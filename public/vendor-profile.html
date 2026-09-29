@@ -20,7 +20,7 @@
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/vendor-profile.html" id="hreflangZh">
     <link rel="alternate" hreflang="en" href="https://matchdo.cc/vendor-profile.html?lang=en" id="hreflangEn">
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/vendor-profile.html">
-    <script type="application/ld+json">
+    <script type="application/ld+json" id="vendorBreadcrumbJsonLd">
     {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"廠商列表","item":"https://matchdo.cc/vendors.html"},{"@type":"ListItem","position":3,"name":"廠商詳情","item":"https://matchdo.cc/vendor-profile.html"}]}
     </script>
     <link rel="icon" href="/img/favicon.ico">
@@ -567,28 +567,29 @@
             sectionArea.style.display = '';
         }
 
-        function renderProfile(v) {
-            _lastProfileVendor = v;
-            _vendorProfileMfrId = v.id || null;
-            _vendorProfileMfrName = v.name || '';
-            document.getElementById('pageLoading').classList.add('d-none');
-            document.getElementById('profileBody').classList.remove('d-none');
-            document.getElementById('profileHero').style.display = '';
-
-            // 更新頁籤標題
-            var pageTitle = (v.name || vpTr('vendor.pageTitle', '廠商詳情')) + vpTr('vendor.pageTitleSuffix', ' - MATCHDO 合做');
+        function applyVendorProfileSeo(v) {
+            var profileId = (v && v.id) ? v.id : id;
+            var canonicalUrl = 'https://matchdo.cc/vendor-profile.html?id=' + encodeURIComponent(profileId || '');
+            var pageTitle;
+            var desc;
+            var ogImg = 'https://matchdo.cc/img/og-vendors.jpg';
+            if (v) {
+                pageTitle = (v.name || vpTr('vendor.pageTitle', '廠商詳情')) + vpTr('vendor.pageTitleSuffix', ' - MATCHDO 合做');
+                ogImg = v.logo_url || v.cover_image || v.avatar_url || ogImg;
+                var vendorName = v.name || '';
+                desc = v.specialty
+                    ? vpTr('vendor.metaDescWithSpecialty', '{name}：{specialty}。在 MATCHDO 合做聯繫廠商。')
+                        .replace(/\{name\}/g, vendorName)
+                        .replace(/\{specialty\}/g, String(v.specialty).slice(0, 100))
+                    : vpTr('vendor.metaDescDefault', '在 MATCHDO 合做找到 {name}，瀏覽廠商作品、服務地區與聯繫方式。')
+                        .replace(/\{name\}/g, vendorName);
+            } else {
+                pageTitle = vpTr('vendor.pageTitle', document.title);
+                desc = vpTr('vendor.metaDesc', '在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。');
+            }
+            var siteName = vpTr('customProduct.ogSiteName', 'MATCHDO 合做');
+            var ogLocale = profileContentLang() === 'en' ? 'en_US' : 'zh_TW';
             document.title = pageTitle;
-
-            // 動態更新 SEO meta
-            var canonicalUrl = 'https://matchdo.cc/vendor-profile.html?id=' + encodeURIComponent(v.id || id);
-            var ogImg = v.logo_url || v.cover_image || v.avatar_url || 'https://matchdo.cc/img/og-vendors.jpg';
-            var vendorName = v.name || '';
-            var desc = v.specialty
-                ? vpTr('vendor.metaDescWithSpecialty', '{name}：{specialty}。在 MATCHDO 合做聯繫廠商。')
-                    .replace(/\{name\}/g, vendorName)
-                    .replace(/\{specialty\}/g, String(v.specialty).slice(0, 100))
-                : vpTr('vendor.metaDescDefault', '在 MATCHDO 合做找到 {name}，瀏覽廠商作品、服務地區與聯繫方式。')
-                    .replace(/\{name\}/g, vendorName);
             function setMeta(sel, attr, val) {
                 var el = document.querySelector(sel);
                 if (el) el.setAttribute(attr, val);
@@ -596,6 +597,8 @@
             setMeta('meta[name="description"]', 'content', desc);
             setMeta('meta[property="og:title"]', 'content', pageTitle);
             setMeta('meta[property="og:description"]', 'content', desc);
+            setMeta('meta[property="og:site_name"]', 'content', siteName);
+            setMeta('meta[property="og:locale"]', 'content', ogLocale);
             setMeta('meta[property="og:image"]', 'content', ogImg);
             setMeta('meta[property="og:url"]', 'content', canonicalUrl);
             setMeta('meta[name="twitter:title"]', 'content', pageTitle);
@@ -606,9 +609,21 @@
             var hzEl = document.getElementById('hreflangZh');
             if (hzEl) hzEl.href = canonicalUrl;
             var heEl = document.getElementById('hreflangEn');
-            if (heEl) heEl.href = canonicalUrl + '&lang=en';
-
-            // LocalBusiness JSON-LD
+            if (heEl) heEl.href = canonicalUrl + (canonicalUrl.indexOf('?') >= 0 ? '&' : '?') + 'lang=en';
+            var bcEl = document.getElementById('vendorBreadcrumbJsonLd');
+            if (bcEl) {
+                var thirdName = (v && v.name && String(v.name).trim()) ? String(v.name).trim() : vpTr('vendor.breadcrumbProfile', '廠商詳情');
+                bcEl.textContent = JSON.stringify({
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                        { '@type': 'ListItem', position: 1, name: vpTr('nav.home', '首頁'), item: 'https://matchdo.cc/' },
+                        { '@type': 'ListItem', position: 2, name: vpTr('vendors.title', '廠商列表'), item: 'https://matchdo.cc/vendors.html' },
+                        { '@type': 'ListItem', position: 3, name: thirdName, item: canonicalUrl }
+                    ]
+                });
+            }
+            if (!v) return;
             var contact = v.contact || {};
             var ld = {
                 '@context': 'https://schema.org',
@@ -637,6 +652,17 @@
                 document.head.appendChild(ldEl);
             }
             ldEl.textContent = JSON.stringify(ld);
+        }
+
+        function renderProfile(v) {
+            _lastProfileVendor = v;
+            _vendorProfileMfrId = v.id || null;
+            _vendorProfileMfrName = v.name || '';
+            document.getElementById('pageLoading').classList.add('d-none');
+            document.getElementById('profileBody').classList.remove('d-none');
+            document.getElementById('profileHero').style.display = '';
+
+            applyVendorProfileSeo(v);
 
             // 頂部聯絡按鈕：僅有站內帳號（user_id）才顯示「站內聯絡廠商」
             // 沒有 user_id → 按鈕保持隱藏（聯絡資訊已在下方「聯繫 & 社群」區塊顯示）
@@ -1356,6 +1382,7 @@
         }
 
         document.addEventListener('i18n:applied', function () {
+            applyVendorProfileSeo(_lastProfileVendor || null);
             if (_lastProfileVendor) {
                 renderProfileServiceAreas(_lastProfileVendor);
                 if (_vendorProfileMfrId) renderVendorCatalogNav(_vendorProfileMfrId);
@@ -1365,7 +1392,7 @@
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(function () {
                 if (window.i18n.applyPage) window.i18n.applyPage();
-                document.title = vpTr('vendor.pageTitle', document.title);
+                applyVendorProfileSeo(_lastProfileVendor || null);
             });
         }
     })();

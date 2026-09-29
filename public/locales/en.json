@@ -2845,6 +2845,7 @@
   "aiEdit.emptyStateSteps": "Upload or select an image, then follow the tool steps and click Generate.",
   "vendor.pageTitle": "Vendor profile - MatchDO",
   "vendor.pageTitleSuffix": " - MatchDO",
+  "vendor.breadcrumbProfile": "Vendor profile",
   "vendor.metaDesc": "Find the right manufacturer on MatchDO—portfolio, service areas, and contact info.",
   "vendor.metaDescWithSpecialty": "{name}: {specialty}. Contact on MatchDO.",
   "vendor.metaDescDefault": "Find {name} on MatchDO—portfolio, service areas, and contact.",

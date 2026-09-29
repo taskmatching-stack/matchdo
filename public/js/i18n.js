@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d2-gallery-modal';
+    var LOCALE_CACHE_V = '20260929-d1-vendors-seo';
 
     function loadLocale(lang) {
         lang = lang || getLang();

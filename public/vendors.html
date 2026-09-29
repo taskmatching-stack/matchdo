@@ -32,7 +32,7 @@
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/vendors.html">
 
     <!-- JSON-LD -->
-    <script type="application/ld+json">
+    <script type="application/ld+json" id="vendorsCollectionJsonLd">
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
@@ -42,7 +42,7 @@
       "isPartOf": { "@type": "WebSite", "name": "MATCHDO 合做", "url": "https://matchdo.cc" }
     }
     </script>
-    <script type="application/ld+json">
+    <script type="application/ld+json" id="vendorsBreadcrumbJsonLd">
     {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"廠商列表","item":"https://matchdo.cc/vendors.html"}]}
     </script>
 
@@ -318,6 +318,8 @@
         function applyVendorsPageMeta() {
             var title = tr('vendors.pageTitle', document.title);
             var desc = tr('vendors.metaDesc', '瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。');
+            var siteName = tr('customProduct.ogSiteName', 'MATCHDO 合做');
+            var ogLocale = String(getLang()).toLowerCase().indexOf('en') === 0 ? 'en_US' : 'zh_TW';
             document.title = title;
             function setMeta(sel, attr, val) {
                 var el = document.querySelector(sel);
@@ -326,8 +328,33 @@
             setMeta('meta[name="description"]', 'content', desc);
             setMeta('meta[property="og:title"]', 'content', title);
             setMeta('meta[property="og:description"]', 'content', desc);
+            setMeta('meta[property="og:site_name"]', 'content', siteName);
+            setMeta('meta[property="og:locale"]', 'content', ogLocale);
             setMeta('meta[name="twitter:title"]', 'content', title);
             setMeta('meta[name="twitter:description"]', 'content', desc);
+            var listUrl = 'https://matchdo.cc/vendors.html';
+            var coll = document.getElementById('vendorsCollectionJsonLd');
+            if (coll) {
+                coll.textContent = JSON.stringify({
+                    '@context': 'https://schema.org',
+                    '@type': 'CollectionPage',
+                    name: title,
+                    url: listUrl,
+                    description: desc,
+                    isPartOf: { '@type': 'WebSite', name: siteName, url: 'https://matchdo.cc' }
+                });
+            }
+            var bc = document.getElementById('vendorsBreadcrumbJsonLd');
+            if (bc) {
+                bc.textContent = JSON.stringify({
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                        { '@type': 'ListItem', position: 1, name: tr('nav.home', '首頁'), item: 'https://matchdo.cc/' },
+                        { '@type': 'ListItem', position: 2, name: tr('vendors.title', '廠商列表'), item: listUrl }
+                    ]
+                });
+            }
         }
 
         /* ── 建立廠商卡片 HTML ── */
