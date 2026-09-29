@@ -82,7 +82,7 @@
         } catch (e) { /* ignore */ }
     }
 
-    var LOCALE_CACHE_V = '20260929-d1-vendors-seo';
+    var LOCALE_CACHE_V = '20260929-d3-mfr-workspace';
 
     function loadLocale(lang) {
         lang = lang || getLang();

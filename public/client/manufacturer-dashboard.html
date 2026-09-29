@@ -956,7 +956,7 @@
 
             async function runMfrEnGenerate(opts) {
                 var scope = (opts && opts.scope) || 'profile';
-                var label = (opts && opts.label) || '英文';
+                var label = (opts && opts.label) || tr('mfrDash.langEnShort', '英文');
                 setMfrEnMsg(tr('mfrDash.aiGenerating', 'AI 生成{label}中…').replace('{label}', label), 'text-muted');
                 var t = await getToken();
                 if (!t) { setMfrEnMsg(tr('mfrDash.signInFirst', '請先登入'), 'text-danger'); return; }

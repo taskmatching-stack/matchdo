@@ -212,6 +212,8 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D2** 實境模擬／圖樣提取 Tab：按鈕 loading、結果 locale 重繪、點數 hint（`points_scene_simulate`）；`20260929-d2-pattern-scene`。
 - 2026-09-29：**D2** 廠商 browse 卡訂製程度 `customizationLevelLabel`；picker／browse locale 重繪（服務區、分頁、材料組合 addon）；`20260929-d2-vendor-browse`。
 - 2026-09-29：**D2** 歷史牆／past modal／生圖成功預覽 locale 重繪；`product_title_en`；`20260929-d2-gallery-modal`。
+- 2026-09-29：**D1** 廠商列表／詳情 meta＋JSON-LD 隨 `i18n` 刷新（`dbc6b19`）。
+- 2026-09-29：**D3** 素材庫 AI 重繪／放大 confirm 與編輯圖庫 hint `tr()`；關聯圖／embed 紀錄／作品 title；`20260929-d3-mfr-workspace`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -225,7 +227,7 @@ node scripts/audit-locale-mix.js
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | ✅ meta／JSON-LD／麵包屑隨 `i18n` 刷新（2026-09-29） |
 | **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | ✅ **結案**（2026-09-29 掃尾）；後續僅遇 bug／新 UI 再補鍵 |
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
-| **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
+| **D3** | 廠商工作區（dashboard／materials／portfolio 等） | 🔄 素材庫 confirm／hint、關聯圖／embed 收尾（2026-09-29）；殘留動態字串下一批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
 | **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
 | **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | 🔄 footer 主流程 OK；header 殘留與 D2 sheet 下一批 |

@@ -1401,7 +1401,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929-d3';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1912,7 +1912,7 @@
                 if (surfaceErr) { showToast(surfaceErr, 'warning'); return; }
             }
             var pts = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
-            if (!window.confirm('AI 重繪預覽？（-' + pts + ' 點；按「儲存」才寫入）')) return;
+            if (!window.confirm(tr('baseModels.confirmRedrawPreview', 'AI 重繪預覽？（-{pts} 點；按「儲存」才寫入）').replace('{pts}', String(pts)))) return;
             item.imageBusy = true;
             refreshCurrentEditGallery();
             try {
@@ -2015,7 +2015,7 @@
                 dimH = dimLocal.height;
             }
             if (!confirmUpscaleInputLimit(dimW, dimH)) return;
-            if (!window.confirm('AI 放大預覽？（' + scale + '×，-' + pts + ' 點；按「儲存」才寫入；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+            if (!window.confirm(tr('baseModels.confirmUpscalePreview', 'AI 放大預覽？（{scale}×，-{pts} 點；按「儲存」才寫入；{rule}）').replace('{scale}', String(scale)).replace('{pts}', String(pts)).replace('{rule}', vendorUpscaleRuleText()))) return;
             item.imageBusy = true;
             refreshCurrentEditGallery();
             try {
@@ -3883,7 +3883,9 @@
         var VENDOR_UPSCALE_MIN_MP = 0.5;
         var VENDOR_UPSCALE_MAX_MP = 1;
         var VENDOR_AI_UPSCALE_BTN = 'AI 放大';
-        var VENDOR_UPSCALE_RULE_TEXT = '依原圖比例放大，總解析度最高 1MP';
+        function vendorUpscaleRuleText() {
+            return tr('baseModels.vendorUpscaleRuleText', '依原圖比例放大，總解析度最高 1MP');
+        }
 
         function trPreviewEnlargeTitle(suffix) {
             var base = tr('baseModels.previewEnlarge', '預覽放大');
@@ -3919,7 +3921,7 @@
                     showAiEditHelp: true
                 };
             }
-            return { needed: true, megapixels: mp, hint: VENDOR_UPSCALE_RULE_TEXT, showAiEditHelp: false };
+            return { needed: true, megapixels: mp, hint: vendorUpscaleRuleText(), showAiEditHelp: false };
         }
 
         function pendingUpscaleAiEditHelpHtml() {
@@ -4021,7 +4023,7 @@
             if (item.imageBusy) return '';
             if (item.upscaleProbeDone !== true) return '正在檢查解析度…（仍可點擊，送出時由伺服器判斷）';
             if (item.upscaleNeeded === false) return (item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大') + '（仍可嘗試）';
-            return item.upscaleHint || ('圖片 <0.5 MP 才可 AI 放大（' + VENDOR_UPSCALE_RULE_TEXT + '）');
+            return item.upscaleHint || ('圖片 <0.5 MP 才可 AI 放大（' + vendorUpscaleRuleText() + '）');
         }
 
         function probePendingItemUpscale(form, item, rerenderFn) {
@@ -4056,10 +4058,10 @@
                 var probe = galleryUpscaleProbe[url];
                 btn.disabled = false;
                 if (!probe) {
-                    btn.title = '解析度檢查中，仍可嘗試；' + VENDOR_UPSCALE_RULE_TEXT;
+                    btn.title = '解析度檢查中，仍可嘗試；' + vendorUpscaleRuleText();
                     return;
                 }
-                btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
+                btn.title = probe.hint || (probe.needed ? vendorUpscaleRuleText() : AI_EDIT_UPSCALE_HELP_TITLE);
             });
         }
 
@@ -4255,7 +4257,7 @@
                 ? validateMaterialSurfaceTypeForRedraw(getMaterialSurfaceTypeFromEdit()) : '';
             if (surfaceErr) { showToast(surfaceErr, 'warning'); return; }
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
-            if (!window.confirm('AI 重繪？（-' + pts + ' 點；勾選要上傳的圖後按「儲存」）')) return;
+            if (!window.confirm(tr('baseModels.confirmRedrawEditGallery', 'AI 重繪？（-{pts} 點；勾選要上傳的圖後按「儲存」）').replace('{pts}', String(pts)))) return;
             var slot = editGallerySlotPreview[sourceUrl] || {};
             slot.imageBusy = true;
             editGallerySlotPreview[sourceUrl] = slot;
@@ -4552,7 +4554,7 @@
                     return false;
                 }
             }
-            if (!window.confirm('將依勾選寫入 ' + urls.length + ' 組 AI 重繪結果。繼續？')) return false;
+            if (!window.confirm(tr('baseModels.confirmSaveCheckedRedraw', '將依勾選寫入 {n} 組 AI 重繪結果。繼續？').replace('{n}', String(urls.length)))) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             setEditGalleryStatus('寫入勾選的圖片…', 'info');
@@ -4592,7 +4594,7 @@
                 if (surfaceErr0) { showToast(surfaceErr0, 'warning'); return; }
             }
             var pts = calcPendingPreviewRedrawPoints(form, idx);
-            if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；發布時一併上傳新圖）')) return;
+            if (!window.confirm(tr('baseModels.confirmRedrawAppendOnPublish', 'AI 重繪並追加新圖？（-{pts} 點，原圖保留；發布時一併上傳新圖）').replace('{pts}', String(pts)))) return;
             item.imageBusy = true;
             renderPendingImages(form);
             try {
@@ -4716,7 +4718,7 @@
                 dimH = dimPend.height;
             }
             if (!confirmUpscaleInputLimit(dimW, dimH)) return;
-            if (!window.confirm('AI 放大並追加新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+            if (!window.confirm(tr('baseModels.confirmUpscaleAppendOnPublish', 'AI 放大並追加新圖？（{scale}×，-{pts} 點，圖片須 <0.5 MP；{rule}）').replace('{scale}', String(scale)).replace('{pts}', String(pts)).replace('{rule}', vendorUpscaleRuleText()))) return;
             item.imageBusy = true;
             renderPendingImages(form);
             try {
@@ -5542,10 +5544,13 @@
             if (!hint) return;
             var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
             var upPts = vendorAssetUpscalePoints();
+            var redrawSpan = '<span class="edit-gallery-redraw-points-extra">' + extra + '</span>';
             if (isMaterial) {
-                hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選後按「<strong>儲存</strong>」寫入。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起。下方選檔會<strong>立刻預覽</strong>於本區。';
+                hint.innerHTML = tr('baseModels.editGalleryMaterialHintHtml', '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選後按「<strong>儲存</strong>」寫入。重繪約 {redrawPts} 點起。下方選檔會<strong>立刻預覽</strong>於本區。').replace('{redrawPts}', redrawSpan);
             } else {
-                hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選後按「<strong>儲存</strong>」寫入。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（2× 起 ' + upPts + ' 點，每升一階 +1；≤1MP）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。下方選檔會<strong>立刻預覽</strong>於本區。';
+                hint.innerHTML = tr('baseModels.editGalleryNonMaterialHintHtml', '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選後按「<strong>儲存</strong>」寫入。重繪約 {redrawPts} 點起；&lt;0.5 MP 可按 AI 放大（2× 起 {upscalePts} 點，每升一階 +1；≤1MP）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。下方選檔會<strong>立刻預覽</strong>於本區。')
+                    .replace('{redrawPts}', redrawSpan)
+                    .replace('{upscalePts}', String(upPts));
             }
         }
 
@@ -5749,7 +5754,7 @@
                 var upscaleActionHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'gallery-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
+                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(vendorUpscaleRuleText()) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
                     )
                     : '';
                 var savedAiPair = pendingAiPairRowHtml(
@@ -6099,7 +6104,7 @@
                 dimH = dimGal.height;
             }
             if (!opts.skipConfirm && !confirmUpscaleInputLimit(dimW, dimH)) return false;
-            if (!opts.skipConfirm && !window.confirm('以此圖 AI 放大並新增一張新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return false;
+            if (!opts.skipConfirm && !window.confirm(tr('baseModels.confirmUpscaleAddOne', '以此圖 AI 放大並新增一張新圖？（{scale}×，-{pts} 點，圖片須 <0.5 MP；{rule}）').replace('{scale}', String(scale)).replace('{pts}', String(pts)).replace('{rule}', vendorUpscaleRuleText()))) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             setEditGalleryStatus('AI 放大中…', 'info');
@@ -6134,7 +6139,7 @@
                 var merged = afterEditGalleryMutation(id, data);
                 var lastNew = markNewGalleryUrls(urlsBefore, merged);
                 var urlCount = assetImageUrls(merged).length;
-                var okMsg = '已新增 AI 放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留，共 ' + urlCount + ' 張）';
+                var okMsg = '已新增 AI 放大新圖（' + vendorUpscaleRuleText() + '，原圖保留，共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -6243,7 +6248,7 @@
                 }
             }
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
-            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並新增一張新圖？（-' + pts + ' 點，原圖保留）')) return false;
+            if (!opts.skipConfirm && !window.confirm(tr('baseModels.confirmRedrawAddOne', '以此圖 AI 重繪並新增一張新圖？（-{pts} 點，原圖保留）').replace('{pts}', String(pts)))) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
@@ -6684,7 +6689,7 @@
             }
             if (!opts.skipConfirm && optIdx.length) {
                 var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
-                if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
+                if (!window.confirm(tr('baseModels.confirmUploadBatchRedraw', '上傳 {uploads} 張並對 {redraws} 張 AI 重繪？（預估 -{pts} 點）').replace('{uploads}', String(uploadFiles.length)).replace('{redraws}', String(optIdx.length)).replace('{pts}', String(batchPts)))) return false;
             }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
@@ -10624,7 +10629,7 @@
                 if (!t) { showToast('請先登入', 'warning'); return; }
                 var hasEn = (document.getElementById('edit-title-en') && document.getElementById('edit-title-en').value.trim())
                     || (document.getElementById('edit-description-en') && document.getElementById('edit-description-en').value.trim());
-                var overwrite = hasEn && confirm('已有英文內容，要覆寫重新生成嗎？');
+                var overwrite = hasEn && confirm(tr('mfrDash.confirmOverwriteExisting', '已有英文內容，要覆蓋重新生成嗎？'));
                 btnEditFillI18nEn.disabled = true;
                 try {
                     var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/generate-i18n-en', {
@@ -11190,7 +11195,7 @@
                     var adminGate = await fetch('/api/admin/can-access', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
                     if (!adminGate.ok) {
                         document.getElementById('auth-alert').classList.remove('d-none');
-                        document.getElementById('auth-alert').innerHTML = '請以<strong>管理員</strong>帳號登入後再編輯官方版型庫。請先 <a href="/index.html" class="alert-link">登入</a>。';
+                        document.getElementById('auth-alert').innerHTML = tr('baseModels.officialLibraryAdminAuthHtml', '請以<strong>管理員</strong>帳號登入後再編輯官方版型庫。請先 <a href="/index.html" class="alert-link">登入</a>。');
                         return;
                     }
                     document.querySelectorAll('.vendor-only-not-official').forEach(function (el) { el.classList.add('d-none'); });

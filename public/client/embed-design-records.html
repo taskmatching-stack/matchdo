@@ -253,13 +253,13 @@
                 return;
             }
             if (!r.ok) {
-                showAlert(data.error || '載入失敗', 'danger');
+                showAlert(data.error || tr('embedRecords.loadFailed', '載入失敗'), 'danger');
                 return;
             }
             document.getElementById('load-alert').classList.add('d-none');
             records = data.items || [];
             total = data.total || 0;
-            document.getElementById('total-label').textContent = '共 ' + total + ' 筆';
+            document.getElementById('total-label').textContent = tr('embedRecords.totalLabel', '共 {n} 筆').replace('{n}', String(total));
             document.getElementById('page-label').textContent = tr('embedRecords.pageLabel', '第 {n} 頁').replace('{n}', String(page + 1));
             document.getElementById('btn-prev').disabled = page <= 0;
             document.getElementById('btn-next').disabled = (page + 1) * perPage >= total;
@@ -277,6 +277,17 @@
             document.getElementById('btn-prev').addEventListener('click', function () { if (page > 0) { page--; loadRecords(); } });
             document.getElementById('btn-next').addEventListener('click', function () { if ((page + 1) * perPage < total) { page++; loadRecords(); } });
             loadPrototypes().then(loadRecords);
+        });
+        document.addEventListener('i18n:applied', function () {
+            var totalEl = document.getElementById('total-label');
+            if (totalEl && totalEl.textContent) {
+                totalEl.textContent = tr('embedRecords.totalLabel', '共 {n} 筆').replace('{n}', String(total));
+            }
+            var pageEl = document.getElementById('page-label');
+            if (pageEl && pageEl.textContent) {
+                pageEl.textContent = tr('embedRecords.pageLabel', '第 {n} 頁').replace('{n}', String(page + 1));
+            }
+            if (records.length) renderTable();
         });
     })();
     </script>
