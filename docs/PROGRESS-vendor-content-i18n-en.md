@@ -65,7 +65,7 @@
 
 | 端點 | 行為 |
 |------|------|
-| `GET /api/manufacturers/:id?lang=en` | `name` / `specialty` 優先 `*_en`，無則 fallback 中文；`portfolio[]` 標題／描述／設計亮點同理 |
+| `GET /api/manufacturers/:id?lang=en` | `name` / `specialty` 優先 `*_en`，無則 fallback 中文；`portfolio[]` 標題／描述／設計亮點／自填工藝 `capability_custom_labels` 同理 |
 | `GET /api/manufacturers?lang=en` | 廠商列表卡：`name`、`specialty`（同單筆詳情語意） |
 | `GET /api/vendor-assets?manufacturer_id=…&for_profile=1&lang=en` | 素材 `title` / `description`、自填工藝 `capability_custom_labels`、列表內 `manufacturer_name` |
 | `GET /api/expert/public-profile?lang=en` | `bio` 優先 `bio_en` |
@@ -180,8 +180,8 @@ curl -s "https://matchdo.cc/api/vendor-assets?manufacturer_id={UUID}&for_profile
 
 1. **聯絡資訊頁** `bio`／`bio_en` 存 `contact_info`；與 `manufacturers.description` **未自動同步**；廠商公開簡介仍以 `manufacturers.description` 為準。
 2. **`location`（縣市）** 未翻譯；服務地區仍用 `AreaCodes` 的 `en` 標籤。
-3. **自填工藝英文**：僅在素材庫 **編輯素材** 彈窗、「其他工藝」每一行旁多一個「選填」英文框；**上傳新素材**仍只填中文名。三層工藝下拉（大類→細類→標籤）為既有「訂製與工藝」區塊，非 U5 新增。
-4. **作品集** `capability_custom_labels_en` 後端已支援讀取；後台編輯 UI 可後補。
+3. **自填工藝英文**：素材庫與作品集 **編輯** 彈窗、「其他工藝」每一行旁多一個「選填」英文框；**上傳新素材／新增作品**仍不填工藝欄。素材庫三層工藝下拉為既有「訂製與工藝」區塊，非 U5 新增。
+4. **作品集** 編輯 Modal「其他工藝」+ 選填英文（`portfolio-u5-cap-en-edit-20260929`）；`PUT …/portfolio/:id` 寫入 `capability_custom_labels_en`。
 5. **英文過期提示**：已取消（見上）。
 6. **單筆素材** 已有 EN 欄；作品集標題等見 `manufacturer-portfolio.html`。
 

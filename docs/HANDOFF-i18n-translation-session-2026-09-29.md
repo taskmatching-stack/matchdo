@@ -53,8 +53,8 @@
 
 - **位置：** `public/client/manufacturer-materials.html` → 數位原型／零件 → 摺疊 **「訂製與工藝」**。
 - **既有（非 U5）：** 生產模式、三層工藝下拉（大類→細類→標籤）、「其他工藝」自填。
-- **U5 只加：** 編輯彈窗內自填工藝的英文框；上傳表單仍只有中文自填。
-- 頁面版本：`window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-en-edit-only-20260929'`。
+- **U5 只加：** 編輯彈窗內自填工藝的英文框；上傳／新增作品表單仍無工藝欄。
+- 頁面版本：`window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-en-edit-only-20260929'`；作品頁 `window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-u5-cap-en-edit-20260929'`。
 
 ### 前台 UI i18n
 
@@ -85,7 +85,7 @@ Agent **不會**自動上線 SQL；請在 Supabase SQL Editor 依序確認：
    - **U2**：多語軸（`title_ja`…）→ **需產品定案**，勿擅自開工。
    - **D1**：官方字典／攝影參數組等 → `admin-content-multilang` checklist。
    - **D4**：admin 訊息監看是否要翻譯 → 先查現況再開。
-3. **U5 可選補強（小）**：`manufacturer-portfolio.html` 自填工藝 EN 編輯 UI（後端 `mapPortfolioItemForLocale` 已支援讀取）。
+3. **U5 作品集（本批）**：`manufacturer-portfolio.html` 編輯彈窗「其他工藝」+ 選填英文；`PUT …/portfolio/:id` 寫入 `capability_custom_labels_en`；公開 `GET /api/manufacturers/:id?lang=en` 帶工藝欄。
 4. **`FRONTEND-I18N-AUDIT.md` P1/P2 結案後項**：訂閱／SEO 等多在 `PROGRESS-*.md`；與翻譯計畫並列時以兩份 PLAN 表為準。
 5. **勿預設**：再塞設計頁 SEO tab、U6 stale、上傳表單雙語工藝欄、UI 上顯示 migration 名稱。
 

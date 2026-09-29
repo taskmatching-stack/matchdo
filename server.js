@@ -32783,7 +32783,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
 
         const mfrId = mfr.id;
         let portfolio = [];
-        const portSelect = 'id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, category_key, subcategory_key, sort_order, min_order_quantity, series_image_urls, series_image_valid_until';
+        const portSelect = 'id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, category_key, subcategory_key, sort_order, min_order_quantity, series_image_urls, series_image_valid_until, capability_custom_labels, capability_custom_labels_en';
         let portRes = await supabase
             .from('manufacturer_portfolio')
             .select(portSelect)
@@ -32855,7 +32855,7 @@ function parseManufacturerPortfolioMinOrderQty(raw, opts) {
     return { value: n };
 }
 
-const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity, customization_levels';
+const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity, customization_levels, capability_custom_labels, capability_custom_labels_en';
 const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity, customization_levels';
 const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels';
 const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity, customization_levels';
@@ -32945,7 +32945,9 @@ function mapManufacturerPortfolioListItems(list, mfrMap) {
             category_type: p.category_type || null,
             show_on_media_wall: p.show_on_media_wall !== false,
             min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null,
-            customization_levels: sanitizeCustomizationLevelsForStorage(p.customization_levels)
+            customization_levels: sanitizeCustomizationLevelsForStorage(p.customization_levels),
+            capability_custom_labels: Array.isArray(p.capability_custom_labels) ? p.capability_custom_labels : [],
+            capability_custom_labels_en: Array.isArray(p.capability_custom_labels_en) ? p.capability_custom_labels_en : []
         };
     });
 }
@@ -33659,7 +33661,16 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
                 : '');
             return res.status(500).json({ error: '更新失敗' + hint });
         }
-        res.json({ ...updated, customization_levels: clValidPut.levels });
+        const taxonomyPutErr = await manufacturerTaxonomy.applyPortfolioTaxonomyWrites(supabase, portfolioId, body);
+        if (taxonomyPutErr) {
+            return res.status(503).json({ error: taxonomyPutErr });
+        }
+        let outRow = updated;
+        const capCustomPut = manufacturerTaxonomy.parseCapabilityCustomLabelsFromBody(body);
+        const capCustomEnPut = manufacturerTaxonomy.parseCapabilityCustomLabelsEnFromBody(body);
+        if (capCustomPut !== undefined) outRow = { ...outRow, capability_custom_labels: capCustomPut };
+        if (capCustomEnPut !== undefined) outRow = { ...outRow, capability_custom_labels_en: capCustomEnPut };
+        res.json({ ...outRow, customization_levels: clValidPut.levels });
     } catch (e) {
         console.error('PUT /api/manufacturers/:id/portfolio/:portfolioId 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

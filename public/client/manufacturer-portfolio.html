@@ -265,6 +265,11 @@
                                 <div class="add-customization-levels border rounded p-2" id="edit-customization-levels"></div>
                             </div>
                             <div class="col-12">
+                                <label class="form-label small text-muted mb-1" data-i18n="baseModels.otherCraftsLabel">其他工藝（自填，選填）</label>
+                                <div id="edit-portfolio-custom-crafts" class="d-flex flex-column gap-2 mb-2"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="edit-portfolio-custom-craft-add" data-i18n="baseModels.addOtherCraftRow">+ 新增其他工藝</button>
+                            </div>
+                            <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品特色</label>
                                 <input type="text" class="form-control" id="edit-highlight">
                             </div>
@@ -424,7 +429,7 @@
         }
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-i18n-edit-20260929';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-u5-cap-en-edit-20260929';
 
         function hidePageLoading() {
             var el = document.getElementById('page-loading');
@@ -634,6 +639,59 @@
             var id = 't' + Date.now();
             area.insertAdjacentHTML('beforeend', '<div id="' + id + '" class="toast align-items-center text-white bg-' + type + ' border-0 show mb-2" role="alert"><div class="d-flex"><div class="toast-body">' + esc(msg) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>');
             setTimeout(function () { var el = document.getElementById(id); if (el) el.remove(); }, 3500);
+        }
+
+        function readEditPortfolioCustomCrafts() {
+            var container = document.getElementById('edit-portfolio-custom-crafts');
+            var custom = [];
+            var customEn = [];
+            if (!container) return { custom: custom, custom_en: customEn };
+            container.querySelectorAll('.portfolio-custom-craft-row').forEach(function (row) {
+                var inp = row.querySelector('.portfolio-custom-craft-zh');
+                var inpEn = row.querySelector('.portfolio-custom-craft-en');
+                var v = inp ? String(inp.value || '').trim() : '';
+                if (!v) return;
+                custom.push(v);
+                customEn.push(inpEn ? String(inpEn.value || '').trim() : '');
+            });
+            return { custom: custom, custom_en: customEn };
+        }
+
+        function createEditPortfolioCustomCraftRow(zh, en) {
+            var row = document.createElement('div');
+            row.className = 'd-flex flex-wrap gap-2 align-items-center portfolio-custom-craft-row';
+            var inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'form-control form-control-sm portfolio-custom-craft-zh';
+            inp.style.maxWidth = '14rem';
+            inp.placeholder = tr('baseModels.otherCraftNamePlaceholder');
+            if (zh) inp.value = zh;
+            var inpEn = document.createElement('input');
+            inpEn.type = 'text';
+            inpEn.className = 'form-control form-control-sm portfolio-custom-craft-en';
+            inpEn.style.maxWidth = '12rem';
+            inpEn.placeholder = tr('baseModels.fieldTitleEnPlaceholder');
+            if (en) inpEn.value = en;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger';
+            btn.textContent = tr('baseModels.removeImage');
+            btn.addEventListener('click', function () { row.remove(); });
+            row.appendChild(inp);
+            row.appendChild(inpEn);
+            row.appendChild(btn);
+            return row;
+        }
+
+        function renderEditPortfolioCustomCrafts(item) {
+            var container = document.getElementById('edit-portfolio-custom-crafts');
+            if (!container) return;
+            container.innerHTML = '';
+            var custom = Array.isArray(item && item.capability_custom_labels) ? item.capability_custom_labels.slice() : [];
+            var customEn = Array.isArray(item && item.capability_custom_labels_en) ? item.capability_custom_labels_en.slice() : [];
+            custom.forEach(function (label, idx) {
+                container.appendChild(createEditPortfolioCustomCraftRow(label, customEn[idx] || ''));
+            });
         }
 
         async function init() {
@@ -997,6 +1055,15 @@
             makePreview('edit-image-before', 'edit-image-before-preview');
             makePreview('edit-image-after', 'edit-image-after-preview');
 
+            var addCraftBtn = document.getElementById('edit-portfolio-custom-craft-add');
+            if (addCraftBtn && !addCraftBtn.dataset.wired) {
+                addCraftBtn.dataset.wired = '1';
+                addCraftBtn.addEventListener('click', function () {
+                    var container = document.getElementById('edit-portfolio-custom-crafts');
+                    if (container) container.appendChild(createEditPortfolioCustomCraftRow('', ''));
+                });
+            }
+
             document.getElementById('add-form').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 if (addFormSubmitting) return;
@@ -1133,6 +1200,9 @@
                     fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', (isSeedVendor || !document.getElementById('edit-show-on-media-wall').checked) ? 'false' : 'true');
                     fd.append('customization_levels', JSON.stringify(editLevels));
+                    var capCraft = readEditPortfolioCustomCrafts();
+                    fd.append('capability_custom_labels', JSON.stringify(capCraft.custom));
+                    fd.append('capability_custom_labels_en', JSON.stringify(capCraft.custom_en));
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
@@ -1249,6 +1319,7 @@
             if (window.MatchdoCustomizationLevelsUi) {
                 window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('edit-customization-levels'), p.customization_levels || []);
             }
+            renderEditPortfolioCustomCrafts(p);
             document.getElementById('edit-image-preview').innerHTML = '';
             document.getElementById('edit-image-before-preview').innerHTML = '';
             document.getElementById('edit-image-after-preview').innerHTML = '';
