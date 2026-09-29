@@ -46,8 +46,8 @@
 | 表 | 新增欄位 |
 |----|----------|
 | `manufacturers` | `name_en`, `description_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
-| `vendor_assets` | `title_en`, `description_en` |
-| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en` |
+| `vendor_assets` | `title_en`, `description_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
+| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
 | `vendor_catalog_groups` | `name_en` |
 
 **不翻譯、不存 en：** `contact_json`、地址、Email、URL、社群連結、圖片。

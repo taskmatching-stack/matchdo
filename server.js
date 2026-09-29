@@ -9288,6 +9288,85 @@ function computeVendorProfileI18nEnStale(mfr) {
     return currentHash !== String(mfr.i18n_en_source_hash || '');
 }
 
+function vendorAssetContentSourceHash(row) {
+    return vendorContentSourceHash({
+        title: String(row && row.title || '').trim(),
+        description: String(row && row.description || '').trim()
+    });
+}
+
+function vendorPortfolioContentSourceHash(row) {
+    return vendorContentSourceHash({
+        title: String(row && row.title || '').trim(),
+        description: String(row && row.description || '').trim(),
+        design_highlight: String(row && row.design_highlight || '').trim()
+    });
+}
+
+function computeVendorAssetI18nEnStale(row) {
+    if (!row || !row.i18n_en_source_hash) return false;
+    const hasEn = !!(String(row.title_en || '').trim() || String(row.description_en || '').trim());
+    if (!hasEn) return false;
+    return vendorAssetContentSourceHash(row) !== String(row.i18n_en_source_hash || '');
+}
+
+function computeVendorPortfolioI18nEnStale(row) {
+    if (!row || !row.i18n_en_source_hash) return false;
+    const hasEn = !!(String(row.title_en || '').trim() || String(row.description_en || '').trim()
+        || String(row.design_highlight_en || '').trim());
+    if (!hasEn) return false;
+    return vendorPortfolioContentSourceHash(row) !== String(row.i18n_en_source_hash || '');
+}
+
+function vendorAssetEnHashMetaFromRow(row) {
+    return {
+        i18n_en_generated_at: new Date().toISOString(),
+        i18n_en_source_hash: vendorAssetContentSourceHash(row)
+    };
+}
+
+function vendorPortfolioEnHashMetaFromRow(row) {
+    return {
+        i18n_en_generated_at: new Date().toISOString(),
+        i18n_en_source_hash: vendorPortfolioContentSourceHash(row)
+    };
+}
+
+async function countManufacturerI18nEnStaleContent(manufacturerId) {
+    const out = { assets_stale: 0, portfolio_stale: 0, hash_columns_ready: true };
+    if (!manufacturerId) return out;
+    const assetSel = 'id, title, title_en, description, description_en, i18n_en_source_hash';
+    let assetRes = await supabase.from('vendor_assets').select(assetSel).eq('manufacturer_id', manufacturerId);
+    if (assetRes.error && assetRes.error.code === '42703') {
+        out.hash_columns_ready = false;
+        return out;
+    }
+    if (!assetRes.error && assetRes.data) {
+        out.assets_stale = assetRes.data.filter((r) => computeVendorAssetI18nEnStale(r)).length;
+    }
+    const portSel = 'id, title, title_en, description, description_en, design_highlight, design_highlight_en, i18n_en_source_hash';
+    let portRes = await supabase.from('manufacturer_portfolio').select(portSel).eq('manufacturer_id', manufacturerId);
+    if (portRes.error && portRes.error.code === '42703') {
+        out.hash_columns_ready = false;
+        return out;
+    }
+    if (!portRes.error && portRes.data) {
+        out.portfolio_stale = portRes.data.filter((r) => computeVendorPortfolioI18nEnStale(r)).length;
+    }
+    return out;
+}
+
+async function attachManufacturerI18nEnStaleFields(mfr) {
+    if (!mfr) return mfr;
+    const profileStale = computeVendorProfileI18nEnStale(mfr);
+    mfr.i18n_en_stale_profile = profileStale;
+    const counts = await countManufacturerI18nEnStaleContent(mfr.id);
+    mfr.i18n_en_stale_assets_count = counts.assets_stale;
+    mfr.i18n_en_stale_portfolio_count = counts.portfolio_stale;
+    mfr.i18n_en_stale = profileStale || counts.assets_stale > 0 || counts.portfolio_stale > 0;
+    return mfr;
+}
+
 function parseJsonObjectFromGeminiText(raw) {
     const s = String(raw || '').trim();
     if (!s) return null;
@@ -9485,11 +9564,17 @@ async function generateVendorAssetsEnglish(manufacturerId, overwrite) {
     const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION, batchIn);
     let updated = 0;
     for (const { src, hit } of translated) {
-        const patch = {
+        let patch = {
             title_en: hit.title_en != null ? String(hit.title_en).trim() || null : null,
-            description_en: hit.description_en != null ? String(hit.description_en).trim() || null : null
+            description_en: hit.description_en != null ? String(hit.description_en).trim() || null : null,
+            ...vendorAssetEnHashMetaFromRow(src)
         };
-        const { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        let { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        if (upErr && upErr.code === '42703') {
+            delete patch.i18n_en_generated_at;
+            delete patch.i18n_en_source_hash;
+            ({ error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId));
+        }
         if (!upErr) updated += 1;
         else console.warn('generateVendorAssetsEnglish update:', src.id, upErr.message);
     }
@@ -9514,11 +9599,17 @@ async function fillSingleVendorAssetEnglish(assetId, manufacturerId, overwrite) 
     const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION, batchIn);
     const pair = translated[0];
     if (!pair || !pair.hit) return { updated: 0, skipped: true, reason: 'translate_empty' };
-    const patch = {
+    let patch = {
         title_en: pair.hit.title_en != null ? String(pair.hit.title_en).trim() || null : null,
-        description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null
+        description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null,
+        ...vendorAssetEnHashMetaFromRow(row)
     };
-    const { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    let { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    if (upErr && upErr.code === '42703') {
+        delete patch.i18n_en_generated_at;
+        delete patch.i18n_en_source_hash;
+        ({ error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId));
+    }
     if (upErr) {
         if (upErr.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
         throw upErr;
@@ -9574,12 +9665,18 @@ async function fillSinglePortfolioEnglish(portfolioId, manufacturerId, overwrite
     const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_PORTFOLIO_I18N_GEMINI_INSTRUCTION, batchIn);
     const pair = translated[0];
     if (!pair || !pair.hit) return { updated: 0, skipped: true, reason: 'translate_empty' };
-    const patch = {
+    let patch = {
         title_en: pair.hit.title_en != null ? String(pair.hit.title_en).trim() || null : null,
         description_en: pair.hit.description_en != null ? String(pair.hit.description_en).trim() || null : null,
-        design_highlight_en: pair.hit.design_highlight_en != null ? String(pair.hit.design_highlight_en).trim() || null : null
+        design_highlight_en: pair.hit.design_highlight_en != null ? String(pair.hit.design_highlight_en).trim() || null : null,
+        ...vendorPortfolioEnHashMetaFromRow(row)
     };
-    const { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    let { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId);
+    if (upErr && upErr.code === '42703') {
+        delete patch.i18n_en_generated_at;
+        delete patch.i18n_en_source_hash;
+        ({ error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', id).eq('manufacturer_id', manufacturerId));
+    }
     if (upErr) {
         if (upErr.code === '42703') return { updated: 0, skipped: true, reason: 'no_columns' };
         throw upErr;
@@ -9605,12 +9702,18 @@ async function generateVendorPortfolioEnglish(manufacturerId, overwrite) {
     const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_PORTFOLIO_I18N_GEMINI_INSTRUCTION, batchIn);
     let updated = 0;
     for (const { src, hit } of translated) {
-        const patch = {
+        let patch = {
             title_en: hit.title_en != null ? String(hit.title_en).trim() || null : null,
             description_en: hit.description_en != null ? String(hit.description_en).trim() || null : null,
-            design_highlight_en: hit.design_highlight_en != null ? String(hit.design_highlight_en).trim() || null : null
+            design_highlight_en: hit.design_highlight_en != null ? String(hit.design_highlight_en).trim() || null : null,
+            ...vendorPortfolioEnHashMetaFromRow(src)
         };
-        const { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        let { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        if (upErr && upErr.code === '42703') {
+            delete patch.i18n_en_generated_at;
+            delete patch.i18n_en_source_hash;
+            ({ error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId));
+        }
         if (!upErr) updated += 1;
         else console.warn('generateVendorPortfolioEnglish update:', src.id, upErr.message);
     }
@@ -31959,7 +32062,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
             officialMfr.seed_vendor_self_service_locked = false;
             officialMfr.can_edit_vendor_content = true;
             officialMfr.official_platform_library = true;
-            officialMfr.i18n_en_stale = computeVendorProfileI18nEnStale(officialMfr);
+            await attachManufacturerI18nEnStaleFields(officialMfr);
             return res.json(officialMfr);
         }
         let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
@@ -31986,7 +32089,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
         mfr.contact_json = attachStoreUrlsToContactJson(mfr.contact_json);
         mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
         mfr.can_edit_vendor_content = !mfr.seed_vendor_self_service_locked;
-        mfr.i18n_en_stale = computeVendorProfileI18nEnStale(mfr);
+        await attachManufacturerI18nEnStaleFields(mfr);
         res.json(mfr);
     } catch (e) {
         console.error('GET /api/me/manufacturer 異常:', e);

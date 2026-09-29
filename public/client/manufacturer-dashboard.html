@@ -309,7 +309,7 @@
                                 </div>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="mfrDash.aiAllEnNote">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
                                 <div class="alert alert-warning py-2 px-3 small mb-2 mt-2 d-none" id="mfrEnStaleBanner" role="status">
-                                    <i class="bi bi-exclamation-triangle me-1"></i><span data-i18n="mfrDash.enStaleHint">中文名稱或簡介已變更，英文可能過期。請重新「AI 生成」或手動更新英文。</span>
+                                    <i class="bi bi-exclamation-triangle me-1"></i><span id="mfrEnStaleBannerText" data-i18n="mfrDash.enStaleHint">中文名稱或簡介已變更，英文可能過期。請重新「AI 生成」或手動更新英文。</span>
                                 </div>
                                 <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
                                 <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer" data-i18n="mfrDash.previewEnPage">預覽英文公開頁 ↗</a>
@@ -655,8 +655,20 @@
                         : tr('mfrDash.aiNotGenerated', '尚未 AI 生成英文');
                 }
                 var staleBanner = document.getElementById('mfrEnStaleBanner');
+                var staleBannerText = document.getElementById('mfrEnStaleBannerText');
                 if (staleBanner) {
                     staleBanner.classList.toggle('d-none', !mfr.i18n_en_stale);
+                    if (staleBannerText) {
+                        var hint = tr('mfrDash.enStaleHint', '中文名稱或簡介已變更，英文可能過期。請重新「AI 生成」或手動更新英文。');
+                        var extra = [];
+                        if (mfr.i18n_en_stale_profile) extra.push(tr('mfrDash.enStaleProfile', '廠商簡介'));
+                        var assetN = mfr.i18n_en_stale_assets_count || 0;
+                        var portN = mfr.i18n_en_stale_portfolio_count || 0;
+                        if (assetN > 0) extra.push(tr('mfrDash.enStaleAssets', '{n} 筆素材').replace('{n}', String(assetN)));
+                        if (portN > 0) extra.push(tr('mfrDash.enStalePortfolio', '{n} 筆展示案例').replace('{n}', String(portN)));
+                        if (extra.length) hint += ' (' + extra.join('、') + ')';
+                        staleBannerText.textContent = hint;
+                    }
                     if (window.i18n && window.i18n.applyPage) window.i18n.applyPage(staleBanner);
                 }
 
