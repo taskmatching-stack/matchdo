@@ -252,6 +252,11 @@
             if (typeof window.initSiteHeader === 'function') window.initSiteHeader();
             loadPrototypes();
         });
+        document.addEventListener('i18n:applied', function () {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            var sel = document.getElementById('proto-select');
+            if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+        });
     })();
     </script>
 </body>

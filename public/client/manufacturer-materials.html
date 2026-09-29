@@ -1401,7 +1401,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929-d3';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-ui-i18n-20260929-d3-closure';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -1668,7 +1668,7 @@
             }
             banner.classList.remove('d-none');
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
-            banner.innerHTML = '<div class="container"><i class="bi bi-seedling me-2"></i>種子展示期：請完成素材上架；轉正式廠商後再交付帳密予廠商。</div>';
+            banner.innerHTML = tr('baseModels.seedMaterialsBanner', '<div class="container"><i class="bi bi-seedling me-2"></i>種子展示期：請完成素材上架；轉正式廠商後再交付帳密予廠商。</div>');
         }
         var categories = [];
         var productionTypes = [];
@@ -1872,7 +1872,7 @@
             var added = 0;
             for (var i = 0; i < fileList.length; i++) {
                 if (current + editGalleryLocalAdds.length >= maxImagesForEditAsset()) {
-                    showToast('最多 ' + maxImagesForEditAsset() + ' 張圖片', 'warning');
+                    showToast(tr('baseModels.maxImagesToast', '最多 {n} 張圖片').replace('{n}', String(maxImagesForEditAsset())), 'warning');
                     break;
                 }
                 var file = fileList[i];
@@ -1917,7 +1917,7 @@
             refreshCurrentEditGallery();
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', m ? m.asset_kind : 'prototype');
@@ -1937,10 +1937,10 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
-                if (!r.ok) { showToast(data.error || '重繪失敗', 'danger'); return; }
+                if (!r.ok) { showToast(data.error || tr('baseModels.redrawFailed', '重繪失敗'), 'danger'); return; }
                 item.redrawPreviewUrl = previewDataUrlFromResponse(data);
                 item.redrawPreviewStorageUrl = data.preview_url || '';
                 item.redrawChargedPts = data.points_deducted || 0;
@@ -1949,9 +1949,9 @@
                 item.uploadRedraw = true;
                 item.uploadOriginal = false;
                 item.redrawFile = await fileFromPreviewResponse(data, 'redraw-local.jpg');
-                showToast('已產生重繪預覽，按「儲存」寫入' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast(tr('baseModels.redrawPreviewReady', '已產生重繪預覽，按「儲存」寫入') + (data.points_deducted ? ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點') : ''));
             } catch (err) {
-                showToast(err.message || '重繪失敗', 'danger');
+                showToast(err.message || tr('baseModels.redrawFailed', '重繪失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 refreshCurrentEditGallery();
@@ -1971,7 +1971,7 @@
             refreshCurrentEditGallery();
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', m.asset_kind);
@@ -1983,7 +1983,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) { showToast(data.error || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger'); return; }
@@ -2020,7 +2020,7 @@
             refreshCurrentEditGallery();
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var m = materialsAll.find(function (x) { return x.id === document.getElementById('edit-id').value; });
                 var fd = new FormData();
                 fd.append('image', item.file);
@@ -2033,7 +2033,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) { showToast(upscaleApiErrorMessage(data), 'danger'); return; }
@@ -2044,9 +2044,9 @@
                 item.uploadUpscale = true;
                 item.uploadOriginal = false;
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-local.jpg');
-                showToast('已產生放大預覽，按「儲存」寫入' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast(tr('baseModels.upscalePreviewReady', '已產生放大預覽，按「儲存」寫入') + (data.points_deducted ? ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點') : ''));
             } catch (err) {
-                showToast(err.message || 'AI 放大失敗', 'danger');
+                showToast(err.message || tr('baseModels.upscaleFailed', 'AI 放大失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 refreshCurrentEditGallery();
@@ -2310,7 +2310,16 @@
                     btn.appendChild(document.createTextNode(label));
                 }
             });
+            if (typeof refreshPromoVendorPoints === 'function') refreshPromoVendorPoints();
+            if (typeof renderPromoAssetList === 'function') renderPromoAssetList();
+            if (typeof syncPromoVendorSourceHint === 'function') syncPromoVendorSourceHint();
+            var buildHint = document.getElementById('edit-gallery-build-hint');
+            if (buildHint) buildHint.textContent = tr('baseModels.pageBuildVersion', '頁面版本 {v}').replace('{v}', window.__MATCHDO_MATERIALS_BUILD || '—');
         }
+
+        document.addEventListener('i18n:applied', function () {
+            applyMaterialsPageI18n();
+        });
 
         function normalizeKind(k) {
             if (k === 'material') return 'material';
@@ -3361,7 +3370,7 @@
             list.forEach(function (item) {
                 if (vendorUpscaleEnabledForKind(kind)) probePendingItemUpscale(form, item, function () { renderPendingImages(form); });
             });
-            showToast('已恢復上次未完成的草稿（含已付費預覽圖）', 'info');
+            showToast(tr('baseModels.draftRestored', '已恢復上次未完成的草稿（含已付費預覽圖）'), 'info');
             return true;
         }
 
@@ -3725,7 +3734,7 @@
                     if (!pendingUploadEntries(item).length) {
                         item.uploadOriginal = true;
                         applyPendingUploadExclusive(item, card, prefix, 'original');
-                        showToast('每組至少須上傳一張圖', 'warning');
+                        showToast(tr('baseModels.groupNeedOneImage', '每組至少須上傳一張圖'), 'warning');
                     }
                     notify();
                 });
@@ -3738,7 +3747,7 @@
                     if (!pendingUploadEntries(item).length) {
                         item.uploadRedraw = true;
                         applyPendingUploadExclusive(item, card, prefix, 'redraw');
-                        showToast('每組至少須上傳一張圖', 'warning');
+                        showToast(tr('baseModels.groupNeedOneImage', '每組至少須上傳一張圖'), 'warning');
                     }
                     notify();
                 });
@@ -3751,7 +3760,7 @@
                     if (!pendingUploadEntries(item).length) {
                         item.uploadUpscale = true;
                         applyPendingUploadExclusive(item, card, prefix, 'upscale');
-                        showToast('每組至少須上傳一張圖', 'warning');
+                        showToast(tr('baseModels.groupNeedOneImage', '每組至少須上傳一張圖'), 'warning');
                     }
                     notify();
                 });
@@ -3764,7 +3773,7 @@
                     if (!pendingUploadEntries(item).length) {
                         item.uploadD2p = true;
                         applyPendingUploadExclusive(item, card, prefix, 'd2p');
-                        showToast('每組至少須上傳一張圖', 'warning');
+                        showToast(tr('baseModels.groupNeedOneImage', '每組至少須上傳一張圖'), 'warning');
                     }
                     notify();
                 });
@@ -3882,7 +3891,9 @@
         var ONE_MP_PX = 1024 * 1024;
         var VENDOR_UPSCALE_MIN_MP = 0.5;
         var VENDOR_UPSCALE_MAX_MP = 1;
-        var VENDOR_AI_UPSCALE_BTN = 'AI 放大';
+        function vendorAiUpscaleBtnLabel() {
+            return tr('baseModels.aiUpscale', 'AI 放大');
+        }
         function vendorUpscaleRuleText() {
             return tr('baseModels.vendorUpscaleRuleText', '依原圖比例放大，總解析度最高 1MP');
         }
@@ -4058,7 +4069,7 @@
                 var probe = galleryUpscaleProbe[url];
                 btn.disabled = false;
                 if (!probe) {
-                    btn.title = '解析度檢查中，仍可嘗試；' + vendorUpscaleRuleText();
+                    btn.title = tr('baseModels.resolutionCheckingTitle', '解析度檢查中，仍可嘗試；{rule}').replace('{rule}', vendorUpscaleRuleText());
                     return;
                 }
                 btn.title = probe.hint || (probe.needed ? vendorUpscaleRuleText() : AI_EDIT_UPSCALE_HELP_TITLE);
@@ -4264,7 +4275,7 @@
             if (m) renderEditGallery(m);
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var items = assetImageItems(m);
                 var srcItem = items.find(function (it) { return it.url === sourceUrl; });
                 var isCover = srcItem && (srcItem.is_cover || items[0].url === sourceUrl);
@@ -4289,7 +4300,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) {
@@ -4308,7 +4319,7 @@
                 showToast(okMsg);
                 showAiPromptAfterPreview(data);
             } catch (err) {
-                showToast(err.message || '重繪失敗', 'danger');
+                showToast(err.message || tr('baseModels.redrawFailed', '重繪失敗'), 'danger');
             } finally {
                 slot.imageBusy = false;
                 editGallerySlotPreview[sourceUrl] = slot;
@@ -4335,7 +4346,7 @@
             renderEditGallery(m);
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var file = await fileFromImageUrl(sourceUrl, 'gallery-d2p-source.jpg');
                 var fd = new FormData();
                 fd.append('image', file);
@@ -4348,7 +4359,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) {
@@ -4575,7 +4586,7 @@
                 var refreshed = materialsAll.find(function (x) { return x.id === id; }) || lastData;
                 if (refreshed) afterEditGalleryMutation(id, refreshed);
                 setEditGalleryStatus('已依勾選寫入圖庫', 'success');
-                showToast('已依勾選寫入圖庫');
+                showToast(tr('baseModels.gallerySavedFromChecked', '已依勾選寫入圖庫'));
                 return true;
             } catch (err) {
                 setEditGalleryStatus(err.message || '寫入失敗', 'danger');
@@ -4599,7 +4610,7 @@
             renderPendingImages(form);
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var kind = form.getAttribute('data-kind') || 'prototype';
                 var fd = new FormData();
                 fd.append('image', item.file);
@@ -4619,7 +4630,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) {
@@ -4639,7 +4650,7 @@
                 if (data.ai_prompt) okMsg += ' · 提示詞：' + data.ai_prompt;
                 showToast(okMsg);
             } catch (err) {
-                showToast(err.message || '重繪失敗', 'danger');
+                showToast(err.message || tr('baseModels.redrawFailed', '重繪失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 renderPendingImages(form);
@@ -4656,7 +4667,7 @@
                 return;
             }
             if (!item.file) {
-                showToast('請先選擇圖片', 'warning');
+                showToast(tr('baseModels.pickImageFirst', '請先選擇圖片'), 'warning');
                 return;
             }
             var pts = designToPhysicalPoints();
@@ -4665,7 +4676,7 @@
             renderPendingImages(form);
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
@@ -4677,7 +4688,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) {
@@ -4723,7 +4734,7 @@
             renderPendingImages(form);
             try {
                 var tok = token || (await getToken());
-                if (!tok) { showToast('請先登入', 'danger'); return; }
+                if (!tok) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'danger'); return; }
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
@@ -4735,7 +4746,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    showToast((data.error || tr('baseModels.pointsInsufficient', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
                 if (!r.ok) {
@@ -4753,7 +4764,7 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
-                showToast(err.message || 'AI 放大失敗', 'danger');
+                showToast(err.message || tr('baseModels.upscaleFailed', 'AI 放大失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 renderPendingImages(form);
@@ -4985,7 +4996,7 @@
                 var upscaleBtnHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'pending-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
+                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(vendorAiUpscaleBtnLabel()) + '</button>'
                     )
                     : '';
                 var footerActionsHtml = pendingFooterFromItem(item, {
@@ -5121,7 +5132,7 @@
             var Compose = materialCoverComposeApi();
             if (!Compose) {
                 btn.disabled = true;
-                btn.title = '拼封面模組未載入，請重新整理頁面';
+                btn.title = tr('baseModels.composeModuleMissing', '拼封面模組未載入，請重新整理頁面');
                 return;
             }
             if (Compose.syncMaterialCoverComposeButton) Compose.syncMaterialCoverComposeButton(btn, grid);
@@ -5134,7 +5145,7 @@
             var Compose = materialCoverComposeApi();
             if (!Compose) {
                 btn.disabled = true;
-                btn.title = '拼封面模組未載入，請重新整理頁面';
+                btn.title = tr('baseModels.composeModuleMissing', '拼封面模組未載入，請重新整理頁面');
                 return;
             }
             if (Compose.syncMaterialCoverComposeButton) Compose.syncMaterialCoverComposeButton(btn, grid);
@@ -5215,16 +5226,16 @@
                 });
             }
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('請勾選至少 ' + Compose.MIN_COUNT + ' 張要拼入的顏色', 'warning');
+                showToast(tr('baseModels.composeMinColors', '請勾選至少 {n} 張要拼入的顏色').replace('{n}', String(Compose.MIN_COUNT)), 'warning');
                 return;
             }
             if (sources.length > Compose.MAX_COUNT) {
-                showToast('將取前 ' + Compose.MAX_COUNT + ' 張拼封面', 'info');
+                showToast(tr('baseModels.composeTakeFirstN', '將取前 {n} 張拼封面').replace('{n}', String(Compose.MAX_COUNT)), 'info');
                 sources = sources.slice(0, Compose.MAX_COUNT);
             }
             var btn = form.querySelector('.btn-compose-material-cover');
             var btnHtml = btn ? btn.innerHTML : '';
-            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            if (btn) { btn.disabled = true; btn.textContent = tr('baseModels.composeBusy', '合成中…'); }
             try {
                 var blob = await Compose.composeGrid(sources);
                 var file = new File([blob], 'material-cover-grid.jpg', { type: 'image/jpeg' });
@@ -5254,7 +5265,7 @@
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
                 schedulePendingDraftSave(form);
-                showToast('已產生 1:1 封面（' + sources.length + ' 張），請確認後發布', 'success');
+                showToast(tr('baseModels.composeCoverReady', '已產生 1:1 封面（{n} 張），請確認後發布').replace('{n}', String(sources.length)), 'success');
             } catch (err) {
                 showToast((err && err.message) || '拼封面失敗', 'danger');
             } finally {
@@ -5269,12 +5280,12 @@
             var isMaterial = assetKind === 'material';
             var sources = collectEditMaterialSwatchSources(m);
             if (sources.length < Compose.MIN_COUNT) {
-                showToast('請勾選至少 ' + Compose.MIN_COUNT + ' 張要拼入的顏色', 'warning');
+                showToast(tr('baseModels.composeMinColors', '請勾選至少 {n} 張要拼入的顏色').replace('{n}', String(Compose.MIN_COUNT)), 'warning');
                 return;
             }
             var btn = document.getElementById('btn-edit-compose-material-cover');
             var btnHtml = btn ? btn.innerHTML : '';
-            if (btn) { btn.disabled = true; btn.textContent = '合成中…'; }
+            if (btn) { btn.disabled = true; btn.textContent = tr('baseModels.composeBusy', '合成中…'); }
             try {
                 var loaded = [];
                 for (var i = 0; i < sources.length; i++) {
@@ -5325,7 +5336,7 @@
                 var labelEl = document.querySelector('.edit-gallery-local-col[data-local-id="' + newItem.id + '"] .edit-local-image-label');
                 if (labelEl) labelEl.value = coverLabel;
                 setEditGalleryStatus('已產生 1:1 封面預覽，按「儲存」寫入', 'info');
-                showToast('已產生 1:1 封面（' + loaded.length + ' 張）', 'success');
+                showToast(tr('baseModels.composeCoverReady', '已產生 1:1 封面（{n} 張），請確認後發布').replace('{n}', String(loaded.length)), 'success');
             } catch (err) {
                 showToast((err && err.message) || '拼封面失敗', 'danger');
             } finally {
@@ -5422,7 +5433,7 @@
             var added = 0;
             for (var i = 0; i < fileList.length; i++) {
                 if (list.length >= maxN) {
-                    showToast('最多 ' + maxN + ' 張圖片', 'warning');
+                    showToast(tr('baseModels.maxImagesToast', '最多 {n} 張圖片').replace('{n}', String(maxN)), 'warning');
                     break;
                 }
                 list.push({
@@ -5510,7 +5521,7 @@
             schedulePendingDraftSave(form);
             startTokenRefreshTimer();
             await MatchdoDualColorImport.clearImport();
-            showToast('已加入材料待傳清單（材料組合：上方色卡／下方材質圖；預設只上傳新圖）', 'success');
+            showToast(tr('baseModels.materialComboAddedPending', '已加入材料待傳清單（材料組合：上方色卡／下方材質圖；預設只上傳新圖）'), 'success');
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return true;
         }
@@ -5653,7 +5664,7 @@
                 var upscaleBtnHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'edit-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
+                        '<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(vendorAiUpscaleBtnLabel()) + '</button>'
                     )
                     : '';
                 var d2pOn = vendorDesignToPhysicalEnabledForKind(m && m.asset_kind);
@@ -5754,7 +5765,7 @@
                 var upscaleActionHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'gallery-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(vendorUpscaleRuleText()) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
+                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(vendorUpscaleRuleText()) + '"><i class="bi bi-stars me-1"></i>' + esc(vendorAiUpscaleBtnLabel()) + '</button>'
                     )
                     : '';
                 var savedAiPair = pendingAiPairRowHtml(
@@ -6633,7 +6644,7 @@
             var id = document.getElementById('edit-id').value;
             if (!id) {
                 setEditGalleryStatus('找不到作品 ID，請關閉編輯視窗後重試', 'danger');
-                showToast('找不到作品 ID', 'danger');
+                showToast(tr('baseModels.portfolioIdMissing', '找不到作品 ID'), 'danger');
                 return false;
             }
             if (editGalleryUploading) {
@@ -6902,7 +6913,7 @@
                 if (editOpen || hasPending) {
                     var fresh = await ensureTokenFresh();
                     if (!fresh) {
-                        showToast('登入即將過期，請重新整理頁面後繼續', 'warning');
+                        showToast(tr('baseModels.sessionExpiringSoon', '登入即將過期，請重新整理頁面後繼續'), 'warning');
                     }
                 }
             }, 120000);
@@ -8301,16 +8312,16 @@
                 return;
             }
             if (isPub === false) {
-                statusEl.textContent = '請先上架主產品，才能產生官網 iframe。';
+                statusEl.textContent = tr('baseModels.embedNeedPublishedProto', '請先上架主產品，才能產生官網 iframe。');
                 statusEl.classList.remove('text-danger');
                 return;
             }
-            statusEl.textContent = '正在產生嵌入連結…';
+            statusEl.textContent = tr('baseModels.embedCreatingLink', '正在產生嵌入連結…');
             statusEl.classList.remove('text-danger');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
-                    statusEl.textContent = '請登入後取得 iframe 嵌入碼';
+                    statusEl.textContent = tr('baseModels.embedSignInForSnippet', '請登入後取得 iframe 嵌入碼');
                     return;
                 }
                 var r = await fetch('/api/me/embed-simulator-instances', {
@@ -8323,16 +8334,16 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 503 || data.code === 'EMBED_SCHEMA') {
-                    statusEl.textContent = '嵌入試做尚未啟用（資料庫設定）。請聯絡平台或稍後再試。';
+                    statusEl.textContent = tr('baseModels.embedSchemaDisabled', '嵌入試做尚未啟用（資料庫設定）。請聯絡平台或稍後再試。');
                     return;
                 }
                 if (data.error_code === 'embed_instance_limit') {
-                    statusEl.textContent = data.error || 'iframe 組數已達方案上限';
+                    statusEl.textContent = data.error || tr('baseModels.embedInstanceLimit', 'iframe 組數已達方案上限');
                     statusEl.classList.add('text-danger');
                     return;
                 }
                 if (!r.ok) {
-                    var failMsg = (data && data.error) || '無法建立 iframe 連結';
+                    var failMsg = (data && data.error) || tr('baseModels.embedCreateFailed', '無法建立 iframe 連結');
                     if (data && data.error_detail) failMsg += '（' + data.error_detail + '）';
                     statusEl.textContent = failMsg;
                     statusEl.classList.add('text-danger');
@@ -8340,8 +8351,8 @@
                 }
                 var tierCfg = data.embed_tier_config || null;
                 statusEl.textContent = data.created
-                    ? '已建立此款專用 iframe，請複製下方程式碼貼到官網。'
-                    : '已載入此款 iframe（可重複複製使用）。';
+                    ? tr('baseModels.embedCreatedSnippet', '已建立此款專用 iframe，請複製下方程式碼貼到官網。')
+                    : tr('baseModels.embedLoadedSnippet', '已載入此款 iframe（可重複複製使用）。');
                 statusEl.classList.remove('text-danger');
                 editEmbedPageUrlBase = data.page_url_base || (function () {
                     var raw = data.page_url || '';
@@ -8494,7 +8505,7 @@
                     e.stopPropagation();
                     var item = findMaterialItemById(btn.dataset.id);
                     if (!item || item.is_public === false) {
-                        showToast('請先上架後再複製嵌入碼', 'warning');
+                        showToast(tr('baseModels.embedCopyNeedPublish', '請先上架後再複製嵌入碼'), 'warning');
                         return;
                     }
                     var icon = btn.querySelector('i');
@@ -9021,8 +9032,8 @@
             if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
                 window.MatchdoPromoImage.pointsPreview().then(function (res) {
                     if (res && res.ok && res.data && res.data.points != null && disp) {
-                        var note = res.data.is_subscriber_pricing ? '（訂閱價）' : '';
-                        disp.textContent = '每張 ' + res.data.points + ' 點' + note;
+                        var note = res.data.is_subscriber_pricing ? tr('baseModels.promoSubscriberPricingNote', '（訂閱價）') : '';
+                        disp.textContent = tr('baseModels.promoPointsPerImage', '每張 {n} 點{note}').replace('{n}', String(res.data.points)).replace('{note}', note);
                     }
                 }).catch(function () {});
             }
@@ -9060,7 +9071,7 @@
                     if (th) th.textContent = data.slot_migration_hint;
                 } else if (!scenes.length) {
                     var eh = document.getElementById('promoVendorEnvHint');
-                    if (eh) eh.textContent = '尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql';
+                    if (eh) eh.textContent = tr('baseModels.promoNoScenesHint', '尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
                 }
                 promoVendorOptionsLoaded = true;
                 refreshPromoVendorPoints();
@@ -9074,7 +9085,7 @@
             var empty = document.getElementById('promo-asset-empty');
             if (empty) empty.classList.add('d-none');
             if (list) {
-                list.innerHTML = '<div class="col-12 text-muted small py-3"><span class="spinner-border spinner-border-sm me-2" role="status"></span>載入產品卡…</div>';
+                list.innerHTML = '<div class="col-12 text-muted small py-3"><span class="spinner-border spinner-border-sm me-2" role="status"></span>' + esc(tr('baseModels.promoLoadingCards', '載入產品卡…')) + '</div>';
             }
             promoAssetsLoading = Promise.resolve().then(function () {
                 return ensureTokenFresh();
@@ -9092,7 +9103,7 @@
             }).catch(function (err) {
                 console.warn('promo lite load', err);
                 if (list) {
-                    list.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">產品卡載入失敗：' + promoVendorEsc(err.message || err) + '</p></div>';
+                    list.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">' + promoVendorEsc(tr('baseModels.promoCardsLoadFail', '產品卡載入失敗：{msg}').replace('{msg}', err.message || String(err))) + '</p></div>';
                 }
                 return [];
             }).finally(function () {
@@ -9124,7 +9135,7 @@
             list.innerHTML = '';
             if (!items.length) {
                 if (empty) {
-                    empty.textContent = '尚無可用產品卡，請先在「數位原型」或「配件」上傳。';
+                    empty.textContent = tr('baseModels.promoNoProductCards', '尚無可用產品卡，請先在「數位原型」或「配件」上傳。');
                     empty.classList.remove('d-none');
                 }
                 return;
@@ -9142,7 +9153,7 @@
                         ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:contain;background:#EAEEF3" alt="" loading="lazy" decoding="async">'
                         : '') +
                     '<div class="card-body py-1 px-2"><p class="small mb-0 text-truncate">' + promoVendorEsc(m.title || m.id) + '</p>' +
-                    '<p class="text-muted" style="font-size:.65rem;margin:0">' + imgItems.length + ' 張</p></div></div>';
+                    '<p class="text-muted" style="font-size:.65rem;margin:0">' + esc(tr('baseModels.promoImageCountShort', '{n} 張').replace('{n}', String(imgItems.length))) + '</p></div></div>';
                 frag.appendChild(col);
             });
             list.appendChild(frag);
@@ -9159,7 +9170,7 @@
             var n = promoVendorSelectedImageUrls.length;
             if (hint) {
                 if (n > 0) {
-                    hint.textContent = '已選 ' + n + ' 張參考圖（最多 ' + PROMO_MAX_REF_IMAGES + '；第一張為主體）';
+                    hint.textContent = tr('baseModels.promoRefsSelected', '已選 {n} 張參考圖（最多 {max}；第一張為主體）').replace('{n}', String(n)).replace('{max}', String(PROMO_MAX_REF_IMAGES));
                     hint.classList.remove('d-none');
                 } else {
                     hint.textContent = '';
@@ -9184,13 +9195,13 @@
             var i = promoVendorSelectedImageUrls.indexOf(url);
             if (i >= 0) {
                 if (promoVendorSelectedImageUrls.length <= 1) {
-                    showToast('至少保留一張參考圖', 'warning');
+                    showToast(tr('baseModels.promoKeepOneRef', '至少保留一張參考圖'), 'warning');
                     return;
                 }
                 promoVendorSelectedImageUrls.splice(i, 1);
             } else {
                 if (promoVendorSelectedImageUrls.length >= PROMO_MAX_REF_IMAGES) {
-                    showToast('最多選 ' + PROMO_MAX_REF_IMAGES + ' 張參考圖', 'warning');
+                    showToast(tr('baseModels.promoMaxRefs', '最多選 {n} 張參考圖').replace('{n}', String(PROMO_MAX_REF_IMAGES)), 'warning');
                     return;
                 }
                 promoVendorSelectedImageUrls.push(url);
@@ -9220,7 +9231,7 @@
             var items = promoAssetImageItems(m);
             if (!items.length) {
                 if (empty) {
-                    empty.textContent = '此卡尚無圖片';
+                    empty.textContent = tr('baseModels.promoCardNoImages', '此卡尚無圖片');
                     empty.classList.remove('d-none');
                 }
                 syncPromoVendorSourceHint();
@@ -9256,7 +9267,7 @@
                     var empty = document.getElementById('promo-source-empty');
                     if (thumbs) thumbs.innerHTML = '';
                     if (empty) {
-                        empty.textContent = '請先點左側產品卡';
+                        empty.textContent = tr('baseModels.promoPickCardFirst', '請先點左側產品卡');
                         empty.classList.remove('d-none');
                     }
                     syncPromoVendorSourceHint();
@@ -9277,14 +9288,14 @@
                 applyWrap.addEventListener('click', function () {
                     if (!applyBtn || !applyBtn.disabled) return;
                     if (!applyWrap.__promoWasDisabledOnPointerDown) return;
-                    showToast('請先點左側產品卡，並確認右側已選至少一張參考圖', 'warning');
+                    showToast(tr('baseModels.promoPickCardAndRefs', '請先點左側產品卡，並確認右側已選至少一張參考圖'), 'warning');
                 });
             }
             if (applyBtn) {
                 applyBtn.addEventListener('click', function (e) {
                     e.stopPropagation();
                     if (!promoVendorSelectedImageUrls.length) {
-                        showToast('請先選擇至少一張來源圖', 'warning');
+                        showToast(tr('baseModels.promoPickSourceFirst', '請先選擇至少一張來源圖'), 'warning');
                         return;
                     }
                     var dims = getPromoVendorDims();
@@ -9304,10 +9315,10 @@
                     };
                     var wrap = document.getElementById('promoVendorResultWrap');
                     applyBtn.disabled = true;
-                    if (wrap) wrap.innerHTML = '<p class="text-muted small mb-0">生成中…</p>';
+                    if (wrap) wrap.innerHTML = '<p class="text-muted small mb-0">' + esc(tr('baseModels.promoGenerating', '生成中…')) + '</p>';
                     if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.generate !== 'function') {
                         applyBtn.disabled = false;
-                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">情境圖模組未載入</p>';
+                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + esc(tr('baseModels.promoModuleMissing', '情境圖模組未載入')) + '</p>';
                         return;
                     }
                     window.__MATCHDO_ACCESS_TOKEN = token || window.__MATCHDO_ACCESS_TOKEN || '';
@@ -9315,8 +9326,8 @@
                         applyBtn.disabled = !promoVendorSelectedImageUrls.length;
                         var data = result.data || {};
                         if (result.status === 401) {
-                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '請重新登入後再生成情境圖') + '</p>';
-                            showToast(data.error || '請重新登入', 'warning');
+                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || tr('baseModels.promoSignInAgain', '請重新登入後再生成情境圖')) + '</p>';
+                            showToast(data.error || tr('mfrDash.signInFirst', '請先登入'), 'warning');
                             return;
                         }
                         if (result.status === 402) {
@@ -9336,7 +9347,7 @@
                                 if (data.points_deducted != null) {
                                     var pts = document.createElement('p');
                                     pts.className = 'small text-muted mb-2';
-                                    pts.textContent = '已扣除 ' + data.points_deducted + ' 點';
+                                    pts.textContent = tr('baseModels.promoPointsDeducted', '已扣除 {n} 點').replace('{n}', String(data.points_deducted));
                                     wrap.appendChild(pts);
                                 }
                                 if (data.image_url) {
@@ -9361,17 +9372,17 @@
                                 if (!data.id) {
                                     showToast((data.library_warning || '圖已生成但未寫入資產庫，請按「儲存到數位資產庫」'), 'warning');
                                 } else {
-                                    showToast('已存入「我的數位資產 → 情境圖」', 'success');
+                                    showToast(tr('baseModels.promoSavedToAssets', '已存入「我的數位資產 → 情境圖」'), 'success');
                                 }
                             }
                         } else {
-                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '生成失敗') + '</p>';
-                            showToast(data.error || '生成失敗', 'danger');
+                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || tr('baseModels.promoGenerateFailed', '生成失敗')) + '</p>';
+                            showToast(data.error || tr('baseModels.promoGenerateFailed', '生成失敗'), 'danger');
                         }
                     }).catch(function (err) {
                         applyBtn.disabled = !promoVendorSelectedImageUrls.length;
-                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">生成失敗</p>';
-                        showToast('情境圖生成失敗', 'danger');
+                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + esc(tr('baseModels.promoGenerateFailed', '生成失敗')) + '</p>';
+                        showToast(tr('baseModels.promoSceneGenerateFailed', '情境圖生成失敗'), 'danger');
                         console.warn('promo vendor', err);
                     });
                 });
@@ -9524,7 +9535,7 @@
             }
             var tok = await getToken();
             if (!tok) {
-                msgEl.textContent = '請先登入';
+                msgEl.textContent = tr('baseModels.publishSignInFirst', '請先登入');
                 return;
             }
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
@@ -9535,7 +9546,7 @@
                 var parsed = parseVendorUploadHttpError(r, rawBody, uploadFiles);
                 var data = parsed.data;
                 if (r.status === 401) {
-                    msgEl.textContent = '登入已過期，請重新整理頁面後再發布';
+                    msgEl.textContent = tr('baseModels.publishSessionExpired', '登入已過期，請重新整理頁面後再發布');
                     return;
                 }
                 if (r.status === 402) {
@@ -9546,7 +9557,7 @@
                 if (!r.ok) { msgEl.textContent = uploadFailureMessage(form, data, r.status, uploadFiles); return; }
                 for (var si = 1; si < uploadSlices.length; si++) {
                     if (!data.id) {
-                        msgEl.textContent = '首批已建立，但無法取得素材 ID 以續傳其餘圖片';
+                        msgEl.textContent = tr('baseModels.publishBatchIdMissing', '首批已建立，但無法取得素材 ID 以續傳其餘圖片');
                         return;
                     }
                     var sl = uploadSlices[si];
@@ -10073,7 +10084,7 @@
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-outline-secondary btn-sm proto-link-more-btn mt-1';
-            btn.textContent = '顯示其他分類（' + n + '）';
+            btn.textContent = tr('baseModels.linkShowOtherCategories', '顯示其他分類（{n}）').replace('{n}', String(n));
             var extra = document.createElement('div');
             extra.className = 'proto-link-more-panel d-none mt-2';
             var sections = groupLinkCandidatesBySourceSections(otherCandidates, {
@@ -10115,7 +10126,7 @@
             if (!catKey && !primary.length) {
                 var hint = document.createElement('p');
                 hint.className = 'text-muted small mb-2';
-                hint.textContent = '請先選主分類，將先列出相同大分類的材料／配件。';
+                hint.textContent = tr('baseModels.linkPickMainCategoryMat', '請先選主分類，將先列出相同大分類的材料／配件。');
                 listEl.appendChild(hint);
             }
             bindLinkListCheckSync(listEl);
@@ -10152,7 +10163,7 @@
             if (!catKey && !primary.length) {
                 var hint = document.createElement('p');
                 hint.className = 'text-muted small mb-2';
-                hint.textContent = '請先選主分類，將先列出相同大分類的主產品。';
+                hint.textContent = tr('baseModels.linkPickMainCategoryProto', '請先選主分類，將先列出相同大分類的主產品。');
                 listEl.appendChild(hint);
             }
             var rowBuilder = function (c) {
@@ -10402,7 +10413,7 @@
             gridDisableEditGalleryActions(false);
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');
-            if (buildHint) buildHint.textContent = '頁面版本 ' + (window.__MATCHDO_MATERIALS_BUILD || '—');
+            if (buildHint) buildHint.textContent = tr('baseModels.pageBuildVersion', '頁面版本 {v}').replace('{v}', window.__MATCHDO_MATERIALS_BUILD || '—');
             syncEditGalleryOptimizeBgWrap();
             var galMulti = document.getElementById('edit-add-gallery-input-multi');
             if (galMulti) galMulti.value = '';
@@ -10496,7 +10507,7 @@
             btnEditOpenShareEmbedPreview.addEventListener('click', function (e) {
                 if (btnEditOpenShareEmbedPreview.classList.contains('disabled')) {
                     e.preventDefault();
-                    showToast('尚無嵌入頁網址', 'warning');
+                    showToast(tr('baseModels.embedNoPageUrl', '尚無嵌入頁網址'), 'warning');
                 }
             });
         }
@@ -10539,7 +10550,7 @@
             }
             if (!file && !id) return;
             var t = await getToken();
-            if (!t) { showToast('請先登入', 'warning'); return; }
+            if (!t) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'warning'); return; }
             var btn = document.getElementById('btn-edit-generate-description');
             btn.disabled = true;
             try {
@@ -10587,10 +10598,10 @@
                 var id = document.getElementById('edit-id').value;
                 if (!id) return;
                 var t = await getToken();
-                if (!t) { showToast('請先登入', 'warning'); return; }
+                if (!t) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'warning'); return; }
                 var labelEl = btnEditRegenerateTags.querySelector('.btn-edit-regenerate-tags-label');
                 btnEditRegenerateTags.disabled = true;
-                if (labelEl) labelEl.textContent = '分析中…';
+                if (labelEl) labelEl.textContent = tr('baseModels.i18nAnalyzing', '分析中…');
                 try {
                     var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/regenerate-tags', {
                         method: 'POST',
@@ -10601,21 +10612,21 @@
                         showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
                         return;
                     }
-                    if (!r.ok) throw new Error(data.error || '重生失敗');
+                    if (!r.ok) throw new Error(data.error || tr('baseModels.tagsRegenerateFailed', '重生失敗'));
                     editPending.tags = Array.isArray(data.ai_tags) ? data.ai_tags.slice() : [];
                     editPending.semantics = data.image_semantics_json || null;
                     renderEditTags(true);
                     await loadMaterials();
-                    var okMsg = 'AI 標籤已重生';
-                    if (data.image_count != null) okMsg += '（' + data.image_count + ' 張圖）';
+                    var okMsg = tr('baseModels.tagsRegenerated', 'AI 標籤已重生');
+                    if (data.image_count != null) okMsg += tr('baseModels.tagsRegeneratedImages', '（{n} 張圖）').replace('{n}', String(data.image_count));
                     if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                     if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                     showToast(okMsg, 'success');
                 } catch (e) {
-                    showToast(e.message || '重生失敗', 'danger');
+                    showToast(e.message || tr('baseModels.tagsRegenerateFailed', '重生失敗'), 'danger');
                 } finally {
                     btnEditRegenerateTags.disabled = false;
-                    if (labelEl) labelEl.textContent = 'AI 重生標籤';
+                    if (labelEl) labelEl.textContent = tr('baseModels.i18nRetagBtn', 'AI 重生標籤');
                 }
             });
         }
@@ -10624,9 +10635,9 @@
         if (btnEditFillI18nEn) {
             btnEditFillI18nEn.addEventListener('click', async function () {
                 var id = document.getElementById('edit-id').value;
-                if (!id) { showToast('請先儲存素材', 'warning'); return; }
+                if (!id) { showToast(tr('baseModels.saveAssetFirst', '請先儲存素材'), 'warning'); return; }
                 var t = await getToken();
-                if (!t) { showToast('請先登入', 'warning'); return; }
+                if (!t) { showToast(tr('mfrDash.signInFirst', '請先登入'), 'warning'); return; }
                 var hasEn = (document.getElementById('edit-title-en') && document.getElementById('edit-title-en').value.trim())
                     || (document.getElementById('edit-description-en') && document.getElementById('edit-description-en').value.trim());
                 var overwrite = hasEn && confirm(tr('mfrDash.confirmOverwriteExisting', '已有英文內容，要覆蓋重新生成嗎？'));
@@ -10640,7 +10651,7 @@
                     var data = await r.json().catch(function () { return {}; });
                     if (!r.ok) throw new Error(data.error || '生成失敗');
                     if (data.skipped && data.reason === 'no_work') {
-                        showToast('已有英文或無中文可翻譯', 'info');
+                        showToast(tr('baseModels.i18nNoEnToFill', '已有英文或無中文可翻譯'), 'info');
                         return;
                     }
                     if (data.title_en && document.getElementById('edit-title-en')) {
@@ -10649,7 +10660,7 @@
                     if (data.description_en && document.getElementById('edit-description-en')) {
                         document.getElementById('edit-description-en').value = data.description_en;
                     }
-                    showToast('已補英文（不扣點）', 'success');
+                    showToast(tr('baseModels.i18nEnFilledFree', '已補英文（不扣點）'), 'success');
                 } catch (e) {
                     showToast(e.message || '生成失敗', 'danger');
                 } finally {
@@ -10664,7 +10675,7 @@
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
             var saveBtnHtml = saveBtn ? saveBtn.innerHTML : '';
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '儲存中…'; }
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = tr('baseModels.saving', '儲存中…'); }
             try {
             await ensureTokenFresh();
             if (id && (editKind === 'prototype' || editKind === 'part' || editKind === 'material')) {
