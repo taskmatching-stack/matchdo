@@ -54,6 +54,20 @@ assert(!monthlyQuote.campaign_id, 'no campaign on monthly');
 assert(pc.amountsMatchQuote(yearlyQuote, 95, 3960), 'match usd');
 assert(!pc.amountsMatchQuote(yearlyQuote, 1, 3960), 'reject bad amount');
 
+const rulesPct = [{ plan_key: 'tier2', list_discount_percent: 10 }];
+const enrichedPct = pc.attachCampaignPricingToPlans([plan], campaign, rulesPct, resolveUsd);
+assert(enrichedPct.plans[0].yearly_sale_usd === 99, 'campaign percent sale usd');
+const yearlyQuotePct = pc.buildCheckoutQuote({
+    planKey: 'tier2',
+    billing: 'yearly',
+    plan,
+    lang: 'en',
+    campaign,
+    rules: rulesPct,
+    resolveUsdMonthly: resolveUsd
+});
+assert(yearlyQuotePct.amount === 99, 'campaign percent quote usd');
+
 const iso = pc.parseTaipeiLocalInput('2026-10-01T00:00');
 assert(iso && iso.indexOf('T') !== -1, 'taipei parse');
 

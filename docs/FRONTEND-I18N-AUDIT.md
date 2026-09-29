@@ -158,7 +158,7 @@ node scripts/audit-locale-mix.js
 
 | 優先 | 項目 | 文件／位置 |
 |------|------|------------|
-| P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | `docs/PLAN-pricing-entitlements.md`（實作 Phase 1 起） |
+| P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | ✅ `docs/PLAN-pricing-entitlements.md`（牌價折扣％） |
 | P1 | 年付牌價 ×10 vs 後台可設年付 | ✅ `4c15b36`（§待辦 B） |
 | P2 | 廠商服務地區／列表篩選與排序（規劃檔待寫） | 使用者 2026-09-29 備忘 |
 | P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | `docs/SEO-PROGRESS.md`、`docs/SEO-AUDIT-PLAN-2026-08-06.md` |

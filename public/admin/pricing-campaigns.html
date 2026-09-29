@@ -79,15 +79,16 @@
             <input class="form-check-input" type="checkbox" id="editEnabled" checked />
             <label class="form-check-label small" for="editEnabled">啟用（關閉則立即下線，不等到結束時間）</label>
           </div>
-          <h6 class="small fw-semibold">年付特價（整年一筆；未填的方案不折扣）</h6>
+          <h6 class="small fw-semibold">年付特價</h6>
+          <p class="text-muted small mb-2">每方案<strong>二選一</strong>：填「牌價折扣％」（依當下牌價年付重算）或填整年 TWD＋USD 特價。未填則該方案不折扣。</p>
           <table class="table table-sm table-bordered">
             <thead class="table-light">
-              <tr><th>方案</th><th>年付台幣</th><th>年付 USD</th></tr>
+              <tr><th>方案</th><th>牌價折扣％</th><th>年付台幣</th><th>年付 USD</th></tr>
             </thead>
             <tbody>
-              <tr data-plan="tier2"><td>方案二</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
-              <tr data-plan="tier3"><td>方案三</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
-              <tr data-plan="tier4"><td>方案四</td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+              <tr data-plan="tier2"><td>方案二</td><td><input type="number" class="form-control form-control-sm rule-pct" min="0.01" max="99.99" step="0.01" placeholder="例：17" /></td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+              <tr data-plan="tier3"><td>方案三</td><td><input type="number" class="form-control form-control-sm rule-pct" min="0.01" max="99.99" step="0.01" placeholder="例：17" /></td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
+              <tr data-plan="tier4"><td>方案四</td><td><input type="number" class="form-control form-control-sm rule-pct" min="0.01" max="99.99" step="0.01" placeholder="例：17" /></td><td><input type="number" class="form-control form-control-sm rule-twd" min="1" /></td><td><input type="number" class="form-control form-control-sm rule-usd" min="0.01" step="0.01" /></td></tr>
             </tbody>
           </table>
         </div>
@@ -163,23 +164,33 @@ $(async function () {
     var rules = [];
     $('#editModal tbody tr[data-plan]').each(function () {
       var plan = $(this).attr('data-plan');
+      var pct = parseFloat($(this).find('.rule-pct').val());
       var twd = parseInt($(this).find('.rule-twd').val(), 10) || 0;
       var usd = parseFloat($(this).find('.rule-usd').val()) || 0;
-      if (twd > 0 && usd > 0) rules.push({ plan_key: plan, yearly_price_twd: twd, yearly_price_usd: usd });
+      if (Number.isFinite(pct) && pct > 0 && pct < 100) {
+        rules.push({ plan_key: plan, list_discount_percent: pct });
+      } else if (twd > 0 && usd > 0) {
+        rules.push({ plan_key: plan, yearly_price_twd: twd, yearly_price_usd: usd });
+      }
     });
     return rules;
   }
 
   function fillRules(rules) {
     $('#editModal tbody tr[data-plan]').each(function () {
+      $(this).find('.rule-pct').val('');
       $(this).find('.rule-twd').val('');
       $(this).find('.rule-usd').val('');
     });
     (rules || []).forEach(function (r) {
       var row = $('#editModal tbody tr[data-plan="' + r.plan_key + '"]');
       if (row.length) {
-        row.find('.rule-twd').val(r.yearly_price_twd || '');
-        row.find('.rule-usd').val(r.yearly_price_usd || '');
+        if (r.list_discount_percent != null && r.list_discount_percent > 0) {
+          row.find('.rule-pct').val(r.list_discount_percent);
+        } else {
+          row.find('.rule-twd').val(r.yearly_price_twd || '');
+          row.find('.rule-usd').val(r.yearly_price_usd || '');
+        }
       }
     });
   }

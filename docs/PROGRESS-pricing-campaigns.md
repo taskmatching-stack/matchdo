@@ -27,8 +27,9 @@
 1. `/admin/db-migrations.html` 執行 **pricing-campaigns**（或 Supabase 跑 `docs/add-pricing-campaigns.sql`）
 2. 執行 **subscription-plan-yearly-price**（`docs/add-subscription-plan-yearly-price.sql`）
 3. 執行 **user-pricing-entitlements** 與 **user-pricing-entitlements-list-discount**
-4. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價
-5. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400
+4. 執行 **pricing-campaign-list-discount**（檔期可填牌價折扣％）
+5. `/admin/pricing-campaigns.html` 建立檔期並填 tier 年付特價或折扣％
+6. Sandbox：年付結帳金額與方案頁一致；篡改 URL amount 應 400
 
 ## 待選（非 v1）
 
@@ -72,10 +73,6 @@
 
 ### C. 目前有「打折％」嗎？終身鎖折數
 
-**現況：沒有百分比折扣欄位。**
-
-- 限時年付特價：後台每 tier 填 **整年絕對金額** `yearly_price_twd` / `yearly_price_usd`（`/admin/pricing-campaigns.html`），未填則該 tier 檔期內仍用牌價年付（月費×10）。
-- `lib/pricing-campaigns.js` 無 `discount_percent`、無「在牌價上打 X 折」的演算；規劃檔 v1 曾寫「填特價金額或折扣％二選一」，**實作只做了特價金額**。
-- 「終身鎖折」：✅ 後台 **牌價年付折扣％**（見 §A）；檔期活動仍為整年特價金額。
-
-**待做（英文化後）**：後台可選「僅本訂閱期」vs「終身」；並支援 **折數（% off 牌價年付或月費）** 與／或維持現有「整年特價金額」兩種輸入方式。
+- 限時年付特價：後台每 tier **牌價折扣％** 或 **整年 TWD／USD 特價** 二選一（`/admin/pricing-campaigns.html`）；migration `pricing-campaign-list-discount`。
+- 終身鎖折：✅ 會員後台 **牌價年付折扣％**（見 §A）；與檔期活動演算共用 `lib/pricing-list-discount.js`。
+- 月付檔期折扣：仍不支援（v1）。
