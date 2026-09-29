@@ -61,8 +61,8 @@
 | U1 | 素材單筆 EN **手動**編輯 UI | ✅ 三種 asset_kind 上傳含 `title_en`／`description_en`（`materials-u1-desc-en-upload-20260929`） | — |
 | U2 | **雙向／多語** 內容欄 | 僅 `*_en` 一軸 | 產品定案：加 `title_ja`… 或「生成到使用者選擇語系」通用 API |
 | U3 | 供應商 B 線 `supplier_catalog_items` | ✅ `GET …/supplier-catalog-items?lang=`；上架後台 EN 欄 + `POST …/catalog-items/:id/generate-i18n-en` + 上傳自動補英文 | migration `supplier-catalog-i18n-en` 仍須在 Supabase 執行 |
-| U4 | 訂製需求／詢價 `demands`、專案描述 | ✅ `demands.html`「翻譯」+ `POST …/custom-products/:id/translate-for-view`（1 點，不寫 DB） | 詢價／專案其他欄位待補 |
-| U5 | `capability_custom_labels`、聯絡頁 `bio` | ✅ 自填工藝 `*_en`（素材編輯）、`contact_info.bio`／`bio_en`；migration `vendor-capability-custom-labels-i18n-en` | 作品後台 UI 可後補 |
+| U4 | 訂製需求／詢價 `demands`、專案描述 | ✅ `demands.html`「翻譯」+ `POST …/custom-products/:id/translate-for-view`（1 點，不寫 DB） | `manufacturer-inquiries.html` 已改導向聯絡設定，非現行入口 |
+| U5 | `capability_custom_labels`、聯絡頁 `bio` | ✅ 自填工藝 `*_en`（僅素材「編輯」彈窗）、`contact_info.bio`／`bio_en`；migration `vendor-capability-custom-labels-i18n-en` | 作品後台 UI 可後補 |
 | U6 | 英文過期提示 | **已取消**（初期展示用，正式產品不做） | — |
 
 ### P3 — 平台字典與其他
@@ -111,4 +111,4 @@ Body: { "target_lang": "ja" }   // 可省略：依 UI locale 推斷，再 fallba
 ## 狀態
 
 - **T1–T2（對話）**：已實作（見 `git log` 含 `lib/message-translate-langs.js`）。
-- **U1–U6、D1–D4**：待產品排期；以本檔為 AI 翻譯主 backlog。
+- **U1、U3–U5、T1–T3**：已實作（見 `git log`）；**U2** 多語軸待產品定案；**D1、D4** 仍待排期。

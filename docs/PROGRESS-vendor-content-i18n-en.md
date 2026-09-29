@@ -180,9 +180,10 @@ curl -s "https://matchdo.cc/api/vendor-assets?manufacturer_id={UUID}&for_profile
 
 1. **聯絡資訊頁** `bio`／`bio_en` 存 `contact_info`；與 `manufacturers.description` **未自動同步**；廠商公開簡介仍以 `manufacturers.description` 為準。
 2. **`location`（縣市）** 未翻譯；服務地區仍用 `AreaCodes` 的 `en` 標籤。
-3. **作品集** `capability_custom_labels_en` 後端已支援讀取；後台編輯 UI 可後補。
-4. **英文過期提示**：已取消（見上）。
-5. **單筆素材** 已有 EN 欄；作品集標題等見 `manufacturer-portfolio.html`。
+3. **自填工藝英文**：僅在素材庫 **編輯素材** 彈窗、「其他工藝」每一行旁多一個「選填」英文框；**上傳新素材**仍只填中文名。三層工藝下拉（大類→細類→標籤）為既有「訂製與工藝」區塊，非 U5 新增。
+4. **作品集** `capability_custom_labels_en` 後端已支援讀取；後台編輯 UI 可後補。
+5. **英文過期提示**：已取消（見上）。
+6. **單筆素材** 已有 EN 欄；作品集標題等見 `manufacturer-portfolio.html`。
 
 ---
 

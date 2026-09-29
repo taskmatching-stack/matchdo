@@ -1404,7 +1404,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-custom-en-20260929';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-en-edit-only-20260929';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         /** Cloud Run / Google Frontend 單次請求 body 硬上限約 32MB */
         var VENDOR_UPLOAD_SERVER_MAX_BYTES = 32 * 1024 * 1024;
@@ -7249,30 +7249,36 @@
             return row;
         }
 
+        function customCraftEnInputEnabled(block) {
+            return !!(block && block.id === 'edit-taxonomy-wrap');
+        }
+
         function createCustomCapabilityRow(block, value, valueEn) {
             var row = document.createElement('div');
             row.className = 'd-flex flex-wrap gap-2 align-items-center add-capability-custom-row';
             var inp = document.createElement('input');
             inp.type = 'text';
             inp.className = 'form-control form-control-sm add-capability-custom-input';
-            inp.style.maxWidth = '14rem';
+            inp.style.maxWidth = customCraftEnInputEnabled(block) ? '14rem' : '20rem';
             inp.placeholder = tr('baseModels.otherCraftNamePlaceholder', '其他工藝名稱');
             if (value) inp.value = value;
-            var inpEn = document.createElement('input');
-            inpEn.type = 'text';
-            inpEn.className = 'form-control form-control-sm add-capability-custom-input-en';
-            inpEn.style.maxWidth = '12rem';
-            inpEn.placeholder = tr('baseModels.fieldTitleEnPlaceholder', '選填');
-            if (valueEn) inpEn.value = valueEn;
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm btn-outline-danger add-capability-custom-row-remove';
             btn.textContent = tr('baseModels.removeImage', '移除');
             row.appendChild(inp);
-            row.appendChild(inpEn);
-            row.appendChild(btn);
+            if (customCraftEnInputEnabled(block)) {
+                var inpEn = document.createElement('input');
+                inpEn.type = 'text';
+                inpEn.className = 'form-control form-control-sm add-capability-custom-input-en';
+                inpEn.style.maxWidth = '12rem';
+                inpEn.placeholder = tr('baseModels.fieldTitleEnPlaceholder', '選填');
+                if (valueEn) inpEn.value = valueEn;
+                row.appendChild(inpEn);
+                inpEn.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
+            }
             inp.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
-            inpEn.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
+            row.appendChild(btn);
             btn.addEventListener('click', function () {
                 row.remove();
                 syncCapabilityStateFromRows(block);
