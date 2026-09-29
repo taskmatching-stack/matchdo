@@ -1,5 +1,5 @@
+-- 【已取消】英文「過期提示」僅初期展示用，產品不再使用；勿為此功能執行本檔。
 -- 素材／作品：英文生成來源 hash（對齊 manufacturers.i18n_en_source_hash）
--- 執行：Supabase SQL Editor 或 admin migration vendor-asset-portfolio-i18n-en-hash
 
 ALTER TABLE public.vendor_assets
     ADD COLUMN IF NOT EXISTS i18n_en_generated_at TIMESTAMPTZ,

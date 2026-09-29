@@ -7,7 +7,7 @@
 1. **「補寫進文件」本身就是要求**：先完成站內 AI 翻譯現況檢查，並把缺口與優先級**寫進本檔**（含雙向、可選目標語、扣點說明等）。這一步是明確交付，不是「只聊天不做事」。
 2. **「繼續往下執行及推送」**：依 **已寫進文件的待辦順序** 實作並 push（`FRONTEND-I18N-AUDIT.md` 主線表 + 本檔 T/U/D）。**不需要**使用者每一輪再重複說「現在可以做翻譯了」——順序在文件裡，照表做即可。
 3. **Agent 先前誤會（勿再犯）**：把「寫進待辦」誤當成「只寫不做」；或把「繼續執行」誤當成「可以無文件地一直加翻譯」。正確是：**先登錄待辦 → 再按表順序開工**。
-4. **已 push 的程式**（對話目標語、控制台 `i18n_en_stale`、B 線 catalog `?lang=` 等）視為待辦表中已開工項的進度；未完成項仍按下方 T/U/D 往下做。
+4. **已 push 的程式**（對話目標語、B 線 catalog `?lang=`、訂製需求翻譯等）視為待辦表中已開工項的進度；未完成項仍按下方 T/U/D 往下做。
 
 ### 建議執行順序（與主線並列時）
 
@@ -63,7 +63,7 @@
 | U3 | 供應商 B 線 `supplier_catalog_items` | ✅ `GET …/supplier-catalog-items?lang=`；上架後台 EN 欄 + `POST …/catalog-items/:id/generate-i18n-en` + 上傳自動補英文 | migration `supplier-catalog-i18n-en` 仍須在 Supabase 執行 |
 | U4 | 訂製需求／詢價 `demands`、專案描述 | ✅ `demands.html`「翻譯」+ `POST …/custom-products/:id/translate-for-view`（1 點，不寫 DB） | 詢價／專案其他欄位待補 |
 | U5 | `capability_custom_labels`、聯絡頁 `bio` | 未納入 vendor i18n | 見 `PROGRESS-vendor-content-i18n-en.md` 限制 |
-| U6 | 英文過期提示 | ✅ 簡介 hash + 素材／作品 `i18n_en_source_hash`；`i18n_en_stale_*_count` 橫幅 | migration `vendor-asset-portfolio-i18n-en-hash` |
+| U6 | 英文過期提示 | **已取消**（初期展示用，正式產品不做） | — |
 
 ### P3 — 平台字典與其他
 

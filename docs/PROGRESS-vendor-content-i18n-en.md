@@ -46,17 +46,15 @@
 | 表 | 新增欄位 |
 |----|----------|
 | `manufacturers` | `name_en`, `description_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
-| `vendor_assets` | `title_en`, `description_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
-| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en`, `i18n_en_generated_at`, `i18n_en_source_hash` |
+| `vendor_assets` | `title_en`, `description_en` |
+| `manufacturer_portfolio` | `title_en`, `description_en`, `design_highlight_en` |
 | `vendor_catalog_groups` | `name_en` |
 
 **不翻譯、不存 en：** `contact_json`、地址、Email、URL、社群連結、圖片。
 
-### 「英文過期」與過期筆數（非帳號到期）
+### 英文「過期提示」（已取消）
 
-- **不是**訂閱／點數／檔案保存期限到期。
-- **是**：您曾用 AI 或手動寫入 **英文版**（`name_en`、`title_en`…）之後，又改了 **中文原文**；系統用 `i18n_en_source_hash` 比對，不一致就標 **英文可能過期**（`i18n_en_stale`）。
-- **過期筆數**：素材庫或展示案例中，有英文但中文已變、尚未重翻的 **筆數**；控制台橫幅會列出「廠商簡介、N 筆素材、M 筆展示案例」。請再按「AI 生成」或手動改英文。
+產品定案：**不做**「中文改了、英文可能過期」的橫幅或筆數。廠商自行用 AI 生成或手動維護 `*_en` 即可。DB 若曾有 `i18n_en_source_hash` 欄位可忽略，後端不再寫入或讀取。
 
 ---
 
@@ -181,8 +179,8 @@ curl -s "https://matchdo.cc/api/vendor-assets?manufacturer_id={UUID}&for_profile
 1. **聯絡資訊頁**（`profile/contact-info.html`）的 `company_name`／`bio` 與 `manufacturers.description` **未自動同步**；公開頁簡介以 `manufacturers.description` 為準。
 2. **`location`（縣市）** 未翻譯；服務地區仍用 `AreaCodes` 的 `en` 標籤。
 3. **`capability_custom_labels`** 自填工藝文案未納入本階段。
-4. **中文變更後** 廠商簡介：`i18n_en_source_hash` + 控制台 `i18n_en_stale` 橫幅（素材／作品尚未做過期提示）。
-5. **單筆素材／作品** 後台尚無英文編輯欄；需靠「生成全部」或之後補 UI。
+4. **英文過期提示**：已取消（見上）。
+5. **單筆素材** 已有 EN 欄；作品集英文欄見 `manufacturer-portfolio.html`。
 
 ---
 
