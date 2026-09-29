@@ -58,6 +58,7 @@
 | 端點 | 行為 |
 |------|------|
 | `GET /api/manufacturers/:id?lang=en` | `name` / `specialty` 優先 `*_en`，無則 fallback 中文；`portfolio[]` 標題／描述／設計亮點同理 |
+| `GET /api/manufacturers?lang=en` | 廠商列表卡：`name`、`specialty`（同單筆詳情語意） |
 | `GET /api/vendor-assets?manufacturer_id=…&for_profile=1&lang=en` | 素材 `title` / `description`、列表內 `manufacturer_name` |
 | `GET /api/manufacturers/:id/catalog-groups?lang=en` | 自訂分類 `name`、pill `label` |
 

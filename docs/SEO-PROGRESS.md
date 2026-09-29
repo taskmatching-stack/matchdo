@@ -237,7 +237,7 @@
 - ③ **③a 加 canonical** 已於 2026-03-05 完成（`/inspiration/:type/:id` 輸出的 HTML 已含 `<link rel="canonical" href="${pageUrl}">`）；③b 等有再設計點擊資料後再排入實作。
 
 **其餘待做（已紀錄）**  
-- **① 標題格式**：`/inspiration/:type/:id` 的 **og:title／twitter:title** 已改為 `MatchDO｜{作品標題}`（`<title>` 仍為 `{標題} - MATCHDO 靈感牆`）。  
+- **① 標題格式**：動態 OG 自 2026-03 即為 `{作品標題} - MATCHDO 靈感牆`（與 `<title>` 一致）；可選 `MatchDO｜…` 格式**未採用**（避免與既有分享快取／文件不一致）。  
 - **② 語意化網址**：中長期，如 `/design/bespoke-oxford-shoes-9527`，需新路徑、slug 來源、301、前端與 sitemap 全面改。
 - **②b 廠商公開頁 slug**（選用、可獨立於 ②）：`/vendor/{slug}` 取代長 UUID 查詢字串；規劃見 **`docs/vendor-profile-slug-plan.md`**（非迫切，舊 `?id=` 須永久相容）。  
 - **③b Sitemap 高品質優先**：需「再設計點擊」埋點與儲存，再依計數排序／篩選 sitemap 收錄。

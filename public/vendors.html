@@ -332,6 +332,7 @@
             var siteName = tr('customProduct.ogSiteName', 'MATCHDO 合做');
             var ogLocale = String(getLang()).toLowerCase().indexOf('en') === 0 ? 'en_US' : 'zh_TW';
             document.title = title;
+            document.documentElement.lang = String(getLang()).toLowerCase().indexOf('en') === 0 ? 'en' : 'zh-TW';
             function setMeta(sel, attr, val) {
                 var el = document.querySelector(sel);
                 if (el) el.setAttribute(attr, val);
@@ -446,6 +447,8 @@
             if (state.subcategoryKey) params.set('subcategory_key', state.subcategoryKey);
             if (state.selectedAreas.length) params.set('service_area', state.selectedAreas.join(','));
             if (state.sort) params.set('sort', state.sort);
+            var apiLang = getLang();
+            if (apiLang) params.set('lang', apiLang);
 
             fetch('/api/manufacturers?' + params.toString())
                 .then(function(r) { return r.json(); })
@@ -823,6 +826,7 @@
         }
         document.addEventListener('i18n:applied', function () {
             applyVendorsPageMeta();
+            loadVendors(false);
         });
         renderAreaFilter();
         loadCategories();   // loadCategories 結束後會呼叫 renderCategoryTags，再根據 state.categoryKey 標記 active

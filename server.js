@@ -7498,8 +7498,6 @@ function buildInspirationUgcDetailHtml(item, base, type, id, options) {
     const displayTags = item.display_tags || [];
     const tagsKeywords = displayTags.slice(0, 24).join(', ');
     const title = escapeHtmlText(item.title || '作品');
-    const ogTitleRaw = 'MatchDO｜' + (item.title || '作品');
-    const ogTitle = escapeHtmlAttr(ogTitleRaw);
     const fullBody = inspirationFullBodyText(item, type);
     let descRaw = fullBody || String(item.title || 'MATCHDO 靈感牆作品');
     if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 500);
@@ -7548,13 +7546,13 @@ function buildInspirationUgcDetailHtml(item, base, type, id, options) {
 ${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MATCHDO 合做">
-<meta property="og:title" content="${ogTitle}">
+<meta property="og:title" content="${title} - MATCHDO 靈感牆">
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:url" content="${pageUrl}">
 <link rel="canonical" href="${pageUrl.replace(/"/g, '&quot;')}">
 ${imgUrl ? `<meta property="og:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${ogTitle}">
+<meta name="twitter:title" content="${title} - MATCHDO 靈感牆">
 <meta name="twitter:description" content="${metaDesc}">
 ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
 <script type="application/ld+json">${JSON.stringify({
@@ -32387,9 +32385,10 @@ app.get('/api/manufacturers', async (req, res) => {
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const serviceAreaCodes = parseServiceAreaCodesFromQuery(req);
         const sortKey = String(req.query.sort || 'rating').toLowerCase() === 'name' ? 'name' : 'rating';
+        const contentLang = normalizeVendorContentLang(req.query.lang);
 
         const internalPreview = await getRequestInternalPreviewFlag(req);
-        const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, vendor_source, expires_at, seed_public_released_at, is_active';
+        const baseSelect = 'id, name, name_en, description, description_en, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, vendor_source, expires_at, seed_public_released_at, is_active';
         let manufacturers = [];
         let manufacturersTotal = 0;
         let fromSub = [];
@@ -32494,20 +32493,23 @@ app.get('/api/manufacturers', async (req, res) => {
             });
         }
 
-        const list = manufacturers.map(mfr => ({
-            id: mfr.id,
-            name: mfr.name,
-            specialty: mfr.description || mfr.name,
-            rating: mfr.rating,
-            location: mfr.location,
-            capabilities: mfr.capabilities,
-            contact: mfr.contact_json,
-            verified: mfr.verified,
-            categories: mfr.categories || [],
-            user_id: mfr.user_id || null,
-            logo_url: manufacturerLogoFromRow(mfr),
-            portfolio: portfolioByMfr[mfr.id] || []
-        }));
+        const list = manufacturers.map(function (mfr) {
+            const loc = applyManufacturerLocaleToResponse(mfr, contentLang);
+            return {
+                id: loc.id,
+                name: loc.name,
+                specialty: loc.specialty || loc.description || loc.name,
+                rating: loc.rating,
+                location: loc.location,
+                capabilities: loc.capabilities,
+                contact: loc.contact_json,
+                verified: loc.verified,
+                categories: loc.categories || [],
+                user_id: loc.user_id || null,
+                logo_url: manufacturerLogoFromRow(loc),
+                portfolio: portfolioByMfr[loc.id] || []
+            };
+        });
 
         res.json({
             manufacturers: list,

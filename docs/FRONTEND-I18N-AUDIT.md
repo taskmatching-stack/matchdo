@@ -161,7 +161,8 @@ node scripts/audit-locale-mix.js
 | P1 | 訂閱優惠「終身」vs「僅本訂閱期」 | ✅ `docs/PLAN-pricing-entitlements.md`（牌價折扣％） |
 | P1 | 年付牌價 ×10 vs 後台可設年付 | ✅ `4c15b36`（§待辦 B） |
 | P2 | 廠商服務地區／列表篩選與排序 | ✅ `0b229d4` + `docs/PLAN-vendor-list-filters.md` |
-| P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | `docs/SEO-PROGRESS.md`、`docs/SEO-AUDIT-PLAN-2026-08-06.md` |
+| P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | ✅ `home-page-meta.js`、`vendors.html` applyVendorsPageMeta（`dbc6b19` 起） |
+| P2 | 廠商列表 `?lang=en` 顯示 `name_en`／`description_en` | ✅ `GET /api/manufacturers?lang=` + `vendors.html` |
 | P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 後台 + `admin-content-multilang` 規則；**≠** UI i18n |
 | P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
 | P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
