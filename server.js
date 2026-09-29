@@ -9997,6 +9997,40 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
+function parseServiceAreaCodesFromQuery(req) {
+    const parts = [];
+    const single = String(req.query.service_area || '').trim();
+    const multi = String(req.query.service_areas || '').trim();
+    if (single) parts.push(...single.split(/[,，]/));
+    if (multi) parts.push(...multi.split(/[,，]/));
+    return [...new Set(parts.map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
+}
+
+function manufacturerMatchesAnyServiceArea(mfr, areaCodes) {
+    if (!areaCodes || !areaCodes.length) return true;
+    return areaCodes.some((code) => manufacturerMatchesServiceArea(mfr, code));
+}
+
+function sortManufacturerRows(rows, sortKey) {
+    const copy = (rows || []).slice();
+    if (sortKey === 'name') {
+        copy.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
+        return copy;
+    }
+    copy.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+    return copy;
+}
+
+function paginateManufacturerRows(rows, page, perPage, sortKey, serviceAreaCodes) {
+    let list = sortManufacturerRows(rows, sortKey);
+    if (serviceAreaCodes && serviceAreaCodes.length) {
+        list = list.filter((m) => manufacturerMatchesAnyServiceArea(m, serviceAreaCodes));
+    }
+    const total = list.length;
+    const start = (page - 1) * perPage;
+    return { pageRows: list.slice(start, start + perPage), total };
+}
+
 const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, guide_links_multi_pick, created_at, updated_at';
 /** 圖庫增刪改／重繪 API 回傳：須含 MOQ、訂製程度、工藝、我的分類等（避免前端被空陣列覆寫） */
 const VENDOR_ASSET_SELECT_GALLERY_API = VENDOR_ASSET_SELECT_ME;
@@ -32385,7 +32419,7 @@ app.delete('/api/admin/service-areas/:code', async (req, res) => {
 // ── 結束 Admin 服務地區 CRUD ───────────────────────────────────
 
 // GET /api/manufacturers — 依分類取得廠商清單（訂製品設計者「找製作方」用）
-// Query: category（單一分類，舊版相容） 或 category_key + subcategory_key（子分類優先，不足一頁用主分類填滿）
+// Query: category（單一分類，舊版相容） 或 category_key + subcategory_key；service_area（逗號分隔 code）；sort=rating|name
 // 當有 category_key 時：先查 subcategory_key 符合的製作方，不足 per_page 時用 category_key 補滿一頁（子分類排前、去重）
 app.get('/api/manufacturers', async (req, res) => {
     try {
@@ -32395,10 +32429,13 @@ app.get('/api/manufacturers', async (req, res) => {
         const q = (req.query.q || '').trim();
         const per_page = Math.min(Math.max(parseInt(req.query.per_page || req.query.perPage, 10) || 12, 1), 50);
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const serviceAreaCodes = parseServiceAreaCodesFromQuery(req);
+        const sortKey = String(req.query.sort || 'rating').toLowerCase() === 'name' ? 'name' : 'rating';
 
         const internalPreview = await getRequestInternalPreviewFlag(req);
         const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, vendor_source, expires_at, seed_public_released_at, is_active';
         let manufacturers = [];
+        let manufacturersTotal = 0;
         let fromSub = [];
         let fromMain = [];
 
@@ -32433,8 +32470,9 @@ app.get('/api/manufacturers', async (req, res) => {
                     (m.description || '').toLowerCase().includes(ql)
                 );
             }
-            const start = (page - 1) * per_page;
-            manufacturers = manufacturers.slice(start, start + per_page);
+            const paged = paginateManufacturerRows(manufacturers, page, per_page, sortKey, serviceAreaCodes);
+            manufacturers = paged.pageRows;
+            manufacturersTotal = paged.total;
         } else if (category && category !== 'default') {
             let catQ = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).contains('categories', [category]);
             try { catQ = catQ.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
@@ -32451,8 +32489,9 @@ app.get('/api/manufacturers', async (req, res) => {
                     (m.description || '').toLowerCase().includes(ql)
                 );
             }
-            const start = (page - 1) * per_page;
-            manufacturers = manufacturers.slice(start, start + per_page);
+            const pagedCat = paginateManufacturerRows(manufacturers, page, per_page, sortKey, serviceAreaCodes);
+            manufacturers = pagedCat.pageRows;
+            manufacturersTotal = pagedCat.total;
         } else {
             let query = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).order('rating', { ascending: false });
             try { query = query.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
@@ -32480,8 +32519,9 @@ app.get('/api/manufacturers', async (req, res) => {
             } else {
                 manufacturers = filterMfrListForAudience(data || []);
             }
-            const start = (page - 1) * per_page;
-            manufacturers = manufacturers.slice(start, start + per_page);
+            const pagedAll = paginateManufacturerRows(manufacturers, page, per_page, sortKey, serviceAreaCodes);
+            manufacturers = pagedAll.pageRows;
+            manufacturersTotal = pagedAll.total;
         }
 
         const ids = manufacturers.map(m => m.id);
@@ -32511,9 +32551,14 @@ app.get('/api/manufacturers', async (req, res) => {
             user_id: mfr.user_id || null,
             logo_url: manufacturerLogoFromRow(mfr),
             portfolio: portfolioByMfr[mfr.id] || []
-        })).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        }));
 
-        res.json({ manufacturers: list });
+        res.json({
+            manufacturers: list,
+            total: typeof manufacturersTotal === 'number' ? manufacturersTotal : list.length,
+            page,
+            per_page
+        });
     } catch (e) {
         console.error('GET /api/manufacturers 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

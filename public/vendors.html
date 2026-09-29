@@ -197,8 +197,17 @@
             </div>
         </div>
 
-        <!-- 結果計數 -->
-        <div id="resultCount" class="result-count d-none"></div>
+        <!-- 結果計數 + 排序 -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <div id="resultCount" class="result-count d-none mb-0"></div>
+            <label class="d-flex align-items-center gap-2 small text-muted mb-0">
+                <span data-i18n="vendors.sortLabel">排序</span>
+                <select id="vendorSort" class="form-select form-select-sm" style="width:auto;min-width:8rem;">
+                    <option value="rating" data-i18n="vendors.sortRating">評分</option>
+                    <option value="name" data-i18n="vendors.sortName">名稱</option>
+                </select>
+            </label>
+        </div>
 
         <!-- 載入中 -->
         <div id="vendorLoading">
@@ -273,7 +282,8 @@
             keyword: '',
             categoryKey: '',
             subcategoryKey: '',
-            selectedAreas: [],   // 服務地區多選
+            selectedAreas: [],   // 服務地區多選（OR，送 API service_area）
+            sort: 'rating',
             loading: false,
             hasMore: true
         };
@@ -290,6 +300,7 @@
         var $filterMain = document.getElementById('filterMain');
         var $filterSub  = document.getElementById('filterSub');
         var $count     = document.getElementById('resultCount');
+        var $sort      = document.getElementById('vendorSort');
 
         /* ── 工具函式 ── */
         function esc(s) {
@@ -428,6 +439,8 @@
             if (state.keyword)      params.set('q', state.keyword);
             if (state.categoryKey)  params.set('category_key', state.categoryKey);
             if (state.subcategoryKey) params.set('subcategory_key', state.subcategoryKey);
+            if (state.selectedAreas.length) params.set('service_area', state.selectedAreas.join(','));
+            if (state.sort) params.set('sort', state.sort);
 
             fetch('/api/manufacturers?' + params.toString())
                 .then(function(r) { return r.json(); })
@@ -435,21 +448,6 @@
                     $loading.style.display = 'none';
                     state.loading = false;
                     var list = data.manufacturers || data.vendors || data.items || [];
-
-                    // 服務地區前端多選過濾（OR 邏輯，code 精確比對；舊版中文字串自動轉 code 相容）
-                    if (state.selectedAreas.length > 0) {
-                        list = list.filter(function(v) {
-                            var areas = (v.contact && v.contact.service_area) || [];
-                            if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function(s){return s.trim();}).filter(Boolean);
-                            // 將 DB 中的值都嘗試轉成 code（相容新舊資料）
-                            var codes = areas.map(function(a) {
-                                return (window.AreaCodes && window.AreaCodes.zhToCode) ? window.AreaCodes.zhToCode(a) : a;
-                            });
-                            return state.selectedAreas.some(function(sel) {
-                                return codes.indexOf(sel) >= 0;
-                            });
-                        });
-                    }
 
                     if (!append && list.length === 0) {
                         $empty.style.display = '';
@@ -468,17 +466,20 @@
                         $grid.innerHTML = html;
                     }
 
-                    /* 結果計數（只在有篩選時顯示） */
-                    var total = data.total || null;
-                    if (state.keyword || state.categoryKey) {
-                        var shown = $grid.querySelectorAll('.col-sm-6').length;
-                        $count.textContent = total
+                    /* 結果計數（有篩選或排序／地區時顯示總筆數） */
+                    var total = typeof data.total === 'number' ? data.total : null;
+                    var shown = $grid.querySelectorAll('.col-sm-6').length;
+                    var hasFilter = state.keyword || state.categoryKey || state.subcategoryKey || state.selectedAreas.length;
+                    if (hasFilter || total != null) {
+                        $count.textContent = total != null
                             ? tr('vendors.countTotal', '共 {n} 家廠商').replace('{n}', String(total))
                             : tr('vendors.countShown', '已顯示 {n} 家廠商').replace('{n}', String(shown));
                         $count.classList.remove('d-none');
+                    } else {
+                        $count.classList.add('d-none');
                     }
 
-                    state.hasMore = list.length >= state.perPage;
+                    state.hasMore = total != null ? shown < total : list.length >= state.perPage;
                     $loadMore.classList.toggle('d-none', !state.hasMore);
                     state.page++;
                 })
@@ -635,6 +636,13 @@
 
         /* ── 載入更多 ── */
         $loadMore.addEventListener('click', function() { loadVendors(true); });
+        if ($sort) {
+            $sort.value = state.sort;
+            $sort.addEventListener('change', function() {
+                state.sort = $sort.value || 'rating';
+                loadVendors(false);
+            });
+        }
 
         /* ── 服務地區多選標籤（依語言動態產生） ── */
         function getCurrentLang() {
