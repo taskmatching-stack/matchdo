@@ -71,7 +71,7 @@
 |---|------|------|------|
 | D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist |
 | D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
-| D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`、`demands.html`） | 其他頁面按需掛載 |
+| D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`）；訂製需求僅按鈕、目標語跟 UI | 其他頁面按需掛載 |
 | D4 | 管理員訊息監看翻譯 | 未查 | 若 admin 看對話需翻譯，另開 |
 
 ---

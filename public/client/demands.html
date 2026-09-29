@@ -49,11 +49,6 @@
             <div class="col-md-2 d-flex align-items-end">
                 <button type="button" class="btn btn-primary w-100" id="btnSearch" data-i18n="demands.search">查詢</button>
             </div>
-            <div class="col-md-4">
-                <label class="form-label" for="demandTranslateTargetLang"><i class="bi bi-translate me-1"></i><span data-i18n="messages.translateTargetLang">翻譯目標語言</span></label>
-                <select class="form-select" id="demandTranslateTargetLang" aria-label="Translate target language"></select>
-                <p class="form-text small text-muted mb-0" data-i18n="demands.translateHint">列表內可按「翻譯」將標題／說明譯成上方語言（1 點／次，僅供您閱讀，不修改設計稿）。</p>
-            </div>
         </div>
         <div id="loadingSpinner" class="text-center py-5 d-none">
             <div class="spinner-border text-primary"></div>
@@ -70,7 +65,6 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/translate-target-select.js"></script>
     <script>
         (function() {
             var token = null;
@@ -210,9 +204,7 @@
                 var pid = btn.getAttribute('data-product-id');
                 if (!pid || !token) return;
                 var card = btn.closest('.demand-card');
-                var targetLang = (window.MatchdoTranslateTargetSelect && window.MatchdoTranslateTargetSelect.getValue)
-                    ? window.MatchdoTranslateTargetSelect.getValue('demandTranslateTargetLang')
-                    : 'en';
+                var targetLang = getLang();
                 btn.disabled = true;
                 try {
                     var res = await fetch('/api/custom-products/' + encodeURIComponent(pid) + '/translate-for-view', {
@@ -235,9 +227,7 @@
                         if (titleEl && data.title) titleEl.textContent = data.title;
                         if (descEl && data.description != null) descEl.textContent = data.description.substring(0, 200);
                     }
-                    var okMsg = tr('demands.translated', '已翻譯');
-                    if (data.points_used) okMsg += ' · -' + data.points_used + tr('demands.pointsUnit', '點');
-                    showToast(okMsg, 'success');
+                    showToast(tr('demands.translated', '已翻譯'), 'success');
                 } catch (e) {
                     showToast(e.message || tr('demands.translateFailed', '翻譯失敗'), 'danger');
                 } finally {
@@ -274,9 +264,6 @@
                 token = await getToken();
                 if (!token) { window.location.href = '/login.html'; return; }
                 await loadCategories();
-                if (window.MatchdoTranslateTargetSelect) {
-                    await window.MatchdoTranslateTargetSelect.mount({ selectId: 'demandTranslateTargetLang' });
-                }
                 document.getElementById('btnSearch').addEventListener('click', search);
             });
         })();

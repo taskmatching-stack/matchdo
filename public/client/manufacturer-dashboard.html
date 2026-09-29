@@ -307,8 +307,6 @@
                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateAllMfrEn" data-i18n="mfrDash.aiGenAllEn">AI 生成全部英文</button>
                                     <span id="mfrEnMsg" class="small text-muted"></span>
                                 </div>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="mfrDash.aiAllEnNote">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
-                                <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
                                 <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer" data-i18n="mfrDash.previewEnPage">預覽英文公開頁 ↗</a>
                             </div>
                         </div>
@@ -645,12 +643,6 @@
                 if (descZhEl) descZhEl.value = mfr.description || '';
                 if (nameEnEl) nameEnEl.value = mfr.name_en || '';
                 if (descEnEl) descEnEl.value = mfr.description_en || '';
-                var metaEnEl = document.getElementById('mfrEnMeta');
-                if (metaEnEl) {
-                    metaEnEl.textContent = mfr.i18n_en_generated_at
-                        ? tr('mfrDash.aiGenAt', '上次 AI 生成：{dt}').replace('{dt}', new Date(mfr.i18n_en_generated_at).toLocaleString(dashDateLocale()))
-                        : tr('mfrDash.aiNotGenerated', '尚未 AI 生成英文');
-                }
                 await loadStats(mfr);
                 await loadRecentPortfolio();
             } catch (e) {
