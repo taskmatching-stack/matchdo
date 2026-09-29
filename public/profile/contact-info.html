@@ -633,7 +633,7 @@
 
         async function saveContactInfo() {
             const btn = $('#contactInfoForm button[type="submit"]');
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>儲存中...');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>' + profileTr('profile.savingContact', '儲存中…'));
 
             try {
                 // 收集偏好聯絡方式
@@ -687,12 +687,12 @@
 
                 if (error) throw error;
 
-                alert('✅ 聯絡資訊已儲存！');
+                alert(profileTr('profile.contactSaved', '✅ 聯絡資訊已儲存！'));
             } catch (error) {
                 console.error('儲存失敗:', error);
-                alert('❌ 儲存失敗：' + error.message);
+                alert(profileTr('profile.contactSaveFailed', '❌ 儲存失敗：{msg}').replace('{msg}', error.message || ''));
             } finally {
-                btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>儲存設定');
+                btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>' + profileTr('profile.saveContactSettings', '儲存設定'));
             }
         }
     </script>

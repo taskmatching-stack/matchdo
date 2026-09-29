@@ -216,6 +216,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D3** 素材庫 AI 重繪／放大 confirm 與編輯圖庫 hint `tr()`；關聯圖／embed 紀錄／作品 title；`20260929-d3-mfr-workspace`。
 - 2026-09-29：**D3 結案** 素材庫動態 toast／embed／情境圖 Tab／關聯分類提示；`i18n:applied` → `applyMaterialsPageI18n`；`20260929-d3-closure`。
 - 2026-09-29：**E** `public/client/demands.html`；`contact-info` 服務地區 EN；`supplier-catalog-manage` 登入／建立公司／compose toast；`20260929-e-demands-profile`。
+- 2026-09-29：**F（1）** 聯絡資訊儲存 alert；`about`／`contact` meta；`subscription-plans` meta／JSON-LD／切語系重繪方案卡；browse `i18n:applied`；`20260929-f-pricing-profile`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -231,7 +232,7 @@ node scripts/audit-locale-mix.js
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ✅ 素材庫 toast／embed／情境圖／關聯提示 `tr()` + locale 重繪（2026-09-29） |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ✅ demands／聯絡地區 EN + catalog-manage 動態 toast（2026-09-29） |
-| **F** | 帳號／方案／help 靜態、SSR 版型 browse | ⏳ 約 1～2 批 |
+| **F** | 帳號／方案／help 靜態、SSR 版型 browse | 🔄 方案／about／contact meta + 聯絡儲存（2026-09-29）；help SSR 待掃 |
 | **殼層 A** | `site-header`／footer 殘留、設計頁手機 sheet | 🔄 footer 主流程 OK；header 殘留與 D2 sheet 下一批 |
 
 ### 離 UI i18n 結案還差什麼？（2026-09-29，依使用者定案「完整收斂」）

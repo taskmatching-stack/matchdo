@@ -205,6 +205,11 @@
         applyBrowseDynamicI18n: applyBrowseDynamicI18n
     };
 
+    document.addEventListener('i18n:applied', function () {
+        if (!window.i18n) return;
+        applyAll();
+    });
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bootBrowseI18n);
     } else {
