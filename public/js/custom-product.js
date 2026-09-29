@@ -4084,18 +4084,10 @@ $(document).ready(function () {
                 kindBadge = '<span class="badge bg-primary-subtle text-primary border mb-1">' + (tr('customProduct.assetKindPrototype', '數位原型')) + '</span> ';
             }
         }
-        // 訂製程度標籤（從 manufacturer-customization-levels-ui.js 的對照表）
-        var customLevelLabels = {
-            'mono_graphic': '單色圖文',
-            'color_graphic': '彩色圖文',
-            'color_material': '顏色／材質',
-            'size_part': '尺寸／零件',
-            'form_structure': '造型／結構'
-        };
         var customLevelBadges = '';
         if (item.customization_levels && item.customization_levels.length) {
             customLevelBadges = item.customization_levels.map(function (lv) {
-                var label = customLevelLabels[lv] || lv;
+                var label = customizationLevelLabel(lv);
                 var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<span class="badge bg-primary-subtle text-primary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
@@ -4107,7 +4099,8 @@ $(document).ready(function () {
             if (capNames.length) {
                 capabilityBadges = capNames.map(function (name) {
                     var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
+                    var capTitle = tr('baseModels.executableCrafts', '可執行工藝').replace(/"/g, '&quot;');
+                    return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem" title="' + capTitle + '">' + safe + '</span>';
                 }).join('');
                 if (item.capabilities.length > 3) {
                     capabilityBadges += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
@@ -6644,11 +6637,47 @@ $(document).ready(function () {
         });
     }
 
-    function refreshVendorPickerChromeI18n() {
-        if ($('#vendorAssetsServiceArea option').length > 1) {
-            fillVendorServiceAreaSelect().catch(function () {});
+    function getMaterialSlotComboForLocaleRefresh() {
+        var g = refSlots.material;
+        if (!g || !g.items || !g.items.length) return null;
+        for (var i = 0; i < g.items.length; i++) {
+            var it = g.items[i];
+            if (it && it.source && it.source.material_combo && it.source.material_combo.main) {
+                return it.source.material_combo;
+            }
         }
+        return null;
+    }
+    function refreshMaterialComboRefAddonsOnLocale() {
+        var combo = getMaterialSlotComboForLocaleRefresh();
+        if (combo) refSlots.material.addon = formatMaterialComboAddon(combo);
+    }
+    function refreshVendorStylesBrowseI18n() {
+        if (!$('#panel-vendor-styles').length) return;
+        syncVendorStylesBrowseModeUi();
+        updateVendorStylesCategorySummary();
+        if ($('#panel-vendor-styles').hasClass('active') && typeof loadVendorStylesTabList === 'function') {
+            loadVendorStylesTabList();
+        }
+    }
+    function refreshVendorPickerChromeI18n() {
+        syncVendorPickerSubcategoryForAssetKind();
+        updateVendorPickerPrototypeFiltersVisibility();
+        updateVendorPickerLinkedLegend();
+        updateVendorPickerUnsupportedScopeHint();
+        updateVendorPickerPrototypeLockHint();
+        var mfrId = ($('#vendorAssetsManufacturerId').val() || '').trim();
+        fillVendorCatalogGroupSelect(mfrId);
+        fillVendorServiceAreaSelect().catch(function () {});
         updateVendorPickerDesignCategoryDisplay();
+        updateVendorPickerListPager(vendorPickerLastTotal, vendorPickerOffset, vendorPickerPageSize);
+        updateVendorPickerMultiVendorHint();
+        var $pickCount = $('#vendorAssetImagesPickCount');
+        if ($pickCount.length && vendorAssetPickModalState) updateVendorAssetPickModalCount();
+        var pickerModal = document.getElementById('vendorAssetsPickerModal');
+        if (pickerModal && pickerModal.classList.contains('show') && typeof loadVendorAssetsPickerList === 'function') {
+            loadVendorAssetsPickerList();
+        }
     }
 
     function refreshDesignShellI18n() {
@@ -6660,7 +6689,10 @@ $(document).ready(function () {
         var $galleryTitle = $('.past-gallery-title');
         if ($galleryTitle.length) $galleryTitle.text(getGalleryTitle(galleryOwnerDisplay || ''));
         syncPastGalleryTabLabels();
+        if (typeof refreshMaterialComboRefAddonsOnLocale === 'function') refreshMaterialComboRefAddonsOnLocale();
+        if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
         if (typeof refreshVendorPickerChromeI18n === 'function') refreshVendorPickerChromeI18n();
+        if (typeof refreshVendorStylesBrowseI18n === 'function') refreshVendorStylesBrowseI18n();
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }
@@ -7749,7 +7781,10 @@ $(document).ready(function () {
         }
         if (typeof syncPastGalleryTabLabels === 'function') syncPastGalleryTabLabels();
         if (typeof syncDesignTabActiveUi === 'function') syncDesignTabActiveUi(getTabParamFromPathname());
+        if (typeof refreshMaterialComboRefAddonsOnLocale === 'function') refreshMaterialComboRefAddonsOnLocale();
         if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
+        if (typeof refreshVendorPickerChromeI18n === 'function') refreshVendorPickerChromeI18n();
+        if (typeof refreshVendorStylesBrowseI18n === 'function') refreshVendorStylesBrowseI18n();
         if (typeof syncGenerateImageButtonLabel === 'function') syncGenerateImageButtonLabel();
         if (typeof updateGeneratePointsDisplay === 'function') updateGeneratePointsDisplay();
         if (typeof updateDesignToPhysicalPointsDisplay === 'function') updateDesignToPhysicalPointsDisplay();
