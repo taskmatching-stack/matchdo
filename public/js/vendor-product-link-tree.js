@@ -42,11 +42,11 @@
     }
 
     function guideContentLangQuery() {
-        if (window.i18n && typeof window.i18n.getLang === 'function' && window.i18n.getLang() === 'en') {
-            return '?lang=en';
-        }
+        var gl = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        if (String(gl).toLowerCase().indexOf('en') === 0) return '?lang=en';
         try {
-            if (new URLSearchParams(window.location.search).get('lang') === 'en') return '?lang=en';
+            var q = new URLSearchParams(window.location.search).get('lang') || '';
+            if (String(q).toLowerCase().indexOf('en') === 0) return '?lang=en';
         } catch (e) { /* ignore */ }
         return '';
     }
@@ -1985,7 +1985,7 @@
 
     async function loadVendorTree() {
         var headers = { Authorization: 'Bearer ' + state.token };
-        var r = await fetch('/api/me/vendor-product-link-tree', { headers: headers });
+        var r = await fetch('/api/me/vendor-product-link-tree' + guideContentLangQuery(), { headers: headers });
         var data = await r.json().catch(function () { return {}; });
         if (!r.ok) throw new Error(data.error || '載入失敗');
         if (!data.table_ready) {
@@ -2117,6 +2117,12 @@
             }
         } catch (localeErr) { /* ignore */ }
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+        document.addEventListener('i18n:applied', function () {
+            if (!IS_VENDOR || !state.token) return;
+            loadVendorTree().catch(function (e) {
+                showAlert(e.message || tr('productTree.loadFailed', '載入失敗'), 'danger');
+            });
+        });
         wireVariantSheetUi();
         if (IS_VENDOR) await initVendor();
         else await initGuide();

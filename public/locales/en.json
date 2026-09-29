@@ -3283,6 +3283,7 @@
   "materialCombo.pal.deleteFail": "Delete failed",
   "materialCombo.pal.deleted": "Deleted",
   "materialCombo.pal.promptName": "Name",
+  "materialCombo.pal.promptNameEn": "Name (English, optional)",
   "materialCombo.pal.promptType": "Type (optional)",
   "materialCombo.pal.promptNote": "Note (optional)",
   "materialCombo.pal.nameRequired": "Name is required",

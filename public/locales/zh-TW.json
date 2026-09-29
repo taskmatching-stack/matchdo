@@ -3286,6 +3286,7 @@
   "materialCombo.pal.deleteFail": "刪除失敗",
   "materialCombo.pal.deleted": "已刪除",
   "materialCombo.pal.promptName": "名稱",
+  "materialCombo.pal.promptNameEn": "名稱（英文，可留空）",
   "materialCombo.pal.promptType": "類型（可留空）",
   "materialCombo.pal.promptNote": "備註描述（可留空）",
   "materialCombo.pal.nameRequired": "名稱不可空白",

@@ -111,9 +111,11 @@
 
 **素材庫（2026-09-28）：** `manufacturer-materials.html` 標題／說明英文欄、上傳後自動 AI 補英文（未填時）、編輯「AI 補英文」；官方庫 **批次 AI 補英文** → `POST /api/admin/official-platform/generate-i18n-en`。
 
-**尚未做：** 色卡 `label_en`；看可搭配 link-tree `lang` 接線（`vendor-product-link-tree.js` 已有 `?lang=en` 輔助）。
+**尚未做：** （無）
 
 **2026-09-29：** 作品編輯 Modal 英文欄 + `POST …/portfolio/:id/generate-i18n-en`（單筆 AI 補英文，不扣點）。
+
+**2026-09-29：** 看可搭配：廠商編輯樹 `GET /api/me/vendor-product-link-tree?lang=`；公開 guide 預覽分支同步 `title_en`。材料組合「我的配色」：`name_en`／`note_en` API + 編輯 prompt（官方配色見後台 `name_en`）。
 
 ---
 

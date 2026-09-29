@@ -372,7 +372,11 @@
 
         async function loadMine(force) {
             if (state.loadedMine && !force) return;
-            var r = await fetch('/api/me/material-color-palettes', { headers: await getHeaders() });
+            var lang = (global.i18n && typeof global.i18n.getLang === 'function')
+                ? global.i18n.getLang()
+                : 'zh-TW';
+            var q = lang ? ('?lang=' + encodeURIComponent(String(lang).trim())) : '';
+            var r = await fetch('/api/me/material-color-palettes' + q, { headers: await getHeaders() });
             var j = await r.json().catch(function () { return {}; });
             if (!r.ok) {
                 onStatus(j.error || pt('materialCombo.pal.loadMineFail', '載入我的配色失敗'), false);
@@ -511,6 +515,8 @@
                     if (typeText == null) return;
                     var noteText = prompt(pt('materialCombo.pal.promptNote', '備註描述（可留空）'), item.note || '');
                     if (noteText == null) return;
+                    var nameEn = prompt(pt('materialCombo.pal.promptNameEn', '名稱（英文，可留空）'), item.name_en || '');
+                    if (nameEn == null) return;
                     var headers2 = await getHeaders();
                     headers2['Content-Type'] = 'application/json';
                     var r2 = await fetch('/api/me/material-color-palettes/' + encodeURIComponent(item.id), {
@@ -518,6 +524,7 @@
                         headers: headers2,
                         body: JSON.stringify({
                             name: name,
+                            name_en: String(nameEn).trim() || null,
                             type_text: String(typeText).trim() || null,
                             note: String(noteText).trim() || null,
                             primary_hex: item.primary_hex,

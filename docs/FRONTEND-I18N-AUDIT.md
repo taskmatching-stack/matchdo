@@ -163,7 +163,7 @@ node scripts/audit-locale-mix.js
 | P2 | 廠商服務地區／列表篩選與排序 | ✅ `0b229d4` + `docs/PLAN-vendor-list-filters.md` |
 | P2 | SEO：首頁 meta／JSON-LD 英文、D1 廠商列表麵包屑 | ✅ `home-page-meta.js`、`vendors.html` applyVendorsPageMeta（`dbc6b19` 起） |
 | P2 | 廠商列表 `?lang=en` 顯示 `name_en`／`description_en` | ✅ `GET /api/manufacturers?lang=` + `vendors.html` |
-| P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 進行中：作品編輯 EN 欄＋單筆 AI（`manufacturer-portfolio.html`）；見 `PROGRESS-vendor-content-i18n-en.md` |
+| P2 | DB 內容 `*_en` 批次補齊（廠商／素材／官方字典） | 進行中：作品 EN 編輯、link-tree／我的配色 `lang`；見 `PROGRESS-vendor-content-i18n-en.md` |
 | P3 | 設計風向 `/design-direction/` 產品化（**現 B4 凍結**） | 上線前再開 i18n／分析內容 |
 | P3 | `manufacturer-materials` 等大表單 UX（非純翻譯） | D3 之後單獨需求 |
 

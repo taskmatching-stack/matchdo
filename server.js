@@ -34890,19 +34890,29 @@ function mapVendorAssetLinkTreeNode(r, contentLang) {
     };
 }
 
-async function buildVendorProductLinkTreePayload(manufacturerId) {
-    const cols = 'id, title, description, image_url, cover_image_label, gallery_images, asset_kind, sort_order, created_at, is_public';
-    const { data: assets, error: assetErr } = await supabase
+async function buildVendorProductLinkTreePayload(manufacturerId, contentLang) {
+    const lang = normalizeVendorContentLang(contentLang);
+    let cols = 'id, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, sort_order, created_at, is_public';
+    let { data: assets, error: assetErr } = await supabase
         .from('vendor_assets')
         .select(cols)
         .eq('manufacturer_id', manufacturerId)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
+    if (assetErr && assetErr.code === '42703') {
+        cols = 'id, title, description, image_url, cover_image_label, gallery_images, asset_kind, sort_order, created_at, is_public';
+        ({ data: assets, error: assetErr } = await supabase
+            .from('vendor_assets')
+            .select(cols)
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false }));
+    }
     if (assetErr) throw assetErr;
     const prototypes = [];
     let linkableAssets = [];
     (assets || []).forEach((r) => {
-        const node = mapVendorAssetLinkTreeNode(r);
+        const node = mapVendorAssetLinkTreeNode(r, lang);
         if (!node) return;
         if (node.asset_kind === 'prototype') prototypes.push(node);
         else if (node.asset_kind === 'material' || node.asset_kind === 'part') linkableAssets.push(node);
@@ -35727,7 +35737,8 @@ app.get('/api/me/vendor-product-link-tree', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const payload = await buildVendorProductLinkTreePayload(manufacturerId);
+        const contentLang = normalizeVendorContentLang(req.query.lang);
+        const payload = await buildVendorProductLinkTreePayload(manufacturerId, contentLang);
         res.json(payload);
     } catch (e) {
         console.error('GET /api/me/vendor-product-link-tree:', e);
@@ -35919,11 +35930,19 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
         if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
         if (payload.error === 'not_public') {
             if (!internalPreview) return res.status(404).json({ error: '此主產品未公開' });
-            const { data: protoRow } = await supabase
+            const previewCols = 'id, manufacturer_id, category_key, subcategory_key, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, is_public';
+            let { data: protoRow } = await supabase
                 .from('vendor_assets')
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                .select(previewCols)
                 .eq('id', id)
                 .maybeSingle();
+            if (!protoRow) {
+                ({ data: protoRow } = await supabase
+                    .from('vendor_assets')
+                    .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                    .eq('id', id)
+                    .maybeSingle());
+            }
             if (!protoRow) return res.status(404).json({ error: '找不到主產品' });
             let mfrName = '廠商';
             const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', protoRow.manufacturer_id).maybeSingle();
@@ -35932,13 +35951,21 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
             const linkedIds = linkPack.ids || [];
             let linkedAssets = [];
             if (linkedIds.length) {
-                const { data: rows } = await supabase
+                const linkCols = 'id, title, title_en, description, description_en, image_url, cover_image_label, gallery_images, asset_kind, is_public';
+                let { data: rows, error: linkRowsErr } = await supabase
                     .from('vendor_assets')
-                    .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                    .select(linkCols)
                     .eq('manufacturer_id', protoRow.manufacturer_id)
                     .in('id', linkedIds);
+                if (linkRowsErr && linkRowsErr.code === '42703') {
+                    ({ data: rows } = await supabase
+                        .from('vendor_assets')
+                        .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                        .eq('manufacturer_id', protoRow.manufacturer_id)
+                        .in('id', linkedIds));
+                }
                 const byId = {};
-                (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+                (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r, contentLang); });
                 linkedAssets = linkedIds.map((lid, idx) => {
                     const node = byId[lid];
                     if (!node) return null;
@@ -35958,7 +35985,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                     console.warn('link-tree preview catalog_groups:', catErr && catErr.message);
                 }
             }
-            const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow) || {};
+            const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow, contentLang) || {};
             res.set('Cache-Control', 'private, max-age=0, must-revalidate');
             return res.json({
                 prototype: {
@@ -38339,13 +38366,25 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
-        const { data, error } = await supabase
+        const lang = String(req.query.lang || '').toLowerCase().replace(/-.*$/, '');
+        const selectFull = 'id, owner_scope, type_id, type_text, name, name_en, name_ja, name_es, name_de, name_fr, note, note_en, note_ja, note_es, note_de, note_fr, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at';
+        const selectLegacy = 'id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at';
+        let { data, error } = await supabase
             .from('material_color_palettes')
-            .select('id, owner_scope, type_id, type_text, name, note, color_count, primary_hex, accent_hex, tertiary_hex, ratio_preset, ratio_percents, sort_order, is_active, created_at, updated_at')
+            .select(selectFull)
             .eq('owner_scope', 'user')
             .eq('owner_user_id', user.id)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
+        if (error && isMaterialPaletteI18nMissingError(error)) {
+            ({ data, error } = await supabase
+                .from('material_color_palettes')
+                .select(selectLegacy)
+                .eq('owner_scope', 'user')
+                .eq('owner_user_id', user.id)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false }));
+        }
         if (error) {
             if (error.code === '42P01' || /does not exist/i.test(error.message || '')) {
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palettes.sql', items: [] });
@@ -38354,11 +38393,18 @@ app.get('/api/me/material-color-palettes', async (req, res) => {
                 if (/\bnote\b/i.test(error.message || '')) {
                     return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-notes.sql', items: [] });
                 }
+                if (isMaterialPaletteI18nMissingError(error)) {
+                    return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-i18n.sql', items: [] });
+                }
                 return res.status(503).json({ error: '請先執行 docs/add-material-color-palette-ratios.sql', items: [] });
             }
             return res.status(500).json({ error: error.message || '載入失敗' });
         }
-        res.json({ items: (data || []).map(function (r) { return mapMaterialColorPaletteRow(r, null); }) });
+        res.json({
+            items: (data || []).map(function (r) {
+                return mapMaterialColorPaletteRow(r, null, { lang: lang, localize: !!lang });
+            })
+        });
     } catch (e) {
         console.error('GET /api/me/material-color-palettes:', e);
         res.status(500).json({ error: e.message || '系統錯誤' });
@@ -38384,7 +38430,9 @@ app.post('/api/me/material-color-palettes', express.json(), async (req, res) => 
             type_id: null,
             type_text: typeText,
             name: name,
+            name_en: body.name_en != null ? (String(body.name_en).trim().slice(0, 80) || null) : null,
             note: normalizeMaterialPaletteNote(body.note),
+            note_en: body.note_en != null ? normalizeMaterialPaletteNote(body.note_en) : null,
             color_count: ratioFields.color_count,
             primary_hex: primary,
             accent_hex: accent,
@@ -38433,6 +38481,12 @@ app.patch('/api/me/material-color-palettes/:id', express.json(), async (req, res
         }
         if (body.note !== undefined) {
             updates.note = normalizeMaterialPaletteNote(body.note);
+        }
+        if (body.name_en !== undefined) {
+            updates.name_en = String(body.name_en || '').trim().slice(0, 80) || null;
+        }
+        if (body.note_en !== undefined) {
+            updates.note_en = normalizeMaterialPaletteNote(body.note_en);
         }
         if (body.primary_hex != null) {
             const primary = normalizeMaterialPaletteHex(body.primary_hex);
