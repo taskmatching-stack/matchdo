@@ -1799,6 +1799,111 @@ $(document).ready(function () {
         $('#generatedImagePlaceholder').hide();
         $('#generatedImagePreviewWrap').addClass('has-result');
     }
+    function buildGenerateSuccessPreviewHtml(imgSrc, debugFlux) {
+        var previewHtml = '';
+        if (imgSrc) {
+            previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="' + escapeHtmlText(tr('customProduct.generatedPreviewAlt', '生成設計稿')) + '" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="' + tr('customProduct.clickToEnlarge', '點擊放大').replace(/"/g, '&quot;') + '" /></div>';
+        }
+        var nextStepText = tr('customProduct.designNextStepHint', '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製');
+        previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>' + tr('customProduct.genSavedPersistHint', '已生成並儲存，重整後仍會保留在右側歷史') + '</p>' +
+            '<p class="small text-muted mb-2">' + nextStepText + '</p>' +
+            '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>' + tr('nav.myCustomProducts', '我的數位資產') + '</a> ' +
+            '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>' + tr('nav.galleryFindVendor', '圖庫找廠商') + '</a> ' +
+            '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>' + tr('customProduct.regenerate', '重新生成') + '</button>';
+        previewHtml += buildFluxStaffDebugPreviewHtml(debugFlux);
+        return previewHtml;
+    }
+    function refreshGeneratedPreviewOnLocale() {
+        var st = window.__generatePreviewState;
+        if (!st || !st.kind) return;
+        var $preview = $('#generatedImagePreview');
+        if (!$preview.length) return;
+        if (st.kind === 'success' && st.imgSrc) {
+            $preview.html(buildGenerateSuccessPreviewHtml(st.imgSrc, st.debugFlux));
+        } else if (st.kind === '402') {
+            var insuffMsg = tr('customProduct.insufficientCreditsDefault', '點數不足，無法生圖');
+            $preview.html(
+                '<div class="alert alert-warning">' +
+                '<h6><i class="fas fa-coins me-2"></i>' + tr('customProduct.insufficientCreditsTitle', '點數不足') + '</h6>' +
+                '<p class="mb-2">' + escapeHtmlText(insuffMsg) + '</p>' +
+                '<a href="/credits.html" class="btn btn-sm btn-warning me-2"><i class="fas fa-plus me-1"></i>' + tr('customProduct.buyCredits', '購買點數') + '</a>' +
+                '<a href="/subscription-plans.html" class="btn btn-sm btn-outline-secondary"><i class="fas fa-crown me-1"></i>' + tr('customProduct.upgradePlan', '升級方案') + '</a>' +
+                '</div>'
+            );
+        } else if (st.kind === 'fail') {
+            var failErr = st.error || tr('customProduct.unknownError', '未知錯誤');
+            var failHtml =
+                '<div class="alert alert-danger">' +
+                '<h6><i class="fas fa-exclamation-triangle me-2"></i>' + tr('customProduct.genFailedTitle', '生成失敗') + '</h6>' +
+                '<p class="mb-2">' + escapeHtmlText(failErr) + '</p>' +
+                (st.details ? '<p class="small text-muted mb-2">' + escapeHtmlText(String(st.details)) + '</p>' : '') +
+                '<button type="button" class="btn btn-sm btn-danger" onclick="$(\'#generateImageBtn\').click()">' +
+                '<i class="fas fa-redo me-1"></i>' + tr('customProduct.retry', '重試') +
+                '</button></div>';
+            failHtml += buildFluxStaffDebugPreviewHtml(st.debugFlux);
+            $preview.html(failHtml);
+        } else if (st.kind === 'network') {
+            var title = st.isHtmlResponse ? tr('customProduct.apiBadResponseTitle', 'API 未正確回應') : tr('customProduct.networkFailTitle', '網路連線失敗');
+            var msg = st.isHtmlResponse
+                ? tr('customProduct.apiBadResponseBodyShort', '伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確。')
+                : tr('customProduct.networkFailBody', '請檢查網路連線或稍後再試');
+            $preview.html(
+                '<div class="alert alert-warning">' +
+                '<h6><i class="fas fa-' + (st.isHtmlResponse ? 'server' : 'wifi') + ' me-2"></i>' + title + '</h6>' +
+                '<p class="mb-2">' + msg + '</p>' +
+                '<button type="button" class="btn btn-sm btn-warning" onclick="$(\'#generateImageBtn\').click()">' +
+                '<i class="fas fa-redo me-1"></i>' + tr('customProduct.retry', '重試') +
+                '</button></div>'
+            );
+        }
+    }
+    function refreshPastGalleryChromeOnLocale() {
+        var $wrap = $('#pastGeneratedGallery');
+        if ($wrap.length) {
+            $wrap.find('.past-gallery-title').text(getGalleryTitle(galleryOwnerDisplay || ''));
+        }
+        if (typeof syncPastGalleryTabLabels === 'function') syncPastGalleryTabLabels();
+        $wrap.find('.past-item-wrap').each(function () {
+            var $w = $(this);
+            var seed = ($w.attr('data-seed') || '').trim();
+            var prompt = ($w.attr('data-prompt') || '').trim();
+            var productId = ($w.attr('data-product-id') || '').trim();
+            var $cap = $w.find('.past-item-caption');
+            if (!$cap.length) return;
+            if (productId) return;
+            var caption = (prompt ? prompt.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + gallerySeedSuffix(seed);
+            var tip = (prompt ? prompt.replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200) : '') || tr('customProduct.thisGenerationZoom', '本次生成（點擊放大）');
+            tip += gallerySeedSuffix(seed);
+            $cap.text(caption).attr('title', tip);
+            $w.find('a.past-item').attr('title', tip);
+        });
+        $wrap.find('.js-reload-history').each(function () {
+            $(this).text(tr('customProduct.reload', '重新載入'));
+        });
+        if (galleryActiveTab === 'designs' && $wrap.find('.past-item-wrap[data-product-id]').length) {
+            try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
+        }
+    }
+    function refreshPastItemModalOnLocale() {
+        var modalEl = document.getElementById('pastItemModal');
+        if (!modalEl || !modalEl.classList.contains('show')) return;
+        var $modal = $('#pastItemModal');
+        var refList = $modal.data('pastModalRefSources');
+        if (Array.isArray(refList)) applyPastItemModalRefSources(refList);
+        if (!$('#pastItemModalShowSection').hasClass('d-none')) {
+            if ($('#pastItemModalShowOnHomepage').prop('disabled')) {
+                $('#pastItemModalShowOnHomepageHint').text(tr('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消')).css('color', '');
+            } else {
+                $('#pastItemModalShowOnHomepageHint').text(tr('customProduct.paidUserShowHint', '付費會員可取消勾選；未勾選的設計稿不會出現在首頁媒體牆')).css('color', '');
+            }
+        }
+        var owner = $modal.data('pastModalOwnerDisplay');
+        if (owner === '') {
+            $('#pastItemModalOwner').text(tf('customProduct.pastOwnerGenerationWrap', '（{label}）', { label: tr('customProduct.thisGeneration', '本次生成') }));
+        } else if (owner === '__this_generation__') {
+            $('#pastItemModalOwner').text(tr('customProduct.thisGeneration', '本次生成'));
+        }
+    }
 
     function peekGuideSessionPending() {
         try {
@@ -4858,18 +4963,8 @@ $(document).ready(function () {
                 addGeneratedThumbnailToGallery(result.imageData, prompt, lastGeneratedSeed);
                 var imgSrc = result.imageUrl || result.imageData || '';
                 if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
-                var previewHtml = '';
-                if (imgSrc) {
-                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="' + escapeHtmlText(tr('customProduct.generatedPreviewAlt', '生成設計稿')) + '" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="' + tr('customProduct.clickToEnlarge', '點擊放大').replace(/"/g, '&quot;') + '" /></div>';
-                }
-                var nextStepText = tr('customProduct.designNextStepHint', '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製');
-                previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>' + tr('customProduct.genSavedPersistHint', '已生成並儲存，重整後仍會保留在右側歷史') + '</p>' +
-                    '<p class="small text-muted mb-2">' + nextStepText + '</p>' +
-                    '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>' + tr('nav.myCustomProducts', '我的數位資產') + '</a> ' +
-                    '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>' + tr('nav.galleryFindVendor', '圖庫找廠商') + '</a> ' +
-                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>' + tr('customProduct.regenerate', '重新生成') + '</button>';
-                previewHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
-                $('#generatedImagePreview').html(previewHtml);
+                window.__generatePreviewState = { kind: 'success', imgSrc: imgSrc, debugFlux: result.debugFlux };
+                $('#generatedImagePreview').html(buildGenerateSuccessPreviewHtml(imgSrc, result.debugFlux));
                 showGeneratedResult();
                 invalidateGalleryCache();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4878,7 +4973,8 @@ $(document).ready(function () {
                     try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
                 }, 1800);
             } else if (response.status === 402) {
-                var insuffMsg = (result && result.error) ? String(result.error) : tr('customProduct.insufficientCreditsDefault', '點數不足，無法生圖');
+                window.__generatePreviewState = { kind: '402' };
+                var insuffMsg = tr('customProduct.insufficientCreditsDefault', '點數不足，無法生圖');
                 $('#generatedImagePreview').html(
                     '<div class="alert alert-warning">' +
                     '<h6><i class="fas fa-coins me-2"></i>' + tr('customProduct.insufficientCreditsTitle', '點數不足') + '</h6>' +
@@ -4891,6 +4987,12 @@ $(document).ready(function () {
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
                 var failErr = (result && result.error) ? String(result.error) : tr('customProduct.unknownError', '未知錯誤');
+                window.__generatePreviewState = {
+                    kind: 'fail',
+                    error: failErr,
+                    details: result.details,
+                    debugFlux: result.debugFlux
+                };
                 var failHtml =
                     '<div class="alert alert-danger">' +
                     '<h6><i class="fas fa-exclamation-triangle me-2"></i>' + tr('customProduct.genFailedTitle', '生成失敗') + '</h6>' +
@@ -4911,6 +5013,7 @@ $(document).ready(function () {
                 ? tr('customProduct.apiBadResponseBodyShort', '伺服器回傳了網頁而非資料，請確認後端服務已啟動且網址正確。')
                 : tr('customProduct.networkFailBody', '請檢查網路連線或稍後再試');
             var title = isHtmlResponse ? tr('customProduct.apiBadResponseTitle', 'API 未正確回應') : tr('customProduct.networkFailTitle', '網路連線失敗');
+            window.__generatePreviewState = { kind: 'network', isHtmlResponse: isHtmlResponse };
             $('#generatedImagePreview').html(
                 '<div class="alert alert-warning">' +
                 '<h6><i class="fas fa-' + (isHtmlResponse ? 'server' : 'wifi') + ' me-2"></i>' + title + '</h6>' +
@@ -4923,7 +5026,9 @@ $(document).ready(function () {
             document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
             isGenerateInProgress = false;
-            btn.prop('disabled', false).html(originalText);
+            btn.prop('disabled', false);
+            if (typeof syncGenerateImageButtonLabel === 'function') syncGenerateImageButtonLabel();
+            else btn.html(originalText);
             // 手機版畫布：移除 loading 脈衝
             $('#generatedImagePreviewWrap').removeClass('is-loading');
             unlockPageScroll(false);
@@ -5328,18 +5433,24 @@ $(document).ready(function () {
         return false;
     }
 
+    function designPageLangIsEn() {
+        var lang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        return String(lang || '').toLowerCase().indexOf('zh') !== 0;
+    }
+    function gallerySemDisplayTitle(sem) {
+        if (!sem || typeof sem !== 'object') return '';
+        var zh = (sem.product_title_zh || '').trim();
+        var en = (sem.product_title_en || '').trim();
+        return designPageLangIsEn() ? (en || zh) : (zh || en);
+    }
     function pickGalleryProductCardTitle(p) {
         var gp = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
         var title = String(p.title || '').trim();
         if (title && !isGenericGalleryDesignTitle(title) && !galleryTextCopiedFromPrompt(title, gp)) return title;
         var sem = p.image_semantics_json;
         if (typeof sem === 'string') { try { sem = JSON.parse(sem); } catch (_) { sem = null; } }
-        if (sem && typeof sem === 'object') {
-            var ptz = (sem.product_title_zh || '').trim();
-            var pte = (sem.product_title_en || '').trim();
-            if (ptz && !galleryTextCopiedFromPrompt(ptz, gp)) return ptz;
-            if (pte && !galleryTextCopiedFromPrompt(pte, gp)) return pte;
-        }
+        var semTitle = gallerySemDisplayTitle(sem);
+        if (semTitle && !galleryTextCopiedFromPrompt(semTitle, gp)) return semTitle;
         if (!gp) return tr('customProduct.untitledDesign', '—');
         return tr('customProduct.untitledDesign', '—');
     }
@@ -5402,11 +5513,11 @@ $(document).ready(function () {
         var seed = (item.seed != null && item.seed !== undefined) ? String(item.seed) : '';
         var url = String(dataUrl || '').trim();
         var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || tr('customProduct.thisGenerationZoom', '本次生成（點擊放大）');
-        if (seed) tip += ' · Seed: ' + seed;
+        if (seed) tip += gallerySeedSuffix(seed);
         var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
         attachPastItemImageUrl($cell, url);
         $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($('<img>').attr({ src: url, alt: '' })));
-        var caption = (prompt ? prompt.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + (seed ? ' · Seed: ' + seed : '');
+        var caption = (prompt ? prompt.substring(0, 120) : tr('customProduct.thisGeneration', '本次生成')) + gallerySeedSuffix(seed);
         $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
         return $cell;
     }
@@ -6088,10 +6199,12 @@ $(document).ready(function () {
         $('#pastItemModalPrompt').text(prompt || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalOwner').text(tr('customProduct.thisGeneration', '本次生成'));
-        applyPastItemModalRefSources(getActiveRefSourcesList());
+        var genRefList = getActiveRefSourcesList();
+        $('#pastItemModal').data('pastModalRefSources', genRefList).data('pastModalOwnerDisplay', '__this_generation__');
+        applyPastItemModalRefSources(genRefList);
         $('#pastItemModalShowSection').addClass('d-none');
         $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
-        var findVendorUrl = resolvePastItemFindVendorUrl(getActiveRefSourcesList(), ck, sk);
+        var findVendorUrl = resolvePastItemFindVendorUrl(genRefList, ck, sk);
         applyPastItemModalFindVendorLink(findVendorUrl);
         showBootstrapModal(document.getElementById('pastItemModal'));
     });
@@ -6121,6 +6234,7 @@ $(document).ready(function () {
         $('#pastItemModalSeed').text(seed || tr('customProduct.noneValue', '（無）'));
         $('#pastItemModalOwner').text(ownerDisplay || tf('customProduct.pastOwnerGenerationWrap', '（{label}）', { label: tr('customProduct.thisGeneration', '本次生成') }));
         var refSourcesList = readPastItemRefSources(wrap);
+        $('#pastItemModal').data('pastModalRefSources', refSourcesList).data('pastModalOwnerDisplay', ownerDisplay || '');
         applyPastItemModalRefSources(Array.isArray(refSourcesList) ? refSourcesList : []);
         var $showSection = $('#pastItemModalShowSection');
         var $checkbox = $('#pastItemModalShowOnHomepage');
@@ -6283,7 +6397,7 @@ $(document).ready(function () {
             var promptStr = (prompt != null && String(prompt).trim()) ? String(prompt).trim() : '';
             var seedStr = (seed != null && seed !== '') ? String(seed) : '';
             var tip = (promptStr ? promptStr.replace(/"/g, '&quot;').replace(/</g, '&lt;').substring(0, 200) : '') || tr('customProduct.thisGenerationZoom', '本次生成（點擊放大）');
-            if (seedStr) tip += ' · Seed: ' + seedStr;
+            if (seedStr) tip += gallerySeedSuffix(seedStr);
             var ck = ($('#imageCategoryMainSelect').val() || '').trim();
             var sk = ($('#imageCategorySubSelect').val() || '').trim();
             var rs = [];
@@ -6693,6 +6807,9 @@ $(document).ready(function () {
         if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
         if (typeof refreshVendorPickerChromeI18n === 'function') refreshVendorPickerChromeI18n();
         if (typeof refreshVendorStylesBrowseI18n === 'function') refreshVendorStylesBrowseI18n();
+        if (typeof refreshGeneratedPreviewOnLocale === 'function') refreshGeneratedPreviewOnLocale();
+        if (typeof refreshPastGalleryChromeOnLocale === 'function') refreshPastGalleryChromeOnLocale();
+        if (typeof refreshPastItemModalOnLocale === 'function') refreshPastItemModalOnLocale();
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }
@@ -7785,6 +7902,9 @@ $(document).ready(function () {
         if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
         if (typeof refreshVendorPickerChromeI18n === 'function') refreshVendorPickerChromeI18n();
         if (typeof refreshVendorStylesBrowseI18n === 'function') refreshVendorStylesBrowseI18n();
+        if (typeof refreshGeneratedPreviewOnLocale === 'function') refreshGeneratedPreviewOnLocale();
+        if (typeof refreshPastGalleryChromeOnLocale === 'function') refreshPastGalleryChromeOnLocale();
+        if (typeof refreshPastItemModalOnLocale === 'function') refreshPastItemModalOnLocale();
         if (typeof syncGenerateImageButtonLabel === 'function') syncGenerateImageButtonLabel();
         if (typeof updateGeneratePointsDisplay === 'function') updateGeneratePointsDisplay();
         if (typeof updateDesignToPhysicalPointsDisplay === 'function') updateDesignToPhysicalPointsDisplay();

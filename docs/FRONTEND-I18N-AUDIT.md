@@ -211,6 +211,7 @@ node scripts/audit-locale-mix.js
 - 2026-09-29：**D2** 寫實化 Tab 按鈕／錯誤文案；生圖／寫實化點數 hint（`GET /api/points-info`＋參考圖 tier）；`20260929-d2-d2p-points`。
 - 2026-09-29：**D2** 實境模擬／圖樣提取 Tab：按鈕 loading、結果 locale 重繪、點數 hint（`points_scene_simulate`）；`20260929-d2-pattern-scene`。
 - 2026-09-29：**D2** 廠商 browse 卡訂製程度 `customizationLevelLabel`；picker／browse locale 重繪（服務區、分頁、材料組合 addon）；`20260929-d2-vendor-browse`。
+- 2026-09-29：**D2** 歷史牆／past modal／生圖成功預覽 locale 重繪；`product_title_en`；`20260929-d2-gallery-modal`。
 
 ## 本輪批次到哪裡（給接手的狀態表）
 
@@ -222,7 +223,7 @@ node scripts/audit-locale-mix.js
 | **B4** | `design-direction` / `remake-product.js` | ⛔ **凍結**（測試中、內容未建完；勿再排批次。已 push 的少量 `remakeProduct.alert*` 保留即可） |
 | **C** | `custom/gallery.html` 動態 UI | ✅ `gallery.*` + `apiBilingualLabel`（2026-09-29） |
 | **D1** | `vendor-profile` + `vendors.html` 公開列表 | 🔄 服務地區語系、列表 meta；JSON-LD 麵包屑仍中文 |
-| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | 🔄 **結案掃尾中**（browse／picker／材料組合 locale 已一輪；剩：歷史 modal／生圖區零星動態字串） |
+| **D2** | 設計稿 `custom-product.html` + `custom-product.js` 殘留 JS | ✅ **結案**（2026-09-29 掃尾）；後續僅遇 bug／新 UI 再補鍵 |
 | **F（片段）** | `subscription-plans.html` 載入文案 | ✅ `pricing.loading`（`e8cd00a`） |
 | **D3** | 廠商工作區（dashboard／materials／portfolio 等） | ⏳ 約 2 批 |
 | **E** | 供應商 B 線（catalog-manage、portal…） | ⏳ 約 1 批 |
