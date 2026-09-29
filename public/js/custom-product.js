@@ -4683,6 +4683,11 @@ $(document).ready(function () {
     // AI 生成圖片：必選圖內容分類，後端依選中的 key 組合提示詞 + 使用者描述
     // 防止手機雙擊／連點導致多個生成請求同時進行
     var isGenerateInProgress = false;
+    function syncGenerateImageButtonLabel() {
+        var $btn = $('#generateImageBtn');
+        if (!$btn.length || isGenerateInProgress || $btn.prop('disabled')) return;
+        $btn.html('<i class="fas fa-wand-magic-sparkles me-2"></i><span>' + escapeHtmlText(tr('customProduct.generate', '建立設計稿')) + '</span>');
+    }
     $('#generateImageBtn').click(async function () {
         if (isGenerateInProgress) return;
         isGenerateInProgress = true;
@@ -4792,7 +4797,7 @@ $(document).ready(function () {
                 if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
                 var previewHtml = '';
                 if (imgSrc) {
-                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="' + tr('customProduct.clickToEnlarge', '點擊放大').replace(/"/g, '&quot;') + '" /></div>';
+                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="' + escapeHtmlText(tr('customProduct.generatedPreviewAlt', '生成設計稿')) + '" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="' + tr('customProduct.clickToEnlarge', '點擊放大').replace(/"/g, '&quot;') + '" /></div>';
                 }
                 var nextStepText = tr('customProduct.designNextStepHint', '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製');
                 previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>' + tr('customProduct.genSavedPersistHint', '已生成並儲存，重整後仍會保留在右側歷史') + '</p>' +
@@ -7263,8 +7268,10 @@ $(document).ready(function () {
         var urls = window.promoImageImageUrls || [];
         urls.forEach(function (url, idx) {
             var $chip = $('<div class="promo-thumb-chip' + (idx === 0 ? ' is-primary' : '') + '"></div>');
-            var $img = $('<img>').attr('src', url).attr('alt', '參考 ' + (idx + 1));
-            var $rm = $('<button type="button" class="promo-thumb-remove" title="移除">×</button>');
+            var $img = $('<img>').attr('src', url).attr('alt', tf('customProduct.promoImageRefThumbAlt', '參考 {n}', { n: idx + 1 }));
+            var $rm = $('<button type="button" class="promo-thumb-remove">×</button>')
+                .attr('title', tr('customProduct.promoImageRefThumbRemove', '移除'))
+                .attr('aria-label', tr('customProduct.promoImageRefThumbRemove', '移除'));
             $rm.on('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -7305,6 +7312,7 @@ $(document).ready(function () {
         renderPromoImageSelectedThumbs();
     }
     window.setPromoImagePreview = setPromoImagePreview;
+    window.renderPromoImageSelectedThumbs = renderPromoImageSelectedThumbs;
     function getPromoImageDims() {
         var ratio = ($('#promoImageRatioSelect').val() || '1:1');
         var mp = parseInt($('#promoImageMpSelect').val(), 10) || 1;
@@ -7553,6 +7561,16 @@ $(document).ready(function () {
         if (typeof syncPastGalleryTabLabels === 'function') syncPastGalleryTabLabels();
         if (typeof syncDesignTabActiveUi === 'function') syncDesignTabActiveUi(getTabParamFromPathname());
         if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots();
+        if (typeof syncGenerateImageButtonLabel === 'function') syncGenerateImageButtonLabel();
+        if (typeof window.renderPromoImageSelectedThumbs === 'function') window.renderPromoImageSelectedThumbs();
+        if ($('#tab-promo-image').hasClass('active') && typeof ensurePromoImageOptions === 'function') {
+            ensurePromoImageOptions(true);
+        }
+        var $promoBtn = $('#promoImageApplyBtn');
+        if ($promoBtn.length && !$promoBtn.prop('disabled')) {
+            var $promoLbl = $promoBtn.find('span[data-i18n]');
+            if ($promoLbl.length) $promoLbl.text(tr('customProduct.promoImageGenerateBtn', '生成情境圖'));
+        }
         if (window.CustomProductSpecSummary && typeof window.CustomProductSpecSummary.refresh === 'function') {
             window.CustomProductSpecSummary.refresh();
         }
