@@ -63,12 +63,12 @@
 
 | 價格類型 | 後台能否直接填「年付」？ | 實際來源 |
 |----------|-------------------------|----------|
-| **牌價年付**（無活動時前台顯示的年付） | **否**（沒有獨立「年付欄位」） | 程式 **`月費 × 10`**：`lib/pricing-campaigns.js` → `computeListYearlyPrices()`；月費 TWD = `subscription_plans.price`，USD = `price_usd_monthly`（`/admin/membership.html` 可改月費） |
+| **牌價年付**（無活動時前台顯示的年付） | **是**（選填） | `subscription_plans.yearly_price_twd` / `yearly_price_usd`；未填則 **`月費 × 10`**（`computeListYearlyPrices`）；後台 `/admin/membership.html`；migration `docs/add-subscription-plan-yearly-price.sql` |
 | **活動年付特價** | **是** | `/admin/pricing-campaigns.html` 每 tier 填 `yearly_price_twd` / `yearly_price_usd`；檔期內 `POST /api/payment/quote` 採用 |
 
 定案文件已寫：牌價年付 = 月費 ×10（約 10 個月價、相對月付 ×12 的結構折扣），見 `docs/PLAN-pricing-campaigns.md` §1。
 
-**牌價年付脫離 ×10（使用者 2026-09-29 定案，排英文化後實作）**：新增 `subscription_plans.yearly_price_twd` / `yearly_price_usd`（或後台「年付倍率」欄，預設 10）；`computeListYearlyPrices` 有填年付則用 DB，否則 fallback 月費×倍率；`/admin/membership.html` 可編輯；`quote`／方案頁／PayPal／綠界驗價一致。
+**牌價年付脫離 ×10（P1-B，2026-09-29）**：✅ `yearly_price_twd` / `yearly_price_usd` + `computeListYearlyPrices` fallback ×10；後台 membership 可編；公開 `GET /api/subscription-plans` 無活動時亦帶 `yearly_list_*`；quote 沿用同一函式。
 
 ### C. 目前有「打折％」嗎？終身鎖折數
 

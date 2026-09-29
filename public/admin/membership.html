@@ -85,7 +85,9 @@
                     <div class="mb-2"><label class="form-label small mb-0">顯示名稱</label><input type="text" id="planEditName" class="form-control form-control-sm" /></div>
                     <div class="mb-2"><label class="form-label small mb-0">月費（台幣）</label><input type="number" id="planEditPrice" class="form-control form-control-sm" min="0" /></div>
                     <div class="mb-2"><label class="form-label small mb-0">月費（USD，PayPal 結帳）</label><input type="number" id="planEditPriceUsd" class="form-control form-control-sm" min="0" step="0.01" /></div>
-                    <p class="small text-muted mb-2">年付金額前台自動以月費×10 計算（台幣與 USD 各自）。</p>
+                    <div class="mb-2"><label class="form-label small mb-0">牌價年付（台幣，選填）</label><input type="number" id="planEditPriceYearlyTwd" class="form-control form-control-sm" min="0" placeholder="留空＝月費×10" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">牌價年付（USD，選填）</label><input type="number" id="planEditPriceYearlyUsd" class="form-control form-control-sm" min="0" step="0.01" placeholder="留空＝月費×10" /></div>
+                    <p class="small text-muted mb-2">未填年付時，前台與結帳 quote 以月費×10（台幣與 USD 各自）。限時年付特價仍由「定價活動」設定。</p>
                     <div class="mb-2"><label class="form-label small mb-0">每月點數</label><input type="number" id="planEditCredits" class="form-control form-control-sm" min="0" /></div>
                     <div class="mb-2"><label class="form-label small mb-0">排序</label><input type="number" id="planEditSort" class="form-control form-control-sm" /></div>
                     <div class="mb-2"><label class="form-label small mb-0">製作方接案分類數量（-1 無限制）</label><input type="number" id="planEditMaxListings" class="form-control form-control-sm" min="-1" /></div>
@@ -386,6 +388,8 @@
     document.getElementById('planEditName').value = plan.name || '';
     document.getElementById('planEditPrice').value = plan.price != null ? plan.price : 0;
     document.getElementById('planEditPriceUsd').value = plan.price_usd_monthly != null ? plan.price_usd_monthly : '';
+    document.getElementById('planEditPriceYearlyTwd').value = plan.yearly_price_twd != null && plan.yearly_price_twd > 0 ? plan.yearly_price_twd : '';
+    document.getElementById('planEditPriceYearlyUsd').value = plan.yearly_price_usd != null && plan.yearly_price_usd > 0 ? plan.yearly_price_usd : '';
     document.getElementById('planEditCredits').value = plan.credits_monthly != null ? plan.credits_monthly : 0;
     document.getElementById('planEditSort').value = plan.sort_order != null ? plan.sort_order : 0;
     document.getElementById('planEditMaxListings').value = plan.max_listings != null && plan.max_listings >= 0 ? plan.max_listings : (plan.max_listings === -1 ? -1 : 0);
@@ -404,6 +408,18 @@
       name: document.getElementById('planEditName').value.trim(),
       price: parseInt(document.getElementById('planEditPrice').value, 10) || 0,
       price_usd_monthly: parseFloat(document.getElementById('planEditPriceUsd').value) || 0,
+      yearly_price_twd: (function () {
+        var v = String(document.getElementById('planEditPriceYearlyTwd').value || '').trim();
+        if (!v) return null;
+        var n = parseInt(v, 10);
+        return (Number.isFinite(n) && n > 0) ? n : null;
+      })(),
+      yearly_price_usd: (function () {
+        var v = String(document.getElementById('planEditPriceYearlyUsd').value || '').trim();
+        if (!v) return null;
+        var n = parseFloat(v);
+        return (Number.isFinite(n) && n > 0) ? n : null;
+      })(),
       credits_monthly: parseInt(document.getElementById('planEditCredits').value, 10) || 0,
       sort_order: parseInt(document.getElementById('planEditSort').value, 10) || 0,
       max_listings: parseInt(document.getElementById('planEditMaxListings').value, 10),

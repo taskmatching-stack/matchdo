@@ -13083,7 +13083,7 @@ const DB_URL = process.env.SUPABASE_DB_URL;
 const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categories.local.json');
 
 /** subscription_plans 後台只查／寫這些欄位（多數環境表結構一致，不依賴直連 DB） */
-const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, price_usd_monthly, duration_months, credits_monthly, sort_order, is_active, plan_key';
+const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, price_usd_monthly, yearly_price_twd, yearly_price_usd, duration_months, credits_monthly, sort_order, is_active, plan_key';
 
 /** 前台方案頁只顯示一般 tier；種子／合作優惠僅後台開通 */
 const INTERNAL_SUBSCRIPTION_PLAN_KEYS = new Set([
@@ -16643,21 +16643,24 @@ app.get('/api/subscription-plans', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗', plans: [] });
         }
         const publicPlans = filterPublicSubscriptionPlans(rows);
-        let payload = { plans: publicPlans, campaign: null };
+        let campaign = null;
+        let rules = [];
         try {
             const active = await pricingCampaigns.fetchActivePricingCampaign(supabase);
             if (active.campaign) {
-                const enriched = pricingCampaigns.attachCampaignPricingToPlans(
-                    publicPlans,
-                    active.campaign,
-                    active.rules,
-                    resolvePlanUsdMonthly
-                );
-                payload = { plans: enriched.plans, campaign: enriched.campaign };
+                campaign = active.campaign;
+                rules = active.rules || [];
             }
         } catch (campErr) {
             console.error('GET /api/subscription-plans campaign:', campErr);
         }
+        const enriched = pricingCampaigns.attachCampaignPricingToPlans(
+            publicPlans,
+            campaign,
+            rules,
+            resolvePlanUsdMonthly
+        );
+        const payload = { plans: enriched.plans, campaign: enriched.campaign };
         res.set('Cache-Control', 'public, max-age=60');
         res.json(payload);
     } catch (e) {
@@ -16814,6 +16817,24 @@ app.patch('/api/admin/subscription-plans/:id', express.json(), async (req, res) 
         if (body.price_usd_monthly !== undefined) {
             const usd = parseFloat(body.price_usd_monthly);
             updates.price_usd_monthly = isNaN(usd) || usd < 0 ? 0 : Math.round(usd * 100) / 100;
+        }
+        if (body.yearly_price_twd !== undefined) {
+            if (body.yearly_price_twd === null || body.yearly_price_twd === '') {
+                updates.yearly_price_twd = null;
+            } else {
+                const twdY = parseInt(body.yearly_price_twd, 10);
+                updates.yearly_price_twd = Number.isFinite(twdY) && twdY > 0 ? twdY : null;
+            }
+        }
+        if (body.yearly_price_usd !== undefined) {
+            if (body.yearly_price_usd === null || body.yearly_price_usd === '') {
+                updates.yearly_price_usd = null;
+            } else {
+                const usdY = parseFloat(body.yearly_price_usd);
+                updates.yearly_price_usd = Number.isFinite(usdY) && usdY > 0
+                    ? Math.round(usdY * 100) / 100
+                    : null;
+            }
         }
         if (body.duration_months !== undefined) updates.duration_months = parseInt(body.duration_months, 10);
         if (body.credits_monthly !== undefined) updates.credits_monthly = parseInt(body.credits_monthly, 10);

@@ -9,6 +9,15 @@ function assert(cond, msg) {
 const plan = { price: 300, price_usd_monthly: 11, credits_monthly: 330, sort_order: 1 };
 const resolveUsd = function (p) { return parseFloat(p.price_usd_monthly); };
 
+const listDefault = pc.computeListYearlyPrices(plan, resolveUsd);
+assert(listDefault.yearly_list_twd === 3000, 'default yearly twd ×10');
+assert(listDefault.yearly_list_usd === 110, 'default yearly usd ×10');
+
+const planCustomYearly = Object.assign({}, plan, { yearly_price_twd: 2800, yearly_price_usd: 99 });
+const listCustom = pc.computeListYearlyPrices(planCustomYearly, resolveUsd);
+assert(listCustom.yearly_list_twd === 2800, 'db yearly twd');
+assert(listCustom.yearly_list_usd === 99, 'db yearly usd');
+
 const campaign = { id: 'c1', title: '開學季', title_en: 'Back to school', is_enabled: true };
 const rules = [{ plan_key: 'tier2', yearly_price_twd: 2500, yearly_price_usd: 95 }];
 
