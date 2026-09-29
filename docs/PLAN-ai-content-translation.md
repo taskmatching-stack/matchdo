@@ -69,15 +69,17 @@
 
 | # | 項目 | 現況 | 建議 |
 |---|------|------|------|
-| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist |
+| D1 | 官方分類／攝影參數組等 | 後台 `name_en` 手填 + 部分 migration | 延續 `admin-content-multilang` checklist（**不含**已取消的 `ai_categories`） |
 | D2 | 我的配色／平台配色 | `name_en`／`note_en` | ✅ 已支援讀取 |
 | D3 | 即時翻譯 widget | ✅ `public/js/translate-target-select.js`（`messages.html`）；訂製需求僅按鈕、目標語跟 UI | 其他頁面按需掛載 |
-| D4 | 管理員訊息監看翻譯 | 未查 | 若 admin 看對話需翻譯，另開 |
+| D4 | 管理員訊息監看翻譯 | **不需要**（使用者定案 2026-09-29） | 勿實作 |
 
 ---
 
 ## 非目標（本計畫不混）
 
+- **已取消的 AI 估價／`ai_categories`**：勿再投 i18n（見 `docs/drop-ai-categories-tables.sql`）。
+- **管理員對話紀錄翻譯**：調閱頁不需翻譯按鈕（使用者定案 2026-09-29）。
 - **UI 字串** → `public/locales/*.json`（見 `FRONTEND-I18N-AUDIT.md`）。
 - **FLUX／材料語意** → `docs/flux-and-gemini-prompt-policy.md`（禁止查表硬編；非 UGC 翻譯）。
 - **設計風向 B4** → 凍結。
@@ -111,4 +113,4 @@ Body: { "target_lang": "ja" }   // 可省略：依 UI locale 推斷，再 fallba
 ## 狀態
 
 - **T1–T2（對話）**：已實作（見 `git log` 含 `lib/message-translate-langs.js`）。
-- **U1、U3–U5、T1–T3**：已實作（見 `git log`）；**U2** 多語軸待產品定案；**D1、D4** 仍待排期。
+- **U1、U3–U5、T1–T3**：已實作（見 `git log`）；**U2** 多語軸待產品定案；**D1** 官方字典 checklist 按需補；**D4** 不做。

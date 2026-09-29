@@ -22,11 +22,13 @@
 
 1. **「寫進文件」＝要交付**，不是只聊天；**「繼續執行」＝照文件順序實作 + commit/push**（使用者明說要推送時才 push）。
 2. **UI 勿堆雜訊：** 不要加 `lang=en` 提示、migration 名稱、扣點長文、過期筆數、stale hash 橫幅等到產品 UI。
-3. **英文「過期／stale」功能已取消**（`U6`、hash migration 勿當產品需求）；`docs/add-vendor-asset-portfolio-i18n-en-hash.sql` **不要跑**。
-4. **廠商 UGC 英文（`generate-i18n-en`、`*_en` 讀取）不扣點**；與訊息翻譯（1 點）分開 → `docs/PROGRESS-vendor-content-i18n-en.md`。
-5. **最小改動**：只改使用者要求範圍；素材庫圖庫 AI 同格預覽等已驗證行為勿拆（見 `.cursor/rules/minimal-change-healthy-code.mdc`）。
-6. **SEO**：勿把列表／目錄塞進 `custom-product.html?tab=`（`.cursor/rules/seo-no-stuff-design-page.mdc`）。
-7. **Commit**：使用者未明說「commit/push」時不要擅自提交。
+3. **`ai_categories`／AI 估價／專家報價媒合已取消**：站內分類以 **`custom_product_categories`** 為準（見 `docs/SEO-PROGRESS.md`）。**禁止**再為 `/admin/categories.html`、`GET /api/categories` 做多語或新功能；清庫見 `docs/drop-ai-categories-tables.sql`。
+4. **英文「過期／stale」功能已取消**（`U6`、hash migration 勿當產品需求）；`docs/add-vendor-asset-portfolio-i18n-en-hash.sql` **不要跑**。
+5. **廠商 UGC 英文（`generate-i18n-en`、`*_en` 讀取）不扣點**；與訊息翻譯（1 點）分開 → `docs/PROGRESS-vendor-content-i18n-en.md`。
+6. **最小改動**：只改使用者要求範圍；素材庫圖庫 AI 同格預覽等已驗證行為勿拆（見 `.cursor/rules/minimal-change-healthy-code.mdc`）。
+7. **SEO**：勿把列表／目錄塞進 `custom-product.html?tab=`（`.cursor/rules/seo-no-stuff-design-page.mdc`）。
+8. **Commit**：使用者未明說「commit/push」時不要擅自提交。
+9. **管理員對話紀錄**：`/admin/conversations.html` **勿**加訊息翻譯（調閱用，非產品需求）。
 
 ---
 
@@ -54,7 +56,7 @@
 - **位置：** `public/client/manufacturer-materials.html` → 數位原型／零件 → 摺疊 **「訂製與工藝」**。
 - **既有（非 U5）：** 生產模式、三層工藝下拉（大類→細類→標籤）、「其他工藝」自填。
 - **U5 只加：** 編輯彈窗內自填工藝的英文框；上傳／新增作品表單仍無工藝欄。
-- 頁面版本：`window.__MATCHDO_MATERIALS_BUILD = 'materials-u5-cap-en-edit-only-20260929'`；作品頁 `window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-u5-cap-en-edit-20260929'`。
+- 頁面版本：`window.__MATCHDO_MATERIALS_BUILD = 'materials-cat-lang-en-20260929'`；作品頁 `window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-u5-cap-en-edit-20260929'`。
 
 ### 前台 UI i18n
 
@@ -83,9 +85,9 @@ Agent **不會**自動上線 SQL；請在 Supabase SQL Editor 依序確認：
 1. **確認 migration** 是否已在線上庫執行（未跑則 EN 寫入可能 42703／503）。
 2. **`PLAN-ai-content-translation.md` 剩餘**
    - **U2**：多語軸（`title_ja`…）→ **需產品定案**，勿擅自開工。
-   - **D1**：官方字典／攝影參數組等 → `admin-content-multilang` checklist。
-   - **D4**：admin 訊息監看是否要翻譯 → 先查現況再開。
-3. **U5 作品集（本批）**：`manufacturer-portfolio.html` 編輯彈窗「其他工藝」+ 選填英文；`PUT …/portfolio/:id` 寫入 `capability_custom_labels_en`；公開 `GET /api/manufacturers/:id?lang=en` 帶工藝欄。
+   - **D1**：仍在用的官方字典（攝影參數組、訂製品分類後台、配色…）→ `admin-content-multilang`；前台 `GET …?lang=` 與 `i18n.getLang()` 對齊（例：素材庫分類下拉）。**勿碰** `ai_categories`。
+   - **D4**：**不做**（管理員監看翻譯）。
+3. **U5 作品集**：✅ 已 push（`cce72e3`）。
 4. **`FRONTEND-I18N-AUDIT.md` P1/P2 結案後項**：訂閱／SEO 等多在 `PROGRESS-*.md`；與翻譯計畫並列時以兩份 PLAN 表為準。
 5. **勿預設**：再塞設計頁 SEO tab、U6 stale、上傳表單雙語工藝欄、UI 上顯示 migration 名稱。
 

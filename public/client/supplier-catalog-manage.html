@@ -5,7 +5,7 @@
     <title data-i18n="supplierManage.pageTitle">上架數位產品庫 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="matchdo-asset-version" content="supplier-catalog-i18n-en-u3-20260929">
+    <meta name="matchdo-asset-version" content="supplier-catalog-cat-lang-en-20260929">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
@@ -1403,7 +1403,9 @@
         }
 
         async function loadCategories() {
-            var r = await fetch('/api/custom-product-categories');
+            var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : '';
+            var langQ = (String(lang).toLowerCase().indexOf('en') === 0) ? '?lang=en' : '';
+            var r = await fetch('/api/custom-product-categories' + langQ);
             var data = await r.json().catch(function () { return {}; });
             categories = data.categories || [];
             catNames = {};
