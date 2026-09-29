@@ -8,7 +8,12 @@
         var $cat = $('#category');
         $cat.empty();
         try {
-            const res = await fetch('/api/categories', { cache: 'no-store' });
+            var langQ = '';
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var lg = String(window.i18n.getLang() || '').toLowerCase();
+                if (lg.indexOf('en') === 0) langQ = '?lang=en';
+            }
+            const res = await fetch('/api/categories' + langQ, { cache: 'no-store' });
             const data = await res.json();
             const list = Array.isArray(data.categories) ? data.categories : [];
             window.__AI_CATEGORIES_CACHE__ = list;
@@ -32,8 +37,9 @@
         var src = window.__AI_CATEGORIES_CACHE__ || [];
         var cat = src.find(c => c.key === catKey);
         if (cat && cat.sub && cat.sub.length > 0) {
-            cat.sub.forEach(function (sub) {
-                $sub.append(`<option value="${sub}">${sub}</option>`);
+            cat.sub.forEach(function (sub, i) {
+                var label = (cat.sub_label && cat.sub_label[i]) ? cat.sub_label[i] : sub;
+                $sub.append(`<option value="${sub}">${label}</option>`);
             });
             $sub.val([cat.sub[0]]);
             // 載入第一個子分類的必問問題
