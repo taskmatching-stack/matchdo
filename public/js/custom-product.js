@@ -4964,6 +4964,7 @@ $(document).ready(function () {
                     $('#designShowOnHomepage').prop('checked', result.show_on_homepage);
                 }
                 lastGeneratedProductId = null;
+                if (result.product_id) lastGeneratedProductId = result.product_id;
                 addGeneratedThumbnailToGallery(result.imageData, prompt, lastGeneratedSeed);
                 var imgSrc = result.imageUrl || result.imageData || '';
                 if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
@@ -4975,7 +4976,7 @@ $(document).ready(function () {
                 setTimeout(function () {
                     rememberGeneratedProductFromGallery(lastGeneratedImageUrl);
                     try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
-                }, 1800);
+                }, 800);
             } else if (response.status === 402) {
                 window.__generatePreviewState = { kind: '402' };
                 var insuffMsg = tr('customProduct.insufficientCreditsDefault', '點數不足，無法生圖');
@@ -5448,6 +5449,9 @@ $(document).ready(function () {
         return designPageLangIsEn() ? (en || zh) : (zh || en);
     }
     function pickGalleryProductCardTitle(p) {
+        if (p && p.title_naming_pending) {
+            return tr('customProduct.titleNamingInProgress', '命名中…');
+        }
         var gp = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').trim();
         var title = String(p.title || '').trim();
         if (title && !isGenericGalleryDesignTitle(title) && !galleryTextCopiedFromPrompt(title, gp)) return title;
@@ -5455,8 +5459,7 @@ $(document).ready(function () {
         if (typeof sem === 'string') { try { sem = JSON.parse(sem); } catch (_) { sem = null; } }
         var semTitle = gallerySemDisplayTitle(sem);
         if (semTitle && !galleryTextCopiedFromPrompt(semTitle, gp)) return semTitle;
-        if (!gp) return tr('customProduct.untitledDesign', '—');
-        return tr('customProduct.untitledDesign', '—');
+        return tr('customProduct.untitledDesign', '未命名');
     }
 
     function gallerySeedSuffix(seedStr) {
@@ -5750,6 +5753,10 @@ $(document).ready(function () {
 
     function fetchGalleryPage(token, offset, limit) {
         var q = '?gallery=1&limit=' + limit + '&offset=' + (offset || 0);
+        var lang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        if (lang && String(lang).toLowerCase().indexOf('zh') !== 0) {
+            q += '&lang=' + encodeURIComponent(String(lang).split('-')[0]);
+        }
         return fetch('/api/custom-products' + q, { headers: { 'Authorization': 'Bearer ' + token } })
             .then(function (res) {
                 return res.text().then(function (text) {

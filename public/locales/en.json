@@ -1689,6 +1689,7 @@
   "customProduct.refIntentTotalPill": "{n} / {max}",
   "customProduct.refIntentTabsAria": "Reference image categories",
   "customProduct.untitledDesign": "Untitled",
+  "customProduct.titleNamingInProgress": "Naming…",
   "customProduct.galleryCardSeedSuffix": " · Seed: {seed}",
   "customProduct.promoImageRefThumbAlt": "Reference {n}",
   "customProduct.promoImageRefThumbRemove": "Remove",

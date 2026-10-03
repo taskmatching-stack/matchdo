@@ -1692,6 +1692,7 @@
   "customProduct.refIntentTotalPill": "{n} / {max}",
   "customProduct.refIntentTabsAria": "參考圖類別",
   "customProduct.untitledDesign": "未命名",
+  "customProduct.titleNamingInProgress": "命名中…",
   "customProduct.galleryCardSeedSuffix": " · Seed: {seed}",
   "customProduct.promoImageRefThumbAlt": "參考 {n}",
   "customProduct.promoImageRefThumbRemove": "移除",

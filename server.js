@@ -12292,6 +12292,21 @@ function customProductRowHasStoredImageSemantics(row) {
     return Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
 }
 
+/** 設計頁畫廊：Gemini 取名完成前短暫顯示「命名中…」（逾時或已有 semantics 則結束） */
+function customProductGalleryTitleNamingPending(row, localizedRow) {
+    if (!row || !row.id) return false;
+    const gp = row.generation_prompt != null ? String(row.generation_prompt).trim() : '';
+    const disp = localizedRow && localizedRow.title != null ? String(localizedRow.title).trim() : '';
+    if (disp && !isGenericMediaWallTitle(disp) && !customProductTextCopiedFromPrompt(disp, gp)) return false;
+    if (row.semantics_generated_at) return false;
+    if (!row.ai_generated_image_url) return false;
+    const created = row.created_at ? Date.parse(row.created_at) : NaN;
+    if (!Number.isFinite(created)) return false;
+    const ageMs = Date.now() - created;
+    if (ageMs > 5 * 60 * 1000) return false;
+    return true;
+}
+
 function classifyCustomProductTitleStorage(row) {
     if (!row || !row.id) return 'invalid';
     const gp = (row.generation_prompt != null) ? String(row.generation_prompt).trim() : '';
@@ -25738,15 +25753,18 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                 } else if (insertRes.data && insertRes.data.id) {
                     insertedProductId = insertRes.data.id;
                     console.log('已寫入 custom_products id=%s owner_id=%s', insertedProductId, currentUser.id);
-                    // 與情境圖相同：寫入後、回傳前 schedule；帶成品 imageBuffer
-                    scheduleCustomProductSemanticsEnrich(insertedProductId, currentUser.id, {
-                        imageBuffer: buffer,
-                        imageUrl: imageUrl,
-                        mimeType: mime,
-                        generationPrompt: generationPromptVal,
-                        title,
-                        categoryKey: mainCategoryKey
-                    });
+                    try {
+                        await enrichCustomProductSemantics(insertedProductId, currentUser.id, {
+                            imageBuffer: buffer,
+                            imageUrl: imageUrl,
+                            mimeType: mime,
+                            generationPrompt: generationPromptVal,
+                            title,
+                            categoryKey: mainCategoryKey
+                        });
+                    } catch (enrichErr) {
+                        console.warn('enrichCustomProductSemantics failed id=%s', insertedProductId, enrichErr && enrichErr.message);
+                    }
                 }
             } catch (e) {
                 console.error('扣點或寫入 custom_products 異常:', e.message);
@@ -29409,24 +29427,27 @@ app.get('/api/custom-products', async (req, res) => {
             const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 25));
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
-            const gallerySelect = 'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at';
-            let { data, error } = await supabase
-                .from('custom_products')
-                .select(gallerySelect)
-                .eq('owner_id', user.id)
-                .not('ai_generated_image_url', 'is', null)
-                .neq('ai_generated_image_url', '')
-                .order('created_at', { ascending: false })
-                .range(offsetN, rangeEnd);
-            if (error && error.code === '42703') {
-                ({ data, error } = await supabase
+            const gallerySelectCandidates = [
+                'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, title_en, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, image_semantics_json, ai_tags, semantics_generated_at, created_at',
+                'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, image_semantics_json, ai_tags, created_at',
+                'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at',
+                'id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, created_at'
+            ];
+            let data = null;
+            let error = null;
+            for (let gi = 0; gi < gallerySelectCandidates.length; gi++) {
+                const res = await supabase
                     .from('custom_products')
-                    .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, created_at')
+                    .select(gallerySelectCandidates[gi])
                     .eq('owner_id', user.id)
                     .not('ai_generated_image_url', 'is', null)
                     .neq('ai_generated_image_url', '')
                     .order('created_at', { ascending: false })
-                    .range(offsetN, rangeEnd));
+                    .range(offsetN, rangeEnd);
+                data = res.data;
+                error = res.error;
+                if (!error) break;
+                if (error.code !== '42703' && !/column/i.test(String(error.message || ''))) break;
             }
             if (error) {
                 console.error('查詢客製產品 gallery 失敗:', error);
@@ -29435,12 +29456,18 @@ app.get('/api/custom-products', async (req, res) => {
             const rawList = data || [];
             const hasMore = rawList.length > limitN;
             const list = hasMore ? rawList.slice(0, limitN) : rawList;
+            scheduleBatchRepairCustomProductTitlesFromList(list, user.id);
             const productsWithOwner = list.map(function (p) {
-                return attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
+                const row = attachUserRetentionStatus(customProductLineage.stripInternalCustomProductFields({
                     ...p,
                     owner_email: ownerEmail,
                     owner_display: ownerDisplay
                 }));
+                const localized = localizeCustomProductForApiResponse(row, apiContentLang);
+                if (customProductGalleryTitleNamingPending(p, localized)) {
+                    localized.title_naming_pending = true;
+                }
+                return localized;
             });
             return res.json({
                 success: true,
