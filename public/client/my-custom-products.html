@@ -445,7 +445,7 @@
             <!-- ── Tab 1：我的設計 ── -->
             <div class="tab-pane fade show active" id="pane-designs">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small" id="designsIntro" data-i18n="myCustomProducts.designsIntro">管理您的設計，開啟開關讓廠商搜尋</p>
+                    <p class="text-muted mb-0 small" id="designsIntro" data-i18n="myCustomProducts.designsIntro">管理您的設計，可開啟「開放聯繫」讓製作方在訂製需求中看見</p>
                     <a href="/custom-product.html" class="btn btn-primary btn-sm" id="btnCreateDesign">
                         <i class="bi bi-plus-lg me-1"></i><span id="btnCreateDesignText" data-i18n="myCustomProducts.btnCreateDesign">建立新設計</span>
                     </a>
@@ -697,7 +697,7 @@
             const tabIcon = document.getElementById('tabDesignsIcon');
             if (tabIcon) { tabIcon.className = 'bi bi-collection me-1'; }
             setText('tabDesignsLabel', ddTitle);
-            setText('designsIntro', uiT('myCustomProducts.designDirection.intro', '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。', 'Saved intent analyses and generated designs; optional open-for-makers search.'));
+            setText('designsIntro', uiT('myCustomProducts.designDirection.intro', '設計意圖分析與生圖的儲存紀錄；可選擇開放聯繫。', 'Saved intent analyses and generated designs; optional open to maker contact.'));
             const note = document.getElementById('designDirectionFilterNote');
             if (note) {
                 note.textContent = uiT('myCustomProducts.designDirection.filterNote', '目前顯示帳號內所有設計紀錄；僅顯示設計風向作品的篩選即將推出。', 'Showing all designs on your account; design-direction-only filter coming soon.');
@@ -1971,7 +1971,7 @@
             const mfgBadge = isCompleted
                 ? '<span class="badge bg-success ms-1">' + escapeHtml(uiT('myCustomProducts.mfgCompletedBadge', '已完成訂製', 'Customization complete')) + '</span>'
                 : isOpen
-                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>' + escapeHtml(uiT('myCustomProducts.mfgOpenBadge', '開放搜尋中', 'Open for search')) + '</span>'
+                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-chat-dots me-1"></i>' + escapeHtml(uiT('myCustomProducts.mfgOpenBadge', '開放聯繫中', 'Open for contact')) + '</span>'
                     : '';
 
             const imgAttrs = eagerImage
@@ -2017,7 +2017,7 @@
                             <span><i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}</span>
                             ${!isCompleted ? `
                             <label class="design-mfg-row mb-0" for="mfg-toggle-${product.id}">
-                                <span class="small text-secondary">${escapeHtml(uiT('myCustomProducts.openSearch', '開放搜尋', 'Open search'))}</span>
+                                <span class="small text-secondary">${escapeHtml(uiT('myCustomProducts.openSearch', '開放聯繫', 'Open to contact'))}</span>
                                 <input class="form-check-input mfg-toggle" type="checkbox" role="switch"
                                     id="mfg-toggle-${product.id}" data-id="${product.id}"
                                     ${isOpen ? 'checked' : ''}>
@@ -2398,7 +2398,7 @@
                     manufacturing_status: isOpen ? 'open' : 'closed'
                 });
                 if (result.ok) {
-                    showAlert(isOpen ? uiT('myCustomProducts.searchOpened', '已開放廠商搜尋', 'Open to vendor search') : uiT('myCustomProducts.searchClosed', '已關閉廠商搜尋', 'Closed to vendor search'), 'success');
+                    showAlert(isOpen ? uiT('myCustomProducts.searchOpened', '已開放聯繫', 'Open to contact enabled') : uiT('myCustomProducts.searchClosed', '已關閉聯繫', 'Open to contact disabled'), 'success');
                     loadProducts(false); // 重新渲染
                 } else {
                     showAlert(result.error || uiT('myCustomProducts.operationFailed', '操作失敗', 'Operation failed'), 'danger');
@@ -2411,7 +2411,7 @@
         };
 
         window.markCompleted = async function(productId) {
-            if (!confirm(uiT('myCustomProducts.markCompleteConfirm', '確認標記為「已完成訂製」？標記後將自動關閉廠商搜尋，且無法復原。', 'Mark as customization complete? This closes vendor search and cannot be undone.'))) return;
+            if (!confirm(uiT('myCustomProducts.markCompleteConfirm', '確認標記為「已完成訂製」？標記後將自動關閉聯繫，且無法復原。', 'Mark as customization complete? This closes open to contact and cannot be undone.'))) return;
             try {
                 const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
                 if (result.ok) {
@@ -2507,7 +2507,7 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'design-show-homepage-20261004';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'open-contact-copy-20261004';
     </script>
     <div class="modal fade" id="assetMetaEditModal" tabindex="-1" aria-labelledby="assetMetaEditLabel" aria-hidden="true">
         <div class="modal-dialog">
