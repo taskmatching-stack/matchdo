@@ -6803,14 +6803,6 @@ function localizeCustomProductForApiResponse(p, lang) {
         if (dz) descZh = dz;
         if (de) descEn = de;
     }
-    const zhBad = isGenericMediaWallTitle(titleZh);
-    const enBad = isGenericMediaWallTitle(titleEn);
-    if (gp && (zhBad || !String(titleZh || '').trim()) && (enBad || !String(titleEn || '').trim())
-        && !customProductRowHasStoredImageSemantics(p)) {
-        const legacy = legacyCustomProductTitleFallbackFromPrompt(gp);
-        if (legacy.zh && zhBad) titleZh = legacy.zh;
-        if (legacy.en && enBad) titleEn = legacy.en;
-    }
     const localizedTitle = pickVendorLocalizedText(titleZh, titleEn, lang);
     if (localizedTitle) out.title = localizedTitle;
     const localizedDesc = pickVendorLocalizedText(descZh, descEn, lang);
@@ -12167,15 +12159,17 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         if (shouldReplaceCustomProductDescriptionFromAi(currentDescription, genPrompt) && descZh) {
             updates.description = descZh;
         }
-        const persist = await persistCustomProductSemanticsUpdate(productId, updates);
-        if (!persist.ok) {
-            console.warn('enrichCustomProductSemantics update failed id=%s err=%s (run docs/add-custom-products-semantics.sql, add-custom-products-semantics-taxonomy.sql, add-custom-products-title-i18n.sql)',
-                productId, (persist.error && persist.error.message) || 'unknown');
+        const { data: updatedRow, error: updErr } = await updateCustomProductSemanticsFields(productId, ownerId, updates);
+        if (updErr) {
+            console.warn('enrichCustomProductSemantics update failed id=%s err=%s (run docs/add-custom-products-semantics.sql, docs/add-custom-products-title-i18n.sql)',
+                productId, (updErr && updErr.message) || 'unknown');
             return null;
         }
-        if (persist.layer > 0) {
-            console.warn('enrichCustomProductSemantics partial schema id=%s layer=%s keys=%s', productId, persist.layer, (persist.patchKeys || []).join(','));
+        if (!updatedRow) {
+            console.warn('enrichCustomProductSemantics update no row id=%s owner=%s', productId, ownerId);
+            return null;
         }
+        const persist = { ok: true, layer: 0, patchKeys: Object.keys(updates) };
         if (updates.title) {
             console.log('custom_products title from image semantics id=%s title=%s', productId, String(updates.title).substring(0, 48));
         } else if (mergedTags.length && shouldReplaceCustomProductTitleFromAi(currentTitle, genPrompt)) {
@@ -17951,12 +17945,18 @@ app.post('/api/admin/backfill-custom-product-tags', express.json(), async (req, 
                     imageUrl: row.ai_generated_image_url,
                     generationPrompt: row.generation_prompt || null,
                     title: row.title || null,
-                    categoryKey: row.category || null
+                    categoryKey: row.category || null,
+                    force: true
                 });
+                const ok = !!(out && (
+                    (Array.isArray(out.ai_tags) && out.ai_tags.length)
+                    || (out.title && String(out.title).trim())
+                ));
                 results.push({
                     id: row.id,
-                    ok: !!(out && Array.isArray(out.ai_tags) && out.ai_tags.length),
-                    tags: out && out.ai_tags ? out.ai_tags.length : 0
+                    ok: ok,
+                    tags: out && out.ai_tags ? out.ai_tags.length : 0,
+                    title: out && out.title ? String(out.title).substring(0, 48) : null
                 });
             } catch (e) {
                 results.push({ id: row.id, ok: false, error: (e && e.message) || '失敗' });
@@ -25684,10 +25684,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                 }
                 const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
                 const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
-                let title = '';
-                if (generationPromptVal) {
-                    title = truncateMediaWallTitle(firstSentenceFromText(generationPromptVal));
-                }
+                // 禁止把 generation_prompt 寫入 title；取名只允許 enrich 讀成品圖寫入 custom_products
+                const title = '';
                 const description = normalizeVendorContentLang(autoUiLocale || 'zh-TW') === 'en' ? '(No description)' : '（無描述）';
                 const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                 const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
@@ -25753,21 +25751,56 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                 } else if (insertRes.data && insertRes.data.id) {
                     insertedProductId = insertRes.data.id;
                     console.log('已寫入 custom_products id=%s owner_id=%s', insertedProductId, currentUser.id);
+                    let enrichOut = null;
                     try {
-                        await enrichCustomProductSemantics(insertedProductId, currentUser.id, {
+                        enrichOut = await enrichCustomProductSemantics(insertedProductId, currentUser.id, {
                             imageBuffer: buffer,
                             imageUrl: imageUrl,
                             mimeType: mime,
                             generationPrompt: generationPromptVal,
                             title,
-                            categoryKey: mainCategoryKey
+                            categoryKey: mainCategoryKey,
+                            force: true
                         });
                     } catch (enrichErr) {
                         console.warn('enrichCustomProductSemantics failed id=%s', insertedProductId, enrichErr && enrichErr.message);
                     }
+                    if (!process.env.GEMINI_API_KEY) {
+                        console.error('generate-product-image: GEMINI_API_KEY 未設定，無法讀圖取名 id=%s', insertedProductId);
+                    } else if (!enrichOut || (!String(enrichOut.title || '').trim() && !(enrichOut.ai_tags && enrichOut.ai_tags.length))) {
+                        console.error('generate-product-image: 讀圖取名未寫入 DB id=%s（請查 migration 與 Cloud Run log）', insertedProductId);
+                    }
                 }
             } catch (e) {
                 console.error('扣點或寫入 custom_products 異常:', e.message);
+            }
+        }
+
+        let semanticsOk = false;
+        let semanticsError = null;
+        let productTitleAfterEnrich = null;
+        if (insertedProductId && currentUser) {
+            if (!process.env.GEMINI_API_KEY) {
+                semanticsError = '伺服器未設定 GEMINI_API_KEY，無法自動取名';
+            } else {
+                try {
+                    const { data: checkRow } = await supabase
+                        .from('custom_products')
+                        .select('title, semantics_generated_at, ai_tags')
+                        .eq('id', insertedProductId)
+                        .maybeSingle();
+                    const t = checkRow && checkRow.title ? String(checkRow.title).trim() : '';
+                    const hasSem = checkRow && checkRow.semantics_generated_at;
+                    const hasTags = checkRow && Array.isArray(checkRow.ai_tags) && checkRow.ai_tags.length > 0;
+                    if (hasSem && (hasTags || (t && !isGenericMediaWallTitle(t)))) {
+                        semanticsOk = true;
+                        productTitleAfterEnrich = t && !isGenericMediaWallTitle(t) ? t : null;
+                    } else {
+                        semanticsError = '讀圖取名未寫入資料庫（請確認已執行 add-custom-products-semantics.sql）';
+                    }
+                } catch (_) {
+                    semanticsError = '無法確認取名是否寫入';
+                }
             }
         }
 
@@ -25783,6 +25816,9 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             mode: hasRefs ? 'image-to-image' : 'text-to-image',
             show_on_homepage: showOnHomepageForInsert,
             product_id: insertedProductId,
+            semantics_ok: semanticsOk,
+            semantics_error: semanticsError || undefined,
+            product_title: productTitleAfterEnrich || undefined,
             ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
         });
     } catch (error) {
@@ -31297,7 +31333,7 @@ async function loadOwnedCustomProductForSemantics(userId, productId) {
 }
 
 /**
- * 設計稿打標／描述：只借用版型庫「讀圖 → Gemini」步驟。
+ * 設計稿（custom_products 成品圖）讀圖：generated_image_semantics_prompt（非 vendor prototype_tagging）。
  * 寫入必須是 custom_products 欄位（ai_tags / description / image_semantics_json…），
  * 禁止寫入 vendor_assets／portfolio 的 ai_tags_generated_at、tags_source、tags。
  */
@@ -31355,7 +31391,7 @@ function isMissingColumnError(err) {
     return /column|does not exist|schema cache/i.test(msg);
 }
 
-/** 僅允許寫入 custom_products 語意相關欄位 */
+/** 僅允許寫入 custom_products 語意相關欄位（分層降級；owner 限定；不碰 vendor_assets） */
 async function updateCustomProductSemanticsFields(productId, ownerId, updates) {
     const allowed = {
         ai_tags: true,
@@ -31368,50 +31404,67 @@ async function updateCustomProductSemanticsFields(productId, ownerId, updates) {
         title_en: true,
         description_en: true
     };
-    const base = {};
-    Object.keys(updates || {}).forEach(function (k) {
-        if (allowed[k] && updates[k] !== undefined) base[k] = updates[k];
-    });
-    if (Array.isArray(base.ai_tags)) {
-        base.ai_tags = base.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean);
+    function buildBase() {
+        const base = {};
+        Object.keys(updates || {}).forEach(function (k) {
+            if (allowed[k] && updates[k] !== undefined) base[k] = updates[k];
+        });
+        if (Array.isArray(base.ai_tags)) {
+            base.ai_tags = base.ai_tags.map(function (t) { return String(t || '').trim(); }).filter(Boolean);
+        }
+        return base;
     }
+    function layer(full, omitKeys) {
+        const u = Object.assign({}, full);
+        (omitKeys || []).forEach(function (k) { delete u[k]; });
+        return u;
+    }
+    const full = buildBase();
+    if (!Object.keys(full).length) return { data: null, error: { message: 'empty updates' } };
 
-    async function tryUpdate(patch) {
-        return supabase
+    const attempts = [
+        full,
+        layer(full, ['title_en', 'description_en']),
+        layer(full, ['title_en', 'description_en', 'ai_tags_by_dimension', 'prompt_semantics_json', 'semantics_generated_at']),
+        (function () {
+            const u = {};
+            if (full.title != null) u.title = full.title;
+            if (full.title_en != null) u.title_en = full.title_en;
+            if (full.description != null) u.description = full.description;
+            if (full.ai_tags != null) u.ai_tags = full.ai_tags;
+            if (full.image_semantics_json != null) u.image_semantics_json = full.image_semantics_json;
+            return u;
+        })(),
+        (function () {
+            const u = {};
+            if (full.title != null) u.title = full.title;
+            if (full.description != null) u.description = full.description;
+            if (full.ai_tags != null) u.ai_tags = full.ai_tags;
+            return u;
+        })(),
+        (function () {
+            const u = {};
+            if (full.title != null) u.title = full.title;
+            return u;
+        })()
+    ];
+
+    let lastError = null;
+    for (let i = 0; i < attempts.length; i++) {
+        const patch = attempts[i];
+        if (!patch || !Object.keys(patch).length) continue;
+        const { data, error } = await supabase
             .from('custom_products')
             .update(patch)
             .eq('id', productId)
             .eq('owner_id', ownerId)
-            .select('id, title, description, ai_tags')
+            .select('id, title, title_en, description, ai_tags, semantics_generated_at')
             .maybeSingle();
+        if (!error) return { data, error: null };
+        lastError = error;
+        if (!isMissingColumnError(error)) return { data: null, error };
     }
-
-    let { data, error } = await tryUpdate(base);
-    if (error && isMissingColumnError(error)) {
-        const p1 = { ...base };
-        delete p1.title_en;
-        delete p1.ai_tags_by_dimension;
-        delete p1.semantics_generated_at;
-        delete p1.prompt_semantics_json;
-        ({ data, error } = await tryUpdate(p1));
-    }
-    if (error && isMissingColumnError(error)) {
-        const p2 = {};
-        if (base.ai_tags && base.ai_tags.length) p2.ai_tags = base.ai_tags;
-        if (base.description != null && String(base.description).trim()) p2.description = base.description;
-        if (base.title) p2.title = base.title;
-        if (base.image_semantics_json) p2.image_semantics_json = base.image_semantics_json;
-        if (!Object.keys(p2).length) return { data: null, error: error };
-        ({ data, error } = await tryUpdate(p2));
-    }
-    if (error && isMissingColumnError(error)) {
-        const p3 = {};
-        if (base.ai_tags && base.ai_tags.length) p3.ai_tags = base.ai_tags;
-        if (base.description != null && String(base.description).trim()) p3.description = base.description;
-        if (!Object.keys(p3).length) return { data: null, error: error };
-        ({ data, error } = await tryUpdate(p3));
-    }
-    return { data, error };
+    return { data: null, error: lastError || { message: 'all layers failed (run custom-products semantics migrations)' } };
 }
 
 // POST /api/custom-products/:id/regenerate-tags — 本人設計稿打標（讀圖同版型庫；寫入 custom_products）
@@ -31443,12 +31496,8 @@ app.post('/api/custom-products/:id/regenerate-tags', async (req, res) => {
         } catch (_) {}
         const gp = (product.generation_prompt || '').trim();
         const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(analyzed.semantics);
-        if (titlePair && titlePair.zh && shouldReplaceCustomProductTitleFromAi(product.title, gp)) updates.title = titlePair.zh;
-        if (titlePair && titlePair.en) {
-            const enNeeds = !String(product.title_en || '').trim() || isGenericMediaWallTitle(product.title_en)
-                || customProductTextCopiedFromPrompt(product.title_en, gp);
-            if (enNeeds) updates.title_en = titlePair.en;
-        }
+        mergeCustomProductTitlePairIntoUpdates(updates, titlePair, product.title, product.title_en, gp);
+        fillCustomProductTitleIntoEnrichUpdates(updates, analyzed.semantics, analyzed.tags, product.title, product.title_en, gp);
         const { data: updated, error: updErr } = await updateCustomProductSemanticsFields(product.id, user.id, updates);
         if (updErr) {
             console.error('custom-product regenerate-tags update:', updErr.code || '', updErr.message || updErr);

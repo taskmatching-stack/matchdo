@@ -4973,6 +4973,9 @@ $(document).ready(function () {
                 showGeneratedResult();
                 invalidateGalleryCache();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (result.semantics_ok === false && result.semantics_error) {
+                    alert(tr('customProduct.semanticsEnrichFailed', '圖已生成，但 AI 取名未寫入：') + result.semantics_error);
+                }
                 setTimeout(function () {
                     rememberGeneratedProductFromGallery(lastGeneratedImageUrl);
                     try { refreshPastGeneratedGallery(undefined, { force: true }); } catch (e) { console.warn(e); }
