@@ -29521,8 +29521,8 @@ app.get('/api/custom-products', async (req, res) => {
             const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
             const rangeEnd = offsetN + limitN;
             const listSelectCandidates = [
-                'id, title, title_en, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources',
-                'id, title, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources',
+                'id, title, title_en, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources, show_on_homepage',
+                'id, title, description, generation_prompt, image_semantics_json, semantics_generated_at, status, created_at, ai_generated_image_url, reference_image_url, open_for_manufacturing, manufacturing_status, category, subcategory_key, ai_tags, reference_sources, show_on_homepage',
                 'id, title, description, generation_prompt, status, created_at, ai_generated_image_url, reference_image_url, category, subcategory_key, ai_tags, reference_sources'
             ];
             let data = null;

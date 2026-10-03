@@ -883,6 +883,7 @@
                 });
             });
 
+            await loadPromoCapabilities();
             loadProducts(false);
             loadDesignsBadgeCount();
             loadComboBadgeCount();
@@ -1818,6 +1819,38 @@
             }
         }
 
+        async function patchDesignShowOnHomepage(id, checked, hintEl, inputEl, productRef) {
+            if (!id) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error(uiT('myCustomProducts.notLoggedIn', '未登入', 'Not logged in'));
+                const url = '/api/custom-products/' + encodeURIComponent(id) + '?show_on_homepage=' + (checked ? 'true' : 'false');
+                const res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                    body: JSON.stringify({ show_on_homepage: checked })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error((data && data.error) || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed'));
+                if (productRef) productRef.show_on_homepage = checked;
+                if (hintEl) {
+                    hintEl.textContent = checked
+                        ? uiT('myCustomProducts.promoShowOnHomeOn', '已設定為展示在首頁', 'Will show on the homepage')
+                        : uiT('myCustomProducts.promoShowOnHomeOff', '已取消展示在首頁', 'Removed from homepage display');
+                    hintEl.classList.remove('text-danger');
+                    hintEl.classList.add('text-success');
+                }
+            } catch (err) {
+                if (inputEl) inputEl.checked = !checked;
+                if (hintEl) {
+                    hintEl.textContent = err.message || uiT('myCustomProducts.updateFailed', '更新失敗', 'Update failed');
+                    hintEl.classList.remove('text-success');
+                    hintEl.classList.add('text-danger');
+                }
+            }
+        }
+
         async function patchPromoShowOnHomepage(id, checked, hintEl, inputEl) {
             if (!id) return;
             try {
@@ -1955,6 +1988,13 @@
                 ? '?category_key=' + encodeURIComponent(product.category || product.category_key) +
                   (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '')
                 : '');
+            const showOnDesign = product.show_on_homepage !== false;
+            const canControlHome = promoCanControlHomepage;
+            const designShowChecked = canControlHome ? showOnDesign : true;
+            const designShowDisabled = !canControlHome;
+            const designShowHint = canControlHome
+                ? uiT('customProduct.paidUserShowHint', '可勾選是否展示在首頁媒體牆', 'Choose whether to show on the media wall')
+                : uiT('customProduct.freeUserShowHint', '免費用戶預設展示在首頁，無法取消', 'Free accounts are shown on the homepage by default and cannot opt out.');
 
             col.innerHTML = `
                 <div class="card product-card h-100">
@@ -1984,6 +2024,11 @@
                             </label>
                             ` : ''}
                         </div>
+                        <div class="form-check form-switch mb-2 design-show-homepage-wrap">
+                            <input class="form-check-input design-show-homepage" type="checkbox" role="switch" id="designShow-${escapeHtml(String(product.id || ''))}" ${designShowChecked ? 'checked' : ''} ${designShowDisabled ? 'disabled' : ''}>
+                            <label class="form-check-label small" for="designShow-${escapeHtml(String(product.id || ''))}">${escapeHtml(uiT('myCustomProducts.showOnWall', '展示在媒體牆', 'Show on media wall'))}</label>
+                        </div>
+                        <p class="text-muted small mb-2 design-show-homepage-hint">${escapeHtml(designShowHint)}</p>
 
                         <div class="asset-card-btns mt-auto">
                             <button class="btn btn-primary btn-sm btn-detail" onclick="viewProduct('${product.id}')">${escapeHtml(uiT('myCustomProducts.viewDetail', '詳情', 'Details'))}</button>
@@ -2005,6 +2050,13 @@
                 </div>
             `;
 
+            const designShowInput = col.querySelector('.design-show-homepage');
+            const designShowHintEl = col.querySelector('.design-show-homepage-hint');
+            if (designShowInput && !designShowDisabled) {
+                designShowInput.addEventListener('change', function () {
+                    patchDesignShowOnHomepage(product.id, designShowInput.checked, designShowHintEl, designShowInput, product);
+                });
+            }
             // 開關事件
             const toggle = col.querySelector('.mfg-toggle');
             if (toggle) {
@@ -2455,7 +2507,7 @@
             setTimeout(() => alertDiv.remove(), 5000);
         }
 
-        window.__MATCHDO_MY_ASSETS_BUILD = 'design-more-menu-20260929';
+        window.__MATCHDO_MY_ASSETS_BUILD = 'design-show-homepage-20261004';
     </script>
     <div class="modal fade" id="assetMetaEditModal" tabindex="-1" aria-labelledby="assetMetaEditLabel" aria-hidden="true">
         <div class="modal-dialog">
